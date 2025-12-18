@@ -10,20 +10,32 @@
 ## 2) Matrix UI A 组件库（基于 `copy.jsx` 拆分）
 
 - [ ] 抽取 core primitives：`MatrixRain`、`AsciiBox`、`DataRow`、`TrendChart`
-- [ ] 抽取 layout blocks：Header/Footer/ScanlineOverlay（是否包含 BootScreen 由用户确认）
+- [ ] 抽取 layout blocks：Header/Footer/ScanlineOverlay/BootScreen（✅ 已确认包含 BootScreen）
 - [ ] 把 `copy.jsx` 的 inline style 迁移到 theme CSS（禁止 runtime 注入）
 
 ## 3) 模块清单与用户确认（范围控制）
 
 - [x] 确认样式路线：选择 A) 引入 Tailwind 复用 `copy.jsx` class
-- [ ] 输出“官网模块 vs copy 模块”对照表（含每块的数据接口需求）
-- [ ] 用户确认要纳入的 `copy.jsx` 可选模块与其接口字段（必要的澄清问答）
+- [x] 确认纳入模块：BootScreen / Activity heatmap / Identity panel
+- [ ] 确认暂缓模块：Network stat（后续再考虑），Logs/Telemetry/Active nodes/Export card（先不做）
+- [ ] 输出“官网模块 vs copy 模块”对照表（含每块的数据接口需求与缺口处理）
 
 ## 4) 页面迁移（保持功能不变）
 
 - [ ] Dashboard 首页迁移到 Matrix UI A 视觉体系（Auth / Query / Metrics / Daily）
 - [ ] `/connect` 页面迁移到同一体系（redirect 校验/错误态可读）
 - [ ] `prefers-reduced-motion` 验证：动效自动降级（无持续闪烁/雨背景）
+
+## 4.1 Tailwind 落地（实现依赖）
+
+- [ ] Dashboard 引入 Tailwind（PostCSS/Vite 配置 + `@tailwind` 入口样式）
+- [ ] 保留并整合现有 theme tokens（Matrix 绿/对比度/focus/selection），避免冲突与重复
+
+## 4.2 Selected modules（本次新增/迁移）
+
+- [ ] BootScreen：开机屏组件化（不依赖后端；可在首次加载展示短暂动画或可跳过）
+- [ ] Activity heatmap：用 daily totals 派生 52 周热力图（UTC；阈值映射按设计文档）
+- [ ] Identity panel：用登录信息渲染（name/email/userId）；Rank 先占位（或按用户确认隐藏）
 
 ## 5) 验证与回归
 

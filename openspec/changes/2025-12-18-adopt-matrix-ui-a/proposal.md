@@ -19,6 +19,19 @@
 - **页面迁移**：将 Dashboard 首页与 `/connect` 页面迁移到 Matrix UI A 视觉体系（交互仍保持标准 Web：鼠标点击、表单输入、链接跳转）。
 - **可访问性与动效降级**：继续遵守 `prefers-reduced-motion`，避免持续闪烁/强动效；保持 focus/hover/disabled 状态可辨识。
 
+## Module Scope (Chosen)
+
+本次确认纳入的 `copy.jsx` 模块（IN）：
+
+- BootScreen（开机屏）：纯前端展示，不依赖后端
+- Activity heatmap（活动热力图）：基于现有 daily usage 数据派生（参考 GitHub contributions 的网格思路，我们自定义一套映射/阈值）
+- Identity panel（身份面板）：优先使用登录信息（name/email/userId）；Rank 先做占位，后续再由后端补齐
+
+本次暂不纳入（DEFER / OUT）：
+
+- Network stat（网络状态）：你建议后续再考虑（本次先不做，避免引入不真实/误导的数据）
+- Logs / Telemetry / Active nodes / Export card / 24h realtime：先不做
+
 ## Scope
 
 ### IN
