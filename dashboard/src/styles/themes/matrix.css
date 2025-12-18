@@ -1,0 +1,190 @@
+@import url("https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap");
+
+:root {
+  font-family: "Share Tech Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+
+  --bg: #000000;
+  --panel: rgba(0, 5, 2, 0.9);
+  --panel-solid: #000502;
+  --fg: #00ff41;
+  --muted: rgba(0, 255, 65, 0.45);
+
+  --accent: #00ff41;
+  --accent-dim: rgba(0, 255, 65, 0.15);
+  --accent-06: rgba(0, 255, 65, 0.06);
+  --accent-08: rgba(0, 255, 65, 0.08);
+  --accent-12: rgba(0, 255, 65, 0.12);
+  --accent-14: rgba(0, 255, 65, 0.14);
+  --accent-18: rgba(0, 255, 65, 0.18);
+  --accent-22: rgba(0, 255, 65, 0.22);
+  --accent-35: rgba(0, 255, 65, 0.35);
+  --border: rgba(0, 255, 65, 0.65);
+  --border-dim: rgba(0, 255, 65, 0.25);
+
+  --glow: rgba(0, 255, 65, 0.45);
+  --error: #ff3e3e;
+}
+
+::selection {
+  background: rgba(0, 255, 65, 0.25);
+}
+
+body {
+  background: radial-gradient(
+      1200px 800px at 15% 0%,
+      rgba(0, 255, 65, 0.12),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 600px at 92% 10%,
+      rgba(0, 255, 65, 0.08),
+      transparent 55%
+    ),
+    radial-gradient(
+      1000px 700px at 60% 90%,
+      rgba(0, 255, 65, 0.05),
+      transparent 60%
+    ),
+    var(--bg);
+}
+
+a {
+  text-decoration-color: rgba(0, 255, 65, 0.5);
+}
+
+.tui-matrix {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  opacity: 0.12;
+  filter: blur(0.2px) contrast(1.08) saturate(1.1);
+}
+
+.tui-screen::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%),
+    linear-gradient(
+      90deg,
+      rgba(255, 0, 0, 0.03),
+      rgba(0, 255, 0, 0.01),
+      rgba(0, 255, 0, 0.03)
+    );
+  background-size: 100% 4px, 4px 100%;
+  opacity: 0.15;
+}
+
+.tui-screen::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.08;
+  background: radial-gradient(
+      circle at 30% 20%,
+      rgba(0, 255, 65, 0.22),
+      transparent 62%
+    ),
+    radial-gradient(circle at 80% 0%, rgba(0, 255, 65, 0.14), transparent 55%);
+  animation: tui-flicker 2.2s infinite;
+}
+
+.tui-frame {
+  text-shadow: 0 0 8px rgba(0, 255, 65, 0.3);
+}
+
+.tui-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.3'/%3E%3C/svg%3E");
+  background-size: 240px 240px;
+  animation: tui-noise 6s steps(6, end) infinite;
+}
+
+.tui-header,
+.tui-footer {
+  background: linear-gradient(180deg, rgba(0, 255, 65, 0.07), rgba(0, 0, 0, 0)),
+    var(--panel-solid);
+}
+
+.tui-window-bar {
+  background: rgba(0, 255, 65, 0.06);
+}
+
+.btn {
+  box-shadow: 0 0 0 1px rgba(0, 255, 65, 0.1) inset,
+    0 0 12px rgba(0, 255, 65, 0.06);
+}
+
+.btn:focus-visible {
+  box-shadow: 0 0 0 1px rgba(0, 255, 65, 0.22) inset,
+    0 0 0 3px rgba(0, 255, 65, 0.12);
+}
+
+.tui-title::after {
+  content: " █";
+  color: var(--accent);
+  animation: tui-cursor 1.1s steps(1, end) infinite;
+}
+
+.tui-sparkline {
+  filter: drop-shadow(0 0 10px rgba(0, 255, 65, 0.22));
+}
+
+@keyframes tui-flicker {
+  0% {
+    opacity: 0.055;
+  }
+  50% {
+    opacity: 0.07;
+  }
+  100% {
+    opacity: 0.06;
+  }
+}
+
+@keyframes tui-cursor {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes tui-noise {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 120px 60px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tui-screen::after {
+    animation: none;
+  }
+  .tui-matrix {
+    display: none;
+  }
+  .tui-title::after {
+    animation: none;
+    opacity: 0;
+  }
+  .tui-frame::before {
+    animation: none;
+  }
+}
