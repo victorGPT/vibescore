@@ -35,6 +35,56 @@ body {
     filter: drop-shadow(0 0 2px rgba(0, 255, 65, 0.3));
   }
 
+  .matrix-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 255, 65, 0.45) transparent;
+    scrollbar-gutter: stable both-edges;
+  }
+
+  .matrix-scrollbar::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .matrix-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .matrix-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 255, 65, 0.35);
+    border-radius: 999px;
+    border: 1px solid rgba(0, 255, 65, 0.4);
+  }
+
+  .matrix-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 65, 0.6);
+  }
+
+  .heatmap-scrollbar-track {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(0, 255, 65, 0.08);
+    border: 1px solid rgba(0, 255, 65, 0.25);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .heatmap-scrollbar-thumb {
+    position: absolute;
+    inset: 0 auto 0 0;
+    border-radius: 999px;
+    background: rgba(0, 255, 65, 0.55);
+    box-shadow: 0 0 6px rgba(0, 255, 65, 0.35);
+    transition: transform 120ms ease-out;
+  }
+
+  .heatmap-scroll-hint-left {
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.6), transparent);
+  }
+
+  .heatmap-scroll-hint-right {
+    background: linear-gradient(to left, rgba(0, 0, 0, 0.75), transparent);
+  }
+
   .matrix-scanlines {
     background-image: linear-gradient(
       to bottom,
