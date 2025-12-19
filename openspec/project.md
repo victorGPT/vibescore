@@ -123,6 +123,8 @@
 
 - `VITE_VIBESCORE_INSFORGE_BASE_URL`
 - UI 组件库统一使用：`dashboard/src/ui/matrix-a/components`
+- `VITE_VIBESCORE_MOCK`：可选；`1|true` 时使用本地 mock 数据（可用 `?mock=1`）
+- `VITE_VIBESCORE_MOCK_SEED`：可选；mock 数据种子（可用 `?mock_seed=xxx`）
 
 ### 6.3 InsForge Edge Functions（Deno）
 

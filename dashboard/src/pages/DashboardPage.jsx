@@ -207,6 +207,8 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     return <BootScreen onSkip={() => setBooted(true)} />;
   }
 
+  const requireAuthGate = !signedIn && !mockEnabled;
+
   return (
     <MatrixShell
       headerStatus={<BackendStatus baseUrl={baseUrl} />}
@@ -220,7 +222,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
       }
       footerRight={<span className="font-bold">VibeScore_Dashboard</span>}
     >
-      {!accessEnabled ? (
+      {requireAuthGate ? (
         <div className="flex items-center justify-center">
           <AsciiBox
             title="Auth_Required"
@@ -254,6 +256,22 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
               rankLabel="—"
               streakDays={streakDays}
             />
+
+            {!signedIn ? (
+              <AsciiBox title="Auth_Optional" subtitle="Connect">
+                <p className="text-[10px] opacity-50 mt-0">
+                  Sign in / sign up to sync real usage.
+                </p>
+                <div className="flex flex-wrap gap-3 mt-4">
+                  <MatrixButton as="a" primary href={signInUrl}>
+                    $ sign-in
+                  </MatrixButton>
+                  <MatrixButton as="a" href={signUpUrl}>
+                    $ sign-up
+                  </MatrixButton>
+                </div>
+              </AsciiBox>
+            ) : null}
 
             <AsciiBox title="Install" subtitle="CLI">
               <p className="text-[10px] opacity-50 mt-0">

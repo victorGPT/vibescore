@@ -34,7 +34,7 @@ export function AsciiBox({ title, subtitle, children, className = "" }) {
         <div className="shrink-0 w-3 flex justify-center opacity-10 text-[#00FF41]">
           {CHARS.VERTICAL}
         </div>
-        <div className="flex-1 py-4 px-2 relative z-10">{children}</div>
+        <div className="flex-1 min-w-0 py-4 px-2 relative z-10">{children}</div>
         <div className="shrink-0 w-3 flex justify-center opacity-10 text-[#00FF41]">
           {CHARS.VERTICAL}
         </div>
