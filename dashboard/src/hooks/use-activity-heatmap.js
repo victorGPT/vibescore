@@ -5,6 +5,7 @@ import {
   computeActiveStreakDays,
   getHeatmapRangeUtc,
 } from "../lib/activity-heatmap.js";
+import { isMockEnabled } from "../lib/mock-data.js";
 import { getUsageDaily, getUsageHeatmap } from "../lib/vibescore-api.js";
 
 export function useActivityHeatmap({
@@ -22,6 +23,7 @@ export function useActivityHeatmap({
   const [source, setSource] = useState("edge");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const mockEnabled = isMockEnabled();
 
   const storageKey = useMemo(() => {
     if (!cacheKey) return null;
@@ -54,7 +56,7 @@ export function useActivityHeatmap({
   );
 
   const refresh = useCallback(async () => {
-    if (!accessToken) return;
+    if (!accessToken && !mockEnabled) return;
     setLoading(true);
     setError(null);
     try {
@@ -188,6 +190,7 @@ export function useActivityHeatmap({
   }, [
     accessToken,
     baseUrl,
+    mockEnabled,
     range.from,
     range.to,
     readCache,
@@ -197,7 +200,7 @@ export function useActivityHeatmap({
   ]);
 
   useEffect(() => {
-    if (!accessToken) {
+    if (!accessToken && !mockEnabled) {
       setDaily([]);
       setLoading(false);
       setError(null);
@@ -212,7 +215,7 @@ export function useActivityHeatmap({
       setSource("cache");
     }
     refresh();
-  }, [accessToken, readCache, refresh]);
+  }, [accessToken, mockEnabled, readCache, refresh]);
 
   return { range, daily, heatmap, source, loading, error, refresh };
 }

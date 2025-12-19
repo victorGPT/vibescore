@@ -17,6 +17,7 @@ import { MatrixButton } from "../ui/matrix-a/components/MatrixButton.jsx";
 import { NeuralFluxMonitor } from "../ui/matrix-a/components/NeuralFluxMonitor.jsx";
 import { UsagePanel } from "../ui/matrix-a/components/UsagePanel.jsx";
 import { MatrixShell } from "../ui/matrix-a/layout/MatrixShell.jsx";
+import { isMockEnabled } from "../lib/mock-data.js";
 
 const PERIODS = ["day", "week", "month", "total"];
 
@@ -40,6 +41,8 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const range = useMemo(() => getRangeForPeriod(period), [period]);
   const from = range.from;
   const to = range.to;
+  const mockEnabled = isMockEnabled();
+  const accessEnabled = signedIn || mockEnabled;
 
   const {
     daily,
@@ -101,11 +104,11 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   }
 
   const streakDays = useMemo(() => {
-    if (!signedIn) return 0;
+    if (!signedIn && !mockEnabled) return 0;
     const serverStreak = Number(heatmap?.streak_days);
     if (Number.isFinite(serverStreak)) return serverStreak;
     return computeActiveStreakDays({ dailyRows: heatmapDaily, to: heatmapRange.to });
-  }, [signedIn, heatmap?.streak_days, heatmapDaily, heatmapRange.to]);
+  }, [signedIn, mockEnabled, heatmap?.streak_days, heatmapDaily, heatmapRange.to]);
 
   const refreshAll = useCallback(() => {
     refreshUsage();
@@ -209,11 +212,15 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
       headerStatus={<BackendStatus baseUrl={baseUrl} />}
       headerRight={headerRight}
       footerLeft={
-        signedIn ? <span>UTC aggregates • click Refresh to reload</span> : <span>Sign in to view usage</span>
+        accessEnabled ? (
+          <span>UTC aggregates • click Refresh to reload</span>
+        ) : (
+          <span>Sign in to view usage</span>
+        )
       }
       footerRight={<span className="font-bold">VibeScore_Dashboard</span>}
     >
-      {!signedIn ? (
+      {!accessEnabled ? (
         <div className="flex items-center justify-center">
           <AsciiBox
             title="Auth_Required"
@@ -267,7 +274,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
 
             <AsciiBox
               title="Activity_Matrix"
-              subtitle={signedIn ? "52W_UTC" : "—"}
+              subtitle={accessEnabled ? "52W_UTC" : "—"}
               className="min-w-0 overflow-hidden"
             >
               <ActivityHeatmap heatmap={heatmap} />

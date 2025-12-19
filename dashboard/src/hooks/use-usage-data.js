@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { getUsageDaily, getUsageSummary } from "../lib/vibescore-api.js";
+import { isMockEnabled } from "../lib/mock-data.js";
 
 export function useUsageData({
   baseUrl,
@@ -13,9 +14,10 @@ export function useUsageData({
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const mockEnabled = isMockEnabled();
 
   const refresh = useCallback(async () => {
-    if (!accessToken) return;
+    if (!accessToken && !mockEnabled) return;
     setLoading(true);
     setError(null);
     try {
@@ -37,10 +39,10 @@ export function useUsageData({
     } finally {
       setLoading(false);
     }
-  }, [accessToken, baseUrl, from, includeDaily, to]);
+  }, [accessToken, baseUrl, from, includeDaily, mockEnabled, to]);
 
   useEffect(() => {
-    if (!accessToken) {
+    if (!accessToken && !mockEnabled) {
       setDaily([]);
       setSummary(null);
       setError(null);
@@ -48,7 +50,7 @@ export function useUsageData({
       return;
     }
     refresh();
-  }, [accessToken, refresh]);
+  }, [accessToken, mockEnabled, refresh]);
 
   return { daily, summary, loading, error, refresh };
 }

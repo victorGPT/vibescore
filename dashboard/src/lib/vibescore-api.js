@@ -1,4 +1,10 @@
 import { fetchJson } from "./http.js";
+import {
+  getMockUsageDaily,
+  getMockUsageHeatmap,
+  getMockUsageSummary,
+  isMockEnabled,
+} from "./mock-data.js";
 
 const PATHS = {
   usageSummary: "/functions/vibescore-usage-summary",
@@ -19,6 +25,9 @@ export function getBackendProbeUrl(baseUrl) {
 }
 
 export async function getUsageSummary({ baseUrl, accessToken, from, to }) {
+  if (isMockEnabled()) {
+    return getMockUsageSummary({ from, to, seed: accessToken });
+  }
   const url = makeUrl(baseUrl, PATHS.usageSummary);
   url.searchParams.set("from", from);
   url.searchParams.set("to", to);
@@ -26,6 +35,9 @@ export async function getUsageSummary({ baseUrl, accessToken, from, to }) {
 }
 
 export async function getUsageDaily({ baseUrl, accessToken, from, to }) {
+  if (isMockEnabled()) {
+    return getMockUsageDaily({ from, to, seed: accessToken });
+  }
   const url = makeUrl(baseUrl, PATHS.usageDaily);
   url.searchParams.set("from", from);
   url.searchParams.set("to", to);
@@ -39,10 +51,17 @@ export async function getUsageHeatmap({
   to,
   weekStartsOn,
 }) {
+  if (isMockEnabled()) {
+    return getMockUsageHeatmap({
+      weeks,
+      to,
+      weekStartsOn,
+      seed: accessToken,
+    });
+  }
   const url = makeUrl(baseUrl, PATHS.usageHeatmap);
   url.searchParams.set("weeks", String(weeks));
   url.searchParams.set("to", to);
   url.searchParams.set("week_starts_on", weekStartsOn);
   return fetchJson(url.toString(), { headers: authHeaders(accessToken) });
 }
-
