@@ -1,25 +1,24 @@
 # add-precomputed-aggregates 任务清单
 
 ## 1) 设计与验证
-- [ ] 明确聚合表/快照表字段与索引（含唯一键）
-- [ ] 明确刷新策略（频率、触发方式、回填策略）
+- [x] 明确快照表字段与索引（含唯一键与 RLS）
+- [x] 明确刷新策略（GitHub Actions 频率与触发方式）
+- [x] 明确刷新端点鉴权与幂等策略
 
 ## 2) 数据层
-- [ ] 创建/迁移聚合表或物化视图
-- [ ] 创建排行榜快照表
-- [ ] 添加必要索引（按 user_id/day、period/window 等）
+- [x] 创建排行榜快照表
+- [x] 创建排行榜 source 视图（day/week/month/total）
+- [x] 添加必要索引（按 period/window/rank/user）
 
-## 3) 计算与刷新
-- [ ] 编写/配置刷新任务（定时或触发式）
-- [ ] 回填历史数据并校验一致性
+## 3) Functions 与自动化
+- [x] 新增 `vibescore-leaderboard-refresh`（service role 鉴权）
+- [x] `vibescore-leaderboard` 读取快照表（不可用时回退旧视图）
+- [x] 新增 GitHub Actions 定时触发刷新
 
-## 4) Functions 改造
-- [ ] usage-summary/daily/heatmap 读取聚合表
-- [ ] leaderboard 读取快照表
-
-## 5) 验证与回滚
-- [ ] 加入验证脚本或 smoke 测试
+## 4) 验证与回滚
+- [ ] 加入验证脚本或手动 smoke 步骤
 - [ ] 记录回滚策略与回滚步骤
 
-## 6) 文档
-- [ ] 更新 `BACKEND_API.md` 与 `openspec/specs/vibescore-tracker/spec.md`
+## 5) 文档
+- [x] 更新 `BACKEND_API.md`
+- [x] 更新 `openspec/specs/vibescore-tracker/spec.md`

@@ -67,7 +67,7 @@ var require_auth = __commonJS({
       const token = headerValue.slice(prefix.length).trim();
       return token.length > 0 ? token : null;
     }
-    async function getEdgeClientAndUserId2({ baseUrl, bearer }) {
+    async function getEdgeClientAndUserId({ baseUrl, bearer }) {
       const edgeClient = createClient({ baseUrl, edgeFunctionToken: bearer });
       const { data: userData, error: userErr } = await edgeClient.auth.getCurrentUser();
       const userId = userData?.user?.id;
@@ -76,7 +76,7 @@ var require_auth = __commonJS({
     }
     module2.exports = {
       getBearerToken: getBearerToken2,
-      getEdgeClientAndUserId: getEdgeClientAndUserId2
+      getEdgeClientAndUserId
     };
   }
 });
@@ -176,7 +176,7 @@ var require_numbers = __commonJS({
       }
       return 0n;
     }
-    function toPositiveIntOrNull2(v) {
+    function toPositiveIntOrNull(v) {
       if (typeof v === "number" && Number.isInteger(v) && v > 0) return v;
       if (typeof v === "string") {
         const s = v.trim();
@@ -192,179 +192,128 @@ var require_numbers = __commonJS({
       return null;
     }
     function toPositiveInt2(v) {
-      const n = toPositiveIntOrNull2(v);
+      const n = toPositiveIntOrNull(v);
       return n == null ? 0 : n;
     }
     module2.exports = {
       toBigInt: toBigInt2,
       toPositiveInt: toPositiveInt2,
-      toPositiveIntOrNull: toPositiveIntOrNull2
+      toPositiveIntOrNull
     };
   }
 });
 
-// insforge-src/functions/vibescore-leaderboard.js
+// insforge-src/functions/vibescore-leaderboard-refresh.js
 var { handleOptions, json, requireMethod } = require_http();
-var { getBearerToken, getEdgeClientAndUserId } = require_auth();
+var { getBearerToken } = require_auth();
 var { getAnonKey, getBaseUrl, getServiceRoleKey } = require_env();
 var { isDate, toUtcDay, addUtcDays, formatDateUTC } = require_date();
-var { toBigInt, toPositiveInt, toPositiveIntOrNull } = require_numbers();
-var DEFAULT_LIMIT = 20;
-var MAX_LIMIT = 100;
+var { toBigInt, toPositiveInt } = require_numbers();
+var PERIODS = ["day", "week", "month", "total"];
+var INSERT_BATCH_SIZE = 500;
 module.exports = async function(request) {
   const opt = handleOptions(request);
   if (opt) return opt;
-  const methodErr = requireMethod(request, "GET");
+  const methodErr = requireMethod(request, "POST");
   if (methodErr) return methodErr;
-  const bearer = getBearerToken(request.headers.get("Authorization"));
-  if (!bearer) return json({ error: "Missing bearer token" }, 401);
-  const baseUrl = getBaseUrl();
-  const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
-  if (!auth.ok) return json({ error: "Unauthorized" }, 401);
-  const url = new URL(request.url);
-  const period = normalizePeriod(url.searchParams.get("period"));
-  if (!period) return json({ error: "Invalid period" }, 400);
-  const limit = normalizeLimit(url.searchParams.get("limit"));
-  let from;
-  let to;
-  try {
-    ({ from, to } = await computeWindow({ period, edgeClient: auth.edgeClient }));
-  } catch (err) {
-    return json({ error: String(err && err.message ? err.message : err) }, 500);
-  }
   const serviceRoleKey = getServiceRoleKey();
+  if (!serviceRoleKey) return json({ error: "Service role key missing" }, 500);
+  const bearer = getBearerToken(request.headers.get("Authorization"));
+  if (!bearer || bearer !== serviceRoleKey) return json({ error: "Unauthorized" }, 401);
+  const baseUrl = getBaseUrl();
   const anonKey = getAnonKey();
-  const serviceClient = serviceRoleKey ? createClient({
+  const serviceClient = createClient({
     baseUrl,
     anonKey: anonKey || serviceRoleKey,
     edgeFunctionToken: serviceRoleKey
-  }) : null;
-  if (serviceClient) {
-    const snapshot = await loadSnapshot({
-      serviceClient,
-      period,
-      from,
-      to,
-      userId: auth.userId,
-      limit
-    });
-    if (snapshot.ok) {
-      return json(
-        {
-          period,
-          from,
-          to,
-          generated_at: snapshot.generated_at,
-          entries: snapshot.entries,
-          me: snapshot.me
-        },
-        200
-      );
+  });
+  const url = new URL(request.url);
+  const requested = normalizePeriod(url.searchParams.get("period"));
+  if (url.searchParams.has("period") && !requested) return json({ error: "Invalid period" }, 400);
+  const targetPeriods = requested ? [requested] : PERIODS;
+  const generatedAt = (/* @__PURE__ */ new Date()).toISOString();
+  const results = [];
+  try {
+    for (const period of targetPeriods) {
+      const window = await computeWindow({ period, serviceClient });
+      if (!window.ok) return json({ error: window.error }, 500);
+      const { from, to } = window;
+      const { inserted } = await refreshPeriod({
+        serviceClient,
+        period,
+        from,
+        to,
+        generatedAt
+      });
+      results.push({ period, from, to, inserted });
     }
+  } catch (err) {
+    return json({ error: String(err && err.message ? err.message : err) }, 500);
   }
-  const entriesView = `vibescore_leaderboard_${period}_current`;
-  const meView = `vibescore_leaderboard_me_${period}_current`;
-  const { data: rawEntries, error: entriesErr } = await auth.edgeClient.database.from(entriesView).select("rank,is_me,display_name,avatar_url,total_tokens").order("rank", { ascending: true });
-  if (entriesErr) return json({ error: entriesErr.message }, 500);
-  const { data: rawMe, error: meErr } = await auth.edgeClient.database.from(meView).select("rank,total_tokens").maybeSingle();
-  if (meErr) return json({ error: meErr.message }, 500);
-  const entries = (rawEntries || []).slice(0, limit).map(normalizeEntry);
-  const me = normalizeMe(rawMe);
-  return json(
-    {
-      period,
-      from,
-      to,
-      generated_at: (/* @__PURE__ */ new Date()).toISOString(),
-      entries,
-      me
-    },
-    200
-  );
+  return json({ success: true, generated_at: generatedAt, results }, 200);
 };
 function normalizePeriod(raw) {
   if (typeof raw !== "string") return null;
   const v = raw.trim().toLowerCase();
-  if (v === "day" || v === "week" || v === "month" || v === "total") return v;
-  return null;
+  return PERIODS.includes(v) ? v : null;
 }
-function normalizeLimit(raw) {
-  if (typeof raw !== "string" || raw.trim().length === 0) return DEFAULT_LIMIT;
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return DEFAULT_LIMIT;
-  const i = Math.floor(n);
-  if (i < 1) return 1;
-  if (i > MAX_LIMIT) return MAX_LIMIT;
-  return i;
-}
-async function loadSnapshot({ serviceClient, period, from, to, userId, limit }) {
-  const { data: entryRows, error: entriesErr } = await serviceClient.database.from("vibescore_leaderboard_snapshots").select("user_id,rank,total_tokens,display_name,avatar_url,generated_at").eq("period", period).eq("from_day", from).eq("to_day", to).order("rank", { ascending: true }).limit(limit);
-  if (entriesErr) {
-    console.error("snapshot entries error", entriesErr);
-    return { ok: false };
-  }
-  const { data: meRow, error: meErr } = await serviceClient.database.from("vibescore_leaderboard_snapshots").select("rank,total_tokens,generated_at").eq("period", period).eq("from_day", from).eq("to_day", to).eq("user_id", userId).maybeSingle();
-  if (meErr) {
-    console.error("snapshot me error", meErr);
-    return { ok: false };
-  }
-  const entries = (entryRows || []).map((row) => ({
-    rank: toPositiveInt(row?.rank),
-    is_me: row?.user_id === userId,
-    display_name: normalizeDisplayName(row?.display_name),
-    avatar_url: normalizeAvatarUrl(row?.avatar_url),
-    total_tokens: toBigInt(row?.total_tokens).toString()
-  }));
-  const me = normalizeMe(meRow);
-  const generatedAt = normalizeGeneratedAt(entryRows, meRow);
-  if (entries.length === 0 && !meRow) return { ok: false };
-  return { ok: true, entries, me, generated_at: generatedAt };
-}
-async function computeWindow({ period, edgeClient }) {
+async function computeWindow({ period, serviceClient }) {
   const now = /* @__PURE__ */ new Date();
   const today = toUtcDay(now);
   if (period === "day") {
     const day = formatDateUTC(today);
-    return { from: day, to: day };
+    return { ok: true, from: day, to: day };
   }
   if (period === "week") {
     const dow = today.getUTCDay();
     const from2 = addUtcDays(today, -dow);
     const to2 = addUtcDays(from2, 6);
-    return { from: formatDateUTC(from2), to: formatDateUTC(to2) };
+    return { ok: true, from: formatDateUTC(from2), to: formatDateUTC(to2) };
   }
   if (period === "month") {
     const from2 = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
     const to2 = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
-    return { from: formatDateUTC(from2), to: formatDateUTC(to2) };
+    return { ok: true, from: formatDateUTC(from2), to: formatDateUTC(to2) };
   }
-  const { data: meta, error } = await edgeClient.database.from("vibescore_leaderboard_meta_total_current").select("from_day,to_day").maybeSingle();
-  if (error) throw new Error(error.message);
+  const { data: meta, error } = await serviceClient.database.from("vibescore_leaderboard_meta_total_current").select("from_day,to_day").maybeSingle();
+  if (error) return { ok: false, error: error.message };
   const from = isDate(meta?.from_day) ? meta.from_day : formatDateUTC(today);
   const to = isDate(meta?.to_day) ? meta.to_day : formatDateUTC(today);
-  return { from, to };
+  return { ok: true, from, to };
 }
-function normalizeEntry(row) {
-  return {
-    rank: toPositiveInt(row?.rank),
-    is_me: Boolean(row?.is_me),
-    display_name: normalizeDisplayName(row?.display_name),
-    avatar_url: normalizeAvatarUrl(row?.avatar_url),
-    total_tokens: toBigInt(row?.total_tokens).toString()
-  };
-}
-function normalizeMe(row) {
-  const rank = toPositiveIntOrNull(row?.rank);
-  const totalTokens = toBigInt(row?.total_tokens);
-  return { rank, total_tokens: totalTokens.toString() };
-}
-function normalizeGeneratedAt(entryRows, meRow) {
-  const candidate = entryRows?.[0]?.generated_at || meRow?.generated_at;
-  if (candidate && typeof candidate === "string") {
-    const dt = new Date(candidate);
-    if (!Number.isNaN(dt.getTime())) return dt.toISOString();
+async function refreshPeriod({ serviceClient, period, from, to, generatedAt }) {
+  const deleteRes = await serviceClient.database.from("vibescore_leaderboard_snapshots").delete().eq("period", period).eq("from_day", from).eq("to_day", to);
+  if (deleteRes.error) {
+    throw new Error(deleteRes.error.message);
   }
-  return (/* @__PURE__ */ new Date()).toISOString();
+  const sourceView = `vibescore_leaderboard_source_${period}`;
+  const { data: rows, error } = await serviceClient.database.from(sourceView).select("user_id,rank,total_tokens,display_name,avatar_url,from_day,to_day").order("rank", { ascending: true });
+  if (error) throw new Error(error.message);
+  const normalized = (rows || []).map((row) => normalizeSnapshotRow({ row, period, from, to, generatedAt })).filter(Boolean);
+  for (const batch of chunkRows(normalized, INSERT_BATCH_SIZE)) {
+    const { error: insertErr } = await serviceClient.database.from("vibescore_leaderboard_snapshots").insert(batch);
+    if (insertErr) throw new Error(insertErr.message);
+  }
+  return { inserted: normalized.length };
+}
+function normalizeSnapshotRow({ row, period, from, to, generatedAt }) {
+  if (!row?.user_id) return null;
+  const rank = toPositiveInt(row.rank);
+  if (rank <= 0) return null;
+  const totalTokens = toBigInt(row.total_tokens).toString();
+  const displayName = normalizeDisplayName(row.display_name);
+  const avatarUrl = normalizeAvatarUrl(row.avatar_url);
+  return {
+    period,
+    from_day: from,
+    to_day: to,
+    user_id: row.user_id,
+    rank,
+    total_tokens: totalTokens,
+    display_name: displayName,
+    avatar_url: avatarUrl,
+    generated_at: generatedAt
+  };
 }
 function normalizeDisplayName(value) {
   if (typeof value !== "string") return "Anonymous";
@@ -375,4 +324,12 @@ function normalizeAvatarUrl(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+function chunkRows(rows, size) {
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  const chunks = [];
+  for (let i = 0; i < rows.length; i += size) {
+    chunks.push(rows.slice(i, i + size));
+  }
+  return chunks;
 }

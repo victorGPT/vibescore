@@ -8,10 +8,11 @@ The system SHALL compute leaderboard rankings from a precomputed snapshot that i
 - **THEN** the response SHALL reflect the latest snapshot totals
 - **AND** the response SHALL include the snapshot `generated_at`
 
-### Requirement: Daily aggregates are precomputed for scale
-The system SHALL maintain per-user UTC daily aggregates and serve usage summary/daily/heatmap from these aggregates rather than scanning raw events.
+### Requirement: Leaderboard snapshots are refreshable by authorized automation
+The system SHALL expose a refresh endpoint that rebuilds the current UTC leaderboard snapshots and is restricted to service-role callers.
 
-#### Scenario: Summary uses daily aggregates
-- **GIVEN** daily aggregates exist for the requested range
-- **WHEN** a user calls `GET /functions/vibescore-usage-summary`
-- **THEN** totals SHALL be computed from the daily aggregates
+#### Scenario: Automation refreshes leaderboard snapshots
+- **GIVEN** a valid service-role bearer token
+- **WHEN** the caller sends `POST /functions/vibescore-leaderboard-refresh`
+- **THEN** the snapshots for `day|week|month|total` SHALL be regenerated
+- **AND** the response SHALL include the refresh `generated_at` timestamp

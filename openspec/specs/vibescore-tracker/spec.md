@@ -116,6 +116,14 @@ The system SHALL provide a leaderboard endpoint that ranks users by `total_token
 - **THEN** the response SHALL include `from` and `to` in `YYYY-MM-DD` (UTC)
 - **AND** the response SHALL include an ordered `entries` array sorted by `total_tokens` (desc)
 
+### Requirement: Leaderboard response includes generation timestamp
+The leaderboard endpoint SHALL include a `generated_at` timestamp indicating when the leaderboard data was produced.
+
+#### Scenario: Response includes generated_at
+- **GIVEN** a user is signed in and has a valid `user_jwt`
+- **WHEN** the user calls `GET /functions/vibescore-leaderboard?period=month`
+- **THEN** the response SHALL include `generated_at` as an ISO timestamp
+
 ### Requirement: Leaderboard response includes `me`
 The leaderboard endpoint SHALL include a `me` object that reports the current user's `rank` and `total_tokens`, even when the user is not present in the `entries` array.
 
@@ -148,6 +156,14 @@ The leaderboard endpoint MUST validate inputs and enforce reasonable limits to a
 #### Scenario: Invalid parameters are rejected
 - **WHEN** a user calls `GET /functions/vibescore-leaderboard?period=year`
 - **THEN** the endpoint SHALL respond with `400`
+
+### Requirement: Leaderboard snapshots can be refreshed by automation
+The system SHALL expose an authenticated refresh endpoint that rebuilds the current UTC leaderboard snapshots.
+
+#### Scenario: Automation refreshes leaderboard snapshots
+- **GIVEN** a valid service-role bearer token
+- **WHEN** the caller sends `POST /functions/vibescore-leaderboard-refresh`
+- **THEN** the response SHALL include `generated_at` and per-period refresh results
 
 ### Requirement: Leaderboard privacy setting can be updated
 The system SHALL provide an authenticated endpoint for the current user to update their leaderboard privacy preference.

@@ -196,6 +196,30 @@ Response:
 
 ---
 
+### POST /functions/vibescore-leaderboard-refresh
+
+Rebuild leaderboard snapshots for the current UTC windows (`day|week|month|total`). Intended for automation (service role only).
+
+Auth:
+- `Authorization: Bearer <service_role_key>`
+
+Query (optional):
+- `period=day|week|month|total` (when omitted, refreshes all periods)
+
+Response:
+
+```json
+{
+  "success": true,
+  "generated_at": "iso",
+  "results": [
+    { "period": "week", "from": "YYYY-MM-DD", "to": "YYYY-MM-DD", "inserted": 42 }
+  ]
+}
+```
+
+---
+
 ### POST /functions/vibescore-leaderboard-settings
 
 Update the current user's leaderboard privacy setting.
@@ -214,4 +238,3 @@ Response:
 ```json
 { "leaderboard_public": true, "updated_at": "iso" }
 ```
-
