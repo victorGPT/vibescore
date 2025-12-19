@@ -164,6 +164,7 @@ export function ActivityHeatmap({ heatmap }) {
 
   const [isDraggingContent, setIsDraggingContent] = useState(false);
   const [isDraggingScrollbar, setIsDraggingScrollbar] = useState(false);
+  const [isHoveringHeatmap, setIsHoveringHeatmap] = useState(false);
 
   // Refs for drag math to avoid closure staleness
   const dragContentRef = useRef(null);
@@ -356,8 +357,15 @@ export function ActivityHeatmap({ heatmap }) {
     weeks.length * CELL_SIZE +
     Math.max(0, weeks.length - 1) * CELL_GAP;
 
+  const showScrollbar =
+    scrollState.overflow && (isHoveringHeatmap || isDraggingScrollbar);
+
   return (
-    <div className="flex flex-col gap-2">
+    <div
+      className="flex flex-col gap-2"
+      onMouseEnter={() => setIsHoveringHeatmap(true)}
+      onMouseLeave={() => setIsHoveringHeatmap(false)}
+    >
       <div className="relative group">
         <div className="absolute inset-y-0 left-0 w-6 pointer-events-none heatmap-scroll-hint-left z-10"></div>
         <div className="absolute inset-y-0 right-0 w-10 pointer-events-none heatmap-scroll-hint-right z-10"></div>
@@ -453,10 +461,10 @@ export function ActivityHeatmap({ heatmap }) {
       {/* Custom Scrollbar Track */}
       <div
         ref={trackRef}
-        className="heatmap-scrollbar-track relative h-[6px] rounded-full bg-[#00FF41]/10 border border-[#00FF41]/20 overflow-visible mt-1"
+        className="heatmap-scrollbar-track relative h-[6px] rounded-full bg-[#00FF41]/10 border border-[#00FF41]/20 overflow-visible mt-1 transition-opacity duration-150"
         style={{
-          opacity: scrollState.overflow ? 1 : 0,
-          pointerEvents: scrollState.overflow ? "auto" : "none",
+          opacity: showScrollbar ? 1 : 0,
+          pointerEvents: showScrollbar ? "auto" : "none",
         }}
       >
         {/* Scrollbar Thumb */}
