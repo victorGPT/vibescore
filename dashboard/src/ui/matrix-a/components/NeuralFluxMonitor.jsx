@@ -28,7 +28,6 @@ function SeismographLine({ data }) {
 
   return (
     <div className="w-full h-full relative overflow-hidden bg-[#00FF41]/5 border border-[#00FF41]/10">
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,transparent_95%,rgba(0,255,65,0.2)_100%)] bg-[length:20px_100%] animate-[scan_4s_linear_infinite] pointer-events-none"></div>
       <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20 px-2 py-2">
         <div className="border-t border-dashed border-[#00FF41]"></div>
         <div className="border-t border-dashed border-[#00FF41]"></div>

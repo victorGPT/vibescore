@@ -127,15 +127,6 @@ body {
   }
 }
 
-@keyframes scan {
-  0% {
-    background-position: 0 0;
-  }
-  100% {
-    background-position: 100% 0;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .animate-pulse,
   .animate-spin,
