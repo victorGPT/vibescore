@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 
-import { MatrixRain } from "../../../components/MatrixRain.jsx";
+import { MatrixRain } from "../components/MatrixRain.jsx";
 
 export function MatrixShell({
   headerRight,

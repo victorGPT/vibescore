@@ -1,21 +1,17 @@
 import React, { useMemo } from "react";
 
 import { useBackendStatus } from "../hooks/use-backend-status.js";
-
-const DOT_CLASSES = {
-  unknown: "bg-white/30",
-  active: "bg-[#00FF41]",
-  error: "bg-yellow-400",
-  down: "bg-red-400",
-};
+import { ConnectionStatus } from "../ui/matrix-a/components/ConnectionStatus.jsx";
 
 export function BackendStatus({ baseUrl }) {
   const { status, checking, httpStatus, lastCheckedAt, lastOkAt, error, refresh } =
     useBackendStatus({ baseUrl });
 
   const host = useMemo(() => safeHost(baseUrl), [baseUrl]);
-  const label = host || "Backend";
-  const dotClass = DOT_CLASSES[status] || DOT_CLASSES.unknown;
+  const uiStatus = useMemo(() => {
+    if (status === "active") return "STABLE";
+    return "LOST";
+  }, [status]);
 
   const title = useMemo(() => {
     const meta = [
@@ -34,26 +30,12 @@ export function BackendStatus({ baseUrl }) {
   }, [error, host, httpStatus, lastCheckedAt, lastOkAt, status]);
 
   return (
-    <button
-      type="button"
+    <ConnectionStatus
+      status={uiStatus}
       onClick={refresh}
       title={title}
-      className="flex items-center max-w-[260px] hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00FF41]/30"
-    >
-      <span
-        className={[
-          "w-1.5 h-1.5 rounded-full mr-2",
-          dotClass,
-          checking ? "animate-pulse" : null,
-        ]
-          .filter(Boolean)
-          .join(" ")}
-      ></span>
-      <span className="truncate">
-        {label}
-        {checking ? "…" : ""}
-      </span>
-    </button>
+      className={checking ? "opacity-80" : ""}
+    />
   );
 }
 
