@@ -14,7 +14,7 @@ import { ActivityHeatmap } from "../ui/matrix-a/components/ActivityHeatmap.jsx";
 import { BootScreen } from "../ui/matrix-a/components/BootScreen.jsx";
 import { IdentityCard } from "../ui/matrix-a/components/IdentityCard.jsx";
 import { MatrixButton } from "../ui/matrix-a/components/MatrixButton.jsx";
-import { NeuralFluxMonitor } from "../ui/matrix-a/components/NeuralFluxMonitor.jsx";
+import { TrendMonitor } from "../ui/matrix-a/components/TrendMonitor.jsx";
 import { UsagePanel } from "../ui/matrix-a/components/UsagePanel.jsx";
 import { MatrixShell } from "../ui/matrix-a/layout/MatrixShell.jsx";
 import { isMockEnabled } from "../lib/mock-data.js";
@@ -333,7 +333,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
               statusLabel={usageStatusLabel}
             />
 
-            <NeuralFluxMonitor
+            <TrendMonitor
               data={fluxData}
               from={from}
               to={to}

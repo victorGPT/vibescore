@@ -174,7 +174,7 @@ function SeismographLine({ data, from, to }) {
   );
 }
 
-export function NeuralFluxMonitor({ data, from, to, period, className = "" }) {
+export function TrendMonitor({ data, from, to, period, className = "" }) {
   const subtitle = period ? period.toUpperCase() : "—";
   return (
     <AsciiBox title="Trend" subtitle={subtitle} className={className}>
