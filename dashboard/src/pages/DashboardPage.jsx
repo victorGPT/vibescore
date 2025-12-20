@@ -47,6 +47,8 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const {
     daily,
     summary,
+    source: usageSource,
+    fetchedAt: usageFetchedAt,
     loading: usageLoading,
     error: usageError,
     refresh: refreshUsage,
@@ -56,6 +58,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     from,
     to,
     includeDaily: period !== "total",
+    cacheKey: auth?.userId || auth?.email || null,
   });
 
   const {
@@ -116,6 +119,15 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   }, [refreshHeatmap, refreshUsage]);
 
   const usageLoadingState = usageLoading || heatmapLoading;
+
+  const usageStatusLabel = useMemo(() => {
+    if (usageSource !== "cache") return null;
+    if (!usageFetchedAt) return "CACHE";
+    const dt = new Date(usageFetchedAt);
+    if (Number.isNaN(dt.getTime())) return "CACHE";
+    const stamp = dt.toISOString().replace("T", " ").slice(0, 16);
+    return `CACHE ${stamp} UTC`;
+  }, [usageFetchedAt, usageSource]);
 
   const identityHandle = useMemo(() => {
     const raw = (auth?.name || auth?.email || "Anonymous").trim();
@@ -319,6 +331,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
               loading={usageLoadingState}
               error={usageError}
               rangeLabel={rangeLabel}
+              statusLabel={usageStatusLabel}
             />
 
             <NeuralFluxMonitor data={fluxData} />
