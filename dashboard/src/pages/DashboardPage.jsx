@@ -85,8 +85,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     const values = (sparklineRows || []).map((row) =>
       Number(row?.total_tokens || 0)
     );
-    if (!values.length) return [];
-    return values.slice(-30);
+    return values;
   }, [sparklineRows]);
 
   function toggleSort(key) {
@@ -334,7 +333,12 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
               statusLabel={usageStatusLabel}
             />
 
-            <NeuralFluxMonitor data={fluxData} />
+            <NeuralFluxMonitor
+              data={fluxData}
+              from={from}
+              to={to}
+              period={period}
+            />
 
             {period !== "total" ? (
               <AsciiBox title="Sparkline" subtitle={`${period.toUpperCase()} ${from}..${to}`}>
