@@ -4,7 +4,7 @@ The dashboard includes a Neural_Flux_Monitor sparkline panel, but it lacks axis 
 ## Goals / Non-Goals
 - Goals:
   - Implement the provided TUI-style TrendMonitor v2 layout without altering its structure.
-  - Preserve axis/grid/scan sweep visuals and fixed time labels for the X-axis.
+  - Preserve axis/grid/scan sweep visuals and update X-axis labels by period.
   - Keep the UI consistent with Matrix UI A typography and color system.
 - Non-Goals:
   - Add new backend endpoints or change data aggregation.
@@ -12,7 +12,7 @@ The dashboard includes a Neural_Flux_Monitor sparkline panel, but it lacks axis 
 
 ## Decisions
 - Use the provided v2 layout as-is, with only the component name and label adjusted.
-- Keep X-axis labels fixed at `-24H/-18H/-12H/-6H/NOW` as specified.
+- X-axis labels are derived from the selected period: day=hours, week/month=dates, total=months.
 - Use the existing usage data series (same source as Zion_Index) to feed the chart.
 - Keep the scan sweep defined inline via the component style block.
 

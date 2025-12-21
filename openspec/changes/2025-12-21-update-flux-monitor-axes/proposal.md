@@ -5,7 +5,8 @@ The Neural_Flux_Monitor currently shows an animated graph without explicit axes 
 
 ## What Changes
 - Replace the current trend panel with the provided TUI-style TrendMonitor v2 layout.
-- Keep axes, grid, scan sweep, and fixed time labels exactly as specified.
+- Keep axes, grid, and scan sweep visuals as specified.
+- Make X-axis labels follow the selected period: day=hours, week/month=dates, total=months.
 - Keep the panel label as `Trend` and retain compatibility with existing data flow.
 
 ## Impact

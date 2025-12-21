@@ -1,11 +1,11 @@
 ## ADDED Requirements
 ### Requirement: Trend monitor uses the v2 TUI layout
-The dashboard SHALL render the Trend monitor using the provided v2 TUI layout, including axes, grid, scan sweep, and fixed time labels on the X-axis.
+The dashboard SHALL render the Trend monitor using the provided v2 TUI layout, including axes, grid, scan sweep, and period-based X-axis labels.
 
-#### Scenario: Trend monitor renders with fixed X-axis labels
+#### Scenario: Trend monitor renders with period-based X-axis labels
 - **GIVEN** the user is signed in and viewing the dashboard
-- **WHEN** the Trend monitor renders
-- **THEN** the X-axis SHALL display `-24H/-18H/-12H/-6H/NOW`
+- **WHEN** the user switches the Zion_Index period (day/week/month/total)
+- **THEN** the X-axis SHALL show hours for `day`, dates for `week/month`, and months for `total`
 - **AND** the Trend monitor SHALL render values derived from the same daily usage data slice
 
 #### Scenario: Minimal display when no data

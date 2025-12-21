@@ -5,7 +5,10 @@ import React, { useMemo } from "react";
 export function TrendMonitor({
   data = [],
   color = "#00FF41",
-  label = "NEURAL_FLUX",
+  label = "TREND",
+  from,
+  to,
+  period,
 }) {
   const safeData = data.length > 0 ? data : Array.from({ length: 24 }, () => 0);
   const max = Math.max(...safeData, 100);
@@ -13,19 +16,90 @@ export function TrendMonitor({
 
   const width = 100;
   const height = 100;
+  const axisWidth = 8;
+  const plotWidth = width - axisWidth;
+  const plotTop = 4;
+  const plotBottom = 4;
+  const plotHeight = height - plotTop - plotBottom;
+
+  function parseDate(value) {
+    if (!value) return null;
+    const parts = String(value).trim().split("-");
+    if (parts.length !== 3) return null;
+    const y = Number(parts[0]);
+    const m = Number(parts[1]) - 1;
+    const d = Number(parts[2]);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+      return null;
+    }
+    return new Date(Date.UTC(y, m, d));
+  }
+
+  function formatAxisDate(dt) {
+    if (!dt) return "";
+    const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(dt.getUTCDate()).padStart(2, "0");
+    return `${mm}-${dd}`;
+  }
+
+  const MONTH_LABELS = [
+    "JAN",
+    "FEB",
+    "MAR",
+    "APR",
+    "MAY",
+    "JUN",
+    "JUL",
+    "AUG",
+    "SEP",
+    "OCT",
+    "NOV",
+    "DEC",
+  ];
+
+  function formatMonth(dt) {
+    if (!dt) return "";
+    const yy = String(dt.getUTCFullYear()).slice(-2);
+    return `${MONTH_LABELS[dt.getUTCMonth()]} ${yy}`;
+  }
+
+  function buildXAxisLabels() {
+    if (period === "day") {
+      return ["00:00", "06:00", "12:00", "18:00", "NOW"];
+    }
+    const start = parseDate(from);
+    const end = parseDate(to);
+    if (!start || !end || end < start) {
+      return ["-24H", "-18H", "-12H", "-6H", "NOW"];
+    }
+    const totalMs = end.getTime() - start.getTime();
+    const steps = [0, 0.25, 0.5, 0.75, 1];
+    if (period === "total") {
+      return steps.map((ratio) =>
+        formatMonth(new Date(start.getTime() + totalMs * ratio))
+      );
+    }
+    return steps.map((ratio) =>
+      formatAxisDate(new Date(start.getTime() + totalMs * ratio))
+    );
+  }
 
   const points = useMemo(() => {
+    const denom = Math.max(safeData.length - 1, 1);
     return safeData
       .map((val, i) => {
-        const x = (i / (safeData.length - 1)) * width;
-        const normalizedVal = val / max;
-        const y = height - normalizedVal * height;
+        const x = (i / denom) * plotWidth;
+        const normalizedVal = max > 0 ? val / max : 0;
+        const y = plotTop + (1 - normalizedVal) * plotHeight;
         return `${x},${y}`;
       })
       .join(" ");
   }, [safeData, max]);
 
-  const fillPath = `${points} ${width},${height} 0,${height}`;
+  const fillPath = `${points} ${plotWidth},${height - plotBottom} 0,${
+    height - plotBottom
+  }`;
+  const xLabels = useMemo(() => buildXAxisLabels(), [from, period, to]);
 
   return (
     <div className="w-full h-full min-h-[160px] flex flex-col relative group select-none bg-[#050505] border border-white/10 p-1">
@@ -64,20 +138,11 @@ export function TrendMonitor({
               <stop offset="0%" stopColor={color} stopOpacity="0.5" />
               <stop offset="100%" stopColor={color} stopOpacity="0" />
             </linearGradient>
-            <mask id={`grid-mask-${label}`}>
-              <rect x="0" y="0" width="100%" height="100%" fill="white" />
-              <path
-                d="M0 20 H100 M0 40 H100 M0 60 H100 M0 80 H100"
-                stroke="black"
-                strokeWidth="0.5"
-              />
-            </mask>
           </defs>
 
           <path
             d={`M${fillPath} Z`}
             fill={`url(#grad-${label})`}
-            mask={`url(#grid-mask-${label})`}
           />
           <polyline
             points={points}
@@ -99,11 +164,16 @@ export function TrendMonitor({
       </div>
 
       <div className="h-4 flex justify-between items-center px-1 mt-1 text-[8px] font-mono text-[#00FF41]/40 border-t border-white/5 pt-1">
-        <span>-24H</span>
-        <span>-18H</span>
-        <span>-12H</span>
-        <span>-6H</span>
-        <span className="text-[#00FF41] font-bold animate-pulse">NOW</span>
+        {xLabels.map((labelText, idx) => (
+          <span
+            key={`${labelText}-${idx}`}
+            className={
+              labelText === "NOW" ? "text-[#00FF41] font-bold animate-pulse" : ""
+            }
+          >
+            {labelText}
+          </span>
+        ))}
       </div>
 
       <style
