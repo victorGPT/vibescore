@@ -12,10 +12,8 @@ export default function App() {
   const baseUrl = useMemo(() => getInsforgeBaseUrl(), []);
   const { auth, signedIn, signOut } = useAuth();
 
-  const routePath = useMemo(
-    () => window.location.pathname.replace(/\/+$/, "") || "/",
-    []
-  );
+  // Fix: Do not memoize routePath with [], otherwise it won't update when useAuth changes the URL to "/"
+  const routePath = window.location.pathname.replace(/\/+$/, "") || "/";
 
   const redirectUrl = useMemo(
     () => `${window.location.origin}/auth/callback`,
