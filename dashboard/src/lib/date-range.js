@@ -27,9 +27,10 @@ export function getRangeForPeriod(period) {
     return { from: formatDateUTC(fromDate), to: formatDateUTC(toDate) };
   }
 
-  // "total" (all-time): sentinel from date; backend only returns days that exist.
+  // "total": last 24 months (UTC month window).
   if (period === "total") {
-    return { from: "2000-01-01", to };
+    const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 23, 1));
+    return { from: formatDateUTC(start), to };
   }
 
   // Default to week (safe fallback)

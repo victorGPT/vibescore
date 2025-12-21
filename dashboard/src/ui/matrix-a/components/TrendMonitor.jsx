@@ -13,9 +13,11 @@ export function TrendMonitor({
 }) {
   const series = Array.isArray(rows) && rows.length ? rows : null;
   const seriesValues = series
-    ? series.map((row) => Number(row?.total_tokens || 0))
+    ? series.map((row) => Number(row?.total_tokens || row?.value || 0))
     : [];
-  const seriesLabels = series ? series.map((row) => row?.day || "") : [];
+  const seriesLabels = series
+    ? series.map((row) => row?.hour || row?.day || row?.month || row?.label || "")
+    : [];
   const safeData =
     seriesValues.length > 0
       ? seriesValues
@@ -76,7 +78,7 @@ export function TrendMonitor({
 
   function buildXAxisLabels() {
     if (period === "day") {
-      return ["00:00", "06:00", "12:00", "18:00", "NOW"];
+      return ["00:00", "06:00", "12:00", "18:00", "23:00"];
     }
     const start = parseDate(from);
     const end = parseDate(to);
@@ -116,6 +118,22 @@ export function TrendMonitor({
   function formatFull(value) {
     const n = Number(value) || 0;
     return n.toLocaleString();
+  }
+
+  function formatTooltipLabel(label) {
+    if (!label) return "UTC";
+    const isoHour = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$/;
+    const isoDay = /^\\d{4}-\\d{2}-\\d{2}$/;
+    const isoMonth = /^\\d{4}-\\d{2}$/;
+
+    if (isoHour.test(label)) {
+      const [date, time] = label.split("T");
+      const hh = time.slice(0, 2);
+      return `${date} ${hh}:00 UTC`;
+    }
+    if (isoDay.test(label)) return `${label} UTC`;
+    if (isoMonth.test(label)) return `${label} UTC`;
+    return label;
   }
 
   const points = useMemo(() => {
@@ -265,7 +283,7 @@ export function TrendMonitor({
               }}
             >
               <div className="opacity-70">
-                {hover.label ? `${hover.label} UTC` : "UTC"}
+                {formatTooltipLabel(hover.label)}
               </div>
               <div className="font-bold">{formatFull(hover.value)} tokens</div>
             </div>

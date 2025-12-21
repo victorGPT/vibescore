@@ -65,6 +65,14 @@ function addUtcDays(date, days) {
   );
 }
 
+function addUtcMonths(date, months) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
+}
+
+function formatMonthKey(date) {
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 function buildDailyRows({ from, to, seed }) {
   const start = parseUtcDate(from) || new Date();
   const end = parseUtcDate(to) || start;
@@ -105,6 +113,69 @@ function buildDailyRows({ from, to, seed }) {
   return rows;
 }
 
+function buildHourlyRows({ day, seed }) {
+  const base = parseUtcDate(day) || new Date();
+  const dayKey = formatDateUTC(base);
+  const seedValue = toSeed(seed);
+
+  return Array.from({ length: 24 }, (_, hour) => {
+    const hash = hashString(`${seedValue}:${dayKey}:${hour}`);
+    const jitter = (hash % 1000) / 1000;
+    const wave = 0.4 + 0.6 * Math.sin((hour / 24) * Math.PI * 2);
+    const baseValue = 900 + Math.round(700 * jitter);
+    const total = Math.max(0, Math.round(baseValue * wave));
+
+    const input = Math.round(total * 0.46);
+    const output = Math.round(total * 0.34);
+    const cached = Math.round(total * 0.14);
+    const reasoning = Math.max(0, total - input - output - cached);
+
+    return {
+      hour: new Date(
+        Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), hour, 0, 0)
+      ).toISOString(),
+      total_tokens: total,
+      input_tokens: input,
+      output_tokens: output,
+      cached_input_tokens: cached,
+      reasoning_output_tokens: reasoning,
+    };
+  });
+}
+
+function buildMonthlyRows({ months = 24, to, seed }) {
+  const end = parseUtcDate(to) || new Date();
+  const endMonth = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
+  const seedValue = toSeed(seed);
+  const rows = [];
+
+  for (let i = months - 1; i >= 0; i -= 1) {
+    const dt = addUtcMonths(endMonth, -i);
+    const monthKey = formatMonthKey(dt);
+    const hash = hashString(`${seedValue}:${monthKey}`);
+    const jitter = (hash % 1000) / 1000;
+    const seasonal = 0.7 + 0.3 * Math.sin((rows.length / 6) * Math.PI * 0.5);
+    const base = 360000 + Math.round(200000 * jitter);
+    const total = Math.max(0, Math.round(base * seasonal));
+
+    const input = Math.round(total * 0.46);
+    const output = Math.round(total * 0.34);
+    const cached = Math.round(total * 0.14);
+    const reasoning = Math.max(0, total - input - output - cached);
+
+    rows.push({
+      month: monthKey,
+      total_tokens: total,
+      input_tokens: input,
+      output_tokens: output,
+      cached_input_tokens: cached,
+      reasoning_output_tokens: reasoning,
+    });
+  }
+
+  return rows;
+}
+
 function sumDailyRows(rows) {
   return rows.reduce(
     (acc, row) => {
@@ -128,6 +199,24 @@ function sumDailyRows(rows) {
 export function getMockUsageDaily({ from, to, seed } = {}) {
   const rows = buildDailyRows({ from, to, seed });
   return { from, to, data: rows };
+}
+
+export function getMockUsageHourly({ day, seed } = {}) {
+  const base = parseUtcDate(day) || new Date();
+  const dayKey = formatDateUTC(base);
+  const rows = buildHourlyRows({ day: dayKey, seed });
+  return { day: dayKey, data: rows };
+}
+
+export function getMockUsageMonthly({ months = 24, to, seed } = {}) {
+  const end = parseUtcDate(to) || new Date();
+  const endDay = formatDateUTC(end);
+  const rows = buildMonthlyRows({ months, to: endDay, seed });
+  const startMonth = addUtcMonths(
+    new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1)),
+    -(months - 1)
+  );
+  return { from: formatDateUTC(startMonth), to: endDay, months, data: rows };
 }
 
 export function getMockUsageSummary({ from, to, seed } = {}) {

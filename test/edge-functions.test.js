@@ -516,6 +516,193 @@ test('vibescore-usage-heatmap rejects invalid parameters', async () => {
   assert.equal(res.status, 400);
 });
 
+test('vibescore-usage-hourly aggregates events into hourly buckets', async () => {
+  const fn = require('../insforge-functions/vibescore-usage-hourly');
+
+  const userId = '77777777-7777-7777-7777-777777777777';
+  const userJwt = 'user_jwt_test';
+
+  const rows = [
+    {
+      token_timestamp: '2025-12-21T01:10:00.000Z',
+      total_tokens: '10',
+      input_tokens: '4',
+      cached_input_tokens: '1',
+      output_tokens: '3',
+      reasoning_output_tokens: '2'
+    },
+    {
+      token_timestamp: '2025-12-21T01:45:00.000Z',
+      total_tokens: '2',
+      input_tokens: '1',
+      cached_input_tokens: '0',
+      output_tokens: '1',
+      reasoning_output_tokens: '0'
+    },
+    {
+      token_timestamp: '2025-12-21T13:05:00.000Z',
+      total_tokens: '5',
+      input_tokens: '2',
+      cached_input_tokens: '1',
+      output_tokens: '1',
+      reasoning_output_tokens: '1'
+    }
+  ];
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      assert.equal(args.anonKey, ANON_KEY);
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            assert.equal(table, 'vibescore_tracker_events');
+            return {
+              select: () => ({
+                eq: (col, value) => {
+                  assert.equal(col, 'user_id');
+                  assert.equal(value, userId);
+                  return {
+                    gte: (gteCol, from) => {
+                      assert.equal(gteCol, 'token_timestamp');
+                      assert.equal(from, '2025-12-21T00:00:00.000Z');
+                      return {
+                        lt: async (ltCol, to) => {
+                          assert.equal(ltCol, 'token_timestamp');
+                          assert.equal(to, '2025-12-22T00:00:00.000Z');
+                          return { data: rows, error: null };
+                        }
+                      };
+                    }
+                  };
+                }
+              })
+            };
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibescore-usage-hourly?day=2025-12-21', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${userJwt}` }
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+
+  const body = await res.json();
+  assert.equal(body.day, '2025-12-21');
+  assert.equal(body.data.length, 24);
+  assert.equal(body.data[1].total_tokens, '12');
+  assert.equal(body.data[1].input_tokens, '5');
+  assert.equal(body.data[1].output_tokens, '4');
+  assert.equal(body.data[13].total_tokens, '5');
+});
+
+test('vibescore-usage-monthly aggregates daily rows into months', async () => {
+  const fn = require('../insforge-functions/vibescore-usage-monthly');
+
+  const userId = '88888888-8888-8888-8888-888888888888';
+  const userJwt = 'user_jwt_test';
+
+  const rows = [
+    {
+      day: '2025-11-05',
+      total_tokens: '10',
+      input_tokens: '4',
+      cached_input_tokens: '1',
+      output_tokens: '3',
+      reasoning_output_tokens: '2'
+    },
+    {
+      day: '2025-11-20',
+      total_tokens: '5',
+      input_tokens: '2',
+      cached_input_tokens: '1',
+      output_tokens: '1',
+      reasoning_output_tokens: '1'
+    },
+    {
+      day: '2025-12-01',
+      total_tokens: '7',
+      input_tokens: '3',
+      cached_input_tokens: '1',
+      output_tokens: '2',
+      reasoning_output_tokens: '1'
+    }
+  ];
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      assert.equal(args.anonKey, ANON_KEY);
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            assert.equal(table, 'vibescore_tracker_daily');
+            return {
+              select: () => ({
+                eq: (col, value) => {
+                  assert.equal(col, 'user_id');
+                  assert.equal(value, userId);
+                  return {
+                    gte: (gteCol, from) => {
+                      assert.equal(gteCol, 'day');
+                      assert.equal(from, '2025-11-01');
+                      return {
+                        lte: (lteCol, to) => {
+                          assert.equal(lteCol, 'day');
+                          assert.equal(to, '2025-12-21');
+                          return {
+                            order: async (orderCol, opts) => {
+                              assert.equal(orderCol, 'day');
+                              assert.equal(opts?.ascending, true);
+                              return { data: rows, error: null };
+                            }
+                          };
+                        }
+                      };
+                    }
+                  };
+                }
+              })
+            };
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request(
+    'http://localhost/functions/vibescore-usage-monthly?months=2&to=2025-12-21',
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${userJwt}` }
+    }
+  );
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+
+  const body = await res.json();
+  assert.equal(body.from, '2025-11-01');
+  assert.equal(body.to, '2025-12-21');
+  assert.equal(body.months, 2);
+  assert.equal(body.data.length, 2);
+  assert.equal(body.data[0].month, '2025-11');
+  assert.equal(body.data[0].total_tokens, '15');
+  assert.equal(body.data[1].month, '2025-12');
+  assert.equal(body.data[1].total_tokens, '7');
+});
+
 test('vibescore-leaderboard returns a week window and slices entries to limit', async () => {
   setDenoEnv({
     INSFORGE_INTERNAL_URL: BASE_URL,

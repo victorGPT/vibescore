@@ -166,6 +166,69 @@ Response:
 
 ---
 
+### GET /functions/vibescore-usage-hourly
+
+Return UTC hourly aggregates (24 buckets) for the authenticated user on a given day.
+
+Auth:
+- `Authorization: Bearer <user_jwt>`
+
+Query:
+- `day=YYYY-MM-DD` (optional; default today UTC)
+
+Response:
+
+```json
+{
+  "day": "YYYY-MM-DD",
+  "data": [
+    {
+      "hour": "YYYY-MM-DDTHH:00:00Z",
+      "total_tokens": "0",
+      "input_tokens": "0",
+      "cached_input_tokens": "0",
+      "output_tokens": "0",
+      "reasoning_output_tokens": "0"
+    }
+  ]
+}
+```
+
+---
+
+### GET /functions/vibescore-usage-monthly
+
+Return UTC monthly aggregates for the authenticated user (recent window).
+
+Auth:
+- `Authorization: Bearer <user_jwt>`
+
+Query:
+- `months=1..24` (optional; default `24`)
+- `to=YYYY-MM-DD` (optional; default today UTC)
+
+Response:
+
+```json
+{
+  "from": "YYYY-MM-DD",
+  "to": "YYYY-MM-DD",
+  "months": 24,
+  "data": [
+    {
+      "month": "YYYY-MM",
+      "total_tokens": "0",
+      "input_tokens": "0",
+      "cached_input_tokens": "0",
+      "output_tokens": "0",
+      "reasoning_output_tokens": "0"
+    }
+  ]
+}
+```
+
+---
+
 ### GET /functions/vibescore-usage-heatmap
 
 Return a GitHub-inspired activity heatmap derived from UTC daily totals.
@@ -237,6 +300,28 @@ Response:
     { "period": "week", "from": "YYYY-MM-DD", "to": "YYYY-MM-DD", "inserted": 42 }
   ]
 }
+```
+
+Manual refresh runbook:
+
+```bash
+BASE_URL="https://5tmappuk.us-east.insforge.app"
+ADMIN_TOKEN="<service_role_key or api_key>"
+
+for period in day week month total; do
+  echo "period=$period"
+  curl -s -X POST "$BASE_URL/functions/vibescore-leaderboard-refresh?period=${period}" \
+    -H "Authorization: Bearer $ADMIN_TOKEN" \
+    -H "Content-Type: application/json" \
+    --data "{}"
+done
+```
+
+Verification:
+
+```bash
+curl -s "$BASE_URL/functions/vibescore-leaderboard?period=week" \
+  -H "Authorization: Bearer <user_jwt>"
 ```
 
 ---

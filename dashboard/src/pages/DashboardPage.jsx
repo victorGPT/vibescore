@@ -6,6 +6,7 @@ import { getRangeForPeriod } from "../lib/date-range.js";
 import { DAILY_SORT_COLUMNS, sortDailyRows } from "../lib/daily.js";
 import { toDisplayNumber } from "../lib/format.js";
 import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
+import { useTrendData } from "../hooks/use-trend-data.js";
 import { useUsageData } from "../hooks/use-usage-data.js";
 import { BackendStatus } from "../components/BackendStatus.jsx";
 import { AsciiBox } from "../ui/matrix-a/components/AsciiBox.jsx";
@@ -60,6 +61,22 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   });
 
   const {
+    rows: trendRows,
+    from: trendFrom,
+    to: trendTo,
+    loading: trendLoading,
+    refresh: refreshTrend,
+  } = useTrendData({
+    baseUrl,
+    accessToken: auth?.accessToken || null,
+    period,
+    from,
+    to,
+    months: 24,
+    cacheKey: auth?.userId || auth?.email || "default",
+  });
+
+  const {
     range: heatmapRange,
     daily: heatmapDaily,
     heatmap,
@@ -75,10 +92,6 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
 
   const [sort, setSort] = useState(() => ({ key: "day", dir: "desc" }));
   const sortedDaily = useMemo(() => sortDailyRows(daily, sort), [daily, sort]);
-  const trendRows = useMemo(
-    () => sortDailyRows(daily, { key: "day", dir: "asc" }),
-    [daily]
-  );
 
   function toggleSort(key) {
     setSort((prev) => {
@@ -107,9 +120,10 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const refreshAll = useCallback(() => {
     refreshUsage();
     refreshHeatmap();
-  }, [refreshHeatmap, refreshUsage]);
+    refreshTrend();
+  }, [refreshHeatmap, refreshTrend, refreshUsage]);
 
-  const usageLoadingState = usageLoading || heatmapLoading;
+  const usageLoadingState = usageLoading || heatmapLoading || trendLoading;
   const usageSourceLabel = useMemo(
     () => `DATA_SOURCE: ${String(usageSource || "edge").toUpperCase()}`,
     [usageSource]
@@ -129,7 +143,6 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const heatmapTo = heatmap?.to || heatmapRange.to;
 
   const rangeLabel = useMemo(() => {
-    if (period === "total") return `all-time..${to}`;
     return `${from}..${to}`;
   }, [from, period, to]);
 
@@ -327,7 +340,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
               statusLabel={usageSourceLabel}
             />
 
-            <TrendMonitor rows={trendRows} from={from} to={to} period={period} />
+            <TrendMonitor rows={trendRows} from={trendFrom} to={trendTo} period={period} />
 
             {period !== "total" ? (
               <AsciiBox title="Daily_Totals" subtitle="Sortable">
