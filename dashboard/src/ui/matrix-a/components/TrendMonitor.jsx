@@ -160,6 +160,8 @@ export function TrendMonitor({
       x: rawX,
       y: yPx,
       rectWidth: rect.width,
+      axisWidthPx,
+      plotWidthPx,
     });
   }
 
@@ -235,18 +237,36 @@ export function TrendMonitor({
         ></div>
 
         {hover ? (
-          <div
-            className="absolute z-30 px-2 py-1 text-[9px] font-mono bg-black/90 border border-[#00FF41]/30 text-[#00FF41] pointer-events-none"
-            style={{
-              left: Math.min(hover.x + 10, hover.rectWidth - 120),
-              top: Math.max(hover.y - 24, 6),
-            }}
-          >
-            <div className="opacity-70">
-              {hover.label ? `${hover.label} UTC` : "UTC"}
+          <>
+            <div
+              className="absolute inset-y-0 left-0 pointer-events-none z-25"
+              style={{ right: hover.axisWidthPx }}
+            >
+              <div
+                className="absolute top-0 bottom-0 w-px bg-[#00FF41]/40 shadow-[0_0_6px_rgba(0,255,65,0.35)]"
+                style={{ left: hover.x }}
+              ></div>
+              <div
+                className="absolute w-2 h-2 rounded-full bg-[#00FF41] shadow-[0_0_6px_rgba(0,255,65,0.8)]"
+                style={{ left: hover.x - 4, top: hover.y - 4 }}
+              ></div>
             </div>
-            <div className="font-bold">{formatFull(hover.value)} tokens</div>
-          </div>
+            <div
+              className="absolute z-30 px-2 py-1 text-[9px] font-mono bg-black/90 border border-[#00FF41]/30 text-[#00FF41] pointer-events-none"
+              style={{
+                left: Math.min(
+                  hover.x + 10,
+                  hover.rectWidth - hover.axisWidthPx - 120
+                ),
+                top: Math.max(hover.y - 24, 6),
+              }}
+            >
+              <div className="opacity-70">
+                {hover.label ? `${hover.label} UTC` : "UTC"}
+              </div>
+              <div className="font-bold">{formatFull(hover.value)} tokens</div>
+            </div>
+          </>
         ) : null}
       </div>
 

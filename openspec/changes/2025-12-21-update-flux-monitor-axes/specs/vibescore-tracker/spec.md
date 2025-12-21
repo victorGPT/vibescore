@@ -12,6 +12,7 @@ The dashboard SHALL render the Trend monitor using the provided v2 TUI layout, i
 - **GIVEN** the user hovers a point on the Trend monitor
 - **WHEN** the tooltip appears
 - **THEN** it SHALL display the exact token value (non-abbreviated) and the UTC date
+ - **AND** a vertical guide line and point marker SHALL indicate the hovered position
 
 #### Scenario: Y-axis uses compact notation
 - **GIVEN** the Trend monitor renders
