@@ -259,3 +259,19 @@ Response:
 ```json
 { "leaderboard_public": true, "updated_at": "iso" }
 ```
+
+---
+
+### GET /functions/vibescore-debug-auth
+
+Diagnostic endpoint that reports whether the function runtime has the anon key
+configured. This does **not** expose any secrets.
+
+Auth:
+- None (public, returns booleans only)
+
+Response:
+
+```json
+{ "hasAnonKey": true }
+```
