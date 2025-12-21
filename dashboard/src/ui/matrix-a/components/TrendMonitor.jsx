@@ -21,7 +21,10 @@ function formatAxisDate(dt) {
   return `${mm}-${dd}`;
 }
 
-function buildXAxisLabels({ from, to }) {
+function buildXAxisLabels({ from, to, period }) {
+  if (period === "day") {
+    return ["00:00", "06:00", "12:00", "18:00", "NOW"];
+  }
   const start = parseDate(from);
   const end = parseDate(to);
   if (!start || !end || end < start) {
@@ -42,6 +45,7 @@ export function TrendMonitor({
   label = "TREND",
   from,
   to,
+  period,
   className = "",
 }) {
   const hasData = Array.isArray(data) && data.length > 0;
@@ -62,7 +66,10 @@ export function TrendMonitor({
   }, [safeData, max]);
 
   const fillPath = points ? `${points} 100,100 0,100` : "";
-  const xLabels = useMemo(() => buildXAxisLabels({ from, to }), [from, to]);
+  const xLabels = useMemo(
+    () => buildXAxisLabels({ from, to, period }),
+    [from, period, to]
+  );
 
   return (
     <div
@@ -93,7 +100,7 @@ export function TrendMonitor({
           }}
         />
 
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#00FF41]/10 to-transparent w-[50%] h-full animate-[scan-x_3s_linear_infinite] pointer-events-none mix-blend-screen" />
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#00FF41]/25 to-transparent w-[60%] h-full animate-[scan-x_3s_linear_infinite] pointer-events-none mix-blend-screen opacity-80" />
 
         <svg
           viewBox="0 0 100 100"
