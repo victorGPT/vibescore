@@ -229,6 +229,7 @@ dashboard.daily.empty,dashboard,DashboardPage,AsciiBox,empty_state,"No data yet.
 
 dashboard.identity.title,dashboard,DashboardPage,IdentityCard,title,"Architect_Identity",,active
 dashboard.identity.subtitle,dashboard,DashboardPage,IdentityCard,subtitle,"Authorized",,active
+dashboard.identity.fallback,dashboard,DashboardPage,IdentityCard,handle_fallback,"ANONYMOUS",,active
 
 live_sniffer.log.system,ui,LiveSniffer,LiveSniffer,log,"[SYSTEM] KERNEL_UPLINK_ESTABLISHED",,active
 live_sniffer.log.socket,ui,LiveSniffer,LiveSniffer,log,"[SOCKET] LISTENING_ON_LOCAL_CLI_PIPE...",,active
