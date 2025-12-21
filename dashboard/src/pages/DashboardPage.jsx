@@ -64,7 +64,9 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     range: heatmapRange,
     daily: heatmapDaily,
     heatmap,
+    source: heatmapSource,
     loading: heatmapLoading,
+    error: heatmapError,
     refresh: refreshHeatmap,
   } = useActivityHeatmap({
     baseUrl,
@@ -110,6 +112,25 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   }, [refreshHeatmap, refreshUsage]);
 
   const usageLoadingState = usageLoading || heatmapLoading;
+
+  const dataStatus = useMemo(() => {
+    if (!accessEnabled) return "LOST";
+    const hasCache = usageSource === "cache" || heatmapSource === "cache";
+    const hasError = Boolean(usageError || heatmapError);
+    if (hasCache) return "UNSTABLE";
+    if (hasError) return "LOST";
+    return "STABLE";
+  }, [accessEnabled, heatmapError, heatmapSource, usageError, usageSource]);
+
+  const dataStatusTitle = useMemo(() => {
+    const parts = [`data=${dataStatus.toLowerCase()}`, "click=refresh"];
+    if (usageSource === "cache" || heatmapSource === "cache") {
+      parts.push("source=cache");
+    }
+    if (usageError) parts.push(`usage_error=${usageError}`);
+    if (heatmapError) parts.push(`heatmap_error=${heatmapError}`);
+    return parts.join(" • ");
+  }, [dataStatus, heatmapError, heatmapSource, usageError, usageSource]);
 
   const usageStatusLabel = useMemo(() => {
     if (usageSource !== "cache") return null;
@@ -214,7 +235,14 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
 
   return (
     <MatrixShell
-      headerStatus={<BackendStatus baseUrl={baseUrl} />}
+      headerStatus={
+        <BackendStatus
+          baseUrl={baseUrl}
+          statusOverride={dataStatus}
+          titleOverride={dataStatusTitle}
+          onRefresh={refreshAll}
+        />
+      }
       headerRight={headerRight}
       footerLeft={
         accessEnabled ? (
