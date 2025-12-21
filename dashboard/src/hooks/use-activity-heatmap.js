@@ -217,5 +217,11 @@ export function useActivityHeatmap({
     refresh();
   }, [accessToken, mockEnabled, readCache, refresh]);
 
-  return { range, daily, heatmap, source, loading, error, refresh };
+  const normalizedSource = mockEnabled
+    ? "mock"
+    : source === "client"
+      ? "edge"
+      : source;
+
+  return { range, daily, heatmap, source: normalizedSource, loading, error, refresh };
 }

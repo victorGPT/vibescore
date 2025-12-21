@@ -47,6 +47,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const {
     daily,
     summary,
+    source: usageSource,
     loading: usageLoading,
     error: usageError,
     refresh: refreshUsage,
@@ -56,12 +57,14 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     from,
     to,
     includeDaily: period !== "total",
+    cacheKey: auth?.userId || auth?.email || "default",
   });
 
   const {
     range: heatmapRange,
     daily: heatmapDaily,
     heatmap,
+    source: heatmapSource,
     loading: heatmapLoading,
     refresh: refreshHeatmap,
   } = useActivityHeatmap({
@@ -116,6 +119,14 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   }, [refreshHeatmap, refreshUsage]);
 
   const usageLoadingState = usageLoading || heatmapLoading;
+  const usageSourceLabel = useMemo(
+    () => `DATA_SOURCE: ${String(usageSource || "edge").toUpperCase()}`,
+    [usageSource]
+  );
+  const heatmapSourceLabel = useMemo(
+    () => `DATA_SOURCE: ${String(heatmapSource || "edge").toUpperCase()}`,
+    [heatmapSource]
+  );
 
   const identityHandle = useMemo(() => {
     const raw = (auth?.name || auth?.email || "Anonymous").trim();
@@ -299,6 +310,9 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
               <div className="mt-3 text-[8px] opacity-30 uppercase tracking-widest font-black">
                 Range: {heatmapFrom}..{heatmapTo}
               </div>
+              <div className="mt-1 text-[8px] opacity-30 uppercase tracking-widest font-black">
+                {heatmapSourceLabel}
+              </div>
             </AsciiBox>
 
           </div>
@@ -319,6 +333,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
               loading={usageLoadingState}
               error={usageError}
               rangeLabel={rangeLabel}
+              statusLabel={usageSourceLabel}
             />
 
             <NeuralFluxMonitor data={fluxData} />

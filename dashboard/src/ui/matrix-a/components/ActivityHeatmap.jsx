@@ -155,6 +155,7 @@ export function ActivityHeatmap({ heatmap }) {
   const scrollRef = useRef(null);
   const trackRef = useRef(null);
   const thumbRef = useRef(null);
+  const hasAutoScrolledRef = useRef(false);
 
   const [scrollState, setScrollState] = useState({
     left: 0,
@@ -205,6 +206,26 @@ export function ActivityHeatmap({ heatmap }) {
       el.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onResize);
     };
+  }, [updateScrollState, weeks.length]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (hasAutoScrolledRef.current) return;
+    if (el.scrollWidth <= el.clientWidth + 1) {
+      updateScrollState();
+      hasAutoScrolledRef.current = true;
+      return;
+    }
+
+    const snapToLatest = () => {
+      el.scrollLeft = el.scrollWidth - el.clientWidth;
+      updateScrollState();
+      hasAutoScrolledRef.current = true;
+    };
+
+    // Wait two frames to ensure layout settles before snapping.
+    requestAnimationFrame(() => requestAnimationFrame(snapToLatest));
   }, [updateScrollState, weeks.length]);
 
   // --- CONTENT DRAG HANDLERS ---

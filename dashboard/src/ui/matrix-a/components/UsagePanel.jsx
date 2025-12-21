@@ -29,6 +29,7 @@ export function UsagePanel({
   loading = false,
   error,
   rangeLabel,
+  statusLabel,
   className = "",
 }) {
   const tabs = normalizePeriods(periods);
@@ -67,11 +68,18 @@ export function UsagePanel({
             </button>
           ))}
         </div>
-        {onRefresh ? (
+        {onRefresh || statusLabel ? (
           <div className="flex items-center gap-3">
-            <MatrixButton primary disabled={loading} onClick={onRefresh}>
-              {loading ? "Loading…" : "Refresh"}
-            </MatrixButton>
+            {statusLabel ? (
+              <span className="text-[8px] uppercase tracking-widest opacity-50 font-black">
+                {statusLabel}
+              </span>
+            ) : null}
+            {onRefresh ? (
+              <MatrixButton primary disabled={loading} onClick={onRefresh}>
+                {loading ? "Loading…" : "Refresh"}
+              </MatrixButton>
+            ) : null}
           </div>
         ) : null}
       </div>
