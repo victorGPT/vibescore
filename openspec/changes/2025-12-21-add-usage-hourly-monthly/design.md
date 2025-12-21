@@ -53,6 +53,12 @@ OUT:
 - total 固定最近 24 个月，不支持更大范围。
 - bigints 以 string 返回。
 
+### Trend rendering rules
+
+- The trend line SHALL render only up to the latest available UTC bucket.
+- Future buckets (after current UTC hour/day/month) SHALL NOT render a line.
+- Historical missing buckets are treated as zero unless the API explicitly marks them as missing.
+
 ### Test strategy
 
 - Edge Function: 参数校验（day 格式、months 范围）。

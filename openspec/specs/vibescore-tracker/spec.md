@@ -107,6 +107,15 @@ The dashboard UI MUST NOT provide arbitrary date range inputs. It SHALL only all
 - **THEN** the UI SHALL NOT present any `from/to` date picker inputs
 - **AND** the UI SHALL allow selecting only `day|week|month|total`
 
+### Requirement: Dashboard TREND truncates future buckets
+The dashboard TREND chart SHALL NOT render the trend line into future UTC buckets that have not occurred yet.
+
+#### Scenario: Current date does not cover full period
+- **GIVEN** the current UTC date/time is within an active period (e.g., mid-week or mid-month)
+- **WHEN** the dashboard renders the TREND chart for that period
+- **THEN** the trend line SHALL render only through the last available UTC bucket
+- **AND** future buckets SHALL remain without a line
+
 ### Requirement: Leaderboard endpoint is available (calendar day/week/month/total)
 The system SHALL provide a leaderboard endpoint that ranks users by `total_tokens` over a UTC calendar `day`, `week` (Sunday start), `month`, or `total` (all-time).
 

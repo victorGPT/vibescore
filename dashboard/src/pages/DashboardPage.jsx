@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { buildAuthUrl } from "../lib/auth-url.js";
 import { computeActiveStreakDays } from "../lib/activity-heatmap.js";
-import { getRangeForPeriod } from "../lib/date-range.js";
+import { formatDateUTC, getRangeForPeriod } from "../lib/date-range.js";
 import { DAILY_SORT_COLUMNS, sortDailyRows } from "../lib/daily.js";
 import { toDisplayNumber } from "../lib/format.js";
 import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
@@ -143,8 +143,10 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const heatmapTo = heatmap?.to || heatmapRange.to;
 
   const rangeLabel = useMemo(() => {
-    return `${from}..${to}`;
-  }, [from, period, to]);
+    const today = formatDateUTC(new Date());
+    const displayTo = to && to > today ? today : to;
+    return `${from}..${displayTo}`;
+  }, [from, to]);
 
   const summaryLabel = period === "total" ? "TOTAL_SYSTEM_OUTPUT" : "TOTAL";
 
@@ -332,7 +334,6 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
               useSummaryLayout
               summaryLabel={summaryLabel}
               summaryValue={toDisplayNumber(summary?.total_tokens)}
-              summarySubLabel={`SINCE ${rangeLabel}`}
               onRefresh={refreshAll}
               loading={usageLoadingState}
               error={usageError}

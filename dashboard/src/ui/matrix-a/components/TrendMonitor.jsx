@@ -12,20 +12,163 @@ export function TrendMonitor({
   period,
 }) {
   const series = Array.isArray(rows) && rows.length ? rows : null;
-  const seriesValues = series
-    ? series.map((row) => Number(row?.total_tokens || row?.value || 0))
-    : [];
-  const seriesLabels = series
-    ? series.map((row) => row?.hour || row?.day || row?.month || row?.label || "")
-    : [];
-  const safeData =
-    seriesValues.length > 0
-      ? seriesValues
-      : data.length > 0
-      ? data
-      : Array.from({ length: 24 }, () => 0);
-  const max = Math.max(...safeData, 100);
-  const avg = safeData.reduce((a, b) => a + b, 0) / safeData.length;
+  const fallbackValues =
+    data.length > 0 ? data : Array.from({ length: 24 }, () => 0);
+
+  function toUtcDateOnly(d) {
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  }
+
+  function formatDateUTCValue(d) {
+    return toUtcDateOnly(d).toISOString().slice(0, 10);
+  }
+
+  function addUtcDays(date, days) {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
+  }
+
+  function diffUtcDays(start, end) {
+    return Math.floor((end.getTime() - start.getTime()) / 86400000);
+  }
+
+  function startOfUtcMonth(date) {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+  }
+
+  function addUtcMonths(date, months) {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
+  }
+
+  function diffUtcMonths(start, end) {
+    return (
+      (end.getUTCFullYear() - start.getUTCFullYear()) * 12 +
+      (end.getUTCMonth() - start.getUTCMonth())
+    );
+  }
+
+  function formatMonthKey(date) {
+    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+  }
+
+  const timeline = useMemo(() => {
+    if (!series || series.length === 0) {
+      return {
+        values: fallbackValues,
+        labels: fallbackValues.map((_, idx) => String(idx)),
+        bucketCount: fallbackValues.length,
+        lastIndex: fallbackValues.length - 1,
+      };
+    }
+
+    const now = new Date();
+    const today = toUtcDateOnly(now);
+
+    if (period === "day") {
+      const hourMap = new Map();
+      let dayDate = null;
+
+      for (const row of series) {
+        const hourLabel = row?.hour;
+        if (hourLabel) {
+          const dt = new Date(hourLabel);
+          if (Number.isFinite(dt.getTime())) {
+            if (!dayDate) dayDate = toUtcDateOnly(dt);
+            const hour = dt.getUTCHours();
+            const current = hourMap.get(hour) || 0;
+            hourMap.set(hour, current + Number(row?.total_tokens || row?.value || 0));
+          }
+        }
+      }
+
+      if (!dayDate) {
+        const parsed = parseDate(from) || parseDate(to);
+        dayDate = parsed || today;
+      }
+
+      const values = [];
+      const labels = [];
+      for (let hour = 0; hour < 24; hour += 1) {
+        const dt = new Date(
+          Date.UTC(dayDate.getUTCFullYear(), dayDate.getUTCMonth(), dayDate.getUTCDate(), hour, 0, 0)
+        );
+        labels.push(dt.toISOString());
+        values.push(hourMap.get(hour) || 0);
+      }
+
+      let lastIndex = 23;
+      if (dayDate.getTime() > today.getTime()) lastIndex = -1;
+      else if (dayDate.getTime() === today.getTime()) lastIndex = now.getUTCHours();
+
+      return { values, labels, bucketCount: 24, lastIndex };
+    }
+
+    if (period === "total") {
+      const monthMap = new Map();
+      for (const row of series) {
+        const key = row?.month;
+        if (!key || typeof key !== "string") continue;
+        const current = monthMap.get(key) || 0;
+        monthMap.set(key, current + Number(row?.total_tokens || row?.value || 0));
+      }
+
+      const start = parseDate(from) || today;
+      const end = parseDate(to) || today;
+      const startMonth = startOfUtcMonth(start);
+      const endMonth = startOfUtcMonth(end);
+      const totalMonths = Math.max(1, diffUtcMonths(startMonth, endMonth) + 1);
+
+      const values = [];
+      const labels = [];
+      for (let i = 0; i < totalMonths; i += 1) {
+        const dt = addUtcMonths(startMonth, i);
+        const key = formatMonthKey(dt);
+        labels.push(key);
+        values.push(monthMap.get(key) || 0);
+      }
+
+      return { values, labels, bucketCount: totalMonths, lastIndex: totalMonths - 1 };
+    }
+
+    const dayMap = new Map();
+    for (const row of series) {
+      const key = row?.day;
+      if (!key || typeof key !== "string") continue;
+      const current = dayMap.get(key) || 0;
+      dayMap.set(key, current + Number(row?.total_tokens || row?.value || 0));
+    }
+
+    const start = parseDate(from) || today;
+    const end = parseDate(to) || start;
+    const totalDays = Math.max(1, diffUtcDays(start, end) + 1);
+
+    const values = [];
+    const labels = [];
+    for (let i = 0; i < totalDays; i += 1) {
+      const dt = addUtcDays(start, i);
+      const key = formatDateUTCValue(dt);
+      labels.push(key);
+      values.push(dayMap.get(key) || 0);
+    }
+
+    let lastIndex = totalDays - 1;
+    if (today.getTime() < start.getTime()) lastIndex = -1;
+    else if (today.getTime() <= end.getTime()) {
+      lastIndex = Math.min(totalDays - 1, diffUtcDays(start, today));
+    }
+
+    return { values, labels, bucketCount: totalDays, lastIndex };
+  }, [fallbackValues, from, period, series, to]);
+
+  const bucketCount = timeline.bucketCount;
+  const lastIndex = timeline.lastIndex;
+  const renderCount = lastIndex >= 0 ? Math.min(lastIndex + 1, timeline.values.length) : 0;
+  const renderValues = renderCount > 0 ? timeline.values.slice(0, renderCount) : [];
+  const analysisValues = renderValues.length > 0 ? renderValues : timeline.values;
+  const max = Math.max(...analysisValues, 100);
+  const avg =
+    renderValues.length > 0
+      ? renderValues.reduce((a, b) => a + b, 0) / renderValues.length
+      : 0;
 
   const width = 100;
   const height = 100;
@@ -106,9 +249,9 @@ export function TrendMonitor({
     if (period === "day") {
       return ["00:00", "06:00", "12:00", "18:00", "23:00"];
     }
-    if (seriesLabels.length > 0) {
-      const indices = pickLabelIndices(seriesLabels.length);
-      const labels = indices.map((idx) => formatAxisLabel(seriesLabels[idx] || ""));
+    if (timeline.labels.length > 0) {
+      const indices = pickLabelIndices(timeline.labels.length);
+      const labels = indices.map((idx) => formatAxisLabel(timeline.labels[idx] || ""));
       if (labels.some((label) => label)) return labels;
     }
     const start = parseDate(from);
@@ -168,8 +311,9 @@ export function TrendMonitor({
   }
 
   const points = useMemo(() => {
-    const denom = Math.max(safeData.length - 1, 1);
-    return safeData
+    if (renderValues.length === 0) return "";
+    const denom = Math.max(bucketCount - 1, 1);
+    return renderValues
       .map((val, i) => {
         const x = (i / denom) * plotWidth;
         const normalizedVal = max > 0 ? val / max : 0;
@@ -177,30 +321,39 @@ export function TrendMonitor({
         return `${x},${y}`;
       })
       .join(" ");
-  }, [safeData, max]);
+  }, [bucketCount, max, plotHeight, plotTop, plotWidth, renderValues]);
 
-  const fillPath = `${points} ${plotWidth},${height - plotBottom} 0,${
-    height - plotBottom
-  }`;
-  const xLabels = useMemo(() => buildXAxisLabels(), [from, period, to]);
+  const lastX =
+    renderValues.length > 0
+      ? ((renderValues.length - 1) / Math.max(bucketCount - 1, 1)) * plotWidth
+      : 0;
+  const fillPath =
+    renderValues.length > 0
+      ? `${points} ${lastX},${height - plotBottom} 0,${height - plotBottom}`
+      : `0,${height - plotBottom} 0,${height - plotBottom}`;
+  const xLabels = useMemo(() => buildXAxisLabels(), [from, period, to, timeline.labels]);
 
   const plotRef = useRef(null);
   const [hover, setHover] = useState(null);
 
   function handleMove(e) {
     const el = plotRef.current;
-    if (!el || safeData.length === 0) return;
+    if (!el || bucketCount === 0 || lastIndex < 0) return;
     const rect = el.getBoundingClientRect();
     const axisWidthPx = (axisWidth / width) * rect.width;
     const plotWidthPx = rect.width - axisWidthPx;
     const rawX = Math.min(Math.max(e.clientX - rect.left, 0), plotWidthPx);
-    const denom = Math.max(safeData.length - 1, 1);
+    const denom = Math.max(bucketCount - 1, 1);
     const ratio = plotWidthPx > 0 ? rawX / plotWidthPx : 0;
     const index = Math.round(ratio * denom);
-    const value = safeData[index] ?? 0;
+    if (index > lastIndex) {
+      setHover(null);
+      return;
+    }
+    const value = timeline.values[index] ?? 0;
     const snappedX =
       denom > 0 ? (index / denom) * plotWidthPx : plotWidthPx / 2;
-    const labelText = seriesLabels[index] || "";
+    const labelText = timeline.labels[index] || "";
     const yRatio = max > 0 ? 1 - value / max : 1;
     const yPx =
       (plotTop / height) * rect.height +

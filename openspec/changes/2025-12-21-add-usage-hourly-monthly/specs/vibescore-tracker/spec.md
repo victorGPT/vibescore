@@ -26,3 +26,12 @@ The dashboard TREND module SHALL use period-aligned aggregates: `day=hourly`, `w
 - **WHEN** the user switches between `day`, `week`, `month`, and `total`
 - **THEN** the TREND chart SHALL request and render the corresponding aggregation granularity
 - **AND** the X-axis labels SHALL align with the chosen period (hours for day, dates for week/month, months for total)
+
+### Requirement: TREND chart truncates future buckets
+The dashboard TREND module SHALL NOT render the trend line into future UTC buckets that have not occurred yet.
+
+#### Scenario: Current date does not cover full period
+- **GIVEN** the current UTC date/time is within an active period (e.g., mid-week or mid-month)
+- **WHEN** the dashboard renders the TREND chart for that period
+- **THEN** the trend line SHALL render only through the last available UTC bucket
+- **AND** future buckets SHALL remain without a line
