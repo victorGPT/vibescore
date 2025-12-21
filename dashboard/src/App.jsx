@@ -6,6 +6,7 @@ import { buildAuthUrl } from "./lib/auth-url.js";
 import { ConnectCliPage } from "./pages/ConnectCliPage.jsx";
 import { DashboardPage } from "./pages/DashboardPage.jsx";
 import { LandingPage } from "./pages/LandingPage.jsx";
+import { AuthCallbackPage } from "./pages/AuthCallbackPage.jsx";
 
 export default function App() {
   const baseUrl = useMemo(() => getInsforgeBaseUrl(), []);
@@ -27,6 +28,11 @@ export default function App() {
 
   if (routePath === "/connect") {
     return <ConnectCliPage defaultInsforgeBaseUrl={baseUrl} />;
+  }
+
+  // Handle the auth callback state visually while useAuth processes the token
+  if (routePath === "/auth/callback") {
+    return <AuthCallbackPage />;
   }
 
   if (!signedIn) {
