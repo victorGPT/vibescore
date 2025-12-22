@@ -2,13 +2,18 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { buildAuthUrl } from "../lib/auth-url.js";
 import { computeActiveStreakDays } from "../lib/activity-heatmap.js";
-import { formatDateUTC, getRangeForPeriod } from "../lib/date-range.js";
+import { getRangeForPeriod } from "../lib/date-range.js";
 import { DAILY_SORT_COLUMNS, sortDailyRows } from "../lib/daily.js";
 import { toDisplayNumber } from "../lib/format.js";
-import { copy } from "../lib/copy.js";
 import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
 import { useTrendData } from "../hooks/use-trend-data.js";
 import { useUsageData } from "../hooks/use-usage-data.js";
+import {
+  formatTimeZoneLabel,
+  formatTimeZoneShortLabel,
+  getBrowserTimeZone,
+  getBrowserTimeZoneOffsetMinutes,
+} from "../lib/timezone.js";
 import { BackendStatus } from "../components/BackendStatus.jsx";
 import { AsciiBox } from "../ui/matrix-a/components/AsciiBox.jsx";
 import { ActivityHeatmap } from "../ui/matrix-a/components/ActivityHeatmap.jsx";
@@ -20,6 +25,8 @@ import { TrendMonitor } from "../ui/matrix-a/components/TrendMonitor.jsx";
 import { UsagePanel } from "../ui/matrix-a/components/UsagePanel.jsx";
 import { MatrixShell } from "../ui/matrix-a/layout/MatrixShell.jsx";
 import { isMockEnabled } from "../lib/mock-data.js";
+
+const PERIODS = ["day", "week", "month", "total"];
 
 export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const [booted, setBooted] = useState(false);
@@ -37,22 +44,22 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     return () => window.clearInterval(t);
   }, []);
 
-  const periods = useMemo(
-    () => [
-      { key: "day", label: copy("dashboard.period.day") },
-      { key: "week", label: copy("dashboard.period.week") },
-      { key: "month", label: copy("dashboard.period.month") },
-      { key: "total", label: copy("dashboard.period.total") },
-    ],
-    []
-  );
-
   const [period, setPeriod] = useState("week");
   const range = useMemo(() => getRangeForPeriod(period), [period]);
   const from = range.from;
   const to = range.to;
   const mockEnabled = isMockEnabled();
   const accessEnabled = signedIn || mockEnabled;
+  const timeZone = useMemo(() => getBrowserTimeZone(), []);
+  const tzOffsetMinutes = useMemo(() => getBrowserTimeZoneOffsetMinutes(), []);
+  const timeZoneLabel = useMemo(
+    () => formatTimeZoneLabel({ timeZone, offsetMinutes: tzOffsetMinutes }),
+    [timeZone, tzOffsetMinutes]
+  );
+  const timeZoneShortLabel = useMemo(
+    () => formatTimeZoneShortLabel({ timeZone, offsetMinutes: tzOffsetMinutes }),
+    [timeZone, tzOffsetMinutes]
+  );
 
   const {
     daily,
@@ -68,6 +75,8 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     to,
     includeDaily: period !== "total",
     cacheKey: auth?.userId || auth?.email || "default",
+    timeZone,
+    tzOffsetMinutes,
   });
 
   const {
@@ -84,6 +93,8 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     to,
     months: 24,
     cacheKey: auth?.userId || auth?.email || "default",
+    timeZone,
+    tzOffsetMinutes,
   });
 
   const {
@@ -98,23 +109,22 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     accessToken: auth?.accessToken || null,
     weeks: 52,
     cacheKey: auth?.userId || auth?.email || "default",
+    timeZone,
+    tzOffsetMinutes,
   });
 
   const [sort, setSort] = useState(() => ({ key: "day", dir: "desc" }));
   const sortedDaily = useMemo(() => sortDailyRows(daily, sort), [daily, sort]);
-  const dailyTableRows = useMemo(
-    () => sortedDaily.filter((row) => !row?.future),
-    [sortedDaily]
-  );
   const hasDailyActual = useMemo(
     () => daily.some((row) => !row?.missing && !row?.future),
     [daily]
   );
-  const dailyPlaceholder = copy("shared.placeholder");
 
   function renderDailyCell(row, key) {
-    if (row?.future) return dailyPlaceholder;
-    if (row?.missing) return toDisplayNumber(0);
+    if (row?.future) return "—";
+    if (row?.missing) {
+      return key === "total_tokens" ? "未同步" : "—";
+    }
     return toDisplayNumber(row?.[key]);
   }
 
@@ -150,23 +160,16 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
 
   const usageLoadingState = usageLoading || heatmapLoading || trendLoading;
   const usageSourceLabel = useMemo(
-    () =>
-      copy("shared.data_source", {
-        source: String(usageSource || "edge").toUpperCase(),
-      }),
+    () => `DATA_SOURCE: ${String(usageSource || "edge").toUpperCase()}`,
     [usageSource]
   );
   const heatmapSourceLabel = useMemo(
-    () =>
-      copy("shared.data_source", {
-        source: String(heatmapSource || "edge").toUpperCase(),
-      }),
+    () => `DATA_SOURCE: ${String(heatmapSource || "edge").toUpperCase()}`,
     [heatmapSource]
   );
 
   const identityHandle = useMemo(() => {
-    const fallback = copy("dashboard.identity.fallback");
-    const raw = (auth?.name || auth?.email || fallback).trim();
+    const raw = (auth?.name || auth?.email || "Anonymous").trim();
     const base = raw.includes("@") ? raw.split("@")[0] : raw;
     return base.replace(/[^a-zA-Z0-9._-]/g, "_");
   }, [auth?.email, auth?.name]);
@@ -175,42 +178,26 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const heatmapTo = heatmap?.to || heatmapRange.to;
 
   const rangeLabel = useMemo(() => {
-    const today = formatDateUTC(new Date());
-    const displayTo = to && to > today ? today : to;
-    return `${from}..${displayTo}`;
-  }, [from, to]);
+    return `${from}..${to}`;
+  }, [from, period, to]);
 
-  const summaryLabel =
-    period === "total"
-      ? copy("usage.summary.total_system_output")
-      : copy("usage.summary.total");
+  const summaryLabel = period === "total" ? "TOTAL_SYSTEM_OUTPUT" : "TOTAL";
 
   const metricsRows = useMemo(
     () => [
       {
-        key: "TOTAL",
-        label: copy("usage.metric.total"),
+        label: "TOTAL",
         value: toDisplayNumber(summary?.total_tokens),
         valueClassName: "text-white",
       },
+      { label: "INPUT", value: toDisplayNumber(summary?.input_tokens) },
+      { label: "OUTPUT", value: toDisplayNumber(summary?.output_tokens) },
       {
-        key: "INPUT",
-        label: copy("usage.metric.input"),
-        value: toDisplayNumber(summary?.input_tokens),
-      },
-      {
-        key: "OUTPUT",
-        label: copy("usage.metric.output"),
-        value: toDisplayNumber(summary?.output_tokens),
-      },
-      {
-        key: "CACHED_INPUT",
-        label: copy("usage.metric.cached_input"),
+        label: "CACHED_INPUT",
         value: toDisplayNumber(summary?.cached_input_tokens),
       },
       {
-        key: "REASONING_OUTPUT",
-        label: copy("usage.metric.reasoning_output"),
+        label: "REASONING_OUTPUT",
         value: toDisplayNumber(summary?.reasoning_output_tokens),
       },
     ],
@@ -251,9 +238,9 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
       // ignore write errors (quota/private mode)
     }
   }, [installSeen, installSeenKey]);
-  const installIsEmpty = !hasDailyActual;
+  const installIsEmpty = daily.length === 0;
   const shouldAnimateInstall = installIsEmpty || !installSeen;
-  const installHeadline = copy("dashboard.install.headline");
+  const installHeadline = ">> START_HERE: INSTALL_CLI";
   const installHeadlineDelayMs = 240;
   const installHeadlineSpeedMs = 45;
   const installBodySpeedMs = 48;
@@ -261,19 +248,17 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     installHeadlineDelayMs + installHeadline.length * installHeadlineSpeedMs + 240;
   const installSegments = useMemo(
     () => [
-      { text: `${copy("dashboard.install.step1")} ` },
+      { text: "1) run " },
       {
         text: installInitCmd,
         className: "px-1 py-0.5 bg-black/40 border border-[#00FF41]/20",
       },
-      {
-        text: `\n${copy("dashboard.install.step2")}\n${copy("dashboard.install.step3")} `,
-      },
+      { text: "\n2) use Codex CLI normally\n3) run " },
       {
         text: installSyncCmd,
         className: "px-1 py-0.5 bg-black/40 border border-[#00FF41]/20",
       },
-      { text: ` ${copy("dashboard.install.step3_suffix")}` },
+      { text: " (or wait for auto sync)" },
     ],
     [installInitCmd, installSyncCmd]
   );
@@ -288,21 +273,11 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     [baseUrl, redirectUrl]
   );
 
-  const dailyEmptyParts = useMemo(() => {
-    const marker = "__CMD__";
-    const template = copy("dashboard.daily.empty", { cmd: marker });
-    const parts = template.split(marker);
-    return {
-      before: parts[0] ?? template,
-      after: parts.length > 1 ? parts.slice(1).join(marker) : "",
-    };
-  }, []);
-
   const headerRight = (
     <div className="flex items-center gap-4">
       <div className="hidden sm:flex text-[#00FF41] font-bold bg-[#00FF41]/5 px-3 py-1 border border-[#00FF41]/20 items-center space-x-4">
         <span className="opacity-40 font-normal uppercase text-[8px]">
-          {copy("dashboard.session.label")}
+          Session_Time:
         </span>
         <span className="text-white tracking-widest">{time}</span>
       </div>
@@ -310,16 +285,12 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
       {signedIn ? (
         <>
           <span className="hidden md:block text-[10px] opacity-60 max-w-[240px] truncate">
-            {auth?.email || auth?.name || copy("dashboard.signed_in.fallback")}
+            {auth?.email || auth?.name || "Signed in"}
           </span>
-          <MatrixButton onClick={signOut}>
-            {copy("dashboard.sign_out")}
-          </MatrixButton>
+          <MatrixButton onClick={signOut}>Sign out</MatrixButton>
         </>
       ) : (
-        <span className="text-[10px] opacity-60">
-          {copy("dashboard.not_signed_in")}
-        </span>
+        <span className="text-[10px] opacity-60">Not signed in</span>
       )}
     </div>
   );
@@ -336,30 +307,30 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
       headerRight={headerRight}
       footerLeft={
         accessEnabled ? (
-          <span>{copy("dashboard.footer.active")}</span>
+          <span>Local aggregates ({timeZoneShortLabel}) • click Refresh to reload</span>
         ) : (
-          <span>{copy("dashboard.footer.auth")}</span>
+          <span>Sign in to view usage</span>
         )
       }
-      footerRight={<span className="font-bold">{copy("dashboard.footer.right")}</span>}
+      footerRight={<span className="font-bold">VibeScore_Dashboard</span>}
     >
       {requireAuthGate ? (
         <div className="flex items-center justify-center">
           <AsciiBox
-            title={copy("dashboard.auth_required.title")}
-            subtitle={copy("dashboard.auth_required.subtitle")}
+            title="Auth_Required"
+            subtitle="Matrix_UI_A"
             className="w-full max-w-2xl"
           >
             <p className="text-[10px] opacity-50 mt-0">
-              {copy("dashboard.auth_required.body")}
+              Sign in / sign up to view your daily token usage (local time).
             </p>
 
             <div className="flex flex-wrap gap-3 mt-4">
               <MatrixButton as="a" primary href={signInUrl}>
-                {copy("shared.button.sign_in")}
+                $ sign-in
               </MatrixButton>
               <MatrixButton as="a" href={signUpUrl}>
-                {copy("shared.button.sign_up")}
+                $ sign-up
               </MatrixButton>
             </div>
           </AsciiBox>
@@ -368,40 +339,33 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-4 flex flex-col gap-6 min-w-0">
             <IdentityCard
-              title={copy("dashboard.identity.title")}
-              subtitle={copy("dashboard.identity.subtitle")}
+              title="Architect_Identity"
+              subtitle="Authorized"
               name={identityHandle}
               isPublic
               email={auth?.email || null}
               userId={auth?.userId || null}
-              rankLabel={copy("identity_card.rank_placeholder")}
+              rankLabel="—"
               streakDays={streakDays}
             />
 
             {!signedIn ? (
-              <AsciiBox
-                title={copy("dashboard.auth_optional.title")}
-                subtitle={copy("dashboard.auth_optional.subtitle")}
-              >
+              <AsciiBox title="Auth_Optional" subtitle="Connect">
                 <p className="text-[10px] opacity-50 mt-0">
-                  {copy("dashboard.auth_optional.body")}
+                  Sign in / sign up to sync real usage.
                 </p>
                 <div className="flex flex-wrap gap-3 mt-4">
                   <MatrixButton as="a" primary href={signInUrl}>
-                    {copy("shared.button.sign_in")}
+                    $ sign-in
                   </MatrixButton>
                   <MatrixButton as="a" href={signUpUrl}>
-                    {copy("shared.button.sign_up")}
+                    $ sign-up
                   </MatrixButton>
                 </div>
               </AsciiBox>
             ) : null}
 
-            <AsciiBox
-              title={copy("dashboard.install.title")}
-              subtitle={copy("dashboard.install.subtitle")}
-              className="relative"
-            >
+            <AsciiBox title="Install" subtitle="CLI" className="relative">
               <div className="text-[9px] uppercase tracking-[0.25em] font-black text-[#00FF41]">
                 <TypewriterText
                   text={installHeadline}
@@ -422,13 +386,13 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
             </AsciiBox>
 
             <AsciiBox
-              title={copy("dashboard.activity.title")}
-              subtitle={accessEnabled ? copy("dashboard.activity.subtitle") : copy("shared.placeholder")}
+              title="Activity_Matrix"
+              subtitle={accessEnabled ? "52W_LOCAL" : "—"}
               className="min-w-0 overflow-hidden"
             >
-              <ActivityHeatmap heatmap={heatmap} />
+              <ActivityHeatmap heatmap={heatmap} timeZoneLabel={timeZoneShortLabel} />
               <div className="mt-3 text-[8px] opacity-30 uppercase tracking-widest font-black">
-                {copy("dashboard.activity.range", { from: heatmapFrom, to: heatmapTo })}
+                Range: {heatmapFrom}..{heatmapTo} ({timeZoneShortLabel})
               </div>
               <div className="mt-1 text-[8px] opacity-30 uppercase tracking-widest font-black">
                 {heatmapSourceLabel}
@@ -439,42 +403,47 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
 
           <div className="lg:col-span-8 flex flex-col gap-6 min-w-0">
             <UsagePanel
-              title={copy("usage.panel.title")}
+              title="Zion_Index"
               period={period}
-              periods={periods}
+              periods={PERIODS}
               onPeriodChange={setPeriod}
               metrics={metricsRows}
               showSummary={period === "total"}
               useSummaryLayout
               summaryLabel={summaryLabel}
               summaryValue={toDisplayNumber(summary?.total_tokens)}
+              summarySubLabel={`SINCE ${rangeLabel} (${timeZoneShortLabel})`}
               onRefresh={refreshAll}
               loading={usageLoadingState}
               error={usageError}
               rangeLabel={rangeLabel}
+              rangeTimeZoneLabel={timeZoneShortLabel}
               statusLabel={usageSourceLabel}
             />
 
-            <TrendMonitor rows={trendRows} from={trendFrom} to={trendTo} period={period} />
+            <TrendMonitor
+              rows={trendRows}
+              from={trendFrom}
+              to={trendTo}
+              period={period}
+              timeZoneLabel={timeZoneLabel}
+            />
 
             {period !== "total" ? (
-              <AsciiBox
-                title={copy("dashboard.daily.title")}
-                subtitle={copy("dashboard.daily.subtitle")}
-              >
+              <AsciiBox title="Daily_Totals" subtitle="Sortable">
                 {!hasDailyActual ? (
                   <div className="text-[10px] opacity-40 mb-2">
-                    {dailyEmptyParts.before}{" "}
+                    No data yet. Use Codex CLI then run{" "}
                     <code className="px-1 py-0.5 bg-black/40 border border-[#00FF41]/20">
                       {installSyncCmd}
                     </code>
-                    {dailyEmptyParts.after}
+                    .
                   </div>
                 ) : null}
                 <div
                   className="overflow-auto max-h-[520px] border border-[#00FF41]/10"
                   role="region"
-                  aria-label={copy("daily.table.aria_label")}
+                  aria-label="Daily totals table"
                   tabIndex={0}
                 >
                   <table className="w-full border-collapse">
@@ -504,7 +473,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
                       </tr>
                     </thead>
                     <tbody>
-                      {dailyTableRows.map((r) => (
+                      {sortedDaily.map((r) => (
                         <tr
                           key={String(r.day)}
                           className={`border-b border-[#00FF41]/5 hover:bg-[#00FF41]/5 ${

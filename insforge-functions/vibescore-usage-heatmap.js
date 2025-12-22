@@ -145,6 +145,199 @@ var require_date = __commonJS({
       const gridStart = addUtcDays2(endWeekStart, -7 * (weeks - 1));
       return { from: formatDateUTC2(gridStart), gridStart, end };
     }
+    var TIMEZONE_FORMATTERS = /* @__PURE__ */ new Map();
+    function getTimeZoneFormatter(timeZone) {
+      if (TIMEZONE_FORMATTERS.has(timeZone)) return TIMEZONE_FORMATTERS.get(timeZone);
+      const formatter = new Intl.DateTimeFormat("en-US", {
+        timeZone,
+        hour12: false,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      });
+      TIMEZONE_FORMATTERS.set(timeZone, formatter);
+      return formatter;
+    }
+    function parseDateParts2(yyyyMmDd) {
+      if (!isDate(yyyyMmDd)) return null;
+      const [y, m, d] = yyyyMmDd.split("-").map((n) => Number(n));
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+      return { year: y, month: m, day: d };
+    }
+    function formatDateParts2(parts) {
+      if (!parts) return null;
+      const y = Number(parts.year);
+      const m = Number(parts.month);
+      const d = Number(parts.day);
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+      return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    }
+    function dateFromPartsUTC2(parts) {
+      if (!parts) return null;
+      const y = Number(parts.year);
+      const m = Number(parts.month) - 1;
+      const d = Number(parts.day);
+      const h = Number(parts.hour || 0);
+      const min = Number(parts.minute || 0);
+      const s = Number(parts.second || 0);
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+      return new Date(Date.UTC(y, m, d, h, min, s));
+    }
+    function datePartsFromDateUTC(date) {
+      return {
+        year: date.getUTCFullYear(),
+        month: date.getUTCMonth() + 1,
+        day: date.getUTCDate(),
+        hour: date.getUTCHours(),
+        minute: date.getUTCMinutes(),
+        second: date.getUTCSeconds()
+      };
+    }
+    function addDatePartsDays2(parts, days) {
+      const base = dateFromPartsUTC2(parts);
+      if (!base) return null;
+      return datePartsFromDateUTC(addUtcDays2(base, days));
+    }
+    function addDatePartsMonths(parts, months) {
+      if (!parts) return null;
+      const y = Number(parts.year);
+      const m = Number(parts.month) - 1 + Number(months || 0);
+      const d = Number(parts.day || 1);
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
+      const dt = new Date(Date.UTC(y, m, d));
+      return {
+        year: dt.getUTCFullYear(),
+        month: dt.getUTCMonth() + 1,
+        day: dt.getUTCDate()
+      };
+    }
+    function parseOffsetMinutes(raw) {
+      if (raw == null || raw === "") return null;
+      const s = String(raw).trim();
+      if (!/^-?\\d+$/.test(s)) return null;
+      const v = Number(s);
+      if (!Number.isFinite(v)) return null;
+      if (v < -840 || v > 840) return null;
+      return Math.trunc(v);
+    }
+    function normalizeTimeZone2(tzRaw, offsetRaw) {
+      const tz = typeof tzRaw === "string" ? tzRaw.trim() : "";
+      let timeZone = null;
+      if (tz) {
+        try {
+          if (typeof Intl !== "undefined" && Intl.DateTimeFormat) {
+            getTimeZoneFormatter(tz).format(/* @__PURE__ */ new Date(0));
+            timeZone = tz;
+          }
+        } catch (_e) {
+          timeZone = null;
+        }
+      }
+      const offsetMinutes = parseOffsetMinutes(offsetRaw);
+      if (timeZone) return { timeZone, offsetMinutes: null, source: "iana" };
+      if (offsetMinutes != null) return { timeZone: null, offsetMinutes, source: "offset" };
+      return { timeZone: null, offsetMinutes: 0, source: "utc" };
+    }
+    function isUtcTimeZone2(tzContext) {
+      if (!tzContext) return true;
+      const tz = tzContext.timeZone;
+      if (tz) {
+        const upper = tz.toUpperCase();
+        return upper === "UTC" || upper === "ETC/UTC" || upper === "ETC/GMT";
+      }
+      return Number(tzContext.offsetMinutes || 0) === 0;
+    }
+    function getTimeZoneParts(date, timeZone) {
+      const formatter = getTimeZoneFormatter(timeZone);
+      const parts = formatter.formatToParts(date);
+      let year = 0;
+      let month = 0;
+      let day = 0;
+      let hour = 0;
+      let minute = 0;
+      let second = 0;
+      for (const part of parts) {
+        if (part.type === "year") year = Number(part.value);
+        if (part.type === "month") month = Number(part.value);
+        if (part.type === "day") day = Number(part.value);
+        if (part.type === "hour") hour = Number(part.value);
+        if (part.type === "minute") minute = Number(part.value);
+        if (part.type === "second") second = Number(part.value);
+      }
+      return { year, month, day, hour, minute, second };
+    }
+    function getTimeZoneOffsetMinutes(date, timeZone) {
+      const parts = getTimeZoneParts(date, timeZone);
+      const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+      return Math.round((asUtc - date.getTime()) / 6e4);
+    }
+    function getLocalParts2(date, tzContext) {
+      if (tzContext?.timeZone) {
+        return getTimeZoneParts(date, tzContext.timeZone);
+      }
+      const offsetMinutes = Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : 0;
+      const shifted = new Date(date.getTime() + offsetMinutes * 6e4);
+      return {
+        year: shifted.getUTCFullYear(),
+        month: shifted.getUTCMonth() + 1,
+        day: shifted.getUTCDate(),
+        hour: shifted.getUTCHours(),
+        minute: shifted.getUTCMinutes(),
+        second: shifted.getUTCSeconds()
+      };
+    }
+    function formatLocalDateKey2(date, tzContext) {
+      return formatDateParts2(getLocalParts2(date, tzContext));
+    }
+    function localDatePartsToUtc2(parts, tzContext) {
+      const baseUtc = Date.UTC(
+        Number(parts.year),
+        Number(parts.month) - 1,
+        Number(parts.day),
+        Number(parts.hour || 0),
+        Number(parts.minute || 0),
+        Number(parts.second || 0)
+      );
+      if (tzContext?.timeZone) {
+        let offset = getTimeZoneOffsetMinutes(new Date(baseUtc), tzContext.timeZone);
+        let utc = baseUtc - offset * 6e4;
+        const offset2 = getTimeZoneOffsetMinutes(new Date(utc), tzContext.timeZone);
+        if (offset2 !== offset) {
+          utc = baseUtc - offset2 * 6e4;
+        }
+        return new Date(utc);
+      }
+      const offsetMinutes = Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : 0;
+      return new Date(baseUtc - offsetMinutes * 6e4);
+    }
+    function normalizeDateRangeLocal(fromRaw, toRaw, tzContext) {
+      const todayParts = getLocalParts2(/* @__PURE__ */ new Date(), tzContext);
+      const toDefault = formatDateParts2(todayParts);
+      const fromDefaultParts = addDatePartsDays2(
+        { year: todayParts.year, month: todayParts.month, day: todayParts.day },
+        -29
+      );
+      const fromDefault = formatDateParts2(fromDefaultParts);
+      const from = isDate(fromRaw) ? fromRaw : fromDefault;
+      const to = isDate(toRaw) ? toRaw : toDefault;
+      return { from, to };
+    }
+    function listDateStrings(from, to) {
+      const startParts = parseDateParts2(from);
+      const endParts = parseDateParts2(to);
+      if (!startParts || !endParts) return [];
+      const start = dateFromPartsUTC2(startParts);
+      const end = dateFromPartsUTC2(endParts);
+      if (!start || !end || end < start) return [];
+      const days = [];
+      for (let cursor = start; cursor <= end; cursor = addUtcDays2(cursor, 1)) {
+        days.push(formatDateUTC2(cursor));
+      }
+      return days;
+    }
     module2.exports = {
       isDate,
       toUtcDay,
@@ -152,7 +345,21 @@ var require_date = __commonJS({
       normalizeDateRange,
       parseUtcDateString: parseUtcDateString2,
       addUtcDays: addUtcDays2,
-      computeHeatmapWindowUtc: computeHeatmapWindowUtc2
+      computeHeatmapWindowUtc: computeHeatmapWindowUtc2,
+      parseDateParts: parseDateParts2,
+      formatDateParts: formatDateParts2,
+      dateFromPartsUTC: dateFromPartsUTC2,
+      datePartsFromDateUTC,
+      addDatePartsDays: addDatePartsDays2,
+      addDatePartsMonths,
+      normalizeTimeZone: normalizeTimeZone2,
+      isUtcTimeZone: isUtcTimeZone2,
+      getTimeZoneOffsetMinutes,
+      getLocalParts: getLocalParts2,
+      formatLocalDateKey: formatLocalDateKey2,
+      localDatePartsToUtc: localDatePartsToUtc2,
+      normalizeDateRangeLocal,
+      listDateStrings
     };
   }
 });
@@ -209,7 +416,21 @@ var require_numbers = __commonJS({
 var { handleOptions, json, requireMethod } = require_http();
 var { getBearerToken, getEdgeClientAndUserId } = require_auth();
 var { getBaseUrl } = require_env();
-var { addUtcDays, computeHeatmapWindowUtc, formatDateUTC, parseUtcDateString } = require_date();
+var {
+  addDatePartsDays,
+  addUtcDays,
+  computeHeatmapWindowUtc,
+  dateFromPartsUTC,
+  formatDateParts,
+  formatDateUTC,
+  formatLocalDateKey,
+  getLocalParts,
+  isUtcTimeZone,
+  localDatePartsToUtc,
+  normalizeTimeZone,
+  parseDateParts,
+  parseUtcDateString
+} = require_date();
 var { toBigInt } = require_numbers();
 module.exports = async function(request) {
   const opt = handleOptions(request);
@@ -219,6 +440,10 @@ module.exports = async function(request) {
   const bearer = getBearerToken(request.headers.get("Authorization"));
   if (!bearer) return json({ error: "Missing bearer token" }, 401);
   const url = new URL(request.url);
+  const tzContext = normalizeTimeZone(
+    url.searchParams.get("tz"),
+    url.searchParams.get("tz_offset_minutes")
+  );
   const weeksRaw = url.searchParams.get("weeks");
   const weeks = normalizeWeeks(weeksRaw);
   if (!weeks) return json({ error: "Invalid weeks" }, 400);
@@ -226,23 +451,114 @@ module.exports = async function(request) {
   const weekStartsOn = normalizeWeekStartsOn(weekStartsOnRaw);
   if (!weekStartsOn) return json({ error: "Invalid week_starts_on" }, 400);
   const toRaw = url.searchParams.get("to");
-  const to = normalizeToDate(toRaw);
-  if (!to) return json({ error: "Invalid to" }, 400);
-  const { from, gridStart, end } = computeHeatmapWindowUtc({
-    weeks,
-    weekStartsOn,
-    to
-  });
+  if (isUtcTimeZone(tzContext)) {
+    const to2 = normalizeToDate(toRaw);
+    if (!to2) return json({ error: "Invalid to" }, 400);
+    const { from: from2, gridStart: gridStart2, end: end2 } = computeHeatmapWindowUtc({
+      weeks,
+      weekStartsOn,
+      to: to2
+    });
+    const baseUrl2 = getBaseUrl();
+    const auth2 = await getEdgeClientAndUserId({ baseUrl: baseUrl2, bearer });
+    if (!auth2.ok) return json({ error: "Unauthorized" }, 401);
+    const { data: data2, error: error2 } = await auth2.edgeClient.database.from("vibescore_tracker_daily").select("day,total_tokens").eq("user_id", auth2.userId).gte("day", from2).lte("day", to2).order("day", { ascending: true });
+    if (error2) return json({ error: error2.message }, 500);
+    const valuesByDay2 = /* @__PURE__ */ new Map();
+    for (const row of Array.isArray(data2) ? data2 : []) {
+      const day = typeof row?.day === "string" ? row.day : null;
+      if (!day) continue;
+      valuesByDay2.set(day, toBigInt(row?.total_tokens));
+    }
+    const nz2 = [];
+    let activeDays2 = 0;
+    for (let i = 0; i < weeks * 7; i++) {
+      const dt = addUtcDays(gridStart2, i);
+      if (dt.getTime() > end2.getTime()) break;
+      const value = valuesByDay2.get(formatDateUTC(dt)) || 0n;
+      if (value > 0n) {
+        activeDays2 += 1;
+        nz2.push(value);
+      }
+    }
+    nz2.sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
+    const t12 = quantileNearestRank(nz2, 0.5);
+    const t22 = quantileNearestRank(nz2, 0.75);
+    const t32 = quantileNearestRank(nz2, 0.9);
+    const levelFor2 = (value) => {
+      if (!value || value <= 0n) return 0;
+      if (value <= t12) return 1;
+      if (value <= t22) return 2;
+      if (value <= t32) return 3;
+      return 4;
+    };
+    const weeksOut2 = [];
+    for (let w = 0; w < weeks; w++) {
+      const week = [];
+      for (let d = 0; d < 7; d++) {
+        const dt = addUtcDays(gridStart2, w * 7 + d);
+        if (dt.getTime() > end2.getTime()) {
+          week.push(null);
+          continue;
+        }
+        const day = formatDateUTC(dt);
+        const value = valuesByDay2.get(day) || 0n;
+        week.push({ day, value: value.toString(), level: levelFor2(value) });
+      }
+      weeksOut2.push(week);
+    }
+    const streakDays2 = computeActiveStreakDays({
+      valuesByDay: valuesByDay2,
+      to: end2
+    });
+    return json(
+      {
+        from: from2,
+        to: to2,
+        week_starts_on: weekStartsOn,
+        thresholds: { t1: t12.toString(), t2: t22.toString(), t3: t32.toString() },
+        active_days: activeDays2,
+        streak_days: streakDays2,
+        weeks: weeksOut2
+      },
+      200
+    );
+  }
+  const todayParts = getLocalParts(/* @__PURE__ */ new Date(), tzContext);
+  const toParts = toRaw ? parseDateParts(toRaw) : {
+    year: todayParts.year,
+    month: todayParts.month,
+    day: todayParts.day
+  };
+  if (!toParts) return json({ error: "Invalid to" }, 400);
+  const end = dateFromPartsUTC(toParts);
+  if (!end) return json({ error: "Invalid to" }, 400);
+  const desired = weekStartsOn === "mon" ? 1 : 0;
+  const endDow = end.getUTCDay();
+  const endWeekStart = addUtcDays(end, -((endDow - desired + 7) % 7));
+  const gridStart = addUtcDays(endWeekStart, -7 * (weeks - 1));
+  const from = formatDateUTC(gridStart);
+  const to = formatDateParts(toParts);
+  const startParts = parseDateParts(from);
+  if (!startParts) return json({ error: "Invalid to" }, 400);
+  const startUtc = localDatePartsToUtc(startParts, tzContext);
+  const endUtc = localDatePartsToUtc(addDatePartsDays(toParts, 1), tzContext);
+  const startIso = startUtc.toISOString();
+  const endIso = endUtc.toISOString();
   const baseUrl = getBaseUrl();
   const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
   if (!auth.ok) return json({ error: "Unauthorized" }, 401);
-  const { data, error } = await auth.edgeClient.database.from("vibescore_tracker_daily").select("day,total_tokens").eq("user_id", auth.userId).gte("day", from).lte("day", to).order("day", { ascending: true });
+  const { data, error } = await auth.edgeClient.database.from("vibescore_tracker_events").select("token_timestamp,total_tokens").eq("user_id", auth.userId).gte("token_timestamp", startIso).lt("token_timestamp", endIso);
   if (error) return json({ error: error.message }, 500);
   const valuesByDay = /* @__PURE__ */ new Map();
   for (const row of Array.isArray(data) ? data : []) {
-    const day = typeof row?.day === "string" ? row.day : null;
-    if (!day) continue;
-    valuesByDay.set(day, toBigInt(row?.total_tokens));
+    const ts = row?.token_timestamp;
+    if (!ts) continue;
+    const dt = new Date(ts);
+    if (!Number.isFinite(dt.getTime())) continue;
+    const key = formatLocalDateKey(dt, tzContext);
+    const prev = valuesByDay.get(key) || 0n;
+    valuesByDay.set(key, prev + toBigInt(row?.total_tokens));
   }
   const nz = [];
   let activeDays = 0;

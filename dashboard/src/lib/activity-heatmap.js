@@ -1,7 +1,7 @@
-import { formatDateUTC } from "./date-range.js";
+import { formatDateLocal, formatDateUTC } from "./date-range.js";
 import { toFiniteNumber } from "./format.js";
 
-function parseUtcDateString(yyyyMmDd) {
+function parseDateString(yyyyMmDd) {
   if (typeof yyyyMmDd !== "string") return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(yyyyMmDd.trim());
   if (!m) return null;
@@ -43,15 +43,15 @@ function clampLevel(level) {
   return level;
 }
 
-export function getHeatmapRangeUtc({
+export function getHeatmapRangeLocal({
   weeks = 52,
   now = new Date(),
   weekStartsOn = "sun",
 } = {}) {
-  const to = formatDateUTC(now);
+  const to = formatDateLocal(now);
   const end =
-    parseUtcDateString(to) ||
-    new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    parseDateString(to) ||
+    new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
   const desired = weekStartsOn === "mon" ? 1 : 0;
   const endDow = end.getUTCDay();
@@ -67,20 +67,20 @@ export function buildActivityHeatmap({
   weekStartsOn = "sun",
 } = {}) {
   const end =
-    parseUtcDateString(to) ||
+    parseDateString(to) ||
     new Date(
       Date.UTC(
-        new Date().getUTCFullYear(),
-        new Date().getUTCMonth(),
-        new Date().getUTCDate()
+        new Date().getFullYear(),
+        new Date().getMonth(),
+        new Date().getDate()
       )
     );
-  const { from } = getHeatmapRangeUtc({
+  const { from } = getHeatmapRangeLocal({
     weeks,
     now: end,
     weekStartsOn,
   });
-  const start = parseUtcDateString(from) || addUtcDays(end, -(weeks * 7 - 1));
+  const start = parseDateString(from) || addUtcDays(end, -(weeks * 7 - 1));
 
   const startAligned = (() => {
     const startDow = start.getUTCDay();
@@ -155,12 +155,12 @@ export function buildActivityHeatmap({
 
 export function computeActiveStreakDays({ dailyRows, to } = {}) {
   const end =
-    parseUtcDateString(to) ||
+    parseDateString(to) ||
     new Date(
       Date.UTC(
-        new Date().getUTCFullYear(),
-        new Date().getUTCMonth(),
-        new Date().getUTCDate()
+        new Date().getFullYear(),
+        new Date().getMonth(),
+        new Date().getDate()
       )
     );
   const valuesByDay = new Map();

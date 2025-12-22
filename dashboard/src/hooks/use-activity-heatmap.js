@@ -3,10 +3,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   buildActivityHeatmap,
   computeActiveStreakDays,
-  getHeatmapRangeUtc,
+  getHeatmapRangeLocal,
 } from "../lib/activity-heatmap.js";
 import { isMockEnabled } from "../lib/mock-data.js";
 import { getUsageDaily, getUsageHeatmap } from "../lib/vibescore-api.js";
+import { getTimeZoneCacheKey } from "../lib/timezone.js";
 
 export function useActivityHeatmap({
   baseUrl,
@@ -14,9 +15,11 @@ export function useActivityHeatmap({
   weeks = 52,
   weekStartsOn = "sun",
   cacheKey,
+  timeZone,
+  tzOffsetMinutes,
 } = {}) {
   const range = useMemo(() => {
-    return getHeatmapRangeUtc({ weeks, weekStartsOn });
+    return getHeatmapRangeLocal({ weeks, weekStartsOn });
   }, [weeks, weekStartsOn]);
   const [daily, setDaily] = useState([]);
   const [heatmap, setHeatmap] = useState(null);
@@ -27,8 +30,9 @@ export function useActivityHeatmap({
 
   const storageKey = useMemo(() => {
     if (!cacheKey) return null;
-    return `vibescore.heatmap.${cacheKey}.${weeks}.${weekStartsOn}`;
-  }, [cacheKey, weeks, weekStartsOn]);
+    const tzKey = getTimeZoneCacheKey({ timeZone, offsetMinutes: tzOffsetMinutes });
+    return `vibescore.heatmap.${cacheKey}.${weeks}.${weekStartsOn}.${tzKey}`;
+  }, [cacheKey, timeZone, tzOffsetMinutes, weeks, weekStartsOn]);
 
   const readCache = useCallback(() => {
     if (!storageKey || typeof window === "undefined") return null;
@@ -67,6 +71,8 @@ export function useActivityHeatmap({
           weeks,
           to: range.to,
           weekStartsOn,
+          timeZone,
+          tzOffsetMinutes,
         });
         const weeksData = Array.isArray(res?.weeks) ? res.weeks : [];
         if (!weeksData.length) {
@@ -145,6 +151,8 @@ export function useActivityHeatmap({
         accessToken,
         from: range.from,
         to: range.to,
+        timeZone,
+        tzOffsetMinutes,
       });
       const rows = Array.isArray(dailyRes?.data) ? dailyRes.data : [];
       setDaily(rows);
@@ -194,6 +202,8 @@ export function useActivityHeatmap({
     range.from,
     range.to,
     readCache,
+    timeZone,
+    tzOffsetMinutes,
     weekStartsOn,
     weeks,
     writeCache,

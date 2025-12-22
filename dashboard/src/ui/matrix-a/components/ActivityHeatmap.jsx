@@ -7,25 +7,24 @@ import React, {
 } from "react";
 
 import { buildActivityHeatmap } from "../../../lib/activity-heatmap.js";
-import { copy } from "../../../lib/copy.js";
 
 const OPACITY_BY_LEVEL = [0.12, 0.32, 0.5, 0.7, 1];
 const CELL_SIZE = 12;
 const CELL_GAP = 3;
 const LABEL_WIDTH = 26;
 const MONTH_LABELS = [
-  copy("heatmap.month.jan"),
-  copy("heatmap.month.feb"),
-  copy("heatmap.month.mar"),
-  copy("heatmap.month.apr"),
-  copy("heatmap.month.may"),
-  copy("heatmap.month.jun"),
-  copy("heatmap.month.jul"),
-  copy("heatmap.month.aug"),
-  copy("heatmap.month.sep"),
-  copy("heatmap.month.oct"),
-  copy("heatmap.month.nov"),
-  copy("heatmap.month.dec"),
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
 
 function formatTokenValue(value) {
@@ -115,7 +114,7 @@ function buildFullYearMonthMarkers({ weeksCount, to, weekStartsOn }) {
   return markers;
 }
 
-export function ActivityHeatmap({ heatmap }) {
+export function ActivityHeatmap({ heatmap, timeZoneLabel }) {
   const weekStartsOn = heatmap?.week_starts_on === "mon" ? "mon" : "sun";
   const normalizedHeatmap = useMemo(() => {
     const sourceWeeks = Array.isArray(heatmap?.weeks) ? heatmap.weeks : [];
@@ -140,24 +139,8 @@ export function ActivityHeatmap({ heatmap }) {
   const weeks = normalizedHeatmap?.weeks || [];
   const dayLabels =
     weekStartsOn === "mon"
-      ? [
-          copy("heatmap.day.mon"),
-          copy("heatmap.day.tue"),
-          copy("heatmap.day.wed"),
-          copy("heatmap.day.thu"),
-          copy("heatmap.day.fri"),
-          copy("heatmap.day.sat"),
-          copy("heatmap.day.sun"),
-        ]
-      : [
-          copy("heatmap.day.sun"),
-          copy("heatmap.day.mon"),
-          copy("heatmap.day.tue"),
-          copy("heatmap.day.wed"),
-          copy("heatmap.day.thu"),
-          copy("heatmap.day.fri"),
-          copy("heatmap.day.sat"),
-        ];
+      ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+      : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   const monthMarkers = useMemo(
     () =>
@@ -229,10 +212,7 @@ export function ActivityHeatmap({ heatmap }) {
     const el = scrollRef.current;
     if (!el) return;
     if (hasAutoScrolledRef.current) return;
-    if (!weeks.length) return;
-
-    const maxScroll = el.scrollWidth - el.clientWidth;
-    if (maxScroll <= 1) {
+    if (el.scrollWidth <= el.clientWidth + 1) {
       updateScrollState();
       hasAutoScrolledRef.current = true;
       return;
@@ -369,7 +349,7 @@ export function ActivityHeatmap({ heatmap }) {
   if (!weeks.length) {
     return (
       <div className="text-[10px] opacity-40 font-mono">
-        {copy("heatmap.empty")}
+        No activity data yet.
       </div>
     );
   }
@@ -401,8 +381,6 @@ export function ActivityHeatmap({ heatmap }) {
   const showScrollbar =
     scrollState.overflow && (isHoveringHeatmap || isDraggingScrollbar);
 
-  const tokenUnit = copy("heatmap.unit.tokens");
-
   return (
     <div
       className="flex flex-col gap-2"
@@ -410,12 +388,15 @@ export function ActivityHeatmap({ heatmap }) {
       onMouseLeave={() => setIsHoveringHeatmap(false)}
     >
       <div className="relative group">
+        <div className="absolute inset-y-0 left-0 w-6 pointer-events-none heatmap-scroll-hint-left z-10"></div>
+        <div className="absolute inset-y-0 right-0 w-10 pointer-events-none heatmap-scroll-hint-right z-10"></div>
+
         {/* Scroll Container: Hide native scrollbar but allow scrolling */}
         <div
           ref={scrollRef}
           className="w-full max-w-full overflow-x-scroll no-scrollbar select-none pb-2 outline-none"
           tabIndex={0}
-          aria-label={copy("heatmap.aria_label")}
+          aria-label="Activity heatmap"
           onWheel={handleWheel}
           style={{ scrollbarWidth: "none" }} // Firefox
         >
@@ -479,11 +460,9 @@ export function ActivityHeatmap({ heatmap }) {
                     return (
                       <span
                         key={key}
-                        title={copy("heatmap.tooltip", {
-                          day: cell.day,
-                          value: formatTokenValue(cell.value),
-                          unit: tokenUnit,
-                        })}
+                        title={`${cell.day} • ${formatTokenValue(
+                          cell.value
+                        )} tokens`}
                         className="rounded-[2px] border border-[#00FF41]/10"
                         style={{
                           width: CELL_SIZE,
@@ -528,7 +507,7 @@ export function ActivityHeatmap({ heatmap }) {
 
       <div className="flex justify-between items-center text-[7px] border-t border-[#00FF41]/5 pt-2 opacity-40 font-black uppercase tracking-widest">
         <div className="flex items-center gap-2">
-          <span>{copy("heatmap.legend.less")}</span>
+          <span>Less</span>
           <div className="flex gap-1">
             {[0, 1, 2, 3, 4].map((level) => (
               <span
@@ -545,9 +524,9 @@ export function ActivityHeatmap({ heatmap }) {
               ></span>
             ))}
           </div>
-          <span>{copy("heatmap.legend.more")}</span>
+          <span>More</span>
         </div>
-        <span>{copy("heatmap.legend.utc")}</span>
+        <span>{timeZoneLabel || "LOCAL"}</span>
       </div>
     </div>
   );

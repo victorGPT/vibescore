@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { getUsageDaily, getUsageSummary } from "../lib/vibescore-api.js";
-import { formatDateUTC } from "../lib/date-range.js";
+import { formatDateLocal, formatDateUTC } from "../lib/date-range.js";
 import { isMockEnabled } from "../lib/mock-data.js";
+import { getTimeZoneCacheKey } from "../lib/timezone.js";
 
 export function useUsageData({
   baseUrl,
@@ -11,6 +12,8 @@ export function useUsageData({
   to,
   includeDaily = true,
   cacheKey,
+  timeZone,
+  tzOffsetMinutes,
 } = {}) {
   const [daily, setDaily] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -24,7 +27,8 @@ export function useUsageData({
     if (!cacheKey) return null;
     const host = safeHost(baseUrl) || "default";
     const dailyKey = includeDaily ? "daily" : "summary";
-    return `vibescore.usage.${cacheKey}.${host}.${from}.${to}.${dailyKey}`;
+    const tzKey = getTimeZoneCacheKey({ timeZone, offsetMinutes: tzOffsetMinutes });
+    return `vibescore.usage.${cacheKey}.${host}.${from}.${to}.${dailyKey}.${tzKey}`;
   })();
 
   const readCache = useCallback(() => {
@@ -57,9 +61,13 @@ export function useUsageData({
     setLoading(true);
     setError(null);
     try {
-      const promises = [getUsageSummary({ baseUrl, accessToken, from, to })];
+      const promises = [
+        getUsageSummary({ baseUrl, accessToken, from, to, timeZone, tzOffsetMinutes }),
+      ];
       if (includeDaily) {
-        promises.unshift(getUsageDaily({ baseUrl, accessToken, from, to }));
+        promises.unshift(
+          getUsageDaily({ baseUrl, accessToken, from, to, timeZone, tzOffsetMinutes })
+        );
       }
 
       const results = await Promise.all(promises);
@@ -118,7 +126,9 @@ export function useUsageData({
     includeDaily,
     mockEnabled,
     readCache,
+    timeZone,
     to,
+    tzOffsetMinutes,
     writeCache,
   ]);
 
@@ -196,10 +206,9 @@ function fillDailyGaps(rows, from, to) {
   if (!start || !end || end < start) return Array.isArray(rows) ? rows : [];
 
   const now = new Date();
-  const today = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-  );
-  const todayTime = today.getTime();
+  const todayKey = formatDateLocal(now);
+  const today = parseUtcDate(todayKey);
+  const todayTime = today ? today.getTime() : now.getTime();
 
   const byDay = new Map();
   for (const row of rows || []) {

@@ -1,8 +1,8 @@
-import { formatDateUTC } from "./date-range.js";
+import { formatDateLocal, formatDateUTC } from "./date-range.js";
 import {
   buildActivityHeatmap,
   computeActiveStreakDays,
-  getHeatmapRangeUtc,
+  getHeatmapRangeLocal,
 } from "./activity-heatmap.js";
 
 const DEFAULT_MOCK_SEED = "vibescore";
@@ -74,7 +74,8 @@ function formatMonthKey(date) {
 }
 
 function buildDailyRows({ from, to, seed }) {
-  const start = parseUtcDate(from) || new Date();
+  const today = parseUtcDate(formatDateLocal(new Date())) || new Date();
+  const start = parseUtcDate(from) || today;
   const end = parseUtcDate(to) || start;
   const rows = [];
   const seedValue = toSeed(seed);
@@ -114,7 +115,7 @@ function buildDailyRows({ from, to, seed }) {
 }
 
 function buildHourlyRows({ day, seed }) {
-  const base = parseUtcDate(day) || new Date();
+  const base = parseUtcDate(day) || parseUtcDate(formatDateLocal(new Date())) || new Date();
   const dayKey = formatDateUTC(base);
   const seedValue = toSeed(seed);
 
@@ -131,9 +132,7 @@ function buildHourlyRows({ day, seed }) {
     const reasoning = Math.max(0, total - input - output - cached);
 
     return {
-      hour: new Date(
-        Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), hour, 0, 0)
-      ).toISOString(),
+      hour: `${dayKey}T${String(hour).padStart(2, "0")}:00:00`,
       total_tokens: total,
       input_tokens: input,
       output_tokens: output,
@@ -144,7 +143,7 @@ function buildHourlyRows({ day, seed }) {
 }
 
 function buildMonthlyRows({ months = 24, to, seed }) {
-  const end = parseUtcDate(to) || new Date();
+  const end = parseUtcDate(to) || parseUtcDate(formatDateLocal(new Date())) || new Date();
   const endMonth = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
   const seedValue = toSeed(seed);
   const rows = [];
@@ -209,7 +208,7 @@ export function getMockUsageHourly({ day, seed } = {}) {
 }
 
 export function getMockUsageMonthly({ months = 24, to, seed } = {}) {
-  const end = parseUtcDate(to) || new Date();
+  const end = parseUtcDate(to) || parseUtcDate(formatDateLocal(new Date())) || new Date();
   const endDay = formatDateUTC(end);
   const rows = buildMonthlyRows({ months, to: endDay, seed });
   const startMonth = addUtcMonths(
@@ -231,7 +230,11 @@ export function getMockUsageSummary({ from, to, seed } = {}) {
 }
 
 export function getMockUsageHeatmap({ weeks = 52, to, weekStartsOn = "sun", seed } = {}) {
-  const range = getHeatmapRangeUtc({ weeks, now: parseUtcDate(to) || new Date(), weekStartsOn });
+  const range = getHeatmapRangeLocal({
+    weeks,
+    now: parseUtcDate(to) || parseUtcDate(formatDateLocal(new Date())) || new Date(),
+    weekStartsOn,
+  });
   const rows = buildDailyRows({ from: range.from, to: range.to, seed });
   const heatmap = buildActivityHeatmap({
     dailyRows: rows,

@@ -5,8 +5,9 @@ import {
   getUsageHourly,
   getUsageMonthly,
 } from "../lib/vibescore-api.js";
-import { formatDateUTC } from "../lib/date-range.js";
+import { formatDateLocal, formatDateUTC } from "../lib/date-range.js";
 import { isMockEnabled } from "../lib/mock-data.js";
+import { getTimeZoneCacheKey } from "../lib/timezone.js";
 
 const DEFAULT_MONTHS = 24;
 
@@ -18,6 +19,8 @@ export function useTrendData({
   to,
   months = DEFAULT_MONTHS,
   cacheKey,
+  timeZone,
+  tzOffsetMinutes,
 } = {}) {
   const [rows, setRows] = useState([]);
   const [range, setRange] = useState(() => ({ from, to }));
@@ -36,16 +39,17 @@ export function useTrendData({
   const storageKey = (() => {
     if (!cacheKey) return null;
     const host = safeHost(baseUrl) || "default";
+    const tzKey = getTimeZoneCacheKey({ timeZone, offsetMinutes: tzOffsetMinutes });
     if (mode === "hourly") {
       const dayKey = to || from || "day";
-      return `vibescore.trend.${cacheKey}.${host}.hourly.${dayKey}`;
+      return `vibescore.trend.${cacheKey}.${host}.hourly.${dayKey}.${tzKey}`;
     }
     if (mode === "monthly") {
       const toKey = to || "today";
-      return `vibescore.trend.${cacheKey}.${host}.monthly.${months}.${toKey}`;
+      return `vibescore.trend.${cacheKey}.${host}.monthly.${months}.${toKey}.${tzKey}`;
     }
     const rangeKey = `${from || ""}.${to || ""}`;
-    return `vibescore.trend.${cacheKey}.${host}.daily.${rangeKey}`;
+    return `vibescore.trend.${cacheKey}.${host}.daily.${rangeKey}.${tzKey}`;
   })();
 
   const readCache = useCallback(() => {
@@ -81,11 +85,31 @@ export function useTrendData({
       let response;
       if (mode === "hourly") {
         const day = to || from;
-        response = await getUsageHourly({ baseUrl, accessToken, day });
+        response = await getUsageHourly({
+          baseUrl,
+          accessToken,
+          day,
+          timeZone,
+          tzOffsetMinutes,
+        });
       } else if (mode === "monthly") {
-        response = await getUsageMonthly({ baseUrl, accessToken, months, to });
+        response = await getUsageMonthly({
+          baseUrl,
+          accessToken,
+          months,
+          to,
+          timeZone,
+          tzOffsetMinutes,
+        });
       } else {
-        response = await getUsageDaily({ baseUrl, accessToken, from, to });
+        response = await getUsageDaily({
+          baseUrl,
+          accessToken,
+          from,
+          to,
+          timeZone,
+          tzOffsetMinutes,
+        });
       }
 
       const nextFrom = response?.from || from || response?.day || null;
@@ -134,7 +158,9 @@ export function useTrendData({
     mode,
     months,
     readCache,
+    timeZone,
     to,
+    tzOffsetMinutes,
     writeCache,
   ]);
 
@@ -209,10 +235,10 @@ function fillDailyGaps(rows, from, to) {
   if (!start || !end || end < start) return Array.isArray(rows) ? rows : [];
 
   const now = new Date();
-  const today = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-  );
-  const todayTime = today.getTime();
+  const todayKey = formatDateLocal(now);
+  const today = parseUtcDate(todayKey);
+  const todayTime = today ? today.getTime() : now.getTime();
+
   const byDay = new Map();
   for (const row of rows || []) {
     if (row?.day) byDay.set(row.day, row);

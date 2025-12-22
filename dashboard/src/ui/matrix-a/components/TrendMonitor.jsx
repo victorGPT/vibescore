@@ -1,211 +1,57 @@
 import React, { useMemo, useRef, useState } from "react";
 
-import { copy } from "../../../lib/copy.js";
-
 // --- Trend Monitor (NeuralFluxMonitor v2.0) ---
 // Industrial TUI style: independent axes, precise grid, physical partitions.
 export function TrendMonitor({
   rows,
   data = [],
   color = "#00FF41",
-  label = copy("trend.monitor.label"),
+  label = "TREND",
   from,
   to,
   period,
+  timeZoneLabel,
 }) {
   const series = Array.isArray(rows) && rows.length ? rows : null;
-  const fallbackValues =
-    data.length > 0 ? data : Array.from({ length: 24 }, () => 0);
-
-  function toUtcDateOnly(d) {
-    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-  }
-
-  function formatDateUTCValue(d) {
-    return toUtcDateOnly(d).toISOString().slice(0, 10);
-  }
-
-  function addUtcDays(date, days) {
-    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
-  }
-
-  function diffUtcDays(start, end) {
-    return Math.floor((end.getTime() - start.getTime()) / 86400000);
-  }
-
-  function startOfUtcMonth(date) {
-    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
-  }
-
-  function addUtcMonths(date, months) {
-    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
-  }
-
-  function diffUtcMonths(start, end) {
-    return (
-      (end.getUTCFullYear() - start.getUTCFullYear()) * 12 +
-      (end.getUTCMonth() - start.getUTCMonth())
-    );
-  }
-
-  function formatMonthKey(date) {
-    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
-  }
-
-  const timeline = useMemo(() => {
-    if (!series || series.length === 0) {
-      return {
-        values: fallbackValues,
-        labels: fallbackValues.map((_, idx) => String(idx)),
-        meta: fallbackValues.map(() => ({ missing: false, future: false })),
-        bucketCount: fallbackValues.length,
-        lastIndex: fallbackValues.length - 1,
-      };
-    }
-
-    const now = new Date();
-    const today = toUtcDateOnly(now);
-
-    if (period === "day") {
-      const hourMap = new Map();
-      let dayDate = null;
-
-      for (const row of series) {
-        const hourLabel = row?.hour;
-        if (hourLabel) {
-          const dt = new Date(hourLabel);
-          if (Number.isFinite(dt.getTime())) {
-            if (!dayDate) dayDate = toUtcDateOnly(dt);
-            const hour = dt.getUTCHours();
-            const current = hourMap.get(hour) || 0;
-            hourMap.set(hour, current + Number(row?.total_tokens || row?.value || 0));
-          }
-        }
-      }
-
-      if (!dayDate) {
-        const parsed = parseDate(from) || parseDate(to);
-        dayDate = parsed || today;
-      }
-
-      const values = [];
-      const labels = [];
-      for (let hour = 0; hour < 24; hour += 1) {
-        const dt = new Date(
-          Date.UTC(dayDate.getUTCFullYear(), dayDate.getUTCMonth(), dayDate.getUTCDate(), hour, 0, 0)
-        );
-        labels.push(dt.toISOString());
-        values.push(hourMap.get(hour) || 0);
-      }
-
-      let lastIndex = 23;
-      if (dayDate.getTime() > today.getTime()) lastIndex = -1;
-      else if (dayDate.getTime() === today.getTime()) lastIndex = now.getUTCHours();
-
-      const meta = values.map(() => ({ missing: false, future: false }));
-      return { values, labels, meta, bucketCount: 24, lastIndex };
-    }
-
-    if (period === "total") {
-      const monthMap = new Map();
-      for (const row of series) {
-        const key = row?.month;
-        if (!key || typeof key !== "string") continue;
-        const current = monthMap.get(key) || 0;
-        monthMap.set(key, current + Number(row?.total_tokens || row?.value || 0));
-      }
-
-      const start = parseDate(from) || today;
-      const end = parseDate(to) || today;
-      const startMonth = startOfUtcMonth(start);
-      const endMonth = startOfUtcMonth(end);
-      const totalMonths = Math.max(1, diffUtcMonths(startMonth, endMonth) + 1);
-
-      const values = [];
-      const labels = [];
-      for (let i = 0; i < totalMonths; i += 1) {
-        const dt = addUtcMonths(startMonth, i);
-        const key = formatMonthKey(dt);
-        labels.push(key);
-        values.push(monthMap.get(key) || 0);
-      }
-
-      const meta = values.map(() => ({ missing: false, future: false }));
-      return { values, labels, meta, bucketCount: totalMonths, lastIndex: totalMonths - 1 };
-    }
-
-    const dayMap = new Map();
-    const metaMap = new Map();
-    for (const row of series) {
-      const key = row?.day;
-      if (!key || typeof key !== "string") continue;
-      const missing = Boolean(row?.missing);
-      const future = Boolean(row?.future);
-      if (missing || future) {
-        if (!metaMap.has(key)) metaMap.set(key, { missing, future });
-        continue;
-      }
-      const current = dayMap.get(key) || 0;
-      dayMap.set(key, current + Number(row?.total_tokens || row?.value || 0));
-      metaMap.set(key, { missing: false, future: false });
-    }
-
-    const start = parseDate(from) || today;
-    const end = parseDate(to) || start;
-    const totalDays = Math.max(1, diffUtcDays(start, end) + 1);
-
-    const values = [];
-    const labels = [];
-    const meta = [];
-    for (let i = 0; i < totalDays; i += 1) {
-      const dt = addUtcDays(start, i);
-      const key = formatDateUTCValue(dt);
-      const entryMeta =
-        metaMap.get(key) ||
-        (dt.getTime() > today.getTime()
-          ? { missing: false, future: true }
-          : { missing: true, future: false });
-      labels.push(key);
-      meta.push(entryMeta);
-      if (entryMeta.missing || entryMeta.future) {
-        values.push(null);
-      } else {
-        values.push(dayMap.get(key) || 0);
-      }
-    }
-
-    let lastIndex = totalDays - 1;
-    if (today.getTime() < start.getTime()) lastIndex = -1;
-    else if (today.getTime() <= end.getTime()) {
-      lastIndex = Math.min(totalDays - 1, diffUtcDays(start, today));
-    }
-
-    return { values, labels, meta, bucketCount: totalDays, lastIndex };
-  }, [fallbackValues, from, period, series, to]);
-
-  const bucketCount = timeline.bucketCount;
-  const lastIndex = timeline.lastIndex;
-  const renderCount = lastIndex >= 0 ? Math.min(lastIndex + 1, timeline.values.length) : 0;
-  const renderValues = renderCount > 0 ? timeline.values.slice(0, renderCount) : [];
-  const renderMeta = renderCount > 0 ? timeline.meta.slice(0, renderCount) : [];
-  const analysisValues = (renderValues.length > 0 ? renderValues : timeline.values).filter(
-    (val) => Number.isFinite(val)
-  );
-  const max = Math.max(...(analysisValues.length ? analysisValues : [0]), 100);
-  const avg = analysisValues.length
-    ? analysisValues.reduce((a, b) => a + b, 0) / analysisValues.length
+  const fallbackValues = data.length > 0 ? data : Array.from({ length: 24 }, () => 0);
+  const seriesValues = series
+    ? series.map((row) => {
+        if (row?.missing || row?.future) return null;
+        const raw = row?.total_tokens ?? row?.value;
+        if (raw == null) return null;
+        const n = Number(raw);
+        return Number.isFinite(n) ? n : 0;
+      })
+    : fallbackValues;
+  const seriesLabels = series
+    ? series.map((row) => row?.hour || row?.day || row?.month || row?.label || "")
+    : [];
+  const seriesMeta = series
+    ? series.map((row) => ({
+        missing: Boolean(row?.missing),
+        future: Boolean(row?.future),
+      }))
+    : Array.from({ length: seriesValues.length }, () => ({
+        missing: false,
+        future: false,
+      }));
+  const statsValues = seriesValues.filter((val) => Number.isFinite(val));
+  const max = Math.max(...(statsValues.length ? statsValues : [0]), 100);
+  const avg = statsValues.length
+    ? statsValues.reduce((a, b) => a + b, 0) / statsValues.length
     : 0;
 
   const width = 100;
   const height = 100;
   const axisWidth = 8;
   const plotWidth = width - axisWidth;
-  const pointCount = Math.max(bucketCount, 1);
+  const pointCount = Math.max(seriesValues.length, 1);
   const step = pointCount > 1 ? plotWidth / (pointCount - 1) : 0;
   const xPadding =
-    pointCount > 1 ? Math.min(step * 0.25, plotWidth * 0.04) : plotWidth / 2;
+    pointCount > 1 ? Math.min(step / 2, plotWidth * 0.12) : plotWidth / 2;
   const plotSpan = Math.max(plotWidth - xPadding * 2, 0);
-  const stepWithPadding = pointCount > 1 ? plotSpan / (pointCount - 1) : 0;
+  const stepWithPadding =
+    pointCount > 1 ? plotSpan / (pointCount - 1) : 0;
   const plotTop = 4;
   const plotBottom = 4;
   const plotHeight = height - plotTop - plotBottom;
@@ -231,18 +77,18 @@ export function TrendMonitor({
   }
 
   const MONTH_LABELS = [
-    copy("trend.monitor.month.jan"),
-    copy("trend.monitor.month.feb"),
-    copy("trend.monitor.month.mar"),
-    copy("trend.monitor.month.apr"),
-    copy("trend.monitor.month.may"),
-    copy("trend.monitor.month.jun"),
-    copy("trend.monitor.month.jul"),
-    copy("trend.monitor.month.aug"),
-    copy("trend.monitor.month.sep"),
-    copy("trend.monitor.month.oct"),
-    copy("trend.monitor.month.nov"),
-    copy("trend.monitor.month.dec"),
+    "JAN",
+    "FEB",
+    "MAR",
+    "APR",
+    "MAY",
+    "JUN",
+    "JUL",
+    "AUG",
+    "SEP",
+    "OCT",
+    "NOV",
+    "DEC",
   ];
 
   function formatMonth(dt) {
@@ -279,29 +125,17 @@ export function TrendMonitor({
 
   function buildXAxisLabels() {
     if (period === "day") {
-      return [
-        copy("trend.monitor.fallback.hour_00"),
-        copy("trend.monitor.fallback.hour_06"),
-        copy("trend.monitor.fallback.hour_12"),
-        copy("trend.monitor.fallback.hour_18"),
-        copy("trend.monitor.fallback.hour_23"),
-      ];
+      return ["00:00", "06:00", "12:00", "18:00", "23:00"];
     }
-    if (timeline.labels.length > 0) {
-      const indices = pickLabelIndices(timeline.labels.length);
-      const labels = indices.map((idx) => formatAxisLabel(timeline.labels[idx] || ""));
+    if (seriesLabels.length > 0) {
+      const indices = pickLabelIndices(seriesLabels.length);
+      const labels = indices.map((idx) => formatAxisLabel(seriesLabels[idx] || ""));
       if (labels.some((label) => label)) return labels;
     }
     const start = parseDate(from);
     const end = parseDate(to);
     if (!start || !end || end < start) {
-      return [
-        copy("trend.monitor.fallback.tminus_24"),
-        copy("trend.monitor.fallback.tminus_18"),
-        copy("trend.monitor.fallback.tminus_12"),
-        copy("trend.monitor.fallback.tminus_6"),
-        copy("trend.monitor.now_label"),
-      ];
+      return ["-24H", "-18H", "-12H", "-6H", "NOW"];
     }
     const totalMs = end.getTime() - start.getTime();
     const steps = [0, 0.25, 0.5, 0.75, 1];
@@ -338,29 +172,27 @@ export function TrendMonitor({
     return n.toLocaleString();
   }
 
-  function formatTooltipLabel(labelText) {
-    if (!labelText) return copy("trend.monitor.tooltip.utc");
-    const isoHour = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
-    const isoDay = /^\d{4}-\d{2}-\d{2}$/;
-    const isoMonth = /^\d{4}-\d{2}$/;
-    const tz = copy("trend.monitor.tooltip.utc");
+  function formatTooltipLabel(label) {
+    if (!label) return timeZoneLabel || "";
+    const isoHour = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z?$/;
+    const isoDay = /^\\d{4}-\\d{2}-\\d{2}$/;
+    const isoMonth = /^\\d{4}-\\d{2}$/;
+    const tzSuffix = timeZoneLabel ? ` ${timeZoneLabel}` : "";
 
-    if (isoHour.test(labelText)) {
-      const [date, time] = labelText.split("T");
+    if (isoHour.test(label)) {
+      const [date, time] = label.split("T");
       const hh = time.slice(0, 2);
-      return copy("trend.monitor.tooltip.hour", { date, hour: hh, tz });
+      return `${date} ${hh}:00${tzSuffix}`;
     }
-    if (isoDay.test(labelText)) return copy("trend.monitor.tooltip.day", { date: labelText, tz });
-    if (isoMonth.test(labelText)) return copy("trend.monitor.tooltip.month", { date: labelText, tz });
-    return labelText;
+    if (isoDay.test(label)) return `${label}${tzSuffix}`;
+    if (isoMonth.test(label)) return `${label}${tzSuffix}`;
+    return label;
   }
 
   const lineSegments = useMemo(() => {
-    if (renderValues.length === 0) return [];
-    const denom = Math.max(pointCount - 1, 1);
     const segments = [];
     let current = [];
-    renderValues.forEach((val, i) => {
+    seriesValues.forEach((val, i) => {
       if (!Number.isFinite(val)) {
         if (current.length) {
           segments.push(current);
@@ -369,60 +201,65 @@ export function TrendMonitor({
         return;
       }
       const x =
-        pointCount > 1 ? xPadding + (i / denom) * plotSpan : plotWidth / 2;
+        pointCount > 1 ? xPadding + i * stepWithPadding : plotWidth / 2;
       const normalizedVal = max > 0 ? val / max : 0;
       const y = plotTop + (1 - normalizedVal) * plotHeight;
       current.push({ x, y, index: i, value: val });
     });
     if (current.length) segments.push(current);
     return segments;
-  }, [max, plotHeight, plotTop, plotWidth, plotSpan, pointCount, renderValues, xPadding]);
+  }, [max, plotHeight, plotTop, plotWidth, pointCount, seriesValues, stepWithPadding, xPadding]);
 
   const missingPoints = useMemo(() => {
-    if (renderMeta.length === 0) return [];
-    const denom = Math.max(pointCount - 1, 1);
-    return renderMeta
+    if (!series || seriesValues.length === 0) return [];
+    return seriesMeta
       .map((meta, i) => {
         if (!meta?.missing || meta?.future) return null;
         const x =
-          pointCount > 1 ? xPadding + (i / denom) * plotSpan : plotWidth / 2;
+          pointCount > 1 ? xPadding + i * stepWithPadding : plotWidth / 2;
         const y = plotTop + plotHeight;
         return { x, y, index: i };
       })
       .filter(Boolean);
-  }, [plotHeight, plotTop, plotSpan, pointCount, plotWidth, renderMeta, xPadding]);
-  const xLabels = useMemo(() => buildXAxisLabels(), [from, period, to, timeline.labels]);
+  }, [
+    plotHeight,
+    plotTop,
+    plotWidth,
+    pointCount,
+    series,
+    seriesMeta,
+    seriesValues.length,
+    stepWithPadding,
+    xPadding,
+  ]);
+  const xLabels = useMemo(() => buildXAxisLabels(), [from, period, to]);
 
   const plotRef = useRef(null);
   const [hover, setHover] = useState(null);
 
   function handleMove(e) {
     const el = plotRef.current;
-    if (!el || bucketCount === 0 || lastIndex < 0) return;
+    if (!el || seriesValues.length === 0) return;
     const rect = el.getBoundingClientRect();
     const axisWidthPx = (axisWidth / width) * rect.width;
     const plotWidthPx = rect.width - axisWidthPx;
     const rawX = Math.min(Math.max(e.clientX - rect.left, 0), plotWidthPx);
     const xPaddingPx = plotWidth > 0 ? (xPadding / plotWidth) * plotWidthPx : 0;
     const plotSpanPx = Math.max(plotWidthPx - xPaddingPx * 2, 0);
-    const denom = Math.max(pointCount - 1, 1);
+    const denom = Math.max(seriesValues.length - 1, 1);
     const clamped = Math.min(Math.max(rawX - xPaddingPx, 0), plotSpanPx);
     const ratio = plotSpanPx > 0 ? clamped / plotSpanPx : 0;
     const index = Math.round(ratio * denom);
-    if (index > lastIndex) {
-      setHover(null);
-      return;
-    }
-    const meta = timeline.meta[index] || {};
+    const meta = seriesMeta[index] || {};
     if (meta.future) {
       setHover(null);
       return;
     }
-    const rawValue = timeline.values[index];
+    const rawValue = seriesValues[index];
     const value = Number.isFinite(rawValue) ? rawValue : 0;
     const snappedX =
       denom > 0 ? xPaddingPx + (index / denom) * plotSpanPx : plotWidthPx / 2;
-    const labelText = timeline.labels[index] || "";
+    const labelText = seriesLabels[index] || "";
     const yRatio = max > 0 ? 1 - value / max : 1;
     const yPx =
       (plotTop / height) * rect.height +
@@ -444,16 +281,6 @@ export function TrendMonitor({
     setHover(null);
   }
 
-  const gradientId = useMemo(() => {
-    const safe = String(label || "trend").replace(/[^a-zA-Z0-9_-]/g, "-");
-    return `grad-${safe}`;
-  }, [label]);
-
-  const maxLabel = copy("trend.monitor.max_label", { value: Math.round(max) });
-  const avgLabel = copy("trend.monitor.avg_label", { value: Math.round(avg) });
-  const nowLabel = copy("trend.monitor.now_label");
-  const tooltipUnit = copy("trend.monitor.tooltip.tokens");
-
   return (
     <div className="w-full h-full min-h-[160px] flex flex-col relative group select-none bg-[#050505] border border-white/10 p-1">
       <div className="flex justify-between items-center px-1 mb-1 border-b border-white/5 pb-1">
@@ -461,8 +288,8 @@ export function TrendMonitor({
           {label}
         </span>
         <div className="flex gap-3 text-[8px] font-mono text-[#00FF41]/50">
-          <span>{maxLabel}</span>
-          <span>{avgLabel}</span>
+          <span>MAX: {Math.round(max)}</span>
+          <span>AVG: {Math.round(avg)}</span>
         </div>
       </div>
 
@@ -486,7 +313,7 @@ export function TrendMonitor({
           preserveAspectRatio="none"
         >
           <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={`grad-${label}`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={color} stopOpacity="0.5" />
               <stop offset="100%" stopColor={color} stopOpacity="0" />
             </linearGradient>
@@ -515,7 +342,7 @@ export function TrendMonitor({
             } Z`;
             return (
               <React.Fragment key={`seg-${idx}`}>
-                <path d={fillPath} fill={`url(#${gradientId})`} />
+                <path d={fillPath} fill={`url(#grad-${label})`} />
                 <polyline
                   points={points}
                   fill="none"
@@ -585,12 +412,11 @@ export function TrendMonitor({
               <div className="opacity-70">
                 {formatTooltipLabel(hover.label)}
               </div>
-              <div className="font-bold">
-                {copy("trend.monitor.tooltip.value", {
-                  value: formatFull(hover.missing ? 0 : hover.value),
-                  unit: tooltipUnit,
-                })}
-              </div>
+              {hover.missing ? (
+                <div className="font-bold">未同步</div>
+              ) : (
+                <div className="font-bold">{formatFull(hover.value)} tokens</div>
+              )}
             </div>
           </>
         ) : null}
@@ -600,7 +426,9 @@ export function TrendMonitor({
         {xLabels.map((labelText, idx) => (
           <span
             key={`${labelText}-${idx}`}
-            className={labelText === nowLabel ? "text-[#00FF41] font-bold animate-pulse" : ""}
+            className={
+              labelText === "NOW" ? "text-[#00FF41] font-bold animate-pulse" : ""
+            }
           >
             {labelText}
           </span>

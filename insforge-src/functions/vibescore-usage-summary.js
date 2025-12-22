@@ -1,12 +1,20 @@
 // Edge function: vibescore-usage-summary
-// Returns token usage totals for the authenticated user over a UTC date range.
+// Returns token usage totals for the authenticated user over a timezone-aware date range.
 
 'use strict';
 
 const { handleOptions, json, requireMethod } = require('../shared/http');
 const { getBearerToken, getEdgeClientAndUserId } = require('../shared/auth');
 const { getBaseUrl } = require('../shared/env');
-const { normalizeDateRange } = require('../shared/date');
+const {
+  addDatePartsDays,
+  isUtcTimeZone,
+  listDateStrings,
+  localDatePartsToUtc,
+  normalizeDateRangeLocal,
+  normalizeTimeZone,
+  parseDateParts
+} = require('../shared/date');
 const { toBigInt } = require('../shared/numbers');
 
 module.exports = async function(request) {
@@ -24,24 +32,66 @@ module.exports = async function(request) {
   if (!auth.ok) return json({ error: 'Unauthorized' }, 401);
 
   const url = new URL(request.url);
-  const { from, to } = normalizeDateRange(url.searchParams.get('from'), url.searchParams.get('to'));
+  const tzContext = normalizeTimeZone(
+    url.searchParams.get('tz'),
+    url.searchParams.get('tz_offset_minutes')
+  );
+  const { from, to } = normalizeDateRangeLocal(
+    url.searchParams.get('from'),
+    url.searchParams.get('to'),
+    tzContext
+  );
+
+  if (isUtcTimeZone(tzContext)) {
+    const { data, error } = await auth.edgeClient.database
+      .from('vibescore_tracker_daily')
+      .select('day,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
+      .eq('user_id', auth.userId)
+      .gte('day', from)
+      .lte('day', to);
+
+    if (error) return json({ error: error.message }, 500);
+
+    const totals = sumDailyRows(data || []);
+
+    return json(
+      {
+        from,
+        to,
+        days: (data || []).length,
+        totals
+      },
+      200
+    );
+  }
+
+  const dayKeys = listDateStrings(from, to);
+
+  const startParts = parseDateParts(from);
+  const endParts = parseDateParts(to);
+  if (!startParts || !endParts) return json({ error: 'Invalid date range' }, 400);
+
+  const startUtc = localDatePartsToUtc(startParts, tzContext);
+  const endUtc = localDatePartsToUtc(addDatePartsDays(endParts, 1), tzContext);
+  const startIso = startUtc.toISOString();
+  const endIso = endUtc.toISOString();
 
   const { data, error } = await auth.edgeClient.database
-    .from('vibescore_tracker_daily')
-    .select('day,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
+    .from('vibescore_tracker_events')
+    .select('token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
     .eq('user_id', auth.userId)
-    .gte('day', from)
-    .lte('day', to);
+    .gte('token_timestamp', startIso)
+    .lt('token_timestamp', endIso);
 
   if (error) return json({ error: error.message }, 500);
 
-  const totals = sumDailyRows(data || []);
+  const totals = sumEventRows(data || []);
 
   return json(
     {
       from,
       to,
-      days: (data || []).length,
+      days: dayKeys.length,
       totals
     },
     200
@@ -72,3 +122,26 @@ function sumDailyRows(rows) {
   };
 }
 
+function sumEventRows(rows) {
+  let totalTokens = 0n;
+  let inputTokens = 0n;
+  let cachedInputTokens = 0n;
+  let outputTokens = 0n;
+  let reasoningOutputTokens = 0n;
+
+  for (const r of rows) {
+    totalTokens += toBigInt(r?.total_tokens);
+    inputTokens += toBigInt(r?.input_tokens);
+    cachedInputTokens += toBigInt(r?.cached_input_tokens);
+    outputTokens += toBigInt(r?.output_tokens);
+    reasoningOutputTokens += toBigInt(r?.reasoning_output_tokens);
+  }
+
+  return {
+    total_tokens: totalTokens.toString(),
+    input_tokens: inputTokens.toString(),
+    cached_input_tokens: cachedInputTokens.toString(),
+    output_tokens: outputTokens.toString(),
+    reasoning_output_tokens: reasoningOutputTokens.toString()
+  };
+}

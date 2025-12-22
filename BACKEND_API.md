@@ -119,14 +119,16 @@ Response:
 
 ### GET /functions/vibescore-usage-summary
 
-Return token usage totals for the authenticated user over a UTC date range.
+Return token usage totals for the authenticated user over a date range in the requested timezone (default UTC).
 
 Auth:
 - `Authorization: Bearer <user_jwt>`
 
 Query:
 - `from=YYYY-MM-DD` (optional; default last 30 days)
-- `to=YYYY-MM-DD` (optional; default today UTC)
+- `to=YYYY-MM-DD` (optional; default today in requested timezone)
+- `tz=IANA` (optional; e.g. `America/Los_Angeles`)
+- `tz_offset_minutes` (optional; fixed offset minutes from UTC to local, e.g. `-480`)
 
 Response (bigints as strings):
 
@@ -149,14 +151,16 @@ Response (bigints as strings):
 
 ### GET /functions/vibescore-usage-daily
 
-Return UTC daily aggregates for the authenticated user.
+Return daily aggregates for the authenticated user in the requested timezone (default UTC).
 
 Auth:
 - `Authorization: Bearer <user_jwt>`
 
 Query:
 - `from=YYYY-MM-DD` (optional; default last 30 days)
-- `to=YYYY-MM-DD` (optional; default today UTC)
+- `to=YYYY-MM-DD` (optional; default today in requested timezone)
+- `tz=IANA` (optional; e.g. `America/Los_Angeles`)
+- `tz_offset_minutes` (optional; fixed offset minutes from UTC to local, e.g. `-480`)
 
 Response:
 
@@ -168,13 +172,15 @@ Response:
 
 ### GET /functions/vibescore-usage-hourly
 
-Return UTC hourly aggregates (24 buckets) for the authenticated user on a given day.
+Return hourly aggregates (24 buckets) for the authenticated user on a given local day (timezone-aware; default UTC).
 
 Auth:
 - `Authorization: Bearer <user_jwt>`
 
 Query:
-- `day=YYYY-MM-DD` (optional; default today UTC)
+- `day=YYYY-MM-DD` (optional; default today in requested timezone)
+- `tz=IANA` (optional; e.g. `America/Los_Angeles`)
+- `tz_offset_minutes` (optional; fixed offset minutes from UTC to local, e.g. `-480`)
 
 Response:
 
@@ -183,7 +189,7 @@ Response:
   "day": "YYYY-MM-DD",
   "data": [
     {
-      "hour": "YYYY-MM-DDTHH:00:00Z",
+      "hour": "YYYY-MM-DDTHH:00:00",
       "total_tokens": "0",
       "input_tokens": "0",
       "cached_input_tokens": "0",
@@ -198,14 +204,16 @@ Response:
 
 ### GET /functions/vibescore-usage-monthly
 
-Return UTC monthly aggregates for the authenticated user (recent window).
+Return monthly aggregates for the authenticated user aligned to local months (timezone-aware; default UTC).
 
 Auth:
 - `Authorization: Bearer <user_jwt>`
 
 Query:
 - `months=1..24` (optional; default `24`)
-- `to=YYYY-MM-DD` (optional; default today UTC)
+- `to=YYYY-MM-DD` (optional; default today in requested timezone)
+- `tz=IANA` (optional; e.g. `America/Los_Angeles`)
+- `tz_offset_minutes` (optional; fixed offset minutes from UTC to local, e.g. `-480`)
 
 Response:
 
@@ -231,15 +239,17 @@ Response:
 
 ### GET /functions/vibescore-usage-heatmap
 
-Return a GitHub-inspired activity heatmap derived from UTC daily totals.
+Return a GitHub-inspired activity heatmap derived from local daily totals (timezone-aware; default UTC).
 
 Auth:
 - `Authorization: Bearer <user_jwt>`
 
 Query:
 - `weeks=1..104` (optional; default `52`)
-- `to=YYYY-MM-DD` (optional; default today UTC)
+- `to=YYYY-MM-DD` (optional; default today in requested timezone)
 - `week_starts_on=sun|mon` (optional; default `sun`)
+- `tz=IANA` (optional; e.g. `America/Los_Angeles`)
+- `tz_offset_minutes` (optional; fixed offset minutes from UTC to local, e.g. `-480`)
 
 Response:
 - `weeks` is a list of week columns; each day cell is `{ day, value, level }` or `null` past the end date.

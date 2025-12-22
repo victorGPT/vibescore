@@ -1,12 +1,26 @@
 // Edge function: vibescore-usage-heatmap
-// Returns a GitHub-inspired activity heatmap derived from UTC daily token usage.
+// Returns a GitHub-inspired activity heatmap derived from timezone-aware daily token usage.
 
 'use strict';
 
 const { handleOptions, json, requireMethod } = require('../shared/http');
 const { getBearerToken, getEdgeClientAndUserId } = require('../shared/auth');
 const { getBaseUrl } = require('../shared/env');
-const { addUtcDays, computeHeatmapWindowUtc, formatDateUTC, parseUtcDateString } = require('../shared/date');
+const {
+  addDatePartsDays,
+  addUtcDays,
+  computeHeatmapWindowUtc,
+  dateFromPartsUTC,
+  formatDateParts,
+  formatDateUTC,
+  formatLocalDateKey,
+  getLocalParts,
+  isUtcTimeZone,
+  localDatePartsToUtc,
+  normalizeTimeZone,
+  parseDateParts,
+  parseUtcDateString
+} = require('../shared/date');
 const { toBigInt } = require('../shared/numbers');
 
 module.exports = async function(request) {
@@ -20,6 +34,10 @@ module.exports = async function(request) {
   if (!bearer) return json({ error: 'Missing bearer token' }, 401);
 
   const url = new URL(request.url);
+  const tzContext = normalizeTimeZone(
+    url.searchParams.get('tz'),
+    url.searchParams.get('tz_offset_minutes')
+  );
 
   const weeksRaw = url.searchParams.get('weeks');
   const weeks = normalizeWeeks(weeksRaw);
@@ -30,34 +48,146 @@ module.exports = async function(request) {
   if (!weekStartsOn) return json({ error: 'Invalid week_starts_on' }, 400);
 
   const toRaw = url.searchParams.get('to');
-  const to = normalizeToDate(toRaw);
-  if (!to) return json({ error: 'Invalid to' }, 400);
 
-  const { from, gridStart, end } = computeHeatmapWindowUtc({
-    weeks,
-    weekStartsOn,
-    to
-  });
+  if (isUtcTimeZone(tzContext)) {
+    const to = normalizeToDate(toRaw);
+    if (!to) return json({ error: 'Invalid to' }, 400);
+
+    const { from, gridStart, end } = computeHeatmapWindowUtc({
+      weeks,
+      weekStartsOn,
+      to
+    });
+
+    const baseUrl = getBaseUrl();
+    const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
+    if (!auth.ok) return json({ error: 'Unauthorized' }, 401);
+
+    const { data, error } = await auth.edgeClient.database
+      .from('vibescore_tracker_daily')
+      .select('day,total_tokens')
+      .eq('user_id', auth.userId)
+      .gte('day', from)
+      .lte('day', to)
+      .order('day', { ascending: true });
+
+    if (error) return json({ error: error.message }, 500);
+
+    const valuesByDay = new Map();
+    for (const row of Array.isArray(data) ? data : []) {
+      const day = typeof row?.day === 'string' ? row.day : null;
+      if (!day) continue;
+      valuesByDay.set(day, toBigInt(row?.total_tokens));
+    }
+
+    const nz = [];
+    let activeDays = 0;
+    for (let i = 0; i < weeks * 7; i++) {
+      const dt = addUtcDays(gridStart, i);
+      if (dt.getTime() > end.getTime()) break;
+      const value = valuesByDay.get(formatDateUTC(dt)) || 0n;
+      if (value > 0n) {
+        activeDays += 1;
+        nz.push(value);
+      }
+    }
+
+    nz.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    const t1 = quantileNearestRank(nz, 0.5);
+    const t2 = quantileNearestRank(nz, 0.75);
+    const t3 = quantileNearestRank(nz, 0.9);
+
+    const levelFor = (value) => {
+      if (!value || value <= 0n) return 0;
+      if (value <= t1) return 1;
+      if (value <= t2) return 2;
+      if (value <= t3) return 3;
+      return 4;
+    };
+
+    const weeksOut = [];
+    for (let w = 0; w < weeks; w++) {
+      const week = [];
+      for (let d = 0; d < 7; d++) {
+        const dt = addUtcDays(gridStart, w * 7 + d);
+        if (dt.getTime() > end.getTime()) {
+          week.push(null);
+          continue;
+        }
+        const day = formatDateUTC(dt);
+        const value = valuesByDay.get(day) || 0n;
+        week.push({ day, value: value.toString(), level: levelFor(value) });
+      }
+      weeksOut.push(week);
+    }
+
+    const streakDays = computeActiveStreakDays({
+      valuesByDay,
+      to: end
+    });
+
+    return json(
+      {
+        from,
+        to,
+        week_starts_on: weekStartsOn,
+        thresholds: { t1: t1.toString(), t2: t2.toString(), t3: t3.toString() },
+        active_days: activeDays,
+        streak_days: streakDays,
+        weeks: weeksOut
+      },
+      200
+    );
+  }
+
+  const todayParts = getLocalParts(new Date(), tzContext);
+  const toParts = toRaw ? parseDateParts(toRaw) : {
+    year: todayParts.year,
+    month: todayParts.month,
+    day: todayParts.day
+  };
+  if (!toParts) return json({ error: 'Invalid to' }, 400);
+
+  const end = dateFromPartsUTC(toParts);
+  if (!end) return json({ error: 'Invalid to' }, 400);
+
+  const desired = weekStartsOn === 'mon' ? 1 : 0;
+  const endDow = end.getUTCDay();
+  const endWeekStart = addUtcDays(end, -((endDow - desired + 7) % 7));
+  const gridStart = addUtcDays(endWeekStart, -7 * (weeks - 1));
+  const from = formatDateUTC(gridStart);
+  const to = formatDateParts(toParts);
+
+  const startParts = parseDateParts(from);
+  if (!startParts) return json({ error: 'Invalid to' }, 400);
+
+  const startUtc = localDatePartsToUtc(startParts, tzContext);
+  const endUtc = localDatePartsToUtc(addDatePartsDays(toParts, 1), tzContext);
+  const startIso = startUtc.toISOString();
+  const endIso = endUtc.toISOString();
 
   const baseUrl = getBaseUrl();
   const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
   if (!auth.ok) return json({ error: 'Unauthorized' }, 401);
 
   const { data, error } = await auth.edgeClient.database
-    .from('vibescore_tracker_daily')
-    .select('day,total_tokens')
+    .from('vibescore_tracker_events')
+    .select('token_timestamp,total_tokens')
     .eq('user_id', auth.userId)
-    .gte('day', from)
-    .lte('day', to)
-    .order('day', { ascending: true });
+    .gte('token_timestamp', startIso)
+    .lt('token_timestamp', endIso);
 
   if (error) return json({ error: error.message }, 500);
 
   const valuesByDay = new Map();
   for (const row of Array.isArray(data) ? data : []) {
-    const day = typeof row?.day === 'string' ? row.day : null;
-    if (!day) continue;
-    valuesByDay.set(day, toBigInt(row?.total_tokens));
+    const ts = row?.token_timestamp;
+    if (!ts) continue;
+    const dt = new Date(ts);
+    if (!Number.isFinite(dt.getTime())) continue;
+    const key = formatLocalDateKey(dt, tzContext);
+    const prev = valuesByDay.get(key) || 0n;
+    valuesByDay.set(key, prev + toBigInt(row?.total_tokens));
   }
 
   const nz = [];
@@ -161,4 +291,3 @@ function computeActiveStreakDays({ valuesByDay, to }) {
   }
   return streak;
 }
-

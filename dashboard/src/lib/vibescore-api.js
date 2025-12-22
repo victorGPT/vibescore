@@ -1,5 +1,5 @@
 import { createInsforgeClient } from "./insforge-client.js";
-import { formatDateUTC } from "./date-range.js";
+import { formatDateLocal } from "./date-range.js";
 import {
   getMockUsageDaily,
   getMockUsageHourly,
@@ -21,7 +21,7 @@ const PATHS = {
 };
 
 export async function probeBackend({ baseUrl, accessToken, signal } = {}) {
-  const today = formatDateUTC(new Date());
+  const today = formatDateLocal(new Date());
   await requestJson({
     baseUrl,
     accessToken,
@@ -33,46 +33,77 @@ export async function probeBackend({ baseUrl, accessToken, signal } = {}) {
   return { status: 200 };
 }
 
-export async function getUsageSummary({ baseUrl, accessToken, from, to }) {
+export async function getUsageSummary({
+  baseUrl,
+  accessToken,
+  from,
+  to,
+  timeZone,
+  tzOffsetMinutes,
+}) {
   if (isMockEnabled()) {
     return getMockUsageSummary({ from, to, seed: accessToken });
   }
+  const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
   return requestJson({
     baseUrl,
     accessToken,
     path: PATHS.usageSummary,
-    params: { from, to },
+    params: { from, to, ...tzParams },
   });
 }
 
-export async function getUsageDaily({ baseUrl, accessToken, from, to }) {
+export async function getUsageDaily({
+  baseUrl,
+  accessToken,
+  from,
+  to,
+  timeZone,
+  tzOffsetMinutes,
+}) {
   if (isMockEnabled()) {
     return getMockUsageDaily({ from, to, seed: accessToken });
   }
+  const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
   return requestJson({
     baseUrl,
     accessToken,
     path: PATHS.usageDaily,
-    params: { from, to },
+    params: { from, to, ...tzParams },
   });
 }
 
-export async function getUsageHourly({ baseUrl, accessToken, day }) {
+export async function getUsageHourly({
+  baseUrl,
+  accessToken,
+  day,
+  timeZone,
+  tzOffsetMinutes,
+}) {
   if (isMockEnabled()) {
     return getMockUsageHourly({ day, seed: accessToken });
   }
+  const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
   return requestJson({
     baseUrl,
     accessToken,
     path: PATHS.usageHourly,
-    params: day ? { day } : undefined,
+    params: day ? { day, ...tzParams } : tzParams,
   });
 }
 
-export async function getUsageMonthly({ baseUrl, accessToken, months, to }) {
+export async function getUsageMonthly({
+  baseUrl,
+  accessToken,
+  months,
+  to,
+  timeZone,
+  tzOffsetMinutes,
+}) {
   if (isMockEnabled()) {
     return getMockUsageMonthly({ months, to, seed: accessToken });
   }
+  const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
   return requestJson({
     baseUrl,
     accessToken,
@@ -80,6 +111,7 @@ export async function getUsageMonthly({ baseUrl, accessToken, months, to }) {
     params: {
       ...(months ? { months: String(months) } : {}),
       ...(to ? { to } : {}),
+      ...tzParams,
     },
   });
 }
@@ -90,6 +122,8 @@ export async function getUsageHeatmap({
   weeks,
   to,
   weekStartsOn,
+  timeZone,
+  tzOffsetMinutes,
 }) {
   if (isMockEnabled()) {
     return getMockUsageHeatmap({
@@ -99,6 +133,7 @@ export async function getUsageHeatmap({
       seed: accessToken,
     });
   }
+  const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
   return requestJson({
     baseUrl,
     accessToken,
@@ -107,8 +142,19 @@ export async function getUsageHeatmap({
       weeks: String(weeks),
       to,
       week_starts_on: weekStartsOn,
+      ...tzParams,
     },
   });
+}
+
+function buildTimeZoneParams({ timeZone, tzOffsetMinutes } = {}) {
+  const params = {};
+  const tz = typeof timeZone === "string" ? timeZone.trim() : "";
+  if (tz) params.tz = tz;
+  if (Number.isFinite(tzOffsetMinutes)) {
+    params.tz_offset_minutes = String(Math.trunc(tzOffsetMinutes));
+  }
+  return params;
 }
 
 async function requestJson({
