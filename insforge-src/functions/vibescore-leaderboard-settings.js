@@ -30,6 +30,23 @@ module.exports = async function(request) {
   if (!auth.ok) return json({ error: 'Unauthorized' }, 401);
 
   const updatedAt = new Date().toISOString();
+  const upsertRow = {
+    user_id: auth.userId,
+    leaderboard_public: leaderboardPublic,
+    updated_at: updatedAt
+  };
+
+  const settingsTable = auth.edgeClient.database.from('vibescore_user_settings');
+  if (typeof settingsTable.upsert === 'function') {
+    try {
+      const { error: upsertErr } = await settingsTable.upsert([upsertRow], { onConflict: 'user_id' });
+      if (!upsertErr) {
+        return json({ leaderboard_public: leaderboardPublic, updated_at: updatedAt }, 200);
+      }
+    } catch (_err) {
+      // Fall back to legacy select → update/insert when upsert is unavailable.
+    }
+  }
 
   const { data: existing, error: selErr } = await auth.edgeClient.database
     .from('vibescore_user_settings')
@@ -48,10 +65,9 @@ module.exports = async function(request) {
   } else {
     const { error: insErr } = await auth.edgeClient.database
       .from('vibescore_user_settings')
-      .insert([{ user_id: auth.userId, leaderboard_public: leaderboardPublic, updated_at: updatedAt }]);
+      .insert([upsertRow]);
     if (insErr) return json({ error: insErr.message }, 500);
   }
 
   return json({ leaderboard_public: leaderboardPublic, updated_at: updatedAt }, 200);
 };
-

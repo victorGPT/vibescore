@@ -125,13 +125,28 @@ module.exports = async function(request) {
   const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
   if (!auth.ok) return json({ error: "Unauthorized" }, 401);
   const updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+  const upsertRow = {
+    user_id: auth.userId,
+    leaderboard_public: leaderboardPublic,
+    updated_at: updatedAt
+  };
+  const settingsTable = auth.edgeClient.database.from("vibescore_user_settings");
+  if (typeof settingsTable.upsert === "function") {
+    try {
+      const { error: upsertErr } = await settingsTable.upsert([upsertRow], { onConflict: "user_id" });
+      if (!upsertErr) {
+        return json({ leaderboard_public: leaderboardPublic, updated_at: updatedAt }, 200);
+      }
+    } catch (_err) {
+    }
+  }
   const { data: existing, error: selErr } = await auth.edgeClient.database.from("vibescore_user_settings").select("user_id").eq("user_id", auth.userId).maybeSingle();
   if (selErr) return json({ error: selErr.message }, 500);
   if (existing?.user_id) {
     const { error: updErr } = await auth.edgeClient.database.from("vibescore_user_settings").update({ leaderboard_public: leaderboardPublic, updated_at: updatedAt }).eq("user_id", auth.userId);
     if (updErr) return json({ error: updErr.message }, 500);
   } else {
-    const { error: insErr } = await auth.edgeClient.database.from("vibescore_user_settings").insert([{ user_id: auth.userId, leaderboard_public: leaderboardPublic, updated_at: updatedAt }]);
+    const { error: insErr } = await auth.edgeClient.database.from("vibescore_user_settings").insert([upsertRow]);
     if (insErr) return json({ error: insErr.message }, 500);
   }
   return json({ leaderboard_public: leaderboardPublic, updated_at: updatedAt }, 200);

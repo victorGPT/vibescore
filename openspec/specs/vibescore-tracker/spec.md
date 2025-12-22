@@ -182,6 +182,18 @@ The system SHALL provide an authenticated endpoint for the current user to updat
 - **WHEN** the user calls `POST /functions/vibescore-leaderboard-settings` with body `{ "leaderboard_public": true }`
 - **THEN** the response SHALL include `leaderboard_public: true`
 
+### Requirement: Leaderboard settings update SHOULD prefer single upsert
+The system SHALL attempt a single upsert when updating leaderboard privacy settings, and SHALL fall back to the legacy select/update/insert flow if the upsert is unavailable.
+
+#### Scenario: Upsert succeeds
+- **WHEN** a signed-in user updates `leaderboard_public`
+- **THEN** the system SHALL perform a single upsert to persist the change
+- **AND** the response payload SHALL remain unchanged
+
+#### Scenario: Upsert unsupported
+- **WHEN** the upsert attempt fails due to unsupported constraints
+- **THEN** the system SHALL fall back to the legacy select/update/insert flow
+
 ### Requirement: Dashboard shows identity information from login state
 The dashboard UI SHALL show an identity panel derived from the login state (name/email/userId). Rank MAY be shown as a placeholder until a backend rank endpoint exists.
 
