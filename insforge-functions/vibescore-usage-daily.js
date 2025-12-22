@@ -247,7 +247,7 @@ var require_date = __commonJS({
       const offset = url.searchParams.get("tz_offset_minutes");
       return normalizeTimeZone(tz, offset);
     }
-    function isUtcTimeZone2(tzContext) {
+    function isUtcTimeZone(tzContext) {
       if (!tzContext) return true;
       const tz = tzContext.timeZone;
       if (tz) {
@@ -360,7 +360,7 @@ var require_date = __commonJS({
       addDatePartsMonths,
       normalizeTimeZone,
       getUsageTimeZoneContext: getUsageTimeZoneContext2,
-      isUtcTimeZone: isUtcTimeZone2,
+      isUtcTimeZone,
       getTimeZoneOffsetMinutes,
       getLocalParts,
       formatLocalDateKey: formatLocalDateKey2,
@@ -467,7 +467,6 @@ var { getBaseUrl } = require_env();
 var {
   addDatePartsDays,
   formatLocalDateKey,
-  isUtcTimeZone,
   getUsageTimeZoneContext,
   listDateStrings,
   localDatePartsToUtc,
@@ -493,11 +492,6 @@ module.exports = async function(request) {
     url.searchParams.get("to"),
     tzContext
   );
-  if (isUtcTimeZone(tzContext)) {
-    const { data, error: error2 } = await auth.edgeClient.database.from("vibescore_tracker_daily").select("day,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("day", from).lte("day", to).order("day", { ascending: true });
-    if (error2) return json({ error: error2.message }, 500);
-    return json({ from, to, data: data || [] }, 200);
-  }
   const dayKeys = listDateStrings(from, to);
   const startParts = parseDateParts(from);
   const endParts = parseDateParts(to);
@@ -519,10 +513,10 @@ module.exports = async function(request) {
     ])
   );
   const { error } = await forEachPage({
-    createQuery: () => auth.edgeClient.database.from("vibescore_tracker_events").select("token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("token_timestamp", startIso).lt("token_timestamp", endIso).order("token_timestamp", { ascending: true }),
+    createQuery: () => auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true }),
     onPage: (rows2) => {
       for (const row of rows2) {
-        const ts = row?.token_timestamp;
+        const ts = row?.hour_start;
         if (!ts) continue;
         const dt = new Date(ts);
         if (!Number.isFinite(dt.getTime())) continue;

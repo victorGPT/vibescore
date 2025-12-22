@@ -541,10 +541,10 @@ module.exports = async function(request) {
       );
     }
     const { error: error2 } = await forEachPage({
-      createQuery: () => auth.edgeClient.database.from("vibescore_tracker_events").select("token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("token_timestamp", startIso2).lt("token_timestamp", endIso2).order("token_timestamp", { ascending: true }),
+      createQuery: () => auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("hour_start", startIso2).lt("hour_start", endIso2).order("hour_start", { ascending: true }),
       onPage: (rows) => {
         for (const row of rows) {
-          const ts = row?.token_timestamp;
+          const ts = row?.hour_start;
           if (!ts) continue;
           const dt = new Date(ts);
           if (!Number.isFinite(dt.getTime())) continue;
@@ -588,10 +588,10 @@ module.exports = async function(request) {
     tzContext
   });
   const { error } = await forEachPage({
-    createQuery: () => auth.edgeClient.database.from("vibescore_tracker_events").select("token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("token_timestamp", startIso).lt("token_timestamp", endIso).order("token_timestamp", { ascending: true }),
+    createQuery: () => auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true }),
     onPage: (rows) => {
       for (const row of rows) {
-        const ts = row?.token_timestamp;
+        const ts = row?.hour_start;
         if (!ts) continue;
         const dt = new Date(ts);
         if (!Number.isFinite(dt.getTime())) continue;
@@ -675,9 +675,9 @@ function formatHourKeyFromValue(value) {
 }
 async function tryAggregateHourlyTotals({ edgeClient, userId, startIso, endIso }) {
   try {
-    const { data, error } = await edgeClient.database.from("vibescore_tracker_events").select(
-      "hour:date_trunc('hour', token_timestamp),sum_total_tokens:sum(total_tokens),sum_input_tokens:sum(input_tokens),sum_cached_input_tokens:sum(cached_input_tokens),sum_output_tokens:sum(output_tokens),sum_reasoning_output_tokens:sum(reasoning_output_tokens)"
-    ).eq("user_id", userId).gte("token_timestamp", startIso).lt("token_timestamp", endIso).order("hour", { ascending: true });
+    const { data, error } = await edgeClient.database.from("vibescore_tracker_hourly").select(
+      "hour:hour_start,sum_total_tokens:sum(total_tokens),sum_input_tokens:sum(input_tokens),sum_cached_input_tokens:sum(cached_input_tokens),sum_output_tokens:sum(output_tokens),sum_reasoning_output_tokens:sum(reasoning_output_tokens)"
+    ).eq("user_id", userId).gte("hour_start", startIso).lt("hour_start", endIso).order("hour", { ascending: true });
     if (error) return null;
     return data || [];
   } catch (_e) {

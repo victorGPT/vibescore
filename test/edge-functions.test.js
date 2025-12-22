@@ -164,11 +164,10 @@ test('vibescore-device-token-issue admin mode skips user lookup', async () => {
   assert.equal(deviceInsert.rows?.[0]?.user_id, adminUserId);
 });
 
-test('vibescore-ingest uses serviceRoleKey as edgeFunctionToken and ingests events', async () => {
+test('vibescore-ingest uses serviceRoleKey as edgeFunctionToken and ingests hourly aggregates', async () => {
   const fn = require('../insforge-functions/vibescore-ingest');
 
   const calls = [];
-  const insertedEvents = [];
   const fetchCalls = [];
 
   const tokenRow = {
@@ -187,20 +186,6 @@ test('vibescore-ingest uses serviceRoleKey as edgeFunctionToken and ingests even
           })
         }),
         update: () => ({ eq: async () => ({ error: null }) })
-      };
-    }
-
-    if (table === 'vibescore_tracker_events') {
-      return {
-        select: () => ({
-          eq: () => ({
-            in: async () => ({ data: [], error: null })
-          })
-        }),
-        insert: async (rows) => {
-          insertedEvents.push(...rows);
-          return { error: null };
-        }
       };
     }
 
@@ -225,8 +210,8 @@ test('vibescore-ingest uses serviceRoleKey as edgeFunctionToken and ingests even
     fetchCalls.push({ url, init });
     const u = new URL(url);
 
-    if (u.pathname.endsWith('/api/database/records/vibescore_tracker_events')) {
-      return new Response(JSON.stringify([{ event_id: 'e1' }]), {
+    if (u.pathname.endsWith('/api/database/records/vibescore_tracker_hourly')) {
+      return new Response(JSON.stringify([{ hour_start: '2025-12-17T00:00:00.000Z' }]), {
         status: 201,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -236,10 +221,8 @@ test('vibescore-ingest uses serviceRoleKey as edgeFunctionToken and ingests even
   };
 
   const deviceToken = 'device_token_test';
-  const ev = {
-    event_id: 'e1',
-    token_timestamp: new Date('2025-12-17T00:00:00.000Z').toISOString(),
-    model: 'gpt-test',
+  const bucket = {
+    hour_start: new Date('2025-12-17T00:00:00.000Z').toISOString(),
     input_tokens: 1,
     cached_input_tokens: 0,
     output_tokens: 2,
@@ -250,7 +233,7 @@ test('vibescore-ingest uses serviceRoleKey as edgeFunctionToken and ingests even
   const req = new Request('http://localhost/functions/vibescore-ingest', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deviceToken}` },
-    body: JSON.stringify({ events: [ev, ev] })
+    body: JSON.stringify({ hourly: [bucket, bucket] })
   });
 
   const res = await fn(req);
@@ -258,22 +241,20 @@ test('vibescore-ingest uses serviceRoleKey as edgeFunctionToken and ingests even
 
   const data = await res.json();
   assert.deepEqual(data, { success: true, inserted: 1, skipped: 0 });
-  assert.equal(insertedEvents.length, 0);
-
   assert.equal(fetchCalls.length, 1);
   const postCall = fetchCalls[0];
   const postUrl = new URL(postCall.url);
-  assert.ok(String(postCall.url).includes('/api/database/records/vibescore_tracker_events'));
+  assert.ok(String(postCall.url).includes('/api/database/records/vibescore_tracker_hourly'));
   assert.equal(postCall.init?.method, 'POST');
   assert.equal(postCall.init?.headers?.apikey, SERVICE_ROLE_KEY);
   assert.equal(postCall.init?.headers?.Authorization, `Bearer ${SERVICE_ROLE_KEY}`);
-  assert.equal(postCall.init?.headers?.Prefer, 'return=representation,resolution=ignore-duplicates');
-  assert.equal(postUrl.searchParams.get('on_conflict'), 'user_id,event_id');
-  assert.equal(postUrl.searchParams.get('select'), 'event_id');
+  assert.equal(postCall.init?.headers?.Prefer, 'return=representation,resolution=merge-duplicates');
+  assert.equal(postUrl.searchParams.get('on_conflict'), 'user_id,device_id,hour_start');
+  assert.equal(postUrl.searchParams.get('select'), 'hour_start');
 
   const postBody = JSON.parse(postCall.init?.body || '[]');
   assert.equal(postBody.length, 1);
-  assert.equal(postBody[0]?.event_id, 'e1');
+  assert.equal(postBody[0]?.hour_start, bucket.hour_start);
 
   const serviceClientCall = calls.find((c) => c && c.edgeFunctionToken === SERVICE_ROLE_KEY);
   assert.ok(serviceClientCall, 'service client not created');
@@ -305,18 +286,16 @@ test('vibescore-ingest works without serviceRoleKey via anonKey records API', as
       return new Response(JSON.stringify([tokenRow]), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    if (u.pathname.endsWith('/api/database/records/vibescore_tracker_events')) {
-      return new Response(JSON.stringify([{ event_id: 'e1' }]), { status: 201, headers: { 'Content-Type': 'application/json' } });
+    if (u.pathname.endsWith('/api/database/records/vibescore_tracker_hourly')) {
+      return new Response(JSON.stringify([{ hour_start: '2025-12-17T00:00:00.000Z' }]), { status: 201, headers: { 'Content-Type': 'application/json' } });
     }
 
     return new Response('not found', { status: 404 });
   };
 
   const deviceToken = 'device_token_test';
-  const ev = {
-    event_id: 'e1',
-    token_timestamp: new Date('2025-12-17T00:00:00.000Z').toISOString(),
-    model: 'gpt-test',
+  const bucket = {
+    hour_start: new Date('2025-12-17T00:00:00.000Z').toISOString(),
     input_tokens: 1,
     cached_input_tokens: 0,
     output_tokens: 2,
@@ -327,7 +306,7 @@ test('vibescore-ingest works without serviceRoleKey via anonKey records API', as
   const req = new Request('http://localhost/functions/vibescore-ingest', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deviceToken}` },
-    body: JSON.stringify({ events: [ev] })
+    body: JSON.stringify({ hourly: [bucket] })
   });
 
   const res = await fn(req);
@@ -348,12 +327,12 @@ test('vibescore-ingest works without serviceRoleKey via anonKey records API', as
   assert.equal(typeof getCall.init?.headers?.['x-vibescore-device-token-hash'], 'string');
   assert.equal(getCall.init?.headers?.['x-vibescore-device-token-hash'].length, 64);
 
-  assert.ok(String(postCall.url).includes('/api/database/records/vibescore_tracker_events'));
+  assert.ok(String(postCall.url).includes('/api/database/records/vibescore_tracker_hourly'));
   assert.equal(postCall.init?.method, 'POST');
-  assert.equal(postCall.init?.headers?.Prefer, 'return=representation,resolution=ignore-duplicates');
+  assert.equal(postCall.init?.headers?.Prefer, 'return=representation,resolution=merge-duplicates');
   const postUrl = new URL(postCall.url);
-  assert.equal(postUrl.searchParams.get('on_conflict'), 'user_id,event_id');
-  assert.equal(postUrl.searchParams.get('select'), 'event_id');
+  assert.equal(postUrl.searchParams.get('on_conflict'), 'user_id,device_id,hour_start');
+  assert.equal(postUrl.searchParams.get('select'), 'hour_start');
 
   assert.ok(String(touchCall.url).includes('/api/database/rpc/vibescore_touch_device_token_sync'));
   assert.equal(touchCall.init?.method, 'POST');
@@ -362,7 +341,7 @@ test('vibescore-ingest works without serviceRoleKey via anonKey records API', as
   assert.equal(typeof touchCall.init?.headers?.['x-vibescore-device-token-hash'], 'string');
 });
 
-test('vibescore-ingest anonKey path falls back to per-row inserts on 23505', async () => {
+test('vibescore-ingest anonKey path errors when hourly upsert unsupported', async () => {
   setDenoEnv({
     INSFORGE_INTERNAL_URL: BASE_URL,
     ANON_KEY
@@ -377,7 +356,6 @@ test('vibescore-ingest anonKey path falls back to per-row inserts on 23505', asy
     revoked_at: null
   };
 
-  let postCount = 0;
   globalThis.fetch = async (url, init) => {
     const u = new URL(url);
 
@@ -385,39 +363,19 @@ test('vibescore-ingest anonKey path falls back to per-row inserts on 23505', asy
       return new Response(JSON.stringify([tokenRow]), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    if (u.pathname.endsWith('/api/database/records/vibescore_tracker_events')) {
-      postCount += 1;
-      if (postCount === 1) {
-        return new Response(JSON.stringify({ message: 'unknown on_conflict' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-      if (postCount === 2) {
-        return new Response(JSON.stringify({ code: '23505', message: 'duplicate key value violates unique constraint' }), {
-          status: 409,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-      if (postCount === 3) {
-        return new Response('[]', { status: 201, headers: { 'Content-Type': 'application/json' } });
-      }
-      if (postCount === 4) {
-        return new Response(JSON.stringify({ code: '23505', message: 'duplicate key value violates unique constraint' }), {
-          status: 409,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-      return new Response('unexpected', { status: 500 });
+    if (u.pathname.endsWith('/api/database/records/vibescore_tracker_hourly')) {
+      return new Response(JSON.stringify({ message: 'unknown on_conflict' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     return new Response('not found', { status: 404 });
   };
 
   const deviceToken = 'device_token_test';
-  const baseEvent = {
-    token_timestamp: new Date('2025-12-17T00:00:00.000Z').toISOString(),
-    model: 'gpt-test',
+  const bucket = {
+    hour_start: new Date('2025-12-17T00:00:00.000Z').toISOString(),
     input_tokens: 1,
     cached_input_tokens: 0,
     output_tokens: 2,
@@ -428,20 +386,14 @@ test('vibescore-ingest anonKey path falls back to per-row inserts on 23505', asy
   const req = new Request('http://localhost/functions/vibescore-ingest', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deviceToken}` },
-    body: JSON.stringify({
-      events: [
-        { ...baseEvent, event_id: 'e1' },
-        { ...baseEvent, event_id: 'e2' }
-      ]
-    })
+    body: JSON.stringify({ hourly: [bucket] })
   });
 
   const res = await fn(req);
-  assert.equal(res.status, 200);
+  assert.equal(res.status, 500);
 
   const data = await res.json();
-  assert.deepEqual(data, { success: true, inserted: 1, skipped: 1 });
-  assert.equal(postCount, 4);
+  assert.deepEqual(data, { error: 'unknown on_conflict' });
 });
 
 test('vibescore-usage-heatmap returns a week-aligned grid with derived fields', async () => {
@@ -451,10 +403,11 @@ test('vibescore-usage-heatmap returns a week-aligned grid with derived fields', 
   const userJwt = 'user_jwt_test';
 
   const rows = [
-    { day: '2025-12-10', total_tokens: '10' },
-    { day: '2025-12-11', total_tokens: '10' },
-    { day: '2025-12-12', total_tokens: '100' },
-    { day: '2025-12-18', total_tokens: '1000' }
+    { hour_start: '2025-12-10T00:00:00.000Z', total_tokens: '10' },
+    { hour_start: '2025-12-11T00:00:00.000Z', total_tokens: '10' },
+    { hour_start: '2025-12-12T00:00:00.000Z', total_tokens: '60' },
+    { hour_start: '2025-12-12T01:00:00.000Z', total_tokens: '40' },
+    { hour_start: '2025-12-18T00:00:00.000Z', total_tokens: '1000' }
   ];
 
   globalThis.createClient = (args) => {
@@ -466,7 +419,7 @@ test('vibescore-usage-heatmap returns a week-aligned grid with derived fields', 
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_daily');
+            assert.equal(table, 'vibescore_tracker_hourly');
             return {
               select: () => ({
                 eq: (col, value) => {
@@ -474,15 +427,15 @@ test('vibescore-usage-heatmap returns a week-aligned grid with derived fields', 
                   assert.equal(value, userId);
                   return {
                     gte: (gteCol, from) => {
-                      assert.equal(gteCol, 'day');
-                      assert.equal(from, '2025-12-07');
+                      assert.equal(gteCol, 'hour_start');
+                      assert.equal(from, '2025-12-07T00:00:00.000Z');
                       return {
-                        lte: (lteCol, to) => {
-                          assert.equal(lteCol, 'day');
-                          assert.equal(to, '2025-12-18');
+                        lt: (ltCol, to) => {
+                          assert.equal(ltCol, 'hour_start');
+                          assert.equal(to, '2025-12-19T00:00:00.000Z');
                           return {
                             order: async (orderCol, opts) => {
-                              assert.equal(orderCol, 'day');
+                              assert.equal(orderCol, 'hour_start');
                               assert.equal(opts?.ascending, true);
                               return { data: rows, error: null };
                             }
@@ -553,7 +506,7 @@ test('vibescore-usage-heatmap rejects invalid parameters', async () => {
   assert.equal(res.status, 400);
 });
 
-test('vibescore-usage-hourly aggregates events into hourly buckets', async () => {
+test('vibescore-usage-hourly aggregates hourly buckets into hourly totals', async () => {
   const fn = require('../insforge-functions/vibescore-usage-hourly');
 
   const userId = '77777777-7777-7777-7777-777777777777';
@@ -561,7 +514,7 @@ test('vibescore-usage-hourly aggregates events into hourly buckets', async () =>
 
   const rows = [
     {
-      token_timestamp: '2025-12-21T01:10:00.000Z',
+      hour_start: '2025-12-21T01:00:00.000Z',
       total_tokens: '10',
       input_tokens: '4',
       cached_input_tokens: '1',
@@ -569,7 +522,7 @@ test('vibescore-usage-hourly aggregates events into hourly buckets', async () =>
       reasoning_output_tokens: '2'
     },
     {
-      token_timestamp: '2025-12-21T01:45:00.000Z',
+      hour_start: '2025-12-21T01:00:00.000Z',
       total_tokens: '2',
       input_tokens: '1',
       cached_input_tokens: '0',
@@ -577,7 +530,7 @@ test('vibescore-usage-hourly aggregates events into hourly buckets', async () =>
       reasoning_output_tokens: '0'
     },
     {
-      token_timestamp: '2025-12-21T13:05:00.000Z',
+      hour_start: '2025-12-21T13:00:00.000Z',
       total_tokens: '5',
       input_tokens: '2',
       cached_input_tokens: '1',
@@ -595,22 +548,22 @@ test('vibescore-usage-hourly aggregates events into hourly buckets', async () =>
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_events');
+            assert.equal(table, 'vibescore_tracker_hourly');
             return {
               select: (columns) => {
                 const isAggregate =
-                  typeof columns === 'string' && columns.includes("date_trunc('hour'");
+                  typeof columns === 'string' && columns.includes('sum(');
                 return {
                   eq: (col, value) => {
                     assert.equal(col, 'user_id');
                     assert.equal(value, userId);
                     return {
                       gte: (gteCol, from) => {
-                        assert.equal(gteCol, 'token_timestamp');
+                        assert.equal(gteCol, 'hour_start');
                         assert.equal(from, '2025-12-21T00:00:00.000Z');
                         return {
                           lt: (ltCol, to) => {
-                            assert.equal(ltCol, 'token_timestamp');
+                            assert.equal(ltCol, 'hour_start');
                             assert.equal(to, '2025-12-22T00:00:00.000Z');
                             return {
                               order: async (orderCol, opts) => {
@@ -619,7 +572,7 @@ test('vibescore-usage-hourly aggregates events into hourly buckets', async () =>
                                   assert.equal(orderCol, 'hour');
                                   return { data: null, error: { message: 'not supported' } };
                                 }
-                                assert.equal(orderCol, 'token_timestamp');
+                                assert.equal(orderCol, 'hour_start');
                                 return { data: rows, error: null };
                               }
                             };
@@ -655,7 +608,7 @@ test('vibescore-usage-hourly aggregates events into hourly buckets', async () =>
   assert.equal(body.data[13].total_tokens, '5');
 });
 
-test('vibescore-usage-monthly aggregates daily rows into months', async () => {
+test('vibescore-usage-monthly aggregates hourly rows into months', async () => {
   const fn = require('../insforge-functions/vibescore-usage-monthly');
 
   const userId = '88888888-8888-8888-8888-888888888888';
@@ -663,7 +616,7 @@ test('vibescore-usage-monthly aggregates daily rows into months', async () => {
 
   const rows = [
     {
-      day: '2025-11-05',
+      hour_start: '2025-11-05T00:00:00.000Z',
       total_tokens: '10',
       input_tokens: '4',
       cached_input_tokens: '1',
@@ -671,7 +624,7 @@ test('vibescore-usage-monthly aggregates daily rows into months', async () => {
       reasoning_output_tokens: '2'
     },
     {
-      day: '2025-11-20',
+      hour_start: '2025-11-20T00:00:00.000Z',
       total_tokens: '5',
       input_tokens: '2',
       cached_input_tokens: '1',
@@ -679,7 +632,7 @@ test('vibescore-usage-monthly aggregates daily rows into months', async () => {
       reasoning_output_tokens: '1'
     },
     {
-      day: '2025-12-01',
+      hour_start: '2025-12-01T00:00:00.000Z',
       total_tokens: '7',
       input_tokens: '3',
       cached_input_tokens: '1',
@@ -697,7 +650,7 @@ test('vibescore-usage-monthly aggregates daily rows into months', async () => {
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_daily');
+            assert.equal(table, 'vibescore_tracker_hourly');
             return {
               select: () => ({
                 eq: (col, value) => {
@@ -705,15 +658,15 @@ test('vibescore-usage-monthly aggregates daily rows into months', async () => {
                   assert.equal(value, userId);
                   return {
                     gte: (gteCol, from) => {
-                      assert.equal(gteCol, 'day');
-                      assert.equal(from, '2025-11-01');
+                      assert.equal(gteCol, 'hour_start');
+                      assert.equal(from, '2025-11-01T00:00:00.000Z');
                       return {
-                        lte: (lteCol, to) => {
-                          assert.equal(lteCol, 'day');
-                          assert.equal(to, '2025-12-21');
+                        lt: (ltCol, to) => {
+                          assert.equal(ltCol, 'hour_start');
+                          assert.equal(to, '2025-12-22T00:00:00.000Z');
                           return {
                             order: async (orderCol, opts) => {
-                              assert.equal(orderCol, 'day');
+                              assert.equal(orderCol, 'hour_start');
                               assert.equal(opts?.ascending, true);
                               return { data: rows, error: null };
                             }

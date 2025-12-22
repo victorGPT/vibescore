@@ -114,36 +114,36 @@ var require_date = __commonJS({
     function toUtcDay(d) {
       return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
     }
-    function formatDateUTC2(d) {
+    function formatDateUTC(d) {
       return toUtcDay(d).toISOString().slice(0, 10);
     }
     function normalizeDateRange(fromRaw, toRaw) {
       const today = /* @__PURE__ */ new Date();
-      const toDefault = formatDateUTC2(today);
-      const fromDefault = formatDateUTC2(
+      const toDefault = formatDateUTC(today);
+      const fromDefault = formatDateUTC(
         new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 29))
       );
       const from = isDate(fromRaw) ? fromRaw : fromDefault;
       const to = isDate(toRaw) ? toRaw : toDefault;
       return { from, to };
     }
-    function parseUtcDateString2(yyyyMmDd) {
+    function parseUtcDateString(yyyyMmDd) {
       if (!isDate(yyyyMmDd)) return null;
       const [y, m, d] = yyyyMmDd.split("-").map((n) => Number(n));
       const dt = new Date(Date.UTC(y, m - 1, d));
       if (!Number.isFinite(dt.getTime())) return null;
-      return formatDateUTC2(dt) === yyyyMmDd ? dt : null;
+      return formatDateUTC(dt) === yyyyMmDd ? dt : null;
     }
     function addUtcDays(date, days) {
       return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
     }
     function computeHeatmapWindowUtc({ weeks, weekStartsOn, to }) {
-      const end = parseUtcDateString2(to) || /* @__PURE__ */ new Date();
+      const end = parseUtcDateString(to) || /* @__PURE__ */ new Date();
       const desired = weekStartsOn === "mon" ? 1 : 0;
       const endDow = end.getUTCDay();
       const endWeekStart = addUtcDays(end, -((endDow - desired + 7) % 7));
       const gridStart = addUtcDays(endWeekStart, -7 * (weeks - 1));
-      return { from: formatDateUTC2(gridStart), gridStart, end };
+      return { from: formatDateUTC(gridStart), gridStart, end };
     }
     var TIMEZONE_FORMATTERS = /* @__PURE__ */ new Map();
     function getTimeZoneFormatter(timeZone) {
@@ -247,7 +247,7 @@ var require_date = __commonJS({
       const offset = url.searchParams.get("tz_offset_minutes");
       return normalizeTimeZone(tz, offset);
     }
-    function isUtcTimeZone2(tzContext) {
+    function isUtcTimeZone(tzContext) {
       if (!tzContext) return true;
       const tz = tzContext.timeZone;
       if (tz) {
@@ -340,16 +340,16 @@ var require_date = __commonJS({
       if (!start || !end || end < start) return [];
       const days = [];
       for (let cursor = start; cursor <= end; cursor = addUtcDays(cursor, 1)) {
-        days.push(formatDateUTC2(cursor));
+        days.push(formatDateUTC(cursor));
       }
       return days;
     }
     module2.exports = {
       isDate,
       toUtcDay,
-      formatDateUTC: formatDateUTC2,
+      formatDateUTC,
       normalizeDateRange,
-      parseUtcDateString: parseUtcDateString2,
+      parseUtcDateString,
       addUtcDays,
       computeHeatmapWindowUtc,
       parseDateParts: parseDateParts2,
@@ -360,7 +360,7 @@ var require_date = __commonJS({
       addDatePartsMonths: addDatePartsMonths2,
       normalizeTimeZone,
       getUsageTimeZoneContext: getUsageTimeZoneContext2,
-      isUtcTimeZone: isUtcTimeZone2,
+      isUtcTimeZone,
       getTimeZoneOffsetMinutes,
       getLocalParts: getLocalParts2,
       formatLocalDateKey,
@@ -468,13 +468,10 @@ var {
   addDatePartsDays,
   addDatePartsMonths,
   formatDateParts,
-  formatDateUTC,
   getLocalParts,
-  isUtcTimeZone,
   getUsageTimeZoneContext,
   localDatePartsToUtc,
-  parseDateParts,
-  parseUtcDateString
+  parseDateParts
 } = require_date();
 var { toBigInt, toPositiveIntOrNull } = require_numbers();
 var { forEachPage } = require_pagination();
@@ -496,57 +493,8 @@ module.exports = async function(request) {
   const months = monthsParsed == null ? MAX_MONTHS : monthsParsed;
   if (months < 1 || months > MAX_MONTHS) return json({ error: "Invalid months" }, 400);
   const toRaw = url.searchParams.get("to");
-  if (isUtcTimeZone(tzContext)) {
-    const today = parseUtcDateString(formatDateUTC(/* @__PURE__ */ new Date()));
-    const toDate = toRaw ? parseUtcDateString(toRaw) : today;
-    if (!toDate) return json({ error: "Invalid to date" }, 400);
-    const startMonth = new Date(
-      Date.UTC(toDate.getUTCFullYear(), toDate.getUTCMonth() - (months - 1), 1)
-    );
-    const from2 = formatDateUTC(startMonth);
-    const to2 = formatDateUTC(toDate);
-    const { monthKeys: monthKeys2, buckets: buckets2 } = initMonthlyBuckets(startMonth, months);
-    const aggregateRows = await tryAggregateMonthlyTotals({
-      edgeClient: auth.edgeClient,
-      userId: auth.userId,
-      from: from2,
-      to: to2
-    });
-    if (aggregateRows) {
-      for (const row of aggregateRows) {
-        const key = formatMonthKeyFromValue(row?.month);
-        const bucket = key ? buckets2.get(key) : null;
-        if (!bucket) continue;
-        bucket.total += toBigInt(row?.sum_total_tokens);
-        bucket.input += toBigInt(row?.sum_input_tokens);
-        bucket.cached += toBigInt(row?.sum_cached_input_tokens);
-        bucket.output += toBigInt(row?.sum_output_tokens);
-        bucket.reasoning += toBigInt(row?.sum_reasoning_output_tokens);
-      }
-      return json({ from: from2, to: to2, months, data: buildMonthlyResponse(monthKeys2, buckets2) }, 200);
-    }
-    const { data, error: error2 } = await auth.edgeClient.database.from("vibescore_tracker_daily").select("day,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("day", from2).lte("day", to2).order("day", { ascending: true });
-    if (error2) return json({ error: error2.message }, 500);
-    for (const row of data || []) {
-      const day = row?.day;
-      if (typeof day !== "string" || day.length < 7) continue;
-      const key = day.slice(0, 7);
-      const bucket = buckets2.get(key);
-      if (!bucket) continue;
-      bucket.total += toBigInt(row?.total_tokens);
-      bucket.input += toBigInt(row?.input_tokens);
-      bucket.cached += toBigInt(row?.cached_input_tokens);
-      bucket.output += toBigInt(row?.output_tokens);
-      bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
-    }
-    return json({ from: from2, to: to2, months, data: buildMonthlyResponse(monthKeys2, buckets2) }, 200);
-  }
   const todayParts = getLocalParts(/* @__PURE__ */ new Date(), tzContext);
-  const toParts = toRaw ? parseDateParts(toRaw) : {
-    year: todayParts.year,
-    month: todayParts.month,
-    day: todayParts.day
-  };
+  const toParts = toRaw ? parseDateParts(toRaw) : { year: todayParts.year, month: todayParts.month, day: todayParts.day };
   if (!toParts) return json({ error: "Invalid to date" }, 400);
   const startMonthParts = addDatePartsMonths(
     { year: toParts.year, month: toParts.month, day: 1 },
@@ -577,10 +525,10 @@ module.exports = async function(request) {
     });
   }
   const { error } = await forEachPage({
-    createQuery: () => auth.edgeClient.database.from("vibescore_tracker_events").select("token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("token_timestamp", startIso).lt("token_timestamp", endIso).order("token_timestamp", { ascending: true }),
+    createQuery: () => auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true }),
     onPage: (rows) => {
       for (const row of rows) {
-        const ts = row?.token_timestamp;
+        const ts = row?.hour_start;
         if (!ts) continue;
         const dt = new Date(ts);
         if (!Number.isFinite(dt.getTime())) continue;
@@ -610,54 +558,3 @@ module.exports = async function(request) {
   });
   return json({ from, to, months, data: monthly }, 200);
 };
-function initMonthlyBuckets(startMonth, months) {
-  const monthKeys = [];
-  const buckets = /* @__PURE__ */ new Map();
-  for (let i = 0; i < months; i += 1) {
-    const dt = new Date(Date.UTC(startMonth.getUTCFullYear(), startMonth.getUTCMonth() + i, 1));
-    const key = `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}`;
-    monthKeys.push(key);
-    buckets.set(key, {
-      total: 0n,
-      input: 0n,
-      cached: 0n,
-      output: 0n,
-      reasoning: 0n
-    });
-  }
-  return { monthKeys, buckets };
-}
-function buildMonthlyResponse(monthKeys, buckets) {
-  return monthKeys.map((key) => {
-    const bucket = buckets.get(key);
-    return {
-      month: key,
-      total_tokens: bucket.total.toString(),
-      input_tokens: bucket.input.toString(),
-      cached_input_tokens: bucket.cached.toString(),
-      output_tokens: bucket.output.toString(),
-      reasoning_output_tokens: bucket.reasoning.toString()
-    };
-  });
-}
-function formatMonthKeyFromValue(value) {
-  if (!value) return null;
-  if (typeof value === "string") {
-    if (value.length >= 7) return value.slice(0, 7);
-    return null;
-  }
-  const dt = value instanceof Date ? value : new Date(value);
-  if (!Number.isFinite(dt.getTime())) return null;
-  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}`;
-}
-async function tryAggregateMonthlyTotals({ edgeClient, userId, from, to }) {
-  try {
-    const { data, error } = await edgeClient.database.from("vibescore_tracker_daily").select(
-      "month:date_trunc('month', day),sum_total_tokens:sum(total_tokens),sum_input_tokens:sum(input_tokens),sum_cached_input_tokens:sum(cached_input_tokens),sum_output_tokens:sum(output_tokens),sum_reasoning_output_tokens:sum(reasoning_output_tokens)"
-    ).eq("user_id", userId).gte("day", from).lte("day", to).order("month", { ascending: true });
-    if (error) return null;
-    return data || [];
-  } catch (_e) {
-    return null;
-  }
-}
