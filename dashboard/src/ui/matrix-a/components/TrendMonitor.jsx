@@ -49,9 +49,11 @@ export function TrendMonitor({
   const axisWidth = 8;
   const plotWidth = width - axisWidth;
   const pointCount = Math.max(seriesValues.length, 1);
-  const step = pointCount > 1 ? plotWidth / (pointCount - 1) : 0;
-  const xPadding =
-    pointCount > 1 ? Math.min(step / 2, plotWidth * 0.12) : plotWidth / 2;
+  const DAY_AXIS_POINT_COUNT = 24;
+  const dayStep =
+    DAY_AXIS_POINT_COUNT > 1 ? plotWidth / (DAY_AXIS_POINT_COUNT - 1) : 0;
+  const dayPadding = Math.min(dayStep / 2, plotWidth * 0.12);
+  const xPadding = pointCount > 1 ? dayPadding : plotWidth / 2;
   const plotSpan = Math.max(plotWidth - xPadding * 2, 0);
   const stepWithPadding =
     pointCount > 1 ? plotSpan / (pointCount - 1) : 0;
