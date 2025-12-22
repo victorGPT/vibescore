@@ -119,6 +119,26 @@ Response:
 
 ---
 
+### POST /functions/vibescore-sync-ping
+
+Record a throttled sync heartbeat for a device token. Used to distinguish “unsynced” from “no usage”.
+
+Auth:
+- `Authorization: Bearer <device_token>`
+
+Response:
+
+```json
+{
+  "success": true,
+  "updated": true,
+  "last_sync_at": "2025-12-22T12:30:00Z",
+  "min_interval_minutes": 30
+}
+```
+
+---
+
 ### GET /functions/vibescore-usage-summary
 
 Return token usage totals for the authenticated user over a date range in the requested timezone (default UTC).
@@ -196,9 +216,14 @@ Response:
       "input_tokens": "0",
       "cached_input_tokens": "0",
       "output_tokens": "0",
-      "reasoning_output_tokens": "0"
+      "reasoning_output_tokens": "0",
+      "missing": true
     }
-  ]
+  ],
+  "sync": {
+    "last_sync_at": "2025-12-22T12:30:00Z",
+    "min_interval_minutes": 30
+  }
 }
 ```
 

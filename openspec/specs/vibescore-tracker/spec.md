@@ -64,6 +64,23 @@ The ingest API MUST authenticate devices using a long-lived device token, and MU
 - **THEN** the CLI SHALL persist only the device token (and device id) for future ingestion
 - **AND** the CLI SHALL NOT persist any user JWT long-term
 
+### Requirement: Sync heartbeat records freshness
+The system SHALL record a device sync heartbeat even when no events are uploaded, so that the backend can distinguish "unsynced" from "no usage".
+
+#### Scenario: Sync with no new events still updates heartbeat
+- **GIVEN** a device token is valid
+- **WHEN** the CLI runs `npx @vibescore/tracker sync` with zero new events
+- **THEN** the backend SHALL update the device's `last_sync_at` (or equivalent) within the configured min interval
+
+### Requirement: Hourly usage marks unsynced buckets
+The hourly usage endpoint SHALL mark buckets after the latest sync timestamp as `missing: true` so the UI can distinguish unsynced hours.
+
+#### Scenario: Latest sync timestamp splits the day
+- **GIVEN** the user's latest sync is at `2025-12-22T12:30:00Z`
+- **WHEN** the user calls `GET /functions/vibescore-usage-hourly?day=2025-12-22`
+- **THEN** buckets after `12:00` UTC SHALL include `missing: true`
+- **AND** buckets at or before `12:00` UTC SHALL NOT be marked missing
+
 ### Requirement: Dashboard UI is retro-TUI themed (visual only)
 The Dashboard UI SHALL adopt the "Matrix UI A" visual system (based on `copy.jsx`) while preserving standard web interaction patterns (mouse clicks, form inputs, link navigation).
 
@@ -115,13 +132,19 @@ The dashboard UI MUST NOT provide arbitrary date range inputs. It SHALL only all
 - **AND** the UI SHALL allow selecting only `day|week|month|total`
 
 ### Requirement: Dashboard TREND truncates future buckets
-The dashboard TREND chart SHALL NOT render the trend line into future UTC buckets that have not occurred yet.
+The dashboard TREND chart SHALL NOT render the trend line into future UTC buckets that have not occurred yet, and SHALL visually distinguish "unsynced" buckets from true zero-usage buckets.
 
 #### Scenario: Current date does not cover full period
 - **GIVEN** the current UTC date/time is within an active period (e.g., mid-week or mid-month)
 - **WHEN** the dashboard renders the TREND chart for that period
 - **THEN** the trend line SHALL render only through the last available UTC bucket
 - **AND** future buckets SHALL remain without a line
+
+#### Scenario: Unsynced buckets show missing markers
+- **GIVEN** hourly data includes `missing: true` for recent hours
+- **WHEN** the dashboard renders the day trend
+- **THEN** it SHALL render missing markers (no line) for those hours
+- **AND** it SHALL keep zero-usage buckets (`missing=false`) on the line
 
 ### Requirement: Leaderboard endpoint is available (calendar day/week/month/total)
 The system SHALL provide a leaderboard endpoint that ranks users by `total_tokens` over a UTC calendar `day`, `week` (Sunday start), `month`, or `total` (all-time).

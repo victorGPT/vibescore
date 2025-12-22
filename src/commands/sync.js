@@ -6,6 +6,7 @@ const { ensureDir, readJson, writeJson, openLock } = require('../lib/fs');
 const { listRolloutFiles, parseRolloutIncremental } = require('../lib/rollout');
 const { drainQueueToCloud } = require('../lib/uploader');
 const { createProgress, renderBar, formatNumber, formatBytes } = require('../lib/progress');
+const { syncHeartbeat } = require('../lib/vibescore-api');
 const {
   DEFAULTS: UPLOAD_DEFAULTS,
   normalizeState: normalizeUploadState,
@@ -130,11 +131,19 @@ async function cmdSync(argv) {
       progress?.stop();
     }
 
-    if (!opts.auto) {
-      const afterState = (await readJson(queueStatePath)) || { offset: 0 };
-      const queueSize = await safeStatSize(queuePath);
-      const pendingBytes = Math.max(0, queueSize - Number(afterState.offset || 0));
+    const afterState = (await readJson(queueStatePath)) || { offset: 0 };
+    const queueSize = await safeStatSize(queuePath);
+    const pendingBytes = Math.max(0, queueSize - Number(afterState.offset || 0));
 
+    await maybeSendHeartbeat({
+      baseUrl,
+      deviceToken,
+      trackerDir,
+      uploadResult,
+      pendingBytes
+    });
+
+    if (!opts.auto) {
       process.stdout.write(
         [
           'Sync finished:',
@@ -185,3 +194,28 @@ async function safeStatSize(p) {
     return 0;
   }
 }
+
+async function maybeSendHeartbeat({ baseUrl, deviceToken, trackerDir, uploadResult, pendingBytes }) {
+  if (!deviceToken || !uploadResult) return;
+  if (pendingBytes > 0) return;
+  if (Number(uploadResult.inserted || 0) !== 0) return;
+
+  const heartbeatPath = path.join(trackerDir, 'sync.heartbeat.json');
+  const heartbeatState = await readJson(heartbeatPath);
+  const lastPingAt = Date.parse(heartbeatState?.lastPingAt || '');
+  const nowMs = Date.now();
+  if (Number.isFinite(lastPingAt) && nowMs - lastPingAt < HEARTBEAT_MIN_INTERVAL_MS) return;
+
+  try {
+    await syncHeartbeat({ baseUrl, deviceToken });
+    await writeJson(heartbeatPath, {
+      lastPingAt: new Date(nowMs).toISOString(),
+      minIntervalMinutes: HEARTBEAT_MIN_INTERVAL_MINUTES
+    });
+  } catch (_e) {
+    // best-effort heartbeat; ignore failures
+  }
+}
+
+const HEARTBEAT_MIN_INTERVAL_MINUTES = 30;
+const HEARTBEAT_MIN_INTERVAL_MS = HEARTBEAT_MIN_INTERVAL_MINUTES * 60 * 1000;

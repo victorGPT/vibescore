@@ -110,7 +110,7 @@ module.exports = async function(request) {
 async function getTokenRowWithServiceClient(serviceClient, tokenHash) {
   const { data: tokenRow, error: tokenErr } = await serviceClient.database
     .from('vibescore_tracker_device_tokens')
-    .select('id,user_id,device_id,revoked_at')
+    .select('id,user_id,device_id,revoked_at,last_sync_at')
     .eq('token_hash', tokenHash)
     .maybeSingle();
   if (tokenErr) throw new Error(tokenErr.message);
@@ -121,7 +121,7 @@ async function getTokenRowWithServiceClient(serviceClient, tokenHash) {
 async function getTokenRowWithAnonKey({ baseUrl, anonKey, tokenHash }) {
   if (!anonKey) throw new Error('Anon key missing');
   const url = new URL('/api/database/records/vibescore_tracker_device_tokens', baseUrl);
-  url.searchParams.set('select', 'id,user_id,device_id,revoked_at');
+  url.searchParams.set('select', 'id,user_id,device_id,revoked_at,last_sync_at');
   url.searchParams.set('token_hash', `eq.${tokenHash}`);
   url.searchParams.set('limit', '1');
 
@@ -216,6 +216,7 @@ async function ingestWithAnonKey({ baseUrl, anonKey, tokenHash, rows }) {
     const insertedRows = normalizeRows(ignore.data);
     const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
     const skipped = Math.max(0, rows.length - inserted);
+    await bestEffortTouchWithAnonKey({ baseUrl, anonKey, tokenHash });
     return { ok: true, inserted, skipped };
   }
 
@@ -227,7 +228,10 @@ async function ingestWithAnonKey({ baseUrl, anonKey, tokenHash, rows }) {
 
   // Legacy fast path: bulk insert. If any duplicates exist, Postgres will reject the whole batch with 23505.
   const bulk = await recordsInsert({ url, anonKey, tokenHash, rows, prefer: 'return=minimal' });
-  if (bulk.ok) return { ok: true, inserted: rows.length, skipped: 0 };
+  if (bulk.ok) {
+    await bestEffortTouchWithAnonKey({ baseUrl, anonKey, tokenHash });
+    return { ok: true, inserted: rows.length, skipped: 0 };
+  }
 
   if (bulk.status !== 409 || bulk.code !== '23505') {
     return { ok: false, error: bulk.error || `HTTP ${bulk.status}`, inserted: 0, skipped: 0 };
@@ -250,18 +254,36 @@ async function ingestWithAnonKey({ baseUrl, anonKey, tokenHash, rows }) {
     return { ok: false, error: one.error || `HTTP ${one.status}`, inserted: 0, skipped: 0 };
   }
 
+  await bestEffortTouchWithAnonKey({ baseUrl, anonKey, tokenHash });
   return { ok: true, inserted, skipped };
 }
 
 async function bestEffortTouchWithServiceClient(serviceClient, tokenRow, nowIso) {
-  try {
-    await serviceClient.database.from('vibescore_tracker_devices').update({ last_seen_at: nowIso }).eq('id', tokenRow.device_id);
-  } catch (_e) {}
+  const lastSyncAt = normalizeIso(tokenRow?.last_sync_at);
+  const shouldUpdateSync = !lastSyncAt || !isWithinInterval(lastSyncAt, 30);
   try {
     await serviceClient.database
       .from('vibescore_tracker_device_tokens')
-      .update({ last_used_at: nowIso })
+      .update(shouldUpdateSync ? { last_used_at: nowIso, last_sync_at: nowIso } : { last_used_at: nowIso })
       .eq('id', tokenRow.id);
+  } catch (_e) {}
+  try {
+    await serviceClient.database.from('vibescore_tracker_devices').update({ last_seen_at: nowIso }).eq('id', tokenRow.device_id);
+  } catch (_e) {}
+}
+
+async function bestEffortTouchWithAnonKey({ baseUrl, anonKey, tokenHash }) {
+  if (!anonKey) return;
+  try {
+    const url = new URL('/api/database/rpc/vibescore_touch_device_token_sync', baseUrl);
+    await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        ...buildAnonHeaders({ anonKey, tokenHash }),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ min_interval_minutes: 30 })
+    });
   } catch (_e) {}
 }
 
@@ -288,6 +310,20 @@ function normalizeRows(data) {
   if (Array.isArray(data)) return data;
   if (data && typeof data === 'object' && Array.isArray(data.data)) return data.data;
   return null;
+}
+
+function normalizeIso(value) {
+  if (typeof value !== 'string') return null;
+  const dt = new Date(value);
+  if (!Number.isFinite(dt.getTime())) return null;
+  return dt.toISOString();
+}
+
+function isWithinInterval(lastSyncAt, minutes) {
+  const lastMs = Date.parse(lastSyncAt);
+  if (!Number.isFinite(lastMs)) return false;
+  const windowMs = Math.max(0, minutes) * 60 * 1000;
+  return windowMs > 0 && Date.now() - lastMs < windowMs;
 }
 
 async function recordsInsert({ url, anonKey, tokenHash, rows, prefer, onConflict, resolution, select }) {

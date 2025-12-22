@@ -52,10 +52,28 @@ async function ingestEvents({ baseUrl, deviceToken, events }) {
   };
 }
 
+async function syncHeartbeat({ baseUrl, deviceToken }) {
+  const data = await invokeFunction({
+    baseUrl,
+    accessToken: deviceToken,
+    slug: 'vibescore-sync-ping',
+    method: 'POST',
+    body: {},
+    errorPrefix: 'Sync heartbeat failed'
+  });
+
+  return {
+    updated: Boolean(data?.updated),
+    last_sync_at: typeof data?.last_sync_at === 'string' ? data.last_sync_at : null,
+    min_interval_minutes: Number(data?.min_interval_minutes || 0)
+  };
+}
+
 module.exports = {
   signInWithPassword,
   issueDeviceToken,
-  ingestEvents
+  ingestEvents,
+  syncHeartbeat
 };
 
 async function invokeFunction({ baseUrl, accessToken, slug, method, body, errorPrefix }) {
