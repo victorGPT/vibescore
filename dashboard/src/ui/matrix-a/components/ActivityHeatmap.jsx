@@ -114,7 +114,7 @@ function buildFullYearMonthMarkers({ weeksCount, to, weekStartsOn }) {
   return markers;
 }
 
-export function ActivityHeatmap({ heatmap, timeZoneLabel }) {
+export function ActivityHeatmap({ heatmap, timeZoneLabel, timeZoneShortLabel }) {
   const weekStartsOn = heatmap?.week_starts_on === "mon" ? "mon" : "sun";
   const normalizedHeatmap = useMemo(() => {
     const sourceWeeks = Array.isArray(heatmap?.weeks) ? heatmap.weeks : [];
@@ -457,12 +457,11 @@ export function ActivityHeatmap({ heatmap, timeZoneLabel }) {
                         ? "rgba(0,255,65,0.08)"
                         : `rgba(0,255,65,${opacity})`;
 
+                    const tzDetail = timeZoneLabel || timeZoneShortLabel || "Local time";
                     return (
                       <span
                         key={key}
-                        title={`${cell.day} • ${formatTokenValue(
-                          cell.value
-                        )} tokens`}
+                        title={`${cell.day} • ${formatTokenValue(cell.value)} tokens • ${tzDetail}`}
                         className="rounded-[2px] border border-[#00FF41]/10"
                         style={{
                           width: CELL_SIZE,
@@ -526,7 +525,7 @@ export function ActivityHeatmap({ heatmap, timeZoneLabel }) {
           </div>
           <span>More</span>
         </div>
-        <span>{timeZoneLabel || "LOCAL"}</span>
+        <span>{timeZoneShortLabel || "LOCAL"}</span>
       </div>
     </div>
   );
