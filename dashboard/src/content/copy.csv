@@ -88,7 +88,7 @@ identity_panel.streak_value,ui,IdentityPanel,IdentityPanel,streak_value,"{{days}
 
 usage.panel.title,ui,UsagePanel,UsagePanel,title,"CORE_INDEX",,active
 usage.summary.total_system_output,ui,UsagePanel,UsagePanel,summary_label_total_system,"TOTAL_SYSTEM_OUTPUT",,active
-usage.summary.total,ui,UsagePanel,UsagePanel,summary_label_total,"TOTAL",,active
+usage.summary.total,ui,UsagePanel,UsagePanel,summary_label_total,"TOTAL_TOKENS",,active
 usage.summary.since,ui,UsagePanel,UsagePanel,summary_label_since,"SINCE {{range}} {{tz}}",,active
 usage.metric.total,ui,UsagePanel,UsagePanel,metric_total,"TOTAL",,active
 usage.metric.input,ui,UsagePanel,UsagePanel,metric_input,"INPUT",,active
@@ -220,7 +220,7 @@ dashboard.activity.title,dashboard,DashboardPage,AsciiBox,title,"Activity_Grid",
 dashboard.activity.subtitle,dashboard,DashboardPage,AsciiBox,subtitle,"52W_LOCAL",,active
 dashboard.activity.range,dashboard,DashboardPage,AsciiBox,range_label,"Range: {{from}}..{{to}}",,active
 
-dashboard.daily.title,dashboard,DashboardPage,AsciiBox,title,"Daily_Totals",,active
+dashboard.daily.title,dashboard,DashboardPage,AsciiBox,title,"DETAILS",,active
 dashboard.daily.subtitle,dashboard,DashboardPage,AsciiBox,subtitle,"Sortable",,active
 dashboard.daily.empty,dashboard,DashboardPage,AsciiBox,empty_state,"No data yet. Use Codex CLI then run {{cmd}}.",,active
 
