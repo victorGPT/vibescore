@@ -24,6 +24,7 @@ export function UsagePanel({
   showSummary = false,
   summaryLabel = copy("usage.summary.total_system_output"),
   summaryValue = "—",
+  summaryCostValue,
   summarySubLabel,
   breakdown,
   useSummaryLayout = false,
@@ -40,10 +41,6 @@ export function UsagePanel({
     breakdown && breakdown.length
       ? breakdown
       : [
-          {
-            key: copy("usage.metric.total_cost"),
-            label: copy("usage.metric.total_cost"),
-          },
           { key: copy("usage.metric.input"), label: copy("usage.metric.input") },
           { key: copy("usage.metric.output"), label: copy("usage.metric.output") },
           { key: copy("usage.metric.cached_input"), label: copy("usage.metric.cached_short") },
@@ -125,6 +122,14 @@ export function UsagePanel({
                 summaryValue
               )}
             </div>
+            {summaryCostValue ? (
+              <div className="flex items-center justify-center">
+                <span className="sr-only">{copy("usage.metric.total_cost")}</span>
+                <span className="text-sm font-bold text-[#FFD700] font-mono leading-none drop-shadow-[0_0_10px_rgba(255,215,0,0.5)]">
+                  {summaryCostValue}
+                </span>
+              </div>
+            ) : null}
             {summarySubLabel ? (
               <div className="text-[8px] opacity-40 mt-1 font-mono">
                 {summarySubLabel}

@@ -16,19 +16,27 @@ export function toFiniteNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-export function formatUsd(value) {
+export function formatUsdCurrency(value, { decimals = 2 } = {}) {
   if (value == null) return "-";
   const raw = String(value).trim();
   if (!raw) return "-";
   const match = raw.match(/^(-?\d+)(?:\.(\d+))?$/);
   if (!match) return raw;
   const intPart = match[1];
-  const fracPart = match[2];
+  const fracPart = match[2] || "";
   let formattedInt = intPart;
   try {
     formattedInt = new Intl.NumberFormat().format(BigInt(intPart));
   } catch (_e) {
     formattedInt = intPart;
   }
-  return fracPart ? `${formattedInt}.${fracPart}` : formattedInt;
+  const normalizedDecimals = Math.max(0, Math.min(6, Math.floor(decimals)));
+  const decimalPart = normalizedDecimals
+    ? fracPart.slice(0, normalizedDecimals).padEnd(normalizedDecimals, "0")
+    : "";
+  const sign = intPart.startsWith("-") ? "-" : "";
+  const valuePart = normalizedDecimals
+    ? `${formattedInt.replace("-", "")}.${decimalPart}`
+    : formattedInt.replace("-", "");
+  return `${sign}$${valuePart}`;
 }

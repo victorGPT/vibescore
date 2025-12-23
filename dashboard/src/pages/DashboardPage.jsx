@@ -5,7 +5,7 @@ import { computeActiveStreakDays } from "../lib/activity-heatmap.js";
 import { copy } from "../lib/copy.js";
 import { getRangeForPeriod } from "../lib/date-range.js";
 import { DAILY_SORT_COLUMNS, sortDailyRows } from "../lib/daily.js";
-import { formatUsd, toDisplayNumber } from "../lib/format.js";
+import { formatUsdCurrency, toDisplayNumber } from "../lib/format.js";
 import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
 import { useTrendData } from "../hooks/use-trend-data.js";
 import { useUsageData } from "../hooks/use-usage-data.js";
@@ -241,10 +241,6 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
         valueClassName: "text-white",
       },
       {
-        label: copy("usage.metric.total_cost"),
-        value: formatUsd(summary?.total_cost_usd),
-      },
-      {
         label: copy("usage.metric.input"),
         value: toDisplayNumber(summary?.input_tokens),
       },
@@ -266,9 +262,13 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
       summary?.input_tokens,
       summary?.output_tokens,
       summary?.reasoning_output_tokens,
-      summary?.total_cost_usd,
       summary?.total_tokens,
     ]
+  );
+
+  const summaryCostValue = useMemo(
+    () => formatUsdCurrency(summary?.total_cost_usd),
+    [summary?.total_cost_usd]
   );
 
   const isLocalhost = useMemo(() => {
@@ -502,10 +502,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
               useSummaryLayout
               summaryLabel={summaryLabel}
               summaryValue={toDisplayNumber(summary?.total_tokens)}
-              summarySubLabel={copy("usage.summary.since", {
-                range: rangeLabel,
-                tz: timeZoneRangeLabel,
-              })}
+              summaryCostValue={summaryCostValue}
               onRefresh={refreshAll}
               loading={usageLoadingState}
               error={usageError}
