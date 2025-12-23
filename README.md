@@ -2,12 +2,14 @@
 
 # 🟢 VIBESCORE
 
-**QUANTIFY YOUR NEURAL OUTPUT**  
-_Real-time Neural Analytics for Codex CLI_
+**QUANTIFY YOUR AI OUTPUT**  
+_Real-time AI Analytics for Codex CLI_
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Support](https://img.shields.io/badge/Node.js-%3E%3D18-brightgreen.svg)](https://nodejs.org/)
 [![Platform](https://img.shields.io/badge/Platform-macOS-lightgrey.svg)](https://www.apple.com/macos/)
+
+[**English**](README.md) • [**中文说明**](README.zh-CN.md)
 
 [**Documentation**](docs/) • [**Dashboard**](dashboard/) • [**Backend API**](BACKEND_API.md)
 
@@ -17,75 +19,75 @@ _Real-time Neural Analytics for Codex CLI_
 
 ## 🌌 Overview
 
-**VibeScore** 是一个专为 macOS 开发者设计的智能令牌（Token）使用追踪系统。它能够实时监控 Codex CLI 的输出，通过高度可视化的 **Matrix** 风格仪表盘，将你的 AI 产出（AI Output）转化为可量化的指标。
+**VibeScore** is an intelligent token usage tracking system designed specifically for macOS developers. It monitors Codex CLI output in real-time, transforming your **AI Output** into quantifiable metrics via a high-fidelity, **Matrix-themed** dashboard.
 
-> [!TIP] > **Core Index**: 我们的核心指数，通过分析 token 消耗速率与模式，反映你的开发心流状态。
+> [!TIP] > **Core Index**: Our signature metric that reflects your flow state by analyzing token consumption rates and patterns.
 
-## 🚀 核心功能
+## 🚀 Key Features
 
-- 📡 **Live Sniffer**: 实时监听 Codex CLI 管道，通过底层 Hook 捕获每一次补全事件。
-- 📊 **Matrix Dashboard**: 基于 React + Vite 的高性能仪表盘，具备热力图、趋势图与实时日志。
-- ⚡ **Neural Analytics**: 深度分析 Input/Output Token，支持缓存（Cached）与推理（Reasoning）部分的分离显示。
-- 🔒 **Identity Core**: 完备的身份验证与权限管理，保护你的开发数据。
+- 📡 **Live Sniffer**: Real-time interception of Codex CLI pipes using low-level hooks to capture every completion event.
+- 📊 **Matrix Dashboard**: A high-performance React + Vite dashboard featuring heatmaps, trend charts, and live logs.
+- ⚡ **AI Analytics**: Deep analysis of Input/Output tokens, with dedicated tracking for Cached and Reasoning components.
+- 🔒 **Identity Core**: Robust authentication and permission management to secure your development data.
 
-## 🛠️ 快速开始
+## 🛠️ Quick Start
 
-### 安装
+### Installation
 
-只需一行命令，即可初始化环境：
+Initialize your environment with a single command:
 
 ```bash
 npx --yes @vibescore/tracker init
 ```
 
-### 同步与查看
+### Sync & Status
 
 ```bash
-# 同步最新的本地会话数据
+# Sync latest local session data
 npx --yes @vibescore/tracker sync
 
-# 查看当前连接状态
+# Check current link status
 npx --yes @vibescore/tracker status
 ```
 
-## 🏗️ 架构说明
+## 🏗️ Architecture
 
 ```mermaid
 graph TD
     A[Codex CLI] -->|Rollout Logs| B(Tracker CLI)
-    B -->|Neural Tokens| C{Core Relay}
+    B -->|AI Tokens| C{Core Relay}
     C --> D[VibeScore Dashboard]
-    C --> E[Neural Analytics Engine]
+    C --> E[AI Analytics Engine]
 ```
 
-## 💻 开发者指南
+## 💻 Developer Guide
 
-如果你想在本地运行或贡献代码：
+To run locally or contribute:
 
-### 仪表盘开发
+### Dashboard Development
 
 ```bash
-# 安装依赖
+# Install dependencies
 cd dashboard
 npm install
 
-# 启动开发服务器
+# Start dev server
 npm run dev
 ```
 
-### 整体架构验证
+### Architecture Validation
 
 ```bash
-# 验证 Copy 注册表
+# Validate Copy Registry
 npm run validate:copy
 
-# 执行烟雾测试
+# Run smoke tests
 npm run smoke
 ```
 
-## 📜 开源协议
+## 📜 License
 
-本项目基于 [MIT](LICENSE) 协议开源。
+This project is licensed under the [MIT License](LICENSE).
 
 ---
 
