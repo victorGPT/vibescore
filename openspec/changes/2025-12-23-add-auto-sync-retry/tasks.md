@@ -8,5 +8,5 @@
 ## 2. Release
 - [x] 2.1 Bump package version
 - [x] 2.2 Run `npm pack --dry-run`
-- [ ] 2.3 Publish to npm (`npm publish --access public`)
-- [ ] 2.4 Verify `npm view @vibescore/tracker version`
+- [x] 2.3 Publish to npm (`npm publish --access public`)
+- [x] 2.4 Verify `npm view @vibescore/tracker version`
