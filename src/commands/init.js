@@ -165,6 +165,7 @@ const trackerDir = ${JSON.stringify(trackerDir)};
 const signalPath = ${JSON.stringify(queueSignalPath)};
 const originalPath = ${JSON.stringify(originalPath)};
 const trackerBinPath = ${JSON.stringify(trackerBinPath)};
+const depsMarkerPath = path.join(trackerDir, 'app', 'node_modules', '@insforge', 'sdk', 'package.json');
 const fallbackPkg = ${JSON.stringify(fallbackPkg)};
 
 try {
@@ -180,7 +181,9 @@ try {
   try { last = Number(fs.readFileSync(throttlePath, 'utf8')) || 0; } catch (_) {}
   if (now - last > 20_000) {
     try { fs.writeFileSync(throttlePath, String(now), 'utf8'); } catch (_) {}
-    if (fs.existsSync(trackerBinPath)) {
+    const hasLocalRuntime = fs.existsSync(trackerBinPath);
+    const hasLocalDeps = fs.existsSync(depsMarkerPath);
+    if (hasLocalRuntime && hasLocalDeps) {
       spawnDetached([process.execPath, trackerBinPath, 'sync', '--auto', '--from-notify']);
     } else {
       spawnDetached(['npx', '--yes', fallbackPkg, 'sync', '--auto', '--from-notify']);
@@ -250,10 +253,12 @@ async function installLocalTrackerApp({ appDir }) {
   const packageRoot = path.resolve(__dirname, '../..');
   const srcFrom = path.join(packageRoot, 'src');
   const binFrom = path.join(packageRoot, 'bin', 'tracker.js');
+  const nodeModulesFrom = path.join(packageRoot, 'node_modules');
 
   const srcTo = path.join(appDir, 'src');
   const binToDir = path.join(appDir, 'bin');
   const binTo = path.join(binToDir, 'tracker.js');
+  const nodeModulesTo = path.join(appDir, 'node_modules');
 
   await fs.rm(appDir, { recursive: true, force: true }).catch(() => {});
   await ensureDir(appDir);
@@ -261,4 +266,20 @@ async function installLocalTrackerApp({ appDir }) {
   await ensureDir(binToDir);
   await fs.copyFile(binFrom, binTo);
   await fs.chmod(binTo, 0o755).catch(() => {});
+  await copyRuntimeDependencies({ from: nodeModulesFrom, to: nodeModulesTo });
+}
+
+async function copyRuntimeDependencies({ from, to }) {
+  try {
+    const st = await fs.stat(from);
+    if (!st.isDirectory()) return;
+  } catch (_e) {
+    return;
+  }
+
+  try {
+    await fs.cp(from, to, { recursive: true });
+  } catch (_e) {
+    // Best-effort: missing dependencies will fall back to npx at notify time.
+  }
 }
