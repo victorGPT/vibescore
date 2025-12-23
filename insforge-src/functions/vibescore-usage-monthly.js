@@ -6,7 +6,6 @@
 const { handleOptions, json, requireMethod } = require('../shared/http');
 const { getBearerToken, getEdgeClientAndUserId } = require('../shared/auth');
 const { getBaseUrl } = require('../shared/env');
-const { getSourceParam } = require('../shared/source');
 const {
   addDatePartsDays,
   addDatePartsMonths,
@@ -37,9 +36,6 @@ module.exports = async function(request) {
 
   const url = new URL(request.url);
   const tzContext = getUsageTimeZoneContext(url);
-  const sourceResult = getSourceParam(url);
-  if (!sourceResult.ok) return json({ error: sourceResult.error }, 400);
-  const source = sourceResult.source;
   const monthsRaw = url.searchParams.get('months');
   const monthsParsed = toPositiveIntOrNull(monthsRaw);
   const months = monthsParsed == null ? MAX_MONTHS : monthsParsed;
@@ -86,14 +82,14 @@ module.exports = async function(request) {
   }
 
   const { error } = await forEachPage({
-    createQuery: () => {
-      let query = auth.edgeClient.database
+    createQuery: () =>
+      auth.edgeClient.database
         .from('vibescore_tracker_hourly')
         .select('hour_start,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
-        .eq('user_id', auth.userId);
-      if (source) query = query.eq('source', source);
-      return query.gte('hour_start', startIso).lt('hour_start', endIso).order('hour_start', { ascending: true });
-    },
+        .eq('user_id', auth.userId)
+        .gte('hour_start', startIso)
+        .lt('hour_start', endIso)
+        .order('hour_start', { ascending: true }),
     onPage: (rows) => {
       for (const row of rows) {
         const ts = row?.hour_start;

@@ -99,7 +99,6 @@ Request body:
   "hourly": [
     {
       "hour_start": "2025-12-23T06:00:00.000Z",
-      "source": "codex",
       "input_tokens": 0,
       "cached_input_tokens": 0,
       "output_tokens": 0,
@@ -118,8 +117,7 @@ Response:
 
 Notes:
 - `hour_start` must be a UTC half-hour boundary ISO timestamp (`:00` or `:30`).
-- `source` is optional; when missing or empty, it defaults to `codex`.
-- Uploads are upserts keyed by `user_id + device_id + source + hour_start`.
+- Uploads are upserts keyed by `user_id + device_id + hour_start`.
 - Backward compatibility: `{ "data": { "hourly": [...] } }` is accepted, but `{ "hourly": [...] }` remains canonical.
 
 ---
@@ -154,7 +152,6 @@ Auth:
 Query:
 - `from=YYYY-MM-DD` (optional; default last 30 days)
 - `to=YYYY-MM-DD` (optional; default today in requested timezone)
-- `source=codex|every-code|...` (optional; filter by source; omit to aggregate all sources)
 - `tz=IANA` (optional; e.g. `America/Los_Angeles`)
 - `tz_offset_minutes` (optional; fixed offset minutes from UTC to local, e.g. `-480`)
 
@@ -200,7 +197,6 @@ Auth:
 Query:
 - `from=YYYY-MM-DD` (optional; default last 30 days)
 - `to=YYYY-MM-DD` (optional; default today in requested timezone)
-- `source=codex|every-code|...` (optional; filter by source; omit to aggregate all sources)
 - `tz=IANA` (optional; e.g. `America/Los_Angeles`)
 - `tz_offset_minutes` (optional; fixed offset minutes from UTC to local, e.g. `-480`)
 
@@ -221,7 +217,6 @@ Auth:
 
 Query:
 - `day=YYYY-MM-DD` (optional; default today in requested timezone)
-- `source=codex|every-code|...` (optional; filter by source; omit to aggregate all sources)
 - `tz=IANA` (optional; e.g. `America/Los_Angeles`)
 - `tz_offset_minutes` (optional; fixed offset minutes from UTC to local, e.g. `-480`)
 
@@ -260,7 +255,6 @@ Auth:
 Query:
 - `months=1..24` (optional; default `24`)
 - `to=YYYY-MM-DD` (optional; default today in requested timezone)
-- `source=codex|every-code|...` (optional; filter by source; omit to aggregate all sources)
 - `tz=IANA` (optional; e.g. `America/Los_Angeles`)
 - `tz_offset_minutes` (optional; fixed offset minutes from UTC to local, e.g. `-480`)
 
@@ -297,7 +291,6 @@ Query:
 - `weeks=1..104` (optional; default `52`)
 - `to=YYYY-MM-DD` (optional; default today in requested timezone)
 - `week_starts_on=sun|mon` (optional; default `sun`)
-- `source=codex|every-code|...` (optional; filter by source; omit to aggregate all sources)
 - `tz=IANA` (optional; e.g. `America/Los_Angeles`)
 - `tz_offset_minutes` (optional; fixed offset minutes from UTC to local, e.g. `-480`)
 
