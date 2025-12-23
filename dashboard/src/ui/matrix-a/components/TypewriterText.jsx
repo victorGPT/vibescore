@@ -19,6 +19,7 @@ export function TypewriterText({
   loopDelayMs = 1200,
   active = true,
   respectReducedMotion = true,
+  wrap = false,
 }) {
   const reduceMotion = usePrefersReducedMotion();
   const fullText = useMemo(() => {
@@ -99,10 +100,13 @@ export function TypewriterText({
     });
   };
 
+  const containerClass = wrap ? "block" : "inline-flex items-baseline";
+  const textClass = wrap ? "whitespace-pre-wrap break-words" : "whitespace-pre";
+
   return (
-    <span className={`inline-flex items-baseline ${className}`}>
+    <span className={`${containerClass} ${className}`}>
       {fullText ? <span className="sr-only">{fullText}</span> : null}
-      <span aria-hidden="true" className="whitespace-pre">
+      <span aria-hidden="true" className={textClass}>
         {Array.isArray(segments) && segments.length ? renderSegments() : visibleText}
       </span>
       {showCursor ? (

@@ -459,11 +459,12 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
                 />
               </div>
               <TypewriterText
-                className="text-[10px] opacity-50 mt-2 whitespace-pre"
+                className="text-[10px] opacity-50 mt-2"
                 segments={installSegments}
                 startDelayMs={installBodyDelayMs}
                 speedMs={installBodySpeedMs}
                 cursor={false}
+                wrap
                 active={shouldAnimateInstall}
               />
             </AsciiBox>
