@@ -102,7 +102,7 @@ export function UsagePanel({
             <div className="text-[10px] uppercase opacity-50 tracking-widest mb-1">
               {summaryLabel}
             </div>
-            <div className="text-5xl font-black text-white glow-text tracking-tighter">
+            <div className="text-5xl font-black font-mono text-white glow-text tracking-tighter">
               {summaryValue && summaryValue !== "—" ? (
                 <DecodingText text={summaryValue} />
               ) : (
