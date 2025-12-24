@@ -3,10 +3,11 @@ const path = require('node:path');
 
 const { ensureDir, readJson, writeJson } = require('./fs');
 
-async function upsertCodexNotify({ codexConfigPath, notifyCmd, notifyOriginalPath }) {
-  const originalText = await fs.readFile(codexConfigPath, 'utf8').catch(() => null);
+async function upsertNotify({ configPath, notifyCmd, notifyOriginalPath, configLabel }) {
+  const originalText = await fs.readFile(configPath, 'utf8').catch(() => null);
   if (originalText == null) {
-    throw new Error(`Codex config not found: ${codexConfigPath}`);
+    const label = typeof configLabel === 'string' && configLabel.length > 0 ? configLabel : 'Config';
+    throw new Error(`${label} not found: ${configPath}`);
   }
 
   const existingNotify = extractNotify(originalText);
@@ -23,37 +24,95 @@ async function upsertCodexNotify({ codexConfigPath, notifyCmd, notifyOriginalPat
     }
 
     const updated = setNotify(originalText, notifyCmd);
-    const backupPath = `${codexConfigPath}.bak.${new Date().toISOString().replace(/[:.]/g, '-')}`;
-    await fs.copyFile(codexConfigPath, backupPath);
-    await fs.writeFile(codexConfigPath, updated, 'utf8');
+    const backupPath = `${configPath}.bak.${new Date().toISOString().replace(/[:.]/g, '-')}`;
+    await fs.copyFile(configPath, backupPath);
+    await fs.writeFile(configPath, updated, 'utf8');
     return { changed: true, backupPath };
   }
 
   return { changed: false, backupPath: null };
 }
 
-async function restoreCodexNotify({ codexConfigPath, notifyOriginalPath }) {
-  const text = await fs.readFile(codexConfigPath, 'utf8').catch(() => null);
-  if (text == null) return;
+async function restoreNotify({ configPath, notifyOriginalPath, expectedNotify }) {
+  const text = await fs.readFile(configPath, 'utf8').catch(() => null);
+  if (text == null) return { restored: false, skippedReason: 'config-missing' };
 
   const original = await readJson(notifyOriginalPath);
   const originalNotify = Array.isArray(original?.notify) ? original.notify : null;
+  const currentNotify = extractNotify(text);
+
+  if (!originalNotify && expectedNotify && !arraysEqual(currentNotify, expectedNotify)) {
+    return { restored: false, skippedReason: 'no-backup-not-installed' };
+  }
 
   const updated = originalNotify ? setNotify(text, originalNotify) : removeNotify(text);
-  const backupPath = `${codexConfigPath}.bak.${new Date().toISOString().replace(/[:.]/g, '-')}`;
-  await fs.copyFile(codexConfigPath, backupPath).catch(() => {});
-  await fs.writeFile(codexConfigPath, updated, 'utf8');
+  if (updated === text) return { restored: false, skippedReason: 'no-change' };
+
+  const backupPath = `${configPath}.bak.${new Date().toISOString().replace(/[:.]/g, '-')}`;
+  await fs.copyFile(configPath, backupPath).catch(() => {});
+  await fs.writeFile(configPath, updated, 'utf8');
+  return { restored: true, skippedReason: null };
 }
 
-async function loadCodexNotifyOriginal(notifyOriginalPath) {
+async function loadNotifyOriginal(notifyOriginalPath) {
   const original = await readJson(notifyOriginalPath);
   return Array.isArray(original?.notify) ? original.notify : null;
 }
 
-async function readCodexNotify(codexConfigPath) {
-  const text = await fs.readFile(codexConfigPath, 'utf8').catch(() => null);
+async function readNotify(configPath) {
+  const text = await fs.readFile(configPath, 'utf8').catch(() => null);
   if (text == null) return null;
   return extractNotify(text);
+}
+
+async function upsertCodexNotify({ codexConfigPath, notifyCmd, notifyOriginalPath }) {
+  return upsertNotify({
+    configPath: codexConfigPath,
+    notifyCmd,
+    notifyOriginalPath,
+    configLabel: 'Codex config'
+  });
+}
+
+async function restoreCodexNotify({ codexConfigPath, notifyOriginalPath, notifyCmd }) {
+  return restoreNotify({
+    configPath: codexConfigPath,
+    notifyOriginalPath,
+    expectedNotify: notifyCmd
+  });
+}
+
+async function loadCodexNotifyOriginal(notifyOriginalPath) {
+  return loadNotifyOriginal(notifyOriginalPath);
+}
+
+async function readCodexNotify(codexConfigPath) {
+  return readNotify(codexConfigPath);
+}
+
+async function upsertEveryCodeNotify({ codeConfigPath, notifyCmd, notifyOriginalPath }) {
+  return upsertNotify({
+    configPath: codeConfigPath,
+    notifyCmd,
+    notifyOriginalPath,
+    configLabel: 'Every Code config'
+  });
+}
+
+async function restoreEveryCodeNotify({ codeConfigPath, notifyOriginalPath, notifyCmd }) {
+  return restoreNotify({
+    configPath: codeConfigPath,
+    notifyOriginalPath,
+    expectedNotify: notifyCmd
+  });
+}
+
+async function loadEveryCodeNotifyOriginal(notifyOriginalPath) {
+  return loadNotifyOriginal(notifyOriginalPath);
+}
+
+async function readEveryCodeNotify(codeConfigPath) {
+  return readNotify(codeConfigPath);
 }
 
 function extractNotify(text) {
@@ -150,8 +209,16 @@ function arraysEqual(a, b) {
 }
 
 module.exports = {
+  upsertNotify,
+  restoreNotify,
+  loadNotifyOriginal,
+  readNotify,
   upsertCodexNotify,
   restoreCodexNotify,
   loadCodexNotifyOriginal,
-  readCodexNotify
+  readCodexNotify,
+  upsertEveryCodeNotify,
+  restoreEveryCodeNotify,
+  loadEveryCodeNotifyOriginal,
+  readEveryCodeNotify
 };

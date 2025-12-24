@@ -2,8 +2,7 @@ const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 
-const { readJson } = require('../lib/fs');
-const { restoreCodexNotify } = require('../lib/codex-config');
+const { restoreCodexNotify, restoreEveryCodeNotify } = require('../lib/codex-config');
 
 async function cmdUninstall(argv) {
   const opts = parseArgs(argv);
@@ -11,15 +10,32 @@ async function cmdUninstall(argv) {
   const trackerDir = path.join(home, '.vibescore', 'tracker');
   const binDir = path.join(home, '.vibescore', 'bin');
   const codexConfigPath = path.join(home, '.codex', 'config.toml');
+  const codeHome = process.env.CODE_HOME || path.join(home, '.code');
+  const codeConfigPath = path.join(codeHome, 'config.toml');
+  const notifyPath = path.join(binDir, 'notify.cjs');
   const notifyOriginalPath = path.join(trackerDir, 'codex_notify_original.json');
+  const codeNotifyOriginalPath = path.join(trackerDir, 'code_notify_original.json');
+  const codexNotifyCmd = ['/usr/bin/env', 'node', notifyPath];
+  const codeNotifyCmd = ['/usr/bin/env', 'node', notifyPath, '--source=every-code'];
 
-  await restoreCodexNotify({
-    codexConfigPath,
-    notifyOriginalPath
-  });
+  const codexConfigExists = await isFile(codexConfigPath);
+  const codeConfigExists = await isFile(codeConfigPath);
+  const codexRestore = codexConfigExists
+    ? await restoreCodexNotify({
+        codexConfigPath,
+        notifyOriginalPath,
+        notifyCmd: codexNotifyCmd
+      })
+    : { restored: false, skippedReason: 'config-missing' };
+  const codeRestore = codeConfigExists
+    ? await restoreEveryCodeNotify({
+        codeConfigPath,
+        notifyOriginalPath: codeNotifyOriginalPath,
+        notifyCmd: codeNotifyCmd
+      })
+    : { restored: false, skippedReason: 'config-missing' };
 
   // Remove installed notify handler.
-  const notifyPath = path.join(binDir, 'notify.cjs');
   await fs.unlink(notifyPath).catch(() => {});
 
   // Remove local app runtime (installed by init for notify-driven sync).
@@ -32,7 +48,20 @@ async function cmdUninstall(argv) {
   process.stdout.write(
     [
       'Uninstalled:',
-      `- Codex notify restored: ${codexConfigPath}`,
+      codexConfigExists
+        ? codexRestore?.restored
+          ? `- Codex notify restored: ${codexConfigPath}`
+          : codexRestore?.skippedReason === 'no-backup-not-installed'
+            ? '- Codex notify: skipped (no backup; not installed)'
+            : '- Codex notify: no change'
+        : '- Codex notify: skipped (config.toml not found)',
+      codeConfigExists
+        ? codeRestore?.restored
+          ? `- Every Code notify restored: ${codeConfigPath}`
+          : codeRestore?.skippedReason === 'no-backup-not-installed'
+            ? '- Every Code notify: skipped (no backup; not installed)'
+            : '- Every Code notify: no change'
+        : '- Every Code notify: skipped (config.toml not found)',
       opts.purge ? `- Purged: ${path.join(home, '.vibescore')}` : '- Purge: skipped (use --purge)',
       ''
     ].join('\n')
@@ -50,3 +79,12 @@ function parseArgs(argv) {
 }
 
 module.exports = { cmdUninstall };
+
+async function isFile(p) {
+  try {
+    const st = await fs.stat(p);
+    return st.isFile();
+  } catch (_e) {
+    return false;
+  }
+}

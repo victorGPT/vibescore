@@ -19,25 +19,44 @@ The system SHALL publish `@vibescore/tracker` to the public npm registry so user
 - **THEN** the package SHALL download successfully and print CLI help without `404` or `403` errors
 
 ### Requirement: Notify hook install is safe and reversible
-The system MUST configure Codex CLI `notify` without breaking existing user configuration, and MUST support restoring the previous `notify` configuration.
+The system MUST configure Codex CLI `notify` and, when `~/.code/config.toml` exists, Every Code `notify` without breaking existing user configuration, and MUST support restoring the previous `notify` configuration.
 
 #### Scenario: Existing notify is preserved (chained)
 - **GIVEN** `~/.codex/config.toml` already contains `notify = [...]`
 - **WHEN** a user runs `npx @vibescore/tracker init`
 - **THEN** the original notify command SHALL still be invoked (chained) after the tracker notify handler
 
+#### Scenario: Existing Every Code notify is preserved (chained)
+- **GIVEN** `~/.code/config.toml` already contains `notify = [...]`
+- **WHEN** a user runs `npx @vibescore/tracker init`
+- **THEN** the original Every Code notify command SHALL still be invoked (chained) after the tracker notify handler
+
 #### Scenario: Uninstall restores original notify
 - **GIVEN** the tracker was installed via `init`
 - **WHEN** a user runs `npx @vibescore/tracker uninstall`
 - **THEN** `~/.codex/config.toml` SHALL be restored to the pre-install notify configuration (or notify removed if none existed)
+- **AND** `~/.code/config.toml` SHALL be restored to the pre-install notify configuration (or notify removed if none existed)
 
 ### Requirement: Notify handler is non-blocking and safe
-The notify handler MUST be non-blocking, MUST exit with status code `0` even on errors, and MUST NOT prevent Codex CLI from completing a turn.
+The notify handler MUST be non-blocking, MUST exit with status code `0` even on errors, and MUST NOT prevent Codex CLI from completing a turn. The handler SHALL chain the original notify for the invoking CLI based on an explicit source flag and SHALL avoid self-recursion.
 
 #### Scenario: Notify handler never fails the caller
 - **WHEN** Codex CLI triggers the notify command and the handler encounters an internal error
 - **THEN** the handler SHALL still exit `0`
 - **AND** the handler SHALL NOT emit sensitive content to stdout/stderr
+
+### Requirement: Every Code notify auto-config is conditional
+The system SHALL only attempt to configure Every Code `notify` when `~/.code/config.toml` exists (or when `CODE_HOME` points to a directory containing `config.toml`).
+
+#### Scenario: Missing Every Code config is skipped
+- **GIVEN** `~/.code/config.toml` does not exist
+- **WHEN** a user runs `npx @vibescore/tracker init`
+- **THEN** the tracker SHALL NOT create or modify `~/.code/config.toml`
+
+#### Scenario: Existing Every Code config is updated
+- **GIVEN** `~/.code/config.toml` exists
+- **WHEN** a user runs `npx @vibescore/tracker init`
+- **THEN** the tracker SHALL set `notify` to invoke the tracker handler with `--source=every-code`
 
 ### Requirement: Incremental parsing with a strict data allowlist
 The system SHALL incrementally parse `~/.codex/sessions/**/rollout-*.jsonl` and MUST only extract token usage from `payload.type == "token_count"` using an explicit allowlist of numeric fields, aggregating into UTC half-hour buckets.
@@ -762,6 +781,7 @@ The dashboard UI SHALL render the DETAILS table with a date/time column that mat
 #### Scenario: Day period shows hourly rows
 - **WHEN** the user selects `day`
 - **THEN** the DETAILS table SHALL render hourly buckets for that day
+- **AND** the table SHALL paginate at 12 rows per page
 
 #### Scenario: Week or month period shows daily rows
 - **WHEN** the user selects `week` or `month`
@@ -771,6 +791,19 @@ The dashboard UI SHALL render the DETAILS table with a date/time column that mat
 - **WHEN** the user selects `total`
 - **THEN** the DETAILS table SHALL render monthly buckets for the latest 24 months
 - **AND** the table SHALL paginate at 12 months per page
+
+### Requirement: Dashboard DETAILS trims months before first non-zero usage for total
+The dashboard UI SHALL NOT display future buckets and SHALL trim leading months before the first non-zero usage month in DETAILS for the `total` period. The `day` period SHALL continue to show missing or zero buckets.
+
+#### Scenario: Total trims months before first non-zero usage
+- **GIVEN** monthly DETAILS rows where the first non-zero month is `2025-10`
+- **WHEN** the DETAILS table renders
+- **THEN** months earlier than `2025-10` SHALL NOT be displayed
+
+#### Scenario: Day keeps missing buckets
+- **GIVEN** hourly DETAILS rows with `missing=true` buckets on the selected day
+- **WHEN** the DETAILS table renders
+- **THEN** those buckets SHALL remain visible with the existing unsynced label
 
 ### Requirement: Dashboard DETAILS sorting defaults to newest-first with active indicator
 The dashboard UI SHALL default the DETAILS table date/time sorting to newest-first and SHALL show a sort indicator only on the active column.
@@ -833,4 +866,3 @@ Usage query endpoints SHALL accept an optional `source` filter. When omitted, th
 #### Scenario: Query with source
 - **WHEN** a user calls `GET /functions/vibescore-usage-daily?source=every-code`
 - **THEN** the response SHALL include only rows from `source = "every-code"`
-

@@ -3,7 +3,7 @@ const path = require('node:path');
 const fs = require('node:fs/promises');
 
 const { readJson } = require('../lib/fs');
-const { readCodexNotify } = require('../lib/codex-config');
+const { readCodexNotify, readEveryCodeNotify } = require('../lib/codex-config');
 const { normalizeState: normalizeUploadState } = require('../lib/upload-throttle');
 const { collectTrackerDiagnostics } = require('../lib/diagnostics');
 
@@ -27,6 +27,8 @@ async function cmdStatus(argv = []) {
   const autoRetryPath = path.join(trackerDir, 'auto.retry.json');
   const codexHome = process.env.CODEX_HOME || path.join(home, '.codex');
   const codexConfigPath = path.join(codexHome, 'config.toml');
+  const codeHome = process.env.CODE_HOME || path.join(home, '.code');
+  const codeConfigPath = path.join(codeHome, 'config.toml');
 
   const config = await readJson(configPath);
   const cursors = await readJson(cursorsPath);
@@ -42,6 +44,8 @@ async function cmdStatus(argv = []) {
 
   const codexNotify = await readCodexNotify(codexConfigPath);
   const notifyConfigured = Array.isArray(codexNotify) && codexNotify.length > 0;
+  const everyCodeNotify = await readEveryCodeNotify(codeConfigPath);
+  const everyCodeConfigured = Array.isArray(everyCodeNotify) && everyCodeNotify.length > 0;
 
   const lastUpload = uploadThrottle.lastSuccessMs
     ? parseEpochMsToIso(uploadThrottle.lastSuccessMs)
@@ -75,6 +79,7 @@ async function cmdStatus(argv = []) {
       lastUploadError ? `- Last upload error: ${lastUploadError}` : null,
       autoRetryLine,
       `- Codex notify: ${notifyConfigured ? JSON.stringify(codexNotify) : 'unset'}`,
+      `- Every Code notify: ${everyCodeConfigured ? JSON.stringify(everyCodeNotify) : 'unset'}`,
       ''
     ]
       .filter(Boolean)

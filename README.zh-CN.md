@@ -52,6 +52,8 @@ _Codex CLI 实时 AI 分析工具_
 npx --yes @vibescore/tracker init
 ```
 
+说明：若存在 `~/.code/config.toml`（或 `CODE_HOME`），`init` 会自动配置 Every Code 的 `notify`；缺失时不会创建该文件。
+
 ### 同步与状态查看
 
 ```bash

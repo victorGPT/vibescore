@@ -20,11 +20,11 @@ Source: `openspec/specs/vibescore-tracker/spec.md`
 
 ### Requirement: Notify hook install is safe and reversible
 - Implementation: `src/commands/init.js`, `src/lib/codex-config.js`, `src/commands/uninstall.js`
-- Verification: `node --test test/init-uninstall.test.js`
+- Verification: `node --test test/init-uninstall.test.js` (includes Every Code config paths)
 - Status: Implemented
 
 ### Requirement: Notify handler is non-blocking and safe
-- Implementation: `src/commands/init.js` (`buildNotifyHandler` writes `notify.cjs`, spawns detached, exits 0)
+- Implementation: `src/commands/init.js` (`buildNotifyHandler` writes `notify.cjs`, spawns detached, exits 0, chains by source)
 - Verification: manual run `~/.vibescore/bin/notify.cjs` after `init`, confirm exit 0
 - Status: Implemented (manual)
 
@@ -127,6 +127,16 @@ Source: `openspec/specs/vibescore-tracker/spec.md`
 - Implementation: `dashboard/src/hooks/use-trend-data.js` (future flags), `dashboard/src/ui/matrix-a/components/TrendMonitor.jsx`
 - Verification: manual check during mid-period (line stops before future buckets)
 - Status: Implemented (manual)
+
+### Requirement: Dashboard DETAILS table matches selected period granularity
+- Implementation: `dashboard/src/pages/DashboardPage.jsx` (DETAILS table + period mapping), `dashboard/src/lib/daily.js`
+- Verification: manual UI check (period switch)
+- Status: Implemented (manual)
+
+### Requirement: Dashboard DETAILS trims months before first non-zero usage for total
+- Implementation: `dashboard/src/pages/DashboardPage.jsx` (DETAILS pagination + trimming), `dashboard/src/lib/details.js`
+- Verification: `node --test test/details-pagination.test.js`, `node --test test/details-trim.test.js`
+- Status: Implemented
 
 ### Requirement: Leaderboard endpoint is available (calendar day/week/month/total)
 - Implementation: `insforge-src/functions/vibescore-leaderboard.js`

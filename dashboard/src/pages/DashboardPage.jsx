@@ -5,6 +5,11 @@ import { computeActiveStreakDays } from "../lib/activity-heatmap.js";
 import { copy } from "../lib/copy.js";
 import { getRangeForPeriod } from "../lib/date-range.js";
 import { getDetailsSortColumns, sortDailyRows } from "../lib/daily.js";
+import {
+  DETAILS_PAGE_SIZE,
+  paginateRows,
+  trimLeadingZeroMonths,
+} from "../lib/details.js";
 import { formatUsdCurrency, toDisplayNumber } from "../lib/format.js";
 import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
 import { useTrendData } from "../hooks/use-trend-data.js";
@@ -31,7 +36,7 @@ import { isMockEnabled } from "../lib/mock-data.js";
 
 const PERIODS = ["day", "week", "month", "total"];
 const DETAILS_DATE_KEYS = new Set(["day", "hour", "month"]);
-const DETAILS_PAGE_SIZE = 12;
+const DETAILS_PAGED_PERIODS = new Set(["day", "total"]);
 
 export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const [booted, setBooted] = useState(false);
@@ -172,9 +177,10 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
         : [];
     }
     if (period === "total") {
-      return Array.isArray(trendRows)
+      const rows = Array.isArray(trendRows)
         ? trendRows.filter((row) => row?.month && !row?.future)
         : [];
+      return trimLeadingZeroMonths(rows);
     }
     return visibleDaily;
   }, [period, trendRows, visibleDaily]);
@@ -187,26 +193,25 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     [detailsRows]
   );
   const detailsPageCount = useMemo(() => {
-    if (period !== "total") return 1;
+    if (!DETAILS_PAGED_PERIODS.has(period)) return 1;
     const count = Math.ceil(sortedDetails.length / DETAILS_PAGE_SIZE);
     return count > 0 ? count : 1;
   }, [period, sortedDetails.length]);
   const [detailsPage, setDetailsPage] = useState(0);
   useEffect(() => {
-    if (period !== "total") {
+    if (!DETAILS_PAGED_PERIODS.has(period)) {
       setDetailsPage(0);
       return;
     }
     setDetailsPage((prev) => Math.min(prev, detailsPageCount - 1));
   }, [detailsPageCount, period]);
   useEffect(() => {
-    if (period !== "total") return;
+    if (!DETAILS_PAGED_PERIODS.has(period)) return;
     setDetailsPage(0);
   }, [period, sort.dir, sort.key]);
   const pagedDetails = useMemo(() => {
-    if (period !== "total") return sortedDetails;
-    const start = detailsPage * DETAILS_PAGE_SIZE;
-    return sortedDetails.slice(start, start + DETAILS_PAGE_SIZE);
+    if (!DETAILS_PAGED_PERIODS.has(period)) return sortedDetails;
+    return paginateRows(sortedDetails, detailsPage, DETAILS_PAGE_SIZE);
   }, [detailsPage, period, sortedDetails]);
   const trendRowsForDisplay = useMemo(() => {
     if (useDailyTrend) return daily;
@@ -697,7 +702,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
                   </tbody>
                 </table>
               </div>
-              {period === "total" && detailsPageCount > 1 ? (
+              {DETAILS_PAGED_PERIODS.has(period) && detailsPageCount > 1 ? (
                 <div className="flex items-center justify-between mt-3 text-[9px] uppercase tracking-widest font-black">
                   <MatrixButton
                     type="button"

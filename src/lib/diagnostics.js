@@ -3,12 +3,13 @@ const path = require('node:path');
 const fs = require('node:fs/promises');
 
 const { readJson } = require('./fs');
-const { readCodexNotify } = require('./codex-config');
+const { readCodexNotify, readEveryCodeNotify } = require('./codex-config');
 const { normalizeState: normalizeUploadState } = require('./upload-throttle');
 
 async function collectTrackerDiagnostics({
   home = os.homedir(),
-  codexHome = process.env.CODEX_HOME || path.join(home, '.codex')
+  codexHome = process.env.CODEX_HOME || path.join(home, '.codex'),
+  codeHome = process.env.CODE_HOME || path.join(home, '.code')
 } = {}) {
   const trackerDir = path.join(home, '.vibescore', 'tracker');
   const configPath = path.join(trackerDir, 'config.json');
@@ -20,6 +21,7 @@ async function collectTrackerDiagnostics({
   const uploadThrottlePath = path.join(trackerDir, 'upload.throttle.json');
   const autoRetryPath = path.join(trackerDir, 'auto.retry.json');
   const codexConfigPath = path.join(codexHome, 'config.toml');
+  const codeConfigPath = path.join(codeHome, 'config.toml');
 
   const config = await readJson(configPath);
   const cursors = await readJson(cursorsPath);
@@ -37,6 +39,9 @@ async function collectTrackerDiagnostics({
   const codexNotifyRaw = await readCodexNotify(codexConfigPath);
   const notifyConfigured = Array.isArray(codexNotifyRaw) && codexNotifyRaw.length > 0;
   const codexNotify = notifyConfigured ? codexNotifyRaw.map((v) => redactValue(v, home)) : null;
+  const everyCodeNotifyRaw = await readEveryCodeNotify(codeConfigPath);
+  const everyCodeConfigured = Array.isArray(everyCodeNotifyRaw) && everyCodeNotifyRaw.length > 0;
+  const everyCodeNotify = everyCodeConfigured ? everyCodeNotifyRaw.map((v) => redactValue(v, home)) : null;
 
   const lastSuccessAt = uploadThrottle.lastSuccessMs ? new Date(uploadThrottle.lastSuccessMs).toISOString() : null;
   const autoRetryAt = parseEpochMsToIso(autoRetry?.retryAtMs);
@@ -53,7 +58,9 @@ async function collectTrackerDiagnostics({
     paths: {
       tracker_dir: redactValue(trackerDir, home),
       codex_home: redactValue(codexHome, home),
-      codex_config: redactValue(codexConfigPath, home)
+      codex_config: redactValue(codexConfigPath, home),
+      code_home: redactValue(codeHome, home),
+      code_config: redactValue(codeConfigPath, home)
     },
     config: {
       base_url: typeof config?.baseUrl === 'string' ? config.baseUrl : null,
@@ -75,7 +82,9 @@ async function collectTrackerDiagnostics({
       last_notify: lastNotify,
       last_notify_triggered_sync: lastNotifySpawn,
       codex_notify_configured: notifyConfigured,
-      codex_notify: codexNotify
+      codex_notify: codexNotify,
+      every_code_notify_configured: everyCodeConfigured,
+      every_code_notify: everyCodeNotify
     },
     upload: {
       last_success_at: lastSuccessAt,

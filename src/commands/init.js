@@ -4,7 +4,12 @@ const fs = require('node:fs/promises');
 
 const { ensureDir, writeFileAtomic, readJson, writeJson, chmod600IfPossible } = require('../lib/fs');
 const { prompt, promptHidden } = require('../lib/prompt');
-const { upsertCodexNotify, loadCodexNotifyOriginal } = require('../lib/codex-config');
+const {
+  upsertCodexNotify,
+  loadCodexNotifyOriginal,
+  upsertEveryCodeNotify,
+  loadEveryCodeNotifyOriginal
+} = require('../lib/codex-config');
 const { beginBrowserAuth } = require('../lib/browser-auth');
 const { issueDeviceTokenWithPassword, issueDeviceTokenWithAccessToken } = require('../lib/insforge');
 const { cmdSync } = require('./sync');
@@ -84,6 +89,8 @@ async function cmdInit(argv) {
 
   // Configure Codex notify hook.
   const codexConfigPath = path.join(home, '.codex', 'config.toml');
+  const codeHome = process.env.CODE_HOME || path.join(home, '.code');
+  const codeConfigPath = path.join(codeHome, 'config.toml');
   const notifyCmd = ['/usr/bin/env', 'node', notifyPath];
   const result = await upsertCodexNotify({
     codexConfigPath,
@@ -92,6 +99,19 @@ async function cmdInit(argv) {
   });
 
   const chained = await loadCodexNotifyOriginal(notifyOriginalPath);
+  const codeNotifyOriginalPath = path.join(trackerDir, 'code_notify_original.json');
+  const codeConfigExists = await isFile(codeConfigPath);
+  let codeResult = null;
+  let codeChained = null;
+  if (codeConfigExists) {
+    const codeNotifyCmd = ['/usr/bin/env', 'node', notifyPath, '--source=every-code'];
+    codeResult = await upsertEveryCodeNotify({
+      codeConfigPath,
+      notifyCmd: codeNotifyCmd,
+      notifyOriginalPath: codeNotifyOriginalPath
+    });
+    codeChained = await loadEveryCodeNotifyOriginal(codeNotifyOriginalPath);
+  }
 
   process.stdout.write(
     [
@@ -101,6 +121,17 @@ async function cmdInit(argv) {
       `- Codex config: ${codexConfigPath}`,
       result.changed ? '- Codex notify: updated' : '- Codex notify: already set',
       chained ? '- Codex notify: chained (original preserved)' : '- Codex notify: no original',
+      codeConfigExists ? `- Every Code config: ${codeConfigPath}` : '- Every Code notify: skipped (config.toml not found)',
+      codeConfigExists && codeResult
+        ? codeResult.changed
+          ? '- Every Code notify: updated'
+          : '- Every Code notify: already set'
+        : null,
+      codeConfigExists
+        ? codeChained
+          ? '- Every Code notify: chained (original preserved)'
+          : '- Every Code notify: no original'
+        : null,
       deviceToken ? `- Device token: stored (${maskSecret(deviceToken)})` : '- Device token: not configured (set VIBESCORE_DEVICE_TOKEN and re-run init)',
       ''
     ].join('\n')
@@ -160,13 +191,32 @@ const os = require('node:os');
 const path = require('node:path');
 const cp = require('node:child_process');
 
-const payload = process.argv[2] || '';
+const rawArgs = process.argv.slice(2);
+let source = 'codex';
+const payloadArgs = [];
+for (let i = 0; i < rawArgs.length; i++) {
+  const arg = rawArgs[i];
+  if (arg === '--source') {
+    source = rawArgs[i + 1] || source;
+    i += 1;
+    continue;
+  }
+  if (arg.startsWith('--source=')) {
+    source = arg.slice('--source='.length) || source;
+    continue;
+  }
+  payloadArgs.push(arg);
+}
+
 const trackerDir = ${JSON.stringify(trackerDir)};
 const signalPath = ${JSON.stringify(queueSignalPath)};
-const originalPath = ${JSON.stringify(originalPath)};
+const codexOriginalPath = ${JSON.stringify(originalPath)};
+const codeOriginalPath = ${JSON.stringify(path.join(trackerDir, 'code_notify_original.json'))};
 const trackerBinPath = ${JSON.stringify(trackerBinPath)};
 const depsMarkerPath = path.join(trackerDir, 'app', 'node_modules', '@insforge', 'sdk', 'package.json');
 const fallbackPkg = ${JSON.stringify(fallbackPkg)};
+const selfPath = path.resolve(__filename);
+const home = os.homedir();
 
 try {
   fs.mkdirSync(trackerDir, { recursive: true });
@@ -191,13 +241,14 @@ try {
   }
 } catch (_) {}
 
-// Chain the original Codex notify if present.
+// Chain the original notify if present.
 try {
+  const originalPath = source === 'every-code' ? codeOriginalPath : codexOriginalPath;
   const original = JSON.parse(fs.readFileSync(originalPath, 'utf8'));
   const cmd = Array.isArray(original?.notify) ? original.notify : null;
-  if (cmd && cmd.length > 0) {
+  if (cmd && cmd.length > 0 && !isSelfNotify(cmd)) {
     const args = cmd.slice(1);
-    args.push(payload);
+    if (payloadArgs.length > 0) args.push(...payloadArgs);
     spawnDetached([cmd[0], ...args]);
   }
 } catch (_) {}
@@ -213,6 +264,22 @@ function spawnDetached(argv) {
     });
     child.unref();
   } catch (_) {}
+}
+
+function resolveMaybeHome(p) {
+  if (typeof p !== 'string') return null;
+  if (p.startsWith('~/')) return path.join(home, p.slice(2));
+  return path.resolve(p);
+}
+
+function isSelfNotify(cmd) {
+  for (const part of cmd) {
+    if (typeof part !== 'string') continue;
+    if (!part.includes('notify.cjs')) continue;
+    const resolved = resolveMaybeHome(part);
+    if (resolved && resolved === selfPath) return true;
+  }
+  return false;
 }
 `;
 }
@@ -243,6 +310,15 @@ async function checkUrlReachable(url) {
     const res = await fetch(url, { method: 'GET', signal: controller.signal });
     clearTimeout(t);
     return Boolean(res && res.ok);
+  } catch (_e) {
+    return false;
+  }
+}
+
+async function isFile(p) {
+  try {
+    const st = await fs.stat(p);
+    return st.isFile();
   } catch (_e) {
     return false;
   }

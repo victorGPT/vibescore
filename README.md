@@ -52,6 +52,8 @@ Initialize your environment with a single command:
 npx --yes @vibescore/tracker init
 ```
 
+Note: If `~/.code/config.toml` exists (or `CODE_HOME`), `init` also configures Every Code `notify` automatically; it will not create the file when missing.
+
 ### Sync & Status
 
 ```bash

@@ -1,0 +1,874 @@
+Command failed: 2025-12-24T13:12:43.616478Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when Client(reqwest::Error { kind: Status(503, None), url: "http://localhost:3001/api/mcp" })
+2025-12-24T13:12:53.961731Z ERROR code_core::codex: MCP client for `prompt-house` failed to start: handshaking with MCP server failed: Send message error Transport [rmcp::transport::worker::WorkerTransport<rmcp::transport::streamable_http_client::StreamableHttpClientWorker<reqwest::async_impl::client::Client>>] error: Client error: HTTP status server error (503 Service Unavailable) for url (http://localhost:3001/api/mcp), when send initialize request (this client supports MCP schema version 2025-06-18)
+2025-12-24T13:12:53.961760Z ERROR code_core::codex: MCP client for `PromptX-serve` failed to start: failed to spawn MCP server `PromptX-serve` using command `npx` with args ["-y", "@promptx/mcp-server"]: timed out handshaking with MCP server after 10s (expected MCP schema version 2025-06-18)
+[2025-12-24T13:12:53] OpenAI Codex v0.0.0 (research preview)
+[2025-12-24T13:12:53] binary: /Users/victor/Library/Caches/just-every/code/0.6.14/code-aarch64-apple-darwin
+--------
+workdir: /Users/victor/Developer/vibescore
+model: gpt-5.1
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: high
+reasoning summaries: auto
+--------
+[2025-12-24T13:12:53] User instructions:
+Context: Search tests in repo (test/ or dashboard tests if any). Provide suggestions for adding regression tests.
+
+Agent: Check existing tests around dashboard details tables or date filtering/pagination, and any utilities that could be extended. Summarize testing patterns.
+
+Desired output: Test patterns and candidates for new tests.
+
+Files to consider: test, dashboard/src
+
+[Running in read-only mode - no modifications allowed]
+[2025-12-24T13:12:53] ERROR: MCP client for `prompt-house` failed to start: handshaking with MCP server failed: Send message error Transport [rmcp::transport::worker::WorkerTransport<rmcp::transport::streamable_http_client::StreamableHttpClientWorker<reqwest::async_impl::client::Client>>] error: Client error: HTTP status server error (503 Service Unavailable) for url (http://localhost:3001/api/mcp), when send initialize request (this client supports MCP schema version 2025-06-18)
+[2025-12-24T13:12:53] ERROR: MCP client for `PromptX-serve` failed to start: failed to spawn MCP server `PromptX-serve` using command `npx` with args ["-y", "@promptx/mcp-server"]: timed out handshaking with MCP server after 10s (expected MCP schema version 2025-06-18)
+[2025-12-24T13:13:04] codex
+
+我先用只读方式扫描 `test` 目录和 `dashboard/src` 下的测试文件与相关工具函数，然后总结现有测试模式，并基于此给出可新增的回归测试候选点（特别是详情表格、日期筛选和分页）。
+[2025-12-24T13:13:04] exec sh -lc ls test in /Users/victor/Developer/vibescore
+[2025-12-24T13:13:04] sh -lc ls test succeeded in 32ms:
+AGENTS.md
+BACKEND_API.md
+LICENSE
+README.md
+README.zh-CN.md
+bin
+copy.jsx
+dashboard
+docs
+insforge-functions
+insforge-src
+node_modules
+openspec
+package-lock.json
+package.json
+scripts
+src
+test
+[2025-12-24T13:13:04] tokens used: 23,442
+[2025-12-24T13:13:07] exec sh -lc 'ls test' in /Users/victor/Developer/vibescore
+[2025-12-24T13:13:07] sh -lc 'ls test' succeeded in 25ms:
+auto-retry.test.js
+dashboard-render-order.test.js
+details-sort.test.js
+diagnostics.test.js
+edge-functions.test.js
+init-uninstall.test.js
+rollout-parser.test.js
+status.test.js
+upload-throttle.test.js
+uploader.test.js
+usage-aggregate.test.js
+[2025-12-24T13:13:07] tokens used: 23,715
+[2025-12-24T13:13:10] exec sh -lc "sed -n '1,200p' test/dashboard-render-order.test.js" in /Users/victor/Developer/vibescore
+[2025-12-24T13:13:10] sh -lc "sed -n '1,200p' test/dashboard-render-order.test.js" succeeded in 36ms:
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+
+test("DashboardPage declares timeZone before use in range computation", () => {
+  const filePath = path.join(
+    __dirname,
+    "..",
+    "dashboard",
+    "src",
+    "pages",
+    "DashboardPage.jsx"
+  );
+  const src = fs.readFileSync(filePath, "utf8");
+  const timeZoneDeclIndex = src.search(/\b(const|let)\s+timeZone\b/);
+  const rangeUseIndex = src.indexOf("getRangeForPeriod(");
+
+  assert.ok(timeZoneDeclIndex !== -1, "timeZone declaration not found");
+  assert.ok(rangeUseIndex !== -1, "getRangeForPeriod usage not found");
+[2025-12-24T13:13:10] tokens used: 24,004
+[2025-12-24T13:13:13] exec sh -lc "sed -n '1,200p' test/details-sort.test.js" in /Users/victor/Developer/vibescore
+[2025-12-24T13:13:13] sh -lc "sed -n '1,200p' test/details-sort.test.js" succeeded in 34ms:
+const assert = require("node:assert/strict");
+const { test } = require("node:test");
+
+test("sortDetailRows sorts day/hour/month keys by time", async () => {
+  const mod = await import("../dashboard/src/lib/detail-sort.js");
+  const sortDetailRows = mod.sortDetailRows;
+
+  const dayRows = [
+    { day: "2025-12-22", total_tokens: 10 },
+    { day: "2025-12-23", total_tokens: 5 },
+  ];
+  const dayDesc = sortDetailRows(dayRows, { key: "day", dir: "desc" });
+  assert.equal(dayDesc[0].day, "2025-12-23");
+  const dayAsc = sortDetailRows(dayRows, { key: "day", dir: "asc" });
+  assert.equal(dayAsc[0].day, "2025-12-22");
+
+  const hourRows = [
+    { hour: "2025-12-23T00:00:00Z", total_tokens: 1 },
+    { hour: "2025-12-23T12:30:00Z", total_tokens: 2 },
+  ];
+[2025-12-24T13:13:13] tokens used: 24,502
+[2025-12-24T13:13:15] exec sh -lc "sed -n '1,200p' test/usage-aggregate.test.js" in /Users/victor/Developer/vibescore
+[2025-12-24T13:13:15] sh -lc "sed -n '1,200p' test/usage-aggregate.test.js" succeeded in 34ms:
+const assert = require('node:assert/strict');
+const { test } = require('node:test');
+
+test('sumDailyRowsToTotals aggregates with BigInt', async () => {
+  const mod = await import('../dashboard/src/lib/usage-aggregate.js');
+  const sumDailyRowsToTotals = mod.sumDailyRowsToTotals;
+
+  const rows = [
+    {
+      total_tokens: '9007199254740993',
+      input_tokens: '1',
+      cached_input_tokens: '0',
+      output_tokens: 2,
+      reasoning_output_tokens: '0'
+    },
+    {
+      total_tokens: 7,
+      input_tokens: '3',
+      cached_input_tokens: '1',
+      output_tokens: '4',
+[2025-12-24T13:13:15] tokens used: 25,137
+[2025-12-24T13:13:18] exec sh -lc 'ls dashboard/src' in /Users/victor/Developer/vibescore
+[2025-12-24T13:13:18] sh -lc 'ls dashboard/src' succeeded in 35ms:
+App.jsx
+components
+content
+hooks
+lib
+main.jsx
+pages
+styles
+styles.css
+ui
+[2025-12-24T13:13:18] tokens used: 25,672
+[2025-12-24T13:13:22] exec sh -lc 'ls dashboard/src/lib && ls dashboard/src/pages && ls dashboard/src/components' in /Users/victor/Developer/vibescore
+[2025-12-24T13:13:22] sh -lc 'ls dashboard/src/lib && ls dashboard/src/pages && ls dashboard/src/components' succeeded in 43ms:
+activity-heatmap.js
+auth-storage.js
+auth-url.js
+backend-probe-scheduler.js
+config.js
+copy.js
+daily.js
+date-range.js
+detail-sort.js
+format.js
+insforge-client.js
+mock-data.js
+timezone.js
+usage-aggregate.js
+vibescore-api.js
+DashboardPage.jsx
+LandingExtras.jsx
+LandingPage.jsx
+BackendStatus.jsx
+ErrorBoundary.jsx
+[2025-12-24T13:13:22] tokens used: 25,927
+[2025-12-24T13:13:24] exec sh -lc "sed -n '1,260p' dashboard/src/pages/DashboardPage.jsx" in /Users/victor/Developer/vibescore
+[2025-12-24T13:13:24] sh -lc "sed -n '1,260p' dashboard/src/pages/DashboardPage.jsx" succeeded in 34ms:
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+
+import { buildAuthUrl } from "../lib/auth-url.js";
+import { computeActiveStreakDays } from "../lib/activity-heatmap.js";
+import { copy } from "../lib/copy.js";
+import { getRangeForPeriod } from "../lib/date-range.js";
+import { getDetailsSortColumns, sortDailyRows } from "../lib/daily.js";
+import { formatUsdCurrency, toDisplayNumber } from "../lib/format.js";
+import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
+import { useTrendData } from "../hooks/use-trend-data.js";
+import { useUsageData } from "../hooks/use-usage-data.js";
+import {
+  formatTimeZoneLabel,
+  formatTimeZoneShortLabel,
+  getBrowserTimeZone,
+  getBrowserTimeZoneOffsetMinutes,
+  getLocalDayKey,
+} from "../lib/timezone.js";
+import { BackendStatus } from "../components/BackendStatus.jsx";
+import { AsciiBox } from "../ui/matrix-a/components/AsciiBox.jsx";
+[2025-12-24T13:13:25] tokens used: 26,231
+[2025-12-24T13:13:28] exec sh -lc "sed -n '260,620p' dashboard/src/pages/DashboardPage.jsx" in /Users/victor/Developer/vibescore
+[2025-12-24T13:13:28] sh -lc "sed -n '260,620p' dashboard/src/pages/DashboardPage.jsx" succeeded in 34ms:
+  const streakDays = useMemo(() => {
+    if (!signedIn && !mockEnabled) return 0;
+    const serverStreak = Number(heatmap?.streak_days);
+    if (Number.isFinite(serverStreak)) return serverStreak;
+    return computeActiveStreakDays({
+      dailyRows: heatmapDaily,
+      to: heatmapRange.to,
+    });
+  }, [
+    signedIn,
+    mockEnabled,
+    heatmap?.streak_days,
+    heatmapDaily,
+    heatmapRange.to,
+  ]);
+
+  const refreshAll = useCallback(() => {
+    refreshUsage();
+    refreshHeatmap();
+    refreshTrend();
+[2025-12-24T13:13:28] tokens used: 29,153
+[2025-12-24T13:13:31] exec sh -lc "sed -n '620,1180p' dashboard/src/pages/DashboardPage.jsx" in /Users/victor/Developer/vibescore
+[2025-12-24T13:13:31] sh -lc "sed -n '620,1180p' dashboard/src/pages/DashboardPage.jsx" succeeded in 33ms:
+                  {dailyEmptyPrefix}
+                  <code className="px-1 py-0.5 bg-black/40 border border-[#00FF41]/20">
+                    {installSyncCmd}
+                  </code>
+                  {dailyEmptySuffix}
+                </div>
+              ) : null}
+              <div
+                className="overflow-auto max-h-[520px] border border-[#00FF41]/10"
+                role="region"
+                aria-label={copy("daily.table.aria_label")}
+                tabIndex={0}
+              >
+                <table className="w-full border-collapse">
+                  <thead className="sticky top-0 bg-black/90">
+                    <tr className="border-b border-[#00FF41]/10">
+                      {detailsColumns.map((c) => (
+                        <th
+                          key={c.key}
+                          aria-sort={ariaSortFor(c.key)}
+[2025-12-24T13:13:31] tokens used: 32,516
+[2025-12-24T13:13:35] exec sh -lc "sed -n '1,260p' dashboard/src/lib/daily.js" in /Users/victor/Developer/vibescore
+[2025-12-24T13:13:35] sh -lc "sed -n '1,260p' dashboard/src/lib/daily.js" succeeded in 32ms:
+import { copy } from "./copy.js";
+import { isDetailDateKey, sortDetailRows } from "./detail-sort.js";
+
+export const DAILY_SORT_COLUMNS = [
+  {
+    key: "day",
+    label: copy("daily.sort.date.label"),
+    title: copy("daily.sort.date.title"),
+  },
+  {
+    key: "total_tokens",
+    label: copy("daily.sort.total.label"),
+    title: copy("daily.sort.total.title"),
+  },
+  {
+    key: "input_tokens",
+    label: copy("daily.sort.input.label"),
+    title: copy("daily.sort.input.title"),
+  },
+  {
+[2025-12-24T13:13:35] tokens used: 33,850
+[2025-12-24T13:13:39] exec sh -lc "sed -n '1,260p' dashboard/src/lib/detail-sort.js" in /Users/victor/Developer/vibescore
+[2025-12-24T13:13:39] sh -lc "sed -n '1,260p' dashboard/src/lib/detail-sort.js" succeeded in 35ms:
+import { toFiniteNumber } from "./format.js";
+
+const DATE_KEYS = new Set(["day", "hour", "month"]);
+
+export function isDetailDateKey(key) {
+  return DATE_KEYS.has(key);
+}
+
+function toDigitString(value) {
+  if (value == null) return null;
+  const s = String(value).trim();
+  if (!/^[0-9]+$/.test(s)) return null;
+  const stripped = s.replace(/^0+/, "");
+  return stripped.length === 0 ? "0" : stripped;
+}
+
+function compareIntLike(a, b) {
+  const sa = toDigitString(a);
+  const sb = toDigitString(b);
+  if (sa && sb) {
+[2025-12-24T13:13:39] tokens used: 34,507
+[2025-12-24T13:13:43] exec sh -lc "ls dashboard/src/hooks && sed -n '1,260p' dashboard/src/hooks/use-usage-data.js && sed -n '1,260p' dashboard/src/hooks/use-trend-data.js" in /Users/victor/Developer/vibescore
+[2025-12-24T13:13:43] sh -lc "ls dashboard/src/hooks && sed -n '1,260p' dashboard/src/hooks/use-usage-data.js && sed -n '1,260p' dashboard/src/hooks/use-trend-data.js" succeeded in 40ms:
+use-activity-heatmap.js
+use-auth.js
+use-backend-status.js
+use-trend-data.js
+use-usage-data.js
+import { useCallback, useEffect, useState } from "react";
+
+import { getUsageDaily, getUsageSummary } from "../lib/vibescore-api.js";
+import { formatDateLocal, formatDateUTC } from "../lib/date-range.js";
+import { isMockEnabled } from "../lib/mock-data.js";
+import { getLocalDayKey, getTimeZoneCacheKey } from "../lib/timezone.js";
+import { sumDailyRowsToTotals } from "../lib/usage-aggregate.js";
+
+export function useUsageData({
+  baseUrl,
+  accessToken,
+  from,
+  to,
+  includeDaily = true,
+  deriveSummaryFromDaily = false,
+[2025-12-24T13:13:43] tokens used: 36,273
+[2025-12-24T13:13:46] exec sh -lc "sed -n '260,740p' dashboard/src/hooks/use-trend-data.js" in /Users/victor/Developer/vibescore
+[2025-12-24T13:13:46] sh -lc "sed -n '260,740p' dashboard/src/hooks/use-trend-data.js" succeeded in 34ms:
+      setRange({ from: cached.from || from, to: cached.to || to });
+      setSource("cache");
+      setFetchedAt(cached.fetchedAt || null);
+    }
+    refresh();
+  }, [accessToken, mockEnabled, readCache, refresh, sharedEnabled, sharedFrom, sharedRows, sharedTo]);
+
+  const normalizedSource = mockEnabled ? "mock" : source;
+
+  return {
+    rows,
+    from: range.from || from,
+    to: range.to || to,
+    source: normalizedSource,
+    fetchedAt,
+    loading,
+    error,
+    refresh,
+  };
+}
+[2025-12-24T13:13:46] tokens used: 40,763
+
+[2025-12-24T13:13:51] thinking
+
+**Identifying relevant tests**
+
+I need to focus on identifying all the tests in the `test/` directory that relate to the dashboard, date, and pagination. I’m seeing patterns like node:test and ESM dynamic imports, alongside pure logic unit tests that call library functions. There may also be structural tests regarding source code parsing, specifically for dashboard render order. I should quickly inspect all tests, possibly using tools like `sed` or `head` for functionalities like auto-retry and diagnostics. Listing tests related to `dashboard/src` is crucial!
+[2025-12-24T13:13:53] exec sh -lc 'rg -n "dashboard/src" test || true' in /Users/victor/Developer/vibescore
+[2025-12-24T13:13:53] sh -lc 'rg -n "dashboard/src" test || true' succeeded in 27ms:
+test/details-sort.test.js:5:  const mod = await import("../dashboard/src/lib/detail-sort.js");
+test/usage-aggregate.test.js:5:  const mod = await import('../dashboard/src/lib/usage-aggregate.js');
+[2025-12-24T13:13:53] tokens used: 43,283
+[2025-12-24T13:13:57] exec sh -lc 'for f in test/*.test.js; do echo "===== $f"; sed -n '"'1,220p' \""'$f"; echo; done' in /Users/victor/Developer/vibescore
+[2025-12-24T13:13:57] sh -lc 'for f in test/*.test.js; do echo "===== $f"; sed -n '"'1,220p' \""'$f"; echo; done' succeeded in 56ms:
+===== test/auto-retry.test.js
+const assert = require('node:assert/strict');
+const os = require('node:os');
+const path = require('node:path');
+const fs = require('node:fs/promises');
+const { test } = require('node:test');
+
+const { cmdSync } = require('../src/commands/sync');
+
+test('sync --auto schedules retry when throttled and pending', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-auto-retry-'));
+  const prevHome = process.env.HOME;
+  const prevCodexHome = process.env.CODEX_HOME;
+  const prevNoSpawn = process.env.VIBESCORE_AUTO_RETRY_NO_SPAWN;
+
+  try {
+    process.env.HOME = tmp;
+    process.env.CODEX_HOME = path.join(tmp, '.codex');
+    process.env.VIBESCORE_AUTO_RETRY_NO_SPAWN = '1';
+
+[2025-12-24T13:13:57] tokens used: 43,524
+[2025-12-24T13:14:06] exec sh -lc 'rg -n "fillDailyGaps|useUsageData|useTrendData|date-range" . || true' in /Users/victor/Developer/vibescore
+[2025-12-24T13:14:07] sh -lc 'rg -n "fillDailyGaps|useUsageData|useTrendData|date-range" . || true' succeeded in 50ms:
+./dashboard/src/pages/DashboardPage.jsx:6:import { getRangeForPeriod } from "../lib/date-range.js";
+./dashboard/src/pages/DashboardPage.jsx:10:import { useTrendData } from "../hooks/use-trend-data.js";
+./dashboard/src/pages/DashboardPage.jsx:11:import { useUsageData } from "../hooks/use-usage-data.js";
+./dashboard/src/pages/DashboardPage.jsx:88:  } = useUsageData({
+./dashboard/src/pages/DashboardPage.jsx:115:  } = useTrendData({
+./dashboard/src/lib/mock-data.js:1:import { formatDateLocal, formatDateUTC } from "./date-range.js";
+./dashboard/src/lib/activity-heatmap.js:1:import { formatDateLocal, formatDateUTC } from "./date-range.js";
+./dashboard/src/hooks/use-usage-data.js:4:import { formatDateLocal, formatDateUTC } from "../lib/date-range.js";
+./dashboard/src/hooks/use-usage-data.js:9:export function useUsageData({
+./dashboard/src/hooks/use-usage-data.js:86:        nextDaily = fillDailyGaps(nextDaily, from, to, {
+./dashboard/src/hooks/use-usage-data.js:117:          ? fillDailyGaps(cachedDaily, cached.from || from, cached.to || to, {
+./dashboard/src/hooks/use-usage-data.js:165:        ? fillDailyGaps(cachedDaily, cached.from || from, cached.to || to, {
+./dashboard/src/hooks/use-usage-data.js:221:function fillDailyGaps(rows, from, to, { timeZone, offsetMinutes } = {}) {
+./dashboard/src/lib/vibescore-api.js:2:import { formatDateLocal } from "./date-range.js";
+./dashboard/src/hooks/use-trend-data.js:8:import { formatDateLocal, formatDateUTC } from "../lib/date-range.js";
+./dashboard/src/hooks/use-trend-data.js:14:export function useTrendData({
+./dashboard/src/hooks/use-trend-data.js:133:        nextRows = fillDailyGaps(nextRows, nextFrom || from, nextTo || to, {
+./dashboard/src/hooks/use-trend-data.js:167:            ? fillDailyGaps(cached.rows || [], cached.from || from, cached.to || to, {
+./dashboard/src/hooks/use-trend-data.js:241:          ? fillDailyGaps(cached.rows || [], cached.from || from, cached.to || to, {
+./dashboard/src/hooks/use-trend-data.js:312:function fillDailyGaps(rows, from, to, { timeZone, offsetMinutes } = {}) {
+[2025-12-24T13:14:07] tokens used: 55,820
+[2025-12-24T13:14:11] exec sh -lc "sed -n '1,260p' dashboard/src/lib/date-range.js" in /Users/victor/Developer/vibescore
+[2025-12-24T13:14:11] sh -lc "sed -n '1,260p' dashboard/src/lib/date-range.js" succeeded in 28ms:
+import { getLocalDateParts } from "./timezone.js";
+
+export function formatDateUTC(d) {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+    .toISOString()
+    .slice(0, 10);
+}
+
+export function formatDateLocal(d) {
+  const date = d instanceof Date ? d : new Date(d);
+  if (!Number.isFinite(date.getTime())) return "";
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function parseDateString(yyyyMmDd) {
+  if (!yyyyMmDd) return null;
+  const raw = String(yyyyMmDd).trim();
+[2025-12-24T13:14:11] tokens used: 57,639
+[2025-12-24T13:14:18] exec sh -lc "sed -n '1,260p' dashboard/src/lib/timezone.js" in /Users/victor/Developer/vibescore
+[2025-12-24T13:14:18] sh -lc "sed -n '1,260p' dashboard/src/lib/timezone.js" succeeded in 34ms:
+export function getBrowserTimeZone() {
+  if (typeof Intl === "undefined" || !Intl.DateTimeFormat) return null;
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return tz || null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+export function getBrowserTimeZoneOffsetMinutes(date = new Date()) {
+  const dt = date instanceof Date ? date : new Date(date);
+  if (!Number.isFinite(dt.getTime())) return 0;
+  const offset = dt.getTimezoneOffset();
+  if (!Number.isFinite(offset)) return 0;
+  return -offset;
+}
+
+export function formatUtcOffset(offsetMinutes) {
+  if (!Number.isFinite(offsetMinutes) || offsetMinutes === 0) return "UTC";
+[2025-12-24T13:14:18] tokens used: 59,230
+
+[2025-12-24T13:14:23] thinking
+
+**Testing date-range logic**
+
+I need to test the date-range without actually depending on the timezone. The issue is with `getRangeForPeriod` using `getLocalDateParts`, which defaults to the current date. It doesn’t allow for an override, but I could pass a specific date to `getLocalDateParts`. Unfortunately, `getRangeForPeriod` doesn't forward that date parameter. Another option is to monkeypatch the global Date, which could break other libraries. However, since tests run independently, I can customize Date within my test safely. This seems like a manageable solution!
+**Providing regression test suggestions**
+
+The user is asking for suggestions on adding regression tests, not for immediate implementation. This means I should focus on categories and structures of tests instead of writing them. Given that the environment is read-only, it seems they are looking for conceptual guidance. 
+
+We already have a test verifying chronological order for `day`, `hour`, and `month`, as well as an aggregator test for handling BigInt while ignoring missing or future rows. I'll check the aggregator module to see what else we might need to cover!
+[2025-12-24T13:14:28] codex
+**Providing regression test suggestions**
+
+The user is asking for suggestions on adding regression tests, not for immediate implementation. This means I should focus on categories and structures of tests instead of writing them. Given that the environment is read-only, it seems they are looking for conceptual guidance. 
+
+We already have a test verifying chronological order for `day`, `hour`, and `month`, as well as an aggregator test for handling BigInt while ignoring missing or future rows. I'll check the aggregator module to see what else we might need to cover!
+[2025-12-24T13:14:28] exec sh -lc "sed -n '1,260p' dashboard/src/lib/usage-aggregate.js" in /Users/victor/Developer/vibescore
+[2025-12-24T13:14:28] sh -lc "sed -n '1,260p' dashboard/src/lib/usage-aggregate.js" succeeded in 31ms:
+function toBigIntValue(value) {
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return 0n;
+    return BigInt(Math.trunc(value));
+  }
+  if (value == null) return 0n;
+  const raw = String(value).trim();
+  if (!raw || !/^-?\d+$/.test(raw)) return 0n;
+  try {
+    return BigInt(raw);
+  } catch (_e) {
+    return 0n;
+  }
+}
+
+export function sumDailyRowsToTotals(rows) {
+  const totals = {
+    total_tokens: 0n,
+    input_tokens: 0n,
+[2025-12-24T13:14:28] tokens used: 61,130
+
+[2025-12-24T13:14:34] thinking
+
+**Evaluating test coverage**
+
+I see that the aggregator has some tests, but they seem limited. There’s only one test so far, and I'm noticing edge cases like negative numbers and infinite values aren’t properly handled — they treat invalid cases as zero. It looks like the focus of this situation is on details like tables or date filtering and pagination, while the aggregator does more summarizing.
+
+The `ActivityHeatmap` isn't testing date ranges or timezones either. I need to summarize test patterns and suggest candidate new tests, particularly looking for regression tests to verify known bugs and ensure everything works together well.
+**Connecting to spec documentation**
+
+It's crucial to connect to the `openspec` document about the `vibescore tracker` and its gaps, especially regarding `date-range` and `use-trend-data`. I think there might be some invariants we're missing that require testing. It seems we may need to open tasks to clarify what needs to be tested, which would shape our regression tests.
+
+The instructions suggest reading the AGENTS documentation, but since it wasn't mentioned, I'll skip that. Instead, I'll look at archived changes to find relevant behaviors. I’ll focus on retrieving the lines related to `getRangeForPeriod`, which could help shape our tests verifying future logic.
+[2025-12-24T13:14:39] codex
+**Connecting to spec documentation**
+
+It's crucial to connect to the `openspec` document about the `vibescore tracker` and its gaps, especially regarding `date-range` and `use-trend-data`. I think there might be some invariants we're missing that require testing. It seems we may need to open tasks to clarify what needs to be tested, which would shape our regression tests.
+
+The instructions suggest reading the AGENTS documentation, but since it wasn't mentioned, I'll skip that. Instead, I'll look at archived changes to find relevant behaviors. I’ll focus on retrieving the lines related to `getRangeForPeriod`, which could help shape our tests verifying future logic.
+[2025-12-24T13:14:39] exec sh -lc "sed -n '1,260p' openspec/changes/archive/2025-12-23-2025-12-23-implement-vibescore-tracker-spec-gaps/tasks.md" in /Users/victor/Developer/vibescore
+[2025-12-24T13:14:39] sh -lc "sed -n '1,260p' openspec/changes/archive/2025-12-23-2025-12-23-implement-vibescore-tracker-spec-gaps/tasks.md" succeeded in 45ms:
+# 2025-12-23-implement-vibescore-tracker-spec-gaps 任务清单
+
+## 0. 需求对齐与差距清单
+- [x] 0.1 建立 requirement → 实现/证据映射表（文件/函数/测试/脚本）。
+- [x] 0.2 标注缺口（未实现/无验证/行为不一致），给出优先级与影响面。
+- [x] 0.3 与你确认缺口清单与优先级（范围聚焦为已落地的四项时区/日历改动）。
+
+### 本次改动点（已落地）
+- Heatmap 口径改为本地日历（带 `tz`）。
+- UI 显示时区基准且与请求参数一致。
+- `period=week` 语义改为本地日历周一开始。
+- TREND 未来桶与当前期判断改为本地日历口径。
+
+## 1. 证据记录（对应四项改动）
+- [x] 1.1 记录 Heatmap 本地日历 + `tz` 口径证据（代码位置 + 验证步骤）。
+- [x] 1.2 记录 UI 时区基准一致性证据（UsagePanel/Heatmap/页脚等）。
+- [x] 1.3 记录 `period=week` 周一起始的证据（范围计算 + 渲染）。
+- [x] 1.4 记录 TREND 未来桶截断的证据（future 标记与渲染）。
+
+### 证据（代码位置）
+[2025-12-24T13:14:39] tokens used: 62,822
+
+[2025-12-24T13:14:48] thinking
+
+**Suggesting a testing approach**
+
+I think I can suggest a path for the user: if they're looking to test "details table selection & pagination," maybe they could extract a pure helper function from the DashboardPage into a new library. The tests could be similar to existing ones. 
+
+Instead of providing a complete code patch, I could show mini outlines for 1-2 example tests. I’ll keep them around 8-10 lines each. For verification, I’ll mention they can run `node --test` or `npm test` using a filter, but I might need to check the `package.json` for the test script details.
+[2025-12-24T13:14:50] exec sh -lc 'cat package.json' in /Users/victor/Developer/vibescore
+[2025-12-24T13:14:50] sh -lc 'cat package.json' succeeded in 26ms:
+{
+  "name": "@vibescore/tracker",
+  "version": "0.0.6",
+  "description": "Codex CLI token usage tracker (macOS-first, notify-driven).",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "smoke": "node scripts/smoke/insforge-smoke.cjs",
+    "build:insforge": "node scripts/build-insforge-functions.cjs",
+    "build:insforge:check": "node scripts/build-insforge-functions.cjs --check",
+    "dashboard:dev": "npm --prefix dashboard run dev",
+    "dashboard:build": "npm --prefix dashboard run build",
+    "dashboard:preview": "npm --prefix dashboard run preview",
+    "dev:shim": "node scripts/dev-bin-shim.cjs",
+    "validate:copy": "node scripts/validate-copy-registry.cjs",
+    "copy:pull": "node scripts/copy-sync.cjs pull",
+[2025-12-24T13:14:50] tokens used: 65,453
+
+[2025-12-24T13:14:55] thinking
+
+**Exploring code structures**
+
+I notice that there’s some `used` code we haven’t examined yet. Even though we didn’t open `use-activity-heatmap.js`, it could have similarities to what we’re looking for. The user specifically asked for details about table and date filters, so I'll keep those mentions minimal. Still, I might look into `use-activity-heatmap.js` to identify any patterns, especially if it has a `fillDailyGaps` style. However, I see there are some gaps in the tests, so we could bring up the idea of symmetrical tests.
+[2025-12-24T13:14:57] exec sh -lc "sed -n '1,260p' dashboard/src/hooks/use-activity-heatmap.js" in /Users/victor/Developer/vibescore
+[2025-12-24T13:14:57] sh -lc "sed -n '1,260p' dashboard/src/hooks/use-activity-heatmap.js" succeeded in 38ms:
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import {
+  buildActivityHeatmap,
+  computeActiveStreakDays,
+  getHeatmapRangeLocal,
+} from "../lib/activity-heatmap.js";
+import { isMockEnabled } from "../lib/mock-data.js";
+import { getUsageDaily, getUsageHeatmap } from "../lib/vibescore-api.js";
+import { getTimeZoneCacheKey } from "../lib/timezone.js";
+
+export function useActivityHeatmap({
+  baseUrl,
+  accessToken,
+  weeks = 52,
+  weekStartsOn = "sun",
+  cacheKey,
+  timeZone,
+  tzOffsetMinutes,
+} = {}) {
+[2025-12-24T13:14:57] tokens used: 66,383
+
+[2025-12-24T13:15:02] thinking
+
+**Mentioning regression tests**
+
+I need to include potential "regression tests" to emphasize those that guard the specifications. For instance, if a bug is detected concerning the details-date key mapping or visibility of future rows, such tests would help catch those issues. I should keep my answer concise while still covering all necessary details. Now, it seems like I should switch to Chinese for further discussion.
+[2025-12-24T13:15:03] codex
+
+**结论**
+
+- 当前仓库里，和 Dashboard 相关的自动化测试只覆盖了「明细排序」和「汇总 BigInt 聚合」，没有直接覆盖「period → from/to 计算」「本地日历周一起始」「未来桶截断」「明细表分页」等关键逻辑。
+- 现有测试模式非常「纯函数 + Node 测试框架」友好，可以在不引入 React 测试框架的前提下，自然扩展出一批围绕 `dashboard/src/lib/**` 与 hooks 的回归测试。
+- 建议新增 3 类回归测试：日期区间/时区口径、明细排序边界（missing/future/非法字符串）、明细数据/分页与 period 的映射。这些都可以作为独立的 `*.test.js` 文件落在 `test/` 目录中。
+
+---
+
+**一、现有测试模式（test/ + dashboard/src）**
+
+1. 总体模式
+
+- 测试框架：全部使用 Node 18 内置的 `node:test` + `node:assert/strict`。
+- 运行方式：`npm test` 对应 `node --test test/*.test.js`（`package.json`）。
+- 模块类型：
+  - 仓库整体是 `type: "commonjs"`。
+  - Dashboard/前端部分是 ESM（`import`），测试通过 `await import('../dashboard/src/lib/xxx.js')` 动态加载 ESM 模块。
+
+2. 与 Dashboard 直接相关的现有测试
+
+- `test/details-sort.test.js`
+  - 动态导入 `../dashboard/src/lib/detail-sort.js`，测试 `sortDetailRows`：
+    - `key: "day"` 时，能按 `YYYY-MM-DD` 时间顺序排列。
+    - `key: "hour"` 时，能按 `YYYY-MM-DDTHH:mm:ssZ` 排序。
+    - `key: "month"` 时，能按 `YYYY-MM` 排序。
+  - 只验证了简单升/降序，不涉及 `missing/future`、非法日期、tie‑break 等边界。
+- `test/usage-aggregate.test.js`
+  - 动态导入 `../dashboard/src/lib/usage-aggregate.js`，测试 `sumDailyRowsToTotals`：
+    - 支持字符串超出 JS 安全整数的 BigInt 聚合。
+    - 混合 number/string/null/missing 行时，最后结果都是字符串形式的精确和。
+  - 同样属于纯逻辑测试，没有时区/日期语义。
+
+3. 其它风格可复用的测试
+
+这些不直接是 Dashboard UI，但给你可复用的「测试风格」：
+
+- `test/dashboard-render-order.test.js`
+  - 直接 `fs.readFileSync` 读取 `dashboard/src/pages/DashboardPage.jsx` 源码，做静态断言：
+    - `timeZone` 变量声明位置必须在 `getRangeForPeriod` 使用之前。
+  - 说明：对于涉及 React/JSX 的文件，项目当前倾向于做「结构/约束」级别的静态检查，而不是真正渲染组件。
+- 一系列纯函数/库测试
+  - `test/upload-throttle.test.js`：针对 `src/lib/upload-throttle`，验证状态机和重试/backoff。
+  - `test/uploader.test.js`：通过替换 `require.cache` 来 stub `vibescore-api`，测试上传队列 drain 行为。
+  - `test/edge-functions.test.js`：通过构造 `globalThis.Deno` / `globalThis.createClient` / `globalThis.fetch`，测试 edge function 行为。
+- CLI/文件系统集成测试
+  - `test/auto-retry.test.js`/`test/status.test.js`/`test/init-uninstall.test.js` 等：大量使用 `fs.mkdtemp` + 临时目录 + 环境变量，构造真实文件布局作为回归测试。
+
+归纳一下项目的「测试惯用技」：
+
+- 优先测试纯函数（lib），不直接 mount React。
+- 面对 ESM lib，用 `await import()` 从 CommonJS 测试里加载。
+- 面对「复杂环境」，通过：
+  - 临时目录 + 环境变量；
+  - 覆盖 `require.cache`/全局变量；
+  - 或简单的源码静态扫描（`fs.readFileSync` + `regex/indexOf`）。
+
+---
+
+**二、当前 Dashboard 相关逻辑的缺口**
+
+从 `dashboard/src` 这侧看，和「明细表 / 日期 / 分页」相关的主要逻辑在：
+
+- `dashboard/src/pages/DashboardPage.jsx`
+  - `PERIODS = ["day","week","month","total"]`
+  - `getRangeForPeriod(period, { timeZone, offsetMinutes })` → `from/to`（周一起始、24 个月窗口等）。
+  - `detailsDateKey`：`day` → `"hour"`，`total` → `"month"`，其他 → `"day"`。
+  - `detailsColumns = getDetailsSortColumns(detailsDateKey)`。
+  - `DETAILS_DATE_KEYS = new Set(["day","hour","month"])` + `effectiveSort` 对 key 做矫正。
+  - `detailsRows`：
+    - `period="day"`：从 `trendRows` 里挑 `row.hour && !row.future`。
+    - `period="total"`：从 `trendRows` 里挑 `row.month && !row.future`。
+    - 其他：用 `visibleDaily`（已经做了 `future` 截断）。
+  - `sortedDetails = sortDailyRows(detailsRows, effectiveSort)`。
+  - 分页：
+    - 只在 `period === "total"` 时分页。
+    - `DETAILS_PAGE_SIZE = 12`，`detailsPageCount = ceil(len / 12) || 1`。
+    - 多个 `useEffect` 保证：
+      - 切到非 `total` 时重置 page = 0。
+      - 当总页数变小或 sort 变化时，page 不越界/回到 0。
+- `dashboard/src/lib/daily.js`
+  - `DAILY_SORT_COLUMNS`：第一列是日期，其他是 token 各项。
+  - `getDetailsSortColumns(dateKey)`：如果传入的是合法 date key，就把第一列 `key` 替换成那个（`day/hour/month`）。
+  - `sortDailyRows(rows, { key, dir })`：直接委托给 `sortDetailRows`。
+- `dashboard/src/lib/detail-sort.js`
+  - `isDetailDateKey`：校验 key 是否在 `["day","hour","month"]`。
+  - 一组日期解析逻辑：
+    - `parseDayKey("YYYY-MM-DD")`；
+    - `parseMonthKey("YYYY-MM")`；
+    - `parseHourKey("YYYY-MM-DDTHH:mm:ssZ?")`。
+  - 非法格式时退回到简单字符串比较。
+  - `compareIntLike` 支持「超长整数字符串 + BigInt / number」的安全比较。
+  - `sortDetailRows`：
+    - 日期列用 `compareDateLike`；
+    - 其它列用 `compareIntLike`；
+    - `null/undefined` 会被排到最后，且保持稳定性（用 index tie‑break）。
+
+- `dashboard/src/lib/date-range.js`
+  - `getRangeForPeriod(period, { timeZone, offsetMinutes })`：
+    - 内部用 `getLocalDateParts`（本地日历） + `parseDateString`。
+    - `day`：当日；
+    - `week`：按本地日历的周一起始（`offset = (day + 6) % 7`）；
+    - `month`：当月 1 号 → 当月最后一天；
+    - `total`：过去 24 个月（`today.month - 23` 起始那个月 1 号 → 今天）。
+    - fallback 情况下退回 `formatDateLocal(new Date())`。
+  - `getDefaultRange()`：过去 30 天窗口。
+
+- `dashboard/src/hooks/use-usage-data.js` / `dashboard/src/hooks/use-trend-data.js`
+  - 都有内联的 `fillDailyGaps`：
+    - 基于 `from/to` 生成 day 范围；
+    - 用 `getLocalDayKey` + `formatDateUTC` 判断「未来日」；
+    - 缺数据的日子填充 `missing: true/future: true` 行。
+  - `use-trend-data` 还包含：
+    - `markHourlyFuture`：按本地时间的「半小时时槽」判断 `future`；
+    - `markMonthlyFuture`：按 `YYYY-MM` 与当前本地年月比较。
+
+- `dashboard/src/hooks/use-activity-heatmap.js` / `dashboard/src/lib/activity-heatmap.js`
+  - 对应 OpenSpec 中「Heatmap 本地日历 + tz」「周一起始」「future 截断」的实现，当前只有手工验证记录，没有自动化测试。
+
+结合 `openspec/changes/...implement-vibescore-tracker-spec-gaps/tasks.md`，你已经把关键行为锁定在：
+
+- `period=week` 必须是本地周一起始；
+- Trend/Heatmap 的 `future` 桶要根据本地日历判断并截断；
+- UI/UsagePanel/Heatmap/页脚的 `Local time (UTC±HH:MM)` 要和请求参数一致。
+
+这些都还没有对应的自动化回归测试。
+
+---
+
+**三、回归测试候选点（按优先级）**
+
+下面按「现有模式 + ROI」给出具体建议，每条都可以是独立的 `test/*.test.js` 或扩展现有测试。
+
+---
+
+1）日期区间与本地周一起始（高优先级，纯函数）
+
+目标：把 OpenSpec 中关于 period → range 的语义固化到单元测试中，防止未来改动 timezone/date 细节时跑偏。
+
+- 新文件建议：`test/date-range.test.js`
+- 覆盖点：
+  - `getRangeForPeriod("week", ...)`：
+    - 通过临时覆写 `global.Date`，让「今天」是一个已知的周几（例如周三），断言：
+      - `from` 是本周一；
+      - `to` 是本周日；
+      - 并验证 `formatDateUTC(from)` / `formatDateUTC(to)` 字符串值。
+  - `getRangeForPeriod("month", ...)`：
+    - 设定今天为某月中间的一天，期望 `from` 为该月 1 号，`to` 为该月最后一天（可用 `new Date(y, m+1, 0)` 求）。
+  - `getRangeForPeriod("total", ...)`：
+    - 设定今天为某年某月，验证：
+      - `from` 的年份与月份刚好往前 23 个月；
+      - 日为 1；
+      - `to` 等于 `formatDateLocal(today)`。
+  - 参数空值/非法 fallback：
+    - 当 `getLocalDateParts` 返回 null 的情况（例如通过 `offsetMinutes` 设置一个极端值 + 覆写 `Date`），验证 fallback 为 `formatDateLocal(new Date())`。
+
+模式上完全可以参考 `test/details-sort.test.js`：动态 `await import('../dashboard/src/lib/date-range.js')`，测试纯函数，不需要 mock React。
+
+---
+
+2）明细排序的边界与 future/missing 行（高优先级，扩展现有 test）
+
+目标：把「未来行排后面、非法格式行为、tie-break 稳定性」写成回归测试，防止未来调整排序实现时破坏明细表行为。
+
+- 直接扩展：`test/details-sort.test.js`
+- 建议新增用例：
+
+  - `null/undefined/missing` 行永远排在非缺失之后，且保持相对顺序：
+    - 构造 `[{ day: "2025-12-22", total_tokens: 10 }, { day: null }, { day: "2025-12-23", total_tokens: 5 }]`；
+    - `dir: "asc"` 时，顺序应是 `"2025-12-22"`, `"2025-12-23"`, `null`；
+    - 且两个 `null` 时，顺序等于原始 index。
+  - 非法日期字符串 fallback 行为稳定：
+    - 如 `day: "not-a-date"` 与合法日期混合，断言排序不会抛错，并且非法值按字符串比较/排在合理位置（结合当前实现的 `compareString`）。
+  - 整数字段的「长整数字符串」 VS 普通 number：
+    - `total_tokens: "9007199254740993"` 和 `"10"`/`10`，验证 `compareIntLike` 按数值而不是按字符串排序（既有 BigInt 测试只验证聚合，可以在排序处再加一层保障）。
+  - `hour` 格式变体：
+    - 有秒和无秒（`"2025-12-23T12:00Z"` vs `"2025-12-23T12:00:30Z"`），确认 `parseHourKey` 对带秒的支持正确。
+  - `month` 越界/非法：
+    - 如 `"2025-13"`、`"2025-00"`，现在会 fallback 到字符串比较，可以为该行为写出明确断言，避免未来 silent 行为改变。
+
+这些测试对 Dashboard 详情表是直接回归保护：所有详情数据最终都是通过 `sortDetailRows` 完成排序。
+
+---
+
+3）period + detailsRows + pagination 映射（中高优先级，推荐先抽函数再测）
+
+目标：验证「不同 period 下，明细表展示的是哪一类行，是否剔除了 future，分页逻辑是否正确起效」。
+
+当前逻辑都写在 `DashboardPage.jsx` 内部，要做到「纯函数测试」比较理想的路径是先抽一层 helper，不过你现在在只读模式下，只能先给出测试位点建议：
+
+- 候选抽象函数（可未来迁到 `dashboard/src/lib/details-table.js`）：
+  - `deriveDetailsConfig({ period, daily, trendRows })` → `{ detailsDateKey, effectiveSort, detailsRows, hasDetailsActual, detailsPageCount, pagedDetails }`
+- 待测要点：
+
+  1. `detailsDateKey` 与 `period` 的映射：
+     - period=`"day"` → `"hour"`；
+     - `"total"` → `"month"`；
+     - 其余 → `"day"`。
+  2. `detailsRows` 选择逻辑：
+     - period=`"day"` → 只含 `row.hour && !row.future` 的 `trendRows`；
+     - period=`"total"` → 只含 `row.month && !row.future` 的 `trendRows`；
+     - 其他 → `visibleDaily`（已提前过滤到 `!row.future`）。
+     - 测试中可以构造含 `future: true` 的行，确保不会进入 `detailsRows`。
+  3. `hasDetailsActual`：
+     - 行中只要有一行 `!missing && !future`，就为 `true`；
+     - 全部是 `missing/future` 时为 `false`（驱动 UI 展示「空状态」文案）。
+  4. `detailsPageCount` & `pagedDetails`：
+     - 非 `total` 时 `detailsPageCount === 1`，`pagedDetails === sortedDetails`；
+     - `total` 时：
+       - 行数 < 12 → `detailsPageCount === 1`；
+       - 行数恰好 12 → `detailsPageCount === 1`；
+       - 行数 13 → `detailsPageCount === 2`，第一页 12 条，第二页 1 条；
+     - 保证 `detailsPageCount` 永远 ≥1。
+
+测试模式建议沿用现有风格：
+
+- 新文件：`test/details-table-mapping.test.js`（一旦抽出 helper）。
+- 纯数据对象 + 纯函数断言，不涉及 React 渲染。
+
+---
+
+4）fillDailyGaps / future 行判断（中优先级，和 Trend/Heatmap 行为强相关）
+
+这些与 OpenSpec 里的「未来桶截断」直接对应，推荐至少为 `fillDailyGaps` / `markHourlyFuture` / `markMonthlyFuture` 各写一组测试。
+
+- 新文件建议：`test/trend-daily-gaps.test.js`
+- 目标函数（当前是内联的，可以考虑未来抽到 `dashboard/src/lib/trend-utils.js`）：
+  - `fillDailyGaps(rows, from, to, { timeZone, offsetMinutes })`：
+    - `from/to` 合法时：
+      - 产出的 `day` 连续无缺口；
+      - 已存在的行被保留并加上 `missing: false`；
+      - 缺失的日子插入 `missing: true, future: false`。
+    - 对「未来日」：
+      - 判断逻辑基于 `getLocalDayKey`，测试中可以覆写全局 `Date`，构造 `from/to` 跨越未来若干天；
+      - 未来日应标记为 `missing: false, future: true`。
+  - `markHourlyFuture(rows, { timeZone, offsetMinutes })`：
+    - 构造同一天内不同时段的 `hour` 字符串（比如 `T00:00`、`T12:30`）；
+    - 利用 `getNowParts` 的 slot 逻辑：当前 slot 之前 → `future:false`，之后 → `future:true`。
+  - `markMonthlyFuture(rows, { timeZone, offsetMinutes })`：
+    - 构造当前月、未来月和历史月；
+    - 断言未来月 `future:true`、当前以及历史月 `future:false`。
+
+实现方式可以完全复制 `upload-throttle` 等测试里「纯函数 + 少量时间 stub」的风格。
+
+---
+
+5）Heatmap 周一起始与 tz 缓存键（中等优先级）
+
+虽然你的问题更关心「明细表 + 日期/分页」，但从整体时区/日历一致性看，Heatmap 也是一块容易 re‑introduce bug 的区域。
+
+- 新文件候选：`test/activity-heatmap-range.test.js`
+- 重点函数（`dashboard/src/lib/activity-heatmap.js` + `timezone.js`）：
+  - `getHeatmapRangeLocal({ weeks, weekStartsOn })`：
+    - 固定「今天」后，验证生成的起始 day 是某个周起点（weekStartsOn=`"mon"` 时，是周一；`"sun"` 时是周日）。
+  - `getTimeZoneCacheKey({ timeZone, offsetMinutes })`：
+    - 确保以 `tz:` 开头的键随 timeZone 变化，而不是仅依赖 offset（对应缓存命中行为，防止跨 DST 区间错误复用）。
+
+这类测试可以作为「时区/本地日历协议」的基础回归。
+
+---
+
+**四、建议的新增测试文件与结构汇总**
+
+按投入/收益排序，可以优先考虑：
+
+1. `test/date-range.test.js`
+   - 覆盖 `getRangeForPeriod`（day/week/month/total）和 `getDefaultRange` 的基本语义。
+2. 扩展 `test/details-sort.test.js`
+   - 覆盖 missing/future、非法日期字符串、长整数字符串数值排序等边界。
+3. （抽出 helper 后）`test/details-table-mapping.test.js`
+   - 覆盖 `period` → `detailsDateKey/detailsRows/detailsPageCount` 的映射与分页行为。
+4. `test/trend-daily-gaps.test.js`
+   - 覆盖 `fillDailyGaps`、`markHourlyFuture`、`markMonthlyFuture` 的 future 标记与 gap 填充。
+5. （可选）`test/activity-heatmap-range.test.js`
+   - 覆盖 heatmap 周起点与 tz 缓存键行为。
+
+---
+
+**五、验证方式（落地这些测试后的回归指令）**
+
+当你按上述思路新增/扩展测试后，可以用统一命令回归：
+
+- 全量测试：  
+  `npm test`
+- 针对某个新文件（示例）：  
+  `node --test test/date-range.test.js`  
+  `node --test test/details-sort.test.js`
+
+这些测试全部是纯 Node 环境（无浏览器、无 React 渲染），符合当前项目的测试风格，也容易在 CI 中快速执行。
+
+如果你后续打算抽出 `DashboardPage` 中的详情表逻辑 helper，我可以帮你一起设计具体函数签名和对应的测试 Data set。
+[2025-12-24T13:15:37] tokens used: 73,456
