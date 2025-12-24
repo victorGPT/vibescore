@@ -25,6 +25,15 @@ _Real-time AI Analytics for Codex CLI_
 
 > [!TIP] > **Core Index**: Our signature metric that reflects your flow state by analyzing token consumption rates and patterns.
 
+## 🔒 Privacy-First Architecture (Stealth Protocol)
+
+We believe your code and thoughts are your own. VibeScore is built with strict privacy pillars to ensure your data never leaves your control.
+
+- 🛡️ **Zero Code Infiltration**: We never touch your source code or prompts. Our sniffer only extracts numeric token counts (Input, Output, Reasoning, Cached).
+- 📡 **Local Aggregation**: All token consumption analysis happens on your machine. We only relay quantized 30-minute usage buckets to the cloud.
+- 🔐 **Hashed Identity**: Device tokens are hashed using SHA-256 server-side. Your raw credentials never exist in our database.
+- 🔦 **Full Transparency**: Audit the sync logic yourself in `src/lib/rollout.js`. We literally only capture numbers and timestamps.
+
 ## 🚀 Key Features
 
 - 📡 **Live Sniffer**: Real-time interception of Codex CLI pipes using low-level hooks to capture every completion event.
@@ -66,9 +75,9 @@ npx --yes @vibescore/tracker status
 - If you expect a non-zero streak, clear cached auth/heatmap data and sign in again:
 
 ```js
-localStorage.removeItem('vibescore.dashboard.auth.v1');
+localStorage.removeItem("vibescore.dashboard.auth.v1");
 Object.keys(localStorage)
-  .filter((k) => k.startsWith('vibescore.heatmap.'))
+  .filter((k) => k.startsWith("vibescore.heatmap."))
   .forEach((k) => localStorage.removeItem(k));
 location.reload();
 ```
