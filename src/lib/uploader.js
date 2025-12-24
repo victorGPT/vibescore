@@ -5,6 +5,9 @@ const readline = require('node:readline');
 const { ensureDir, readJson, writeJson } = require('./fs');
 const { ingestHourly } = require('./vibescore-api');
 
+const DEFAULT_SOURCE = 'codex';
+const SOURCE_SEPARATOR = '|';
+
 async function drainQueueToCloud({ baseUrl, deviceToken, queuePath, queueStatePath, maxBatches, batchSize, onProgress }) {
   await ensureDir(require('node:path').dirname(queueStatePath));
 
@@ -70,7 +73,9 @@ async function readBatch(queuePath, startOffset, maxBuckets) {
     }
     const hourStart = typeof bucket?.hour_start === 'string' ? bucket.hour_start : null;
     if (!hourStart) continue;
-    bucketMap.set(hourStart, bucket);
+    const source = normalizeSource(bucket?.source) || DEFAULT_SOURCE;
+    bucket.source = source;
+    bucketMap.set(bucketKey(source, hourStart), bucket);
     linesRead += 1;
     if (linesRead >= maxBuckets) break;
   }
@@ -87,6 +92,16 @@ async function safeFileSize(p) {
   } catch (_e) {
     return 0;
   }
+}
+
+function bucketKey(source, hourStart) {
+  return `${source}${SOURCE_SEPARATOR}${hourStart}`;
+}
+
+function normalizeSource(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 module.exports = { drainQueueToCloud };

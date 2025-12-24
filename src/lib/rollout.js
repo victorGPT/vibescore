@@ -5,6 +5,9 @@ const readline = require('node:readline');
 
 const { ensureDir } = require('./fs');
 
+const DEFAULT_SOURCE = 'codex';
+const SOURCE_SEPARATOR = '|';
+
 async function listRolloutFiles(sessionsDir) {
   const out = [];
   const years = await safeReadDir(sessionsDir);
@@ -33,7 +36,7 @@ async function listRolloutFiles(sessionsDir) {
   return out;
 }
 
-async function parseRolloutIncremental({ rolloutFiles, cursors, queuePath, onProgress }) {
+async function parseRolloutIncremental({ rolloutFiles, cursors, queuePath, onProgress, source }) {
   await ensureDir(path.dirname(queuePath));
   let filesProcessed = 0;
   let eventsAggregated = 0;
@@ -42,13 +45,18 @@ async function parseRolloutIncremental({ rolloutFiles, cursors, queuePath, onPro
   const totalFiles = Array.isArray(rolloutFiles) ? rolloutFiles.length : 0;
   const hourlyState = normalizeHourlyState(cursors?.hourly);
   const touchedBuckets = new Set();
+  const defaultSource = normalizeSourceInput(source) || DEFAULT_SOURCE;
 
   if (!cursors.files || typeof cursors.files !== 'object') {
     cursors.files = {};
   }
 
   for (let idx = 0; idx < rolloutFiles.length; idx++) {
-    const filePath = rolloutFiles[idx];
+    const entry = rolloutFiles[idx];
+    const filePath = typeof entry === 'string' ? entry : entry?.path;
+    if (!filePath) continue;
+    const fileSource =
+      typeof entry === 'string' ? defaultSource : normalizeSourceInput(entry?.source) || defaultSource;
     const st = await fs.stat(filePath).catch(() => null);
     if (!st || !st.isFile()) continue;
 
@@ -65,7 +73,8 @@ async function parseRolloutIncremental({ rolloutFiles, cursors, queuePath, onPro
       lastTotal,
       lastModel,
       hourlyState,
-      touchedBuckets
+      touchedBuckets,
+      source: fileSource
     });
 
     cursors.files[key] = {
@@ -98,7 +107,15 @@ async function parseRolloutIncremental({ rolloutFiles, cursors, queuePath, onPro
   return { filesProcessed, eventsAggregated, bucketsQueued };
 }
 
-async function parseRolloutFile({ filePath, startOffset, lastTotal, lastModel, hourlyState, touchedBuckets }) {
+async function parseRolloutFile({
+  filePath,
+  startOffset,
+  lastTotal,
+  lastModel,
+  hourlyState,
+  touchedBuckets,
+  source
+}) {
   const st = await fs.stat(filePath);
   const endOffset = st.size;
   if (startOffset >= endOffset) {
@@ -130,13 +147,13 @@ async function parseRolloutFile({ filePath, startOffset, lastTotal, lastModel, h
       continue;
     }
 
-    const payload = obj?.payload;
-    if (!payload || payload.type !== 'token_count') continue;
+    const token = extractTokenCount(obj);
+    if (!token) continue;
 
-    const info = payload.info;
+    const info = token.info;
     if (!info || typeof info !== 'object') continue;
 
-    const tokenTimestamp = typeof obj.timestamp === 'string' ? obj.timestamp : null;
+    const tokenTimestamp = typeof token.timestamp === 'string' ? token.timestamp : null;
     if (!tokenTimestamp) continue;
 
     const lastUsage = info.last_token_usage;
@@ -152,9 +169,9 @@ async function parseRolloutFile({ filePath, startOffset, lastTotal, lastModel, h
     const bucketStart = toUtcHalfHourStart(tokenTimestamp);
     if (!bucketStart) continue;
 
-    const bucket = getHourlyBucket(hourlyState, bucketStart);
+    const bucket = getHourlyBucket(hourlyState, source, bucketStart);
     addTotals(bucket.totals, delta);
-    touchedBuckets.add(bucketStart);
+    touchedBuckets.add(bucketKey(source, bucketStart));
     eventsAggregated += 1;
   }
 
@@ -166,13 +183,17 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
 
   const toAppend = [];
   for (const bucketStart of touchedBuckets) {
-    const bucket = hourlyState.buckets[bucketStart];
+    const parsedKey = parseBucketKey(bucketStart);
+    const source = parsedKey.source || DEFAULT_SOURCE;
+    const hourStart = parsedKey.hourStart;
+    const bucket = hourlyState.buckets[bucketKey(source, hourStart)] || hourlyState.buckets[bucketStart];
     if (!bucket || !bucket.totals) continue;
     const key = totalsKey(bucket.totals);
     if (bucket.queuedKey === key) continue;
     toAppend.push(
       JSON.stringify({
-        hour_start: bucketStart,
+        source,
+        hour_start: hourStart,
         input_tokens: bucket.totals.input_tokens,
         cached_input_tokens: bucket.totals.cached_input_tokens,
         output_tokens: bucket.totals.output_tokens,
@@ -192,7 +213,15 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
 
 function normalizeHourlyState(raw) {
   const state = raw && typeof raw === 'object' ? raw : {};
-  const buckets = state.buckets && typeof state.buckets === 'object' ? state.buckets : {};
+  const rawBuckets = state.buckets && typeof state.buckets === 'object' ? state.buckets : {};
+  const buckets = {};
+  for (const [key, value] of Object.entries(rawBuckets)) {
+    if (key.includes(SOURCE_SEPARATOR)) {
+      buckets[key] = value;
+      continue;
+    }
+    buckets[bucketKey(DEFAULT_SOURCE, key)] = value;
+  }
   return {
     version: 1,
     buckets,
@@ -200,12 +229,14 @@ function normalizeHourlyState(raw) {
   };
 }
 
-function getHourlyBucket(state, hourStart) {
+function getHourlyBucket(state, source, hourStart) {
   const buckets = state.buckets;
-  let bucket = buckets[hourStart];
+  const normalizedSource = normalizeSourceInput(source) || DEFAULT_SOURCE;
+  const key = bucketKey(normalizedSource, hourStart);
+  let bucket = buckets[key];
   if (!bucket || typeof bucket !== 'object') {
     bucket = { totals: initTotals(), queuedKey: null };
-    buckets[hourStart] = bucket;
+    buckets[key] = bucket;
     return bucket;
   }
 
@@ -265,6 +296,37 @@ function toUtcHalfHourStart(ts) {
     )
   );
   return bucketStart.toISOString();
+}
+
+function bucketKey(source, hourStart) {
+  const safeSource = normalizeSourceInput(source) || DEFAULT_SOURCE;
+  return `${safeSource}${SOURCE_SEPARATOR}${hourStart}`;
+}
+
+function parseBucketKey(key) {
+  if (typeof key !== 'string') return { source: DEFAULT_SOURCE, hourStart: '' };
+  const idx = key.indexOf(SOURCE_SEPARATOR);
+  if (idx <= 0) return { source: DEFAULT_SOURCE, hourStart: key };
+  return { source: key.slice(0, idx), hourStart: key.slice(idx + 1) };
+}
+
+function normalizeSourceInput(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function extractTokenCount(obj) {
+  const payload = obj?.payload;
+  if (!payload) return null;
+  if (payload.type === 'token_count') {
+    return { info: payload.info, timestamp: obj?.timestamp || null };
+  }
+  const msg = payload.msg;
+  if (msg && msg.type === 'token_count') {
+    return { info: msg.info, timestamp: obj?.timestamp || null };
+  }
+  return null;
 }
 
 function pickDelta(lastUsage, totalUsage, prevTotals) {

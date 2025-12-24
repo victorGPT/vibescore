@@ -28,6 +28,7 @@ _Codex CLI 实时 AI 分析工具_
 ## 🚀 核心功能
 
 - 📡 **Live Sniffer (实时嗅探)**: 实时监听 Codex CLI 管道，通过底层 Hook 捕获每一次补全事件。
+- 🧭 **多来源采集**：支持 Codex CLI 与 Every Code（标记为 `source=every-code`），无需修改 Every Code 客户端。
 - 📊 **Matrix Dashboard (矩阵控制台)**: 基于 React + Vite 的高性能仪表盘，具备热力图、趋势图与实时日志。
 - ⚡ **AI Analytics (AI 分析)**: 深度分析 Input/Output Token，支持缓存 (Cached) 与推理 (Reasoning) 部分的分离监控。
 - 🔒 **Identity Core (身份核心)**: 完备的身份验证与权限管理，保护你的开发数据资产。
@@ -51,6 +52,11 @@ npx --yes @vibescore/tracker sync
 # 查看当前连接状态
 npx --yes @vibescore/tracker status
 ```
+
+### 日志来源
+
+- Codex CLI 日志：`~/.codex/sessions/**/rollout-*.jsonl`（可用 `CODEX_HOME` 覆盖）
+- Every Code 日志：`~/.code/sessions/**/rollout-*.jsonl`（可用 `CODE_HOME` 覆盖）
 
 ## 🧰 常见问题
 

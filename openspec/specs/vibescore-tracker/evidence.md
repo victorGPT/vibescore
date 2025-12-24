@@ -38,6 +38,21 @@ Source: `openspec/specs/vibescore-tracker/spec.md`
 - Verification: `node --test test/rollout-parser.test.js`; manual run `tracker sync` twice with no new events
 - Status: Implemented (manual)
 
+### Requirement: Every Code rollout ingestion
+- Implementation: `src/lib/rollout.js`, `src/commands/sync.js`
+- Verification: `node --test test/rollout-parser.test.js` (Every Code payload.msg token_count test)
+- Status: Implemented
+
+### Requirement: Multi-source client deduplication
+- Implementation: `src/lib/rollout.js` (source-aware bucket keys), `src/lib/uploader.js` (source-aware queue dedupe)
+- Verification: `node --test test/rollout-parser.test.js` (multi-source bucket separation)
+- Status: Implemented
+
+### Requirement: Legacy queues remain compatible
+- Implementation: `src/lib/uploader.js` (default `source=codex` when missing)
+- Verification: `node --test test/uploader.test.js`
+- Status: Implemented
+
 ### Requirement: Multi-source usage ingestion
 - Implementation: `insforge-src/functions/vibescore-ingest.js`, `insforge-src/shared/source.js`, `openspec/changes/2025-12-24-add-usage-source-dimension/sql/001_add_source.sql`
 - Verification: `node --test test/edge-functions.test.js` (ingest default `source=codex`)

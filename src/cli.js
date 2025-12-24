@@ -49,7 +49,7 @@ function printHelp() {
       'Notes:',
       '  - init installs a Codex notify hook and issues a device token (default: browser sign in/up).',
       '  - optional: set VIBESCORE_DASHBOARD_URL (or --dashboard-url) to use a hosted landing page.',
-      '  - sync parses ~/.codex/sessions/**/rollout-*.jsonl and uploads token_count deltas.',
+      '  - sync parses ~/.codex/sessions/**/rollout-*.jsonl and ~/.code/sessions/**/rollout-*.jsonl (Every Code), then uploads token_count deltas.',
       '  - --debug prints original backend errors when they are normalized.',
       ''
     ].join('\n')

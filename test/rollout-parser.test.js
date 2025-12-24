@@ -216,6 +216,86 @@ test('parseRolloutIncremental handles total_token_usage reset when last_token_us
   }
 });
 
+test('parseRolloutIncremental handles Every Code token_count envelope', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-rollout-'));
+  try {
+    const rolloutPath = path.join(tmp, 'rollout-test.jsonl');
+    const queuePath = path.join(tmp, 'queue.jsonl');
+    const cursors = { version: 1, files: {}, updatedAt: null };
+
+    const usage = {
+      input_tokens: 2,
+      cached_input_tokens: 1,
+      output_tokens: 3,
+      reasoning_output_tokens: 0,
+      total_tokens: 6
+    };
+
+    const lines = [
+      buildEveryCodeTokenCountLine({ ts: '2025-12-17T00:05:00.000Z', last: usage, total: usage })
+    ];
+
+    await fs.writeFile(rolloutPath, lines.join('\n') + '\n', 'utf8');
+
+    const res = await parseRolloutIncremental({
+      rolloutFiles: [{ path: rolloutPath, source: 'every-code' }],
+      cursors,
+      queuePath
+    });
+    assert.equal(res.filesProcessed, 1);
+    assert.equal(res.eventsAggregated, 1);
+    assert.equal(res.bucketsQueued, 1);
+
+    const queued = await readJsonLines(queuePath);
+    assert.equal(queued.length, 1);
+    assert.equal(queued[0].source, 'every-code');
+    assert.equal(queued[0].total_tokens, usage.total_tokens);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('parseRolloutIncremental keeps buckets separate per source', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-rollout-'));
+  try {
+    const codexPath = path.join(tmp, 'rollout-codex.jsonl');
+    const everyPath = path.join(tmp, 'rollout-every.jsonl');
+    const queuePath = path.join(tmp, 'queue.jsonl');
+    const cursors = { version: 1, files: {}, updatedAt: null };
+
+    const usage = {
+      input_tokens: 1,
+      cached_input_tokens: 0,
+      output_tokens: 1,
+      reasoning_output_tokens: 0,
+      total_tokens: 2
+    };
+
+    const line = buildTokenCountLine({ ts: '2025-12-17T00:00:00.000Z', last: usage, total: usage });
+    await fs.writeFile(codexPath, line + '\n', 'utf8');
+    await fs.writeFile(everyPath, buildEveryCodeTokenCountLine({ ts: '2025-12-17T00:00:00.000Z', last: usage, total: usage }) + '\n', 'utf8');
+
+    const res = await parseRolloutIncremental({
+      rolloutFiles: [
+        { path: codexPath, source: 'codex' },
+        { path: everyPath, source: 'every-code' }
+      ],
+      cursors,
+      queuePath
+    });
+    assert.equal(res.filesProcessed, 2);
+    assert.equal(res.eventsAggregated, 2);
+    assert.equal(res.bucketsQueued, 2);
+
+    const queued = await readJsonLines(queuePath);
+    assert.equal(queued.length, 2);
+    const sources = queued.map((row) => row.source).sort();
+    assert.deepEqual(sources, ['codex', 'every-code']);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 function buildTokenCountLine({ ts, last, total }) {
   return JSON.stringify({
     type: 'event_msg',
@@ -225,6 +305,24 @@ function buildTokenCountLine({ ts, last, total }) {
       info: {
         last_token_usage: last,
         total_token_usage: total
+      }
+    }
+  });
+}
+
+function buildEveryCodeTokenCountLine({ ts, last, total }) {
+  return JSON.stringify({
+    type: 'event_msg',
+    timestamp: ts,
+    payload: {
+      id: 'msg-id',
+      event_seq: 1,
+      msg: {
+        type: 'token_count',
+        info: {
+          last_token_usage: last,
+          total_token_usage: total
+        }
       }
     }
   });

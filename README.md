@@ -28,6 +28,7 @@ _Real-time AI Analytics for Codex CLI_
 ## 🚀 Key Features
 
 - 📡 **Live Sniffer**: Real-time interception of Codex CLI pipes using low-level hooks to capture every completion event.
+- 🧭 **Multi-source Ingestion**: Supports Codex CLI and Every Code (tagged as `source=every-code`) without modifying Every Code.
 - 📊 **Matrix Dashboard**: A high-performance React + Vite dashboard featuring heatmaps, trend charts, and live logs.
 - ⚡ **AI Analytics**: Deep analysis of Input/Output tokens, with dedicated tracking for Cached and Reasoning components.
 - 🔒 **Identity Core**: Robust authentication and permission management to secure your development data.
@@ -51,6 +52,11 @@ npx --yes @vibescore/tracker sync
 # Check current link status
 npx --yes @vibescore/tracker status
 ```
+
+### Sources
+
+- Codex CLI logs: `~/.codex/sessions/**/rollout-*.jsonl` (override with `CODEX_HOME`)
+- Every Code logs: `~/.code/sessions/**/rollout-*.jsonl` (override with `CODE_HOME`)
 
 ## 🧰 Troubleshooting
 

@@ -43,8 +43,23 @@ async function cmdSync(argv) {
     let uploadThrottleState = uploadThrottle;
 
     const codexHome = process.env.CODEX_HOME || path.join(home, '.codex');
-    const sessionsDir = path.join(codexHome, 'sessions');
-    const rolloutFiles = await listRolloutFiles(sessionsDir);
+    const codeHome = process.env.CODE_HOME || path.join(home, '.code');
+
+    const sources = [
+      { source: 'codex', sessionsDir: path.join(codexHome, 'sessions') },
+      { source: 'every-code', sessionsDir: path.join(codeHome, 'sessions') }
+    ];
+
+    const rolloutFiles = [];
+    const seenSessions = new Set();
+    for (const entry of sources) {
+      if (seenSessions.has(entry.sessionsDir)) continue;
+      seenSessions.add(entry.sessionsDir);
+      const files = await listRolloutFiles(entry.sessionsDir);
+      for (const filePath of files) {
+        rolloutFiles.push({ path: filePath, source: entry.source });
+      }
+    }
 
     if (progress?.enabled) {
       progress.start(`Parsing ${renderBar(0)} 0/${formatNumber(rolloutFiles.length)} files | buckets 0`);
