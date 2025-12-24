@@ -197,3 +197,8 @@ Source: `openspec/specs/vibescore-tracker/spec.md`
 - Implementation: `dashboard/src/ui/matrix-a/components/MatrixRain.jsx` (reduced motion scaling, fps cap)
 - Verification: performance trace comparing baseline vs reduced settings
 - Status: Partial (optimization change in progress)
+
+### Requirement: Landing page serves static social metadata
+- Implementation: `dashboard/vite.config.js`, `dashboard/index.html`, `dashboard/src/content/copy.csv`
+- Verification: `npm --prefix dashboard run build`; inspect `dashboard/dist/index.html` for OG/Twitter meta tags and `og:url`
+- Status: Implemented

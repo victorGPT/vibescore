@@ -760,6 +760,16 @@ The project SHALL maintain a requirement-to-evidence map for the `vibescore-trac
 - **WHEN** a reviewer inspects the compliance record
 - **THEN** the record SHALL list the corresponding code location(s) and a repeatable verification step
 
+### Requirement: Landing page serves static social metadata
+The dashboard landing page HTML SHALL include Open Graph and Twitter card metadata in the initial HTML response, without requiring client-side JavaScript execution. The metadata values SHALL be sourced from the copy registry `landing.meta.*`, and `og:url` SHALL be `https://www.vibescore.space`.
+
+#### Scenario: Crawler reads static meta tags
+- **GIVEN** the dashboard is built via `npm --prefix dashboard run build`
+- **WHEN** a crawler fetches `dashboard/dist/index.html`
+- **THEN** the HTML SHALL include `meta` tags for `description`, `og:title`, `og:description`, `og:image`, `og:site_name`, `og:type`, `og:url`, `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`
+- **AND** the `content` values SHALL match the copy registry `landing.meta.*` entries
+- **AND** `og:url` SHALL equal `https://www.vibescore.space`
+
 ### Requirement: Dashboard landing page Lighthouse performance (desktop)
 The dashboard landing page at `http://localhost:5173/` SHALL achieve a Lighthouse Performance score of at least 95 on desktop, measured as the median of three runs using the default Lighthouse desktop preset.
 
