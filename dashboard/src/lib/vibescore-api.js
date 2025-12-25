@@ -5,6 +5,7 @@ import {
   getMockUsageHourly,
   getMockUsageHeatmap,
   getMockUsageMonthly,
+  getMockUsageModelBreakdown,
   getMockUsageSummary,
   isMockEnabled,
 } from "./mock-data.js";
@@ -18,6 +19,7 @@ const PATHS = {
   usageHourly: "/functions/vibescore-usage-hourly",
   usageMonthly: "/functions/vibescore-usage-monthly",
   usageHeatmap: "/functions/vibescore-usage-heatmap",
+  usageModelBreakdown: "/functions/vibescore-usage-model-breakdown",
 };
 
 export async function probeBackend({ baseUrl, accessToken, signal } = {}) {
@@ -38,6 +40,8 @@ export async function getUsageSummary({
   accessToken,
   from,
   to,
+  source,
+  model,
   timeZone,
   tzOffsetMinutes,
 }) {
@@ -45,11 +49,34 @@ export async function getUsageSummary({
     return getMockUsageSummary({ from, to, seed: accessToken });
   }
   const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
+  const filterParams = buildFilterParams({ source, model });
   return requestJson({
     baseUrl,
     accessToken,
     path: PATHS.usageSummary,
-    params: { from, to, ...tzParams },
+    params: { from, to, ...filterParams, ...tzParams },
+  });
+}
+
+export async function getUsageModelBreakdown({
+  baseUrl,
+  accessToken,
+  from,
+  to,
+  source,
+  timeZone,
+  tzOffsetMinutes,
+}) {
+  if (isMockEnabled()) {
+    return getMockUsageModelBreakdown({ from, to, seed: accessToken });
+  }
+  const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
+  const filterParams = buildFilterParams({ source });
+  return requestJson({
+    baseUrl,
+    accessToken,
+    path: PATHS.usageModelBreakdown,
+    params: { from, to, ...filterParams, ...tzParams },
   });
 }
 
@@ -58,6 +85,8 @@ export async function getUsageDaily({
   accessToken,
   from,
   to,
+  source,
+  model,
   timeZone,
   tzOffsetMinutes,
 }) {
@@ -65,11 +94,12 @@ export async function getUsageDaily({
     return getMockUsageDaily({ from, to, seed: accessToken });
   }
   const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
+  const filterParams = buildFilterParams({ source, model });
   return requestJson({
     baseUrl,
     accessToken,
     path: PATHS.usageDaily,
-    params: { from, to, ...tzParams },
+    params: { from, to, ...filterParams, ...tzParams },
   });
 }
 
@@ -77,6 +107,8 @@ export async function getUsageHourly({
   baseUrl,
   accessToken,
   day,
+  source,
+  model,
   timeZone,
   tzOffsetMinutes,
 }) {
@@ -84,11 +116,12 @@ export async function getUsageHourly({
     return getMockUsageHourly({ day, seed: accessToken });
   }
   const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
+  const filterParams = buildFilterParams({ source, model });
   return requestJson({
     baseUrl,
     accessToken,
     path: PATHS.usageHourly,
-    params: day ? { day, ...tzParams } : tzParams,
+    params: day ? { day, ...filterParams, ...tzParams } : { ...filterParams, ...tzParams },
   });
 }
 
@@ -97,6 +130,8 @@ export async function getUsageMonthly({
   accessToken,
   months,
   to,
+  source,
+  model,
   timeZone,
   tzOffsetMinutes,
 }) {
@@ -104,6 +139,7 @@ export async function getUsageMonthly({
     return getMockUsageMonthly({ months, to, seed: accessToken });
   }
   const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
+  const filterParams = buildFilterParams({ source, model });
   return requestJson({
     baseUrl,
     accessToken,
@@ -111,6 +147,7 @@ export async function getUsageMonthly({
     params: {
       ...(months ? { months: String(months) } : {}),
       ...(to ? { to } : {}),
+      ...filterParams,
       ...tzParams,
     },
   });
@@ -122,6 +159,8 @@ export async function getUsageHeatmap({
   weeks,
   to,
   weekStartsOn,
+  source,
+  model,
   timeZone,
   tzOffsetMinutes,
 }) {
@@ -134,6 +173,7 @@ export async function getUsageHeatmap({
     });
   }
   const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
+  const filterParams = buildFilterParams({ source, model });
   return requestJson({
     baseUrl,
     accessToken,
@@ -142,6 +182,7 @@ export async function getUsageHeatmap({
       weeks: String(weeks),
       to,
       week_starts_on: weekStartsOn,
+      ...filterParams,
       ...tzParams,
     },
   });
@@ -154,6 +195,15 @@ function buildTimeZoneParams({ timeZone, tzOffsetMinutes } = {}) {
   if (Number.isFinite(tzOffsetMinutes)) {
     params.tz_offset_minutes = String(Math.trunc(tzOffsetMinutes));
   }
+  return params;
+}
+
+function buildFilterParams({ source, model } = {}) {
+  const params = {};
+  const normalizedSource = typeof source === "string" ? source.trim().toLowerCase() : "";
+  if (normalizedSource) params.source = normalizedSource;
+  const normalizedModel = typeof model === "string" ? model.trim() : "";
+  if (normalizedModel) params.model = normalizedModel;
   return params;
 }
 

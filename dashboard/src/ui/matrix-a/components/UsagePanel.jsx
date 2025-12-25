@@ -25,6 +25,9 @@ export function UsagePanel({
   summaryLabel = copy("usage.summary.total_system_output"),
   summaryValue = "—",
   summaryCostValue,
+  onCostInfo,
+  costInfoLabel = copy("usage.cost_info.label"),
+  costInfoIcon = copy("usage.cost_info.icon"),
   summarySubLabel,
   breakdown,
   useSummaryLayout = false,
@@ -123,11 +126,22 @@ export function UsagePanel({
               )}
             </div>
             {summaryCostValue ? (
-              <div className="flex items-center justify-center">
+              <div className="flex items-center justify-center gap-2">
                 <span className="sr-only">{copy("usage.metric.total_cost")}</span>
                 <span className="text-sm font-bold text-[#FFD700] font-mono leading-none drop-shadow-[0_0_10px_rgba(255,215,0,0.5)]">
                   {summaryCostValue}
                 </span>
+                {onCostInfo ? (
+                  <button
+                    type="button"
+                    onClick={onCostInfo}
+                    title={costInfoLabel}
+                    aria-label={costInfoLabel}
+                    className="text-[10px] font-black text-[#FFD700] border border-[#FFD700]/40 px-2 py-0.5 leading-none hover:bg-[#FFD700] hover:text-black transition-all"
+                  >
+                    {costInfoIcon}
+                  </button>
+                ) : null}
               </div>
             ) : null}
             {summarySubLabel ? (

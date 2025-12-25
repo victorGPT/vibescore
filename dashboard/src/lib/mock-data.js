@@ -230,6 +230,37 @@ function sumDailyRows(rows) {
   );
 }
 
+function formatUsdFromTokens(totalTokens, ratePerMillion = 1.75) {
+  const tokens = Number(totalTokens || 0);
+  if (!Number.isFinite(tokens) || tokens <= 0) return "0.000000";
+  const cost = (tokens * ratePerMillion) / 1_000_000;
+  return cost.toFixed(6);
+}
+
+function scaleTotals(totals, weight) {
+  const safeWeight = Number.isFinite(weight) ? weight : 0;
+  return {
+    total_tokens: Math.max(0, Math.round(totals.total_tokens * safeWeight)),
+    input_tokens: Math.max(0, Math.round(totals.input_tokens * safeWeight)),
+    output_tokens: Math.max(0, Math.round(totals.output_tokens * safeWeight)),
+    cached_input_tokens: Math.max(
+      0,
+      Math.round(totals.cached_input_tokens * safeWeight)
+    ),
+    reasoning_output_tokens: Math.max(
+      0,
+      Math.round(totals.reasoning_output_tokens * safeWeight)
+    ),
+  };
+}
+
+function withCost(totals) {
+  return {
+    ...totals,
+    total_cost_usd: formatUsdFromTokens(totals.total_tokens),
+  };
+}
+
 export function getMockUsageDaily({ from, to, seed } = {}) {
   const rows = buildDailyRows({ from, to, seed });
   return { from, to, data: rows };
@@ -256,11 +287,12 @@ export function getMockUsageMonthly({ months = 24, to, seed } = {}) {
 export function getMockUsageSummary({ from, to, seed } = {}) {
   const rows = buildDailyRows({ from, to, seed });
   const totals = sumDailyRows(rows);
+  const totalsWithCost = withCost(totals);
   return {
     from,
     to,
     days: rows.length,
-    totals,
+    totals: totalsWithCost,
   };
 }
 
@@ -283,5 +315,66 @@ export function getMockUsageHeatmap({ weeks = 52, to, weekStartsOn = "sun", seed
     week_starts_on: weekStartsOn,
     active_days: rows.filter((r) => Number(r.total_tokens) > 0).length,
     streak_days: computeActiveStreakDays({ dailyRows: rows, to: range.to }),
+  };
+}
+
+export function getMockUsageModelBreakdown({ from, to, seed } = {}) {
+  const rows = buildDailyRows({ from, to, seed });
+  const totals = sumDailyRows(rows);
+
+  const sources = [
+    {
+      source: "codex",
+      weight: 0.7,
+      models: [
+        { model: "gpt-5.2-codex", weight: 0.2 },
+        { model: "unknown", weight: 0.8 },
+      ],
+    },
+    {
+      source: "claude",
+      weight: 0.2,
+      models: [
+        { model: "claude-3.5", weight: 0.3 },
+        { model: "unknown", weight: 0.7 },
+      ],
+    },
+    {
+      source: "every-code",
+      weight: 0.1,
+      models: [{ model: "unknown", weight: 1 }],
+    },
+  ];
+
+  const sourcesData = sources.map((source) => {
+    const sourceTotals = scaleTotals(totals, source.weight);
+    const models = source.models.map((model) => {
+      const modelTotals = scaleTotals(sourceTotals, model.weight);
+      return { model: model.model, totals: withCost(modelTotals) };
+    });
+    return {
+      source: source.source,
+      totals: withCost(sourceTotals),
+      models,
+    };
+  });
+
+  return {
+    from,
+    to,
+    days: rows.length,
+    sources: sourcesData,
+    pricing: {
+      model: "mock",
+      pricing_mode: "add",
+      source: "mock",
+      effective_from: formatDateLocal(new Date()),
+      rates_per_million_usd: {
+        input: "1.750000",
+        cached_input: "0.175000",
+        output: "14.000000",
+        reasoning_output: "14.000000",
+      },
+    },
   };
 }

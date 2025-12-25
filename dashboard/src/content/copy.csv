@@ -1,6 +1,7 @@
 key,module,page,component,slot,text,notes,status
 shared.placeholder.short,shared,*,*,placeholder_short,"--",,active
 shared.placeholder.anon_mark,shared,*,*,placeholder_anon_mark,"?",,active
+shared.unit.percent,shared,*,*,unit_percent,"%",,active
 shared.button.sign_in,shared,*,MatrixButton,label,"$ sign-in",,active
 shared.button.sign_up,shared,*,MatrixButton,label,"$ sign-up",,active
 shared.range.simple,shared,*,*,label,"Range: {{range}}",,active
@@ -107,7 +108,18 @@ usage.metric.cached_short,ui,UsagePanel,UsagePanel,metric_cached_short,"CACHED",
 usage.metric.reasoning_short,ui,UsagePanel,UsagePanel,metric_reasoning_short,"REASONING",,active
 usage.button.loading,ui,UsagePanel,UsagePanel,button_loading,"Loading…",,active
 usage.button.refresh,ui,UsagePanel,UsagePanel,button_refresh,"Refresh",,active
+usage.cost_info.icon,ui,UsagePanel,UsagePanel,cost_info_icon,"ⓘ",,active
+usage.cost_info.label,ui,UsagePanel,UsagePanel,cost_info_label,"Detail",,active
 usage.range_label,ui,UsagePanel,UsagePanel,range_label,"Range: {{range}}",,active
+
+dashboard.model_breakdown.title,ui,NeuralDivergenceMap,NeuralDivergenceMap,title,"Model Breakdown",,active
+dashboard.model_breakdown.footer,ui,NeuralDivergenceMap,NeuralDivergenceMap,footer,"Multi-Engine Load Balancing // Active Session",,active
+dashboard.cost_breakdown.title,ui,CostAnalysisModal,CostAnalysisModal,title,"Cost Breakdown",,active
+dashboard.cost_breakdown.total_label,ui,CostAnalysisModal,CostAnalysisModal,total_label,"Estimated Total Cost",,active
+dashboard.cost_breakdown.calc_prefix,ui,CostAnalysisModal,CostAnalysisModal,calc_prefix,"CALC:",,active
+dashboard.cost_breakdown.calc_dynamic,ui,CostAnalysisModal,CostAnalysisModal,calc_dynamic,"DYNAMIC",,active
+dashboard.cost_breakdown.close,ui,CostAnalysisModal,CostAnalysisModal,close_label,"[ ESC ] CLOSE",,active
+dashboard.cost_breakdown.footer,ui,CostAnalysisModal,CostAnalysisModal,footer,"Algorithm Build: v9.4.2",,active
 
 leaderboard.panel.title,ui,LeaderboardPanel,LeaderboardPanel,title,"CORE_INDEX",,active
 leaderboard.period.cycle_24h,ui,LeaderboardPanel,LeaderboardPanel,period_label,"Cycle_24h",,active

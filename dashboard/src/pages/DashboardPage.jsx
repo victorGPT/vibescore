@@ -10,10 +10,11 @@ import {
   paginateRows,
   trimLeadingZeroMonths,
 } from "../lib/details.js";
-import { formatUsdCurrency, toDisplayNumber } from "../lib/format.js";
+import { formatUsdCurrency, toDisplayNumber, toFiniteNumber } from "../lib/format.js";
 import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
 import { useTrendData } from "../hooks/use-trend-data.js";
 import { useUsageData } from "../hooks/use-usage-data.js";
+import { useUsageModelBreakdown } from "../hooks/use-usage-model-breakdown.js";
 import {
   formatTimeZoneLabel,
   formatTimeZoneShortLabel,
@@ -30,6 +31,8 @@ import { MatrixButton } from "../ui/matrix-a/components/MatrixButton.jsx";
 import { TypewriterText } from "../ui/matrix-a/components/TypewriterText.jsx";
 import { TrendMonitor } from "../ui/matrix-a/components/TrendMonitor.jsx";
 import { UsagePanel } from "../ui/matrix-a/components/UsagePanel.jsx";
+import { NeuralDivergenceMap } from "../ui/matrix-a/components/NeuralDivergenceMap.jsx";
+import { CostAnalysisModal } from "../ui/matrix-a/components/CostAnalysisModal.jsx";
 import { MatrixShell } from "../ui/matrix-a/layout/MatrixShell.jsx";
 import { GithubStar } from "../ui/matrix-a/components/GithubStar.jsx";
 import { isMockEnabled } from "../lib/mock-data.js";
@@ -40,6 +43,7 @@ const DETAILS_PAGED_PERIODS = new Set(["day", "total"]);
 
 export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const [booted, setBooted] = useState(false);
+  const [costModalOpen, setCostModalOpen] = useState(false);
   useEffect(() => {
     const t = window.setTimeout(() => setBooted(true), 900);
     return () => window.clearTimeout(t);
@@ -97,6 +101,20 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     to,
     includeDaily: period !== "total",
     deriveSummaryFromDaily: false,
+    cacheKey: auth?.userId || auth?.email || "default",
+    timeZone,
+    tzOffsetMinutes,
+  });
+
+  const {
+    breakdown: modelBreakdown,
+    loading: modelBreakdownLoading,
+    refresh: refreshModelBreakdown,
+  } = useUsageModelBreakdown({
+    baseUrl,
+    accessToken: auth?.accessToken || null,
+    from,
+    to,
     cacheKey: auth?.userId || auth?.email || "default",
     timeZone,
     tzOffsetMinutes,
@@ -282,9 +300,11 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     refreshUsage();
     refreshHeatmap();
     refreshTrend();
-  }, [refreshHeatmap, refreshTrend, refreshUsage]);
+    refreshModelBreakdown();
+  }, [refreshHeatmap, refreshModelBreakdown, refreshTrend, refreshUsage]);
 
-  const usageLoadingState = usageLoading || heatmapLoading || trendLoading;
+  const usageLoadingState =
+    usageLoading || heatmapLoading || trendLoading || modelBreakdownLoading;
   const usageSourceLabel = useMemo(
     () =>
       copy("shared.data_source", {
@@ -361,6 +381,73 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
       return formatted;
     return `$${formatted}`;
   }, [summary?.total_cost_usd]);
+
+  const modelBreakdownSources = useMemo(() => {
+    return Array.isArray(modelBreakdown?.sources) ? modelBreakdown.sources : [];
+  }, [modelBreakdown]);
+
+  const fleetData = useMemo(() => {
+    const sources = modelBreakdownSources
+      .map((entry) => {
+        const totalTokens = toFiniteNumber(entry?.totals?.total_tokens);
+        const totalCost = toFiniteNumber(entry?.totals?.total_cost_usd);
+        return {
+          source: entry?.source,
+          totalTokens: Number.isFinite(totalTokens) ? totalTokens : 0,
+          totalCost: Number.isFinite(totalCost) ? totalCost : 0,
+          models: Array.isArray(entry?.models) ? entry.models : [],
+        };
+      })
+      .filter((entry) => entry.totalTokens > 0);
+
+    if (!sources.length) return [];
+
+    const grandTotal = sources.reduce((acc, entry) => acc + entry.totalTokens, 0);
+    const pricingMode =
+      typeof modelBreakdown?.pricing?.pricing_mode === "string"
+        ? modelBreakdown.pricing.pricing_mode.toUpperCase()
+        : null;
+
+    return sources
+      .map((entry) => {
+        const label = entry.source
+          ? String(entry.source).toUpperCase()
+          : copy("shared.placeholder.short");
+        const totalPercentRaw =
+          grandTotal > 0 ? (entry.totalTokens / grandTotal) * 100 : 0;
+        const totalPercent = Number.isFinite(totalPercentRaw)
+          ? totalPercentRaw.toFixed(1)
+          : "0.0";
+        const models = entry.models
+          .map((model) => {
+            const modelTokens = toFiniteNumber(model?.totals?.total_tokens);
+            if (!Number.isFinite(modelTokens) || modelTokens <= 0) return null;
+            const share =
+              entry.totalTokens > 0
+                ? Math.round((modelTokens / entry.totalTokens) * 1000) / 10
+                : 0;
+            const name = model?.model
+              ? String(model.model)
+              : copy("shared.placeholder.short");
+            return { name, share, calc: pricingMode };
+          })
+          .filter(Boolean);
+        return {
+          label,
+          totalPercent: String(totalPercent),
+          usd: entry.totalCost,
+          models,
+          _tokens: entry.totalTokens,
+        };
+      })
+      .sort((a, b) => b._tokens - a._tokens)
+      .map(({ _tokens, ...rest }) => rest);
+  }, [modelBreakdown?.pricing?.pricing_mode, modelBreakdownSources]);
+
+  const openCostModal = useCallback(() => setCostModalOpen(true), []);
+  const closeCostModal = useCallback(() => setCostModalOpen(false), []);
+  const costInfoEnabled =
+    summaryCostValue && summaryCostValue !== "-" && fleetData.length > 0;
 
   const installInitCmd = copy("dashboard.install.cmd.init");
   const installSyncCmd = copy("dashboard.install.cmd.sync");
@@ -464,7 +551,8 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const requireAuthGate = !signedIn && !mockEnabled;
 
   return (
-    <MatrixShell
+    <>
+      <MatrixShell
       headerStatus={
         <BackendStatus
           baseUrl={baseUrl}
@@ -599,6 +687,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
               summaryLabel={summaryLabel}
               summaryValue={toDisplayNumber(summary?.total_tokens)}
               summaryCostValue={summaryCostValue}
+              onCostInfo={costInfoEnabled ? openCostModal : null}
               onRefresh={refreshAll}
               loading={usageLoadingState}
               error={usageError}
@@ -614,6 +703,11 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
               period={period}
               timeZoneLabel={trendTimeZoneLabel}
               showTimeZoneLabel={false}
+            />
+
+            <NeuralDivergenceMap
+              fleetData={fleetData}
+              className="min-w-0"
             />
 
             <AsciiBox
@@ -736,6 +830,12 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
           </div>
         </div>
       )}
-    </MatrixShell>
+      </MatrixShell>
+      <CostAnalysisModal
+        isOpen={costModalOpen}
+        onClose={closeCostModal}
+        fleetData={fleetData}
+      />
+    </>
   );
 }
