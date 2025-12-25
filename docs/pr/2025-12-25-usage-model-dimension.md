@@ -1,14 +1,15 @@
 # PR Template (Minimal)
 
 ## PR Goal (one sentence)
-Add model dimension to usage tracking and expose a usage model breakdown endpoint.
+Add model dimension support to the usage pipeline and document the model breakdown endpoint.
 
 ## Commit Narrative
-- Commit 1: Add model dimension to ingest keys + parser updates + schema migration.
-- Commit 2: Add usage model breakdown endpoint + API docs.
+- Commit 1: `feat(backend): add model dimension support`
+- Commit 2: `docs(openspec): update usage model change specs`
+- Commit 3: `docs: add usage model PR gate and freeze record`
 
 ## Rollback Semantics
-- Reverting this PR restores the previous usage schema without model dimension and removes the breakdown endpoint.
+- Reverting this PR restores the previous usage schema without model dimension and removes related documentation/gates.
 
 ## Hidden Context
 - Missing `model` values are normalized to `unknown`.
