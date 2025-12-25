@@ -4,7 +4,7 @@ const fs = require('node:fs/promises');
 const cp = require('node:child_process');
 
 const { ensureDir, readJson, writeJson, openLock } = require('../lib/fs');
-const { listRolloutFiles, parseRolloutIncremental } = require('../lib/rollout');
+const { listRolloutFiles, listClaudeProjectFiles, parseRolloutIncremental, parseClaudeIncremental } = require('../lib/rollout');
 const { drainQueueToCloud } = require('../lib/uploader');
 const { createProgress, renderBar, formatNumber, formatBytes } = require('../lib/progress');
 const { syncHeartbeat } = require('../lib/vibescore-api');
@@ -44,6 +44,7 @@ async function cmdSync(argv) {
 
     const codexHome = process.env.CODEX_HOME || path.join(home, '.codex');
     const codeHome = process.env.CODE_HOME || path.join(home, '.code');
+    const claudeProjectsDir = path.join(home, '.claude', 'projects');
 
     const sources = [
       { source: 'codex', sessionsDir: path.join(codexHome, 'sessions') },
@@ -79,6 +80,29 @@ async function cmdSync(argv) {
         );
       }
     });
+
+    const claudeFiles = await listClaudeProjectFiles(claudeProjectsDir);
+    let claudeResult = { filesProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+    if (claudeFiles.length > 0) {
+      if (progress?.enabled) {
+        progress.start(`Parsing Claude ${renderBar(0)} 0/${formatNumber(claudeFiles.length)} files | buckets 0`);
+      }
+      claudeResult = await parseClaudeIncremental({
+        projectFiles: claudeFiles,
+        cursors,
+        queuePath,
+        onProgress: (p) => {
+          if (!progress?.enabled) return;
+          const pct = p.total > 0 ? p.index / p.total : 1;
+          progress.update(
+            `Parsing Claude ${renderBar(pct)} ${formatNumber(p.index)}/${formatNumber(p.total)} files | buckets ${formatNumber(
+              p.bucketsQueued
+            )}`
+          );
+        },
+        source: 'claude'
+      });
+    }
 
     cursors.updatedAt = new Date().toISOString();
     await writeJson(cursorsPath, cursors);
@@ -205,11 +229,13 @@ async function cmdSync(argv) {
     });
 
     if (!opts.auto) {
+      const totalParsed = parseResult.filesProcessed + claudeResult.filesProcessed;
+      const totalBuckets = parseResult.bucketsQueued + claudeResult.bucketsQueued;
       process.stdout.write(
         [
           'Sync finished:',
-          `- Parsed files: ${parseResult.filesProcessed}`,
-          `- New 30-min buckets queued: ${parseResult.bucketsQueued}`,
+          `- Parsed files: ${totalParsed}`,
+          `- New 30-min buckets queued: ${totalBuckets}`,
           deviceToken
             ? `- Uploaded: ${uploadResult.inserted} inserted, ${uploadResult.skipped} skipped`
             : '- Uploaded: skipped (no device token)',

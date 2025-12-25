@@ -4,6 +4,7 @@ const fs = require('node:fs/promises');
 
 const { readJson } = require('./fs');
 const { readCodexNotify, readEveryCodeNotify } = require('./codex-config');
+const { isClaudeHookConfigured, buildClaudeHookCommand } = require('./claude-config');
 const { normalizeState: normalizeUploadState } = require('./upload-throttle');
 
 async function collectTrackerDiagnostics({
@@ -22,6 +23,7 @@ async function collectTrackerDiagnostics({
   const autoRetryPath = path.join(trackerDir, 'auto.retry.json');
   const codexConfigPath = path.join(codexHome, 'config.toml');
   const codeConfigPath = path.join(codeHome, 'config.toml');
+  const claudeConfigPath = path.join(home, '.claude', 'settings.json');
 
   const config = await readJson(configPath);
   const cursors = await readJson(cursorsPath);
@@ -42,6 +44,11 @@ async function collectTrackerDiagnostics({
   const everyCodeNotifyRaw = await readEveryCodeNotify(codeConfigPath);
   const everyCodeConfigured = Array.isArray(everyCodeNotifyRaw) && everyCodeNotifyRaw.length > 0;
   const everyCodeNotify = everyCodeConfigured ? everyCodeNotifyRaw.map((v) => redactValue(v, home)) : null;
+  const claudeHookCommand = buildClaudeHookCommand(path.join(home, '.vibescore', 'bin', 'notify.cjs'));
+  const claudeHookConfigured = await isClaudeHookConfigured({
+    settingsPath: claudeConfigPath,
+    hookCommand: claudeHookCommand
+  });
 
   const lastSuccessAt = uploadThrottle.lastSuccessMs ? new Date(uploadThrottle.lastSuccessMs).toISOString() : null;
   const autoRetryAt = parseEpochMsToIso(autoRetry?.retryAtMs);
@@ -60,7 +67,8 @@ async function collectTrackerDiagnostics({
       codex_home: redactValue(codexHome, home),
       codex_config: redactValue(codexConfigPath, home),
       code_home: redactValue(codeHome, home),
-      code_config: redactValue(codeConfigPath, home)
+      code_config: redactValue(codeConfigPath, home),
+      claude_config: redactValue(claudeConfigPath, home)
     },
     config: {
       base_url: typeof config?.baseUrl === 'string' ? config.baseUrl : null,
@@ -84,7 +92,8 @@ async function collectTrackerDiagnostics({
       codex_notify_configured: notifyConfigured,
       codex_notify: codexNotify,
       every_code_notify_configured: everyCodeConfigured,
-      every_code_notify: everyCodeNotify
+      every_code_notify: everyCodeNotify,
+      claude_hook_configured: claudeHookConfigured
     },
     upload: {
       last_success_at: lastSuccessAt,

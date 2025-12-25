@@ -4,6 +4,7 @@
 - `http-timeout` 单测通过。
 - 全量 `node --test test/*.test.js` 通过。
 - 手动回归：`https://www.vibescore.space` 页面加载成功，数据区块正常展示。
+- Request.signal 透传回归已覆盖（避免 abort 行为回退）。
 
 ## Commands & Results
 - `node --test test/http-timeout.test.js` ✅

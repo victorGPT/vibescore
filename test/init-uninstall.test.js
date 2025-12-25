@@ -6,6 +6,7 @@ const { test } = require('node:test');
 
 const { cmdInit } = require('../src/commands/init');
 const { cmdUninstall } = require('../src/commands/uninstall');
+const { buildClaudeHookCommand } = require('../src/lib/claude-config');
 
 async function waitForFile(filePath, { timeoutMs = 1500, intervalMs = 50 } = {}) {
   const start = Date.now();
@@ -227,6 +228,69 @@ test('uninstall skips notify restore when no backup and notify not installed', a
     else process.env.CODEX_HOME = prevCodexHome;
     if (prevCodeHome === undefined) delete process.env.CODE_HOME;
     else process.env.CODE_HOME = prevCodeHome;
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('init then uninstall manages Claude hooks without removing existing hooks', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-init-uninstall-'));
+  const prevHome = process.env.HOME;
+  const prevCodexHome = process.env.CODEX_HOME;
+  const prevToken = process.env.VIBESCORE_DEVICE_TOKEN;
+  const prevWrite = process.stdout.write;
+
+  try {
+    process.env.HOME = tmp;
+    process.env.CODEX_HOME = path.join(tmp, '.codex');
+    delete process.env.VIBESCORE_DEVICE_TOKEN;
+    await fs.mkdir(process.env.CODEX_HOME, { recursive: true });
+
+    const codexConfigPath = path.join(process.env.CODEX_HOME, 'config.toml');
+    await fs.writeFile(codexConfigPath, '# empty\n', 'utf8');
+
+    const claudeDir = path.join(tmp, '.claude');
+    await fs.mkdir(claudeDir, { recursive: true });
+    const settingsPath = path.join(claudeDir, 'settings.json');
+    const existingCommand = 'echo existing-claude';
+    const settings = {
+      env: { SAMPLE: '1' },
+      hooks: {
+        SessionEnd: [
+          {
+            hooks: [{ command: existingCommand }]
+          }
+        ]
+      }
+    };
+    await fs.writeFile(settingsPath, JSON.stringify(settings, null, 2) + '\n', 'utf8');
+
+    process.stdout.write = () => true;
+    await cmdInit(['--no-auth', '--no-open', '--base-url', 'https://example.invalid']);
+
+    const installedRaw = await fs.readFile(settingsPath, 'utf8');
+    const installed = JSON.parse(installedRaw);
+    const hookCommand = buildClaudeHookCommand(path.join(tmp, '.vibescore', 'bin', 'notify.cjs'));
+    const sessionEnd = installed?.hooks?.SessionEnd || [];
+    const allCommands = sessionEnd.flatMap((entry) => (Array.isArray(entry?.hooks) ? entry.hooks : [entry])).map((h) => h?.command);
+    assert.ok(allCommands.includes(existingCommand), 'expected existing Claude hook to remain');
+    assert.ok(allCommands.includes(hookCommand), 'expected tracker Claude hook to be added');
+
+    await cmdUninstall([]);
+
+    const restoredRaw = await fs.readFile(settingsPath, 'utf8');
+    const restored = JSON.parse(restoredRaw);
+    const restoredSessionEnd = restored?.hooks?.SessionEnd || [];
+    const restoredCommands = restoredSessionEnd.flatMap((entry) => (Array.isArray(entry?.hooks) ? entry.hooks : [entry])).map((h) => h?.command);
+    assert.ok(restoredCommands.includes(existingCommand), 'expected existing Claude hook to remain');
+    assert.ok(!restoredCommands.includes(hookCommand), 'expected tracker Claude hook to be removed');
+  } finally {
+    process.stdout.write = prevWrite;
+    if (prevHome === undefined) delete process.env.HOME;
+    else process.env.HOME = prevHome;
+    if (prevCodexHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = prevCodexHome;
+    if (prevToken === undefined) delete process.env.VIBESCORE_DEVICE_TOKEN;
+    else process.env.VIBESCORE_DEVICE_TOKEN = prevToken;
     await fs.rm(tmp, { recursive: true, force: true });
   }
 });

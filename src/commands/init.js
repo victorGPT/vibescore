@@ -12,6 +12,7 @@ const {
   upsertEveryCodeNotify,
   loadEveryCodeNotifyOriginal
 } = require('../lib/codex-config');
+const { upsertClaudeHook, buildClaudeHookCommand } = require('../lib/claude-config');
 const { beginBrowserAuth } = require('../lib/browser-auth');
 const { issueDeviceTokenWithPassword, issueDeviceTokenWithAccessToken } = require('../lib/insforge');
 
@@ -114,6 +115,18 @@ async function cmdInit(argv) {
     codeChained = await loadEveryCodeNotifyOriginal(codeNotifyOriginalPath);
   }
 
+  const claudeDir = path.join(home, '.claude');
+  const claudeSettingsPath = path.join(claudeDir, 'settings.json');
+  const claudeDirExists = await isDir(claudeDir);
+  let claudeResult = null;
+  if (claudeDirExists) {
+    const claudeHookCommand = buildClaudeHookCommand(notifyPath);
+    claudeResult = await upsertClaudeHook({
+      settingsPath: claudeSettingsPath,
+      hookCommand: claudeHookCommand
+    });
+  }
+
   process.stdout.write(
     [
       'Installed:',
@@ -133,6 +146,11 @@ async function cmdInit(argv) {
           ? '- Every Code notify: chained (original preserved)'
           : '- Every Code notify: no original'
         : null,
+      claudeDirExists
+        ? claudeResult?.changed
+          ? `- Claude hooks: updated (${claudeSettingsPath})`
+          : `- Claude hooks: already set (${claudeSettingsPath})`
+        : '- Claude hooks: skipped (~/.claude not found)',
       deviceToken ? `- Device token: stored (${maskSecret(deviceToken)})` : '- Device token: not configured (set VIBESCORE_DEVICE_TOKEN and re-run init)',
       ''
     ].join('\n')
@@ -242,15 +260,17 @@ try {
   }
 } catch (_) {}
 
-// Chain the original notify if present.
+// Chain the original notify if present (Codex/Every Code only).
 try {
-  const originalPath = source === 'every-code' ? codeOriginalPath : codexOriginalPath;
-  const original = JSON.parse(fs.readFileSync(originalPath, 'utf8'));
-  const cmd = Array.isArray(original?.notify) ? original.notify : null;
-  if (cmd && cmd.length > 0 && !isSelfNotify(cmd)) {
-    const args = cmd.slice(1);
-    if (payloadArgs.length > 0) args.push(...payloadArgs);
-    spawnDetached([cmd[0], ...args]);
+  const originalPath = source === 'every-code' ? codeOriginalPath : source === 'claude' ? null : codexOriginalPath;
+  if (originalPath) {
+    const original = JSON.parse(fs.readFileSync(originalPath, 'utf8'));
+    const cmd = Array.isArray(original?.notify) ? original.notify : null;
+    if (cmd && cmd.length > 0 && !isSelfNotify(cmd)) {
+      const args = cmd.slice(1);
+      if (payloadArgs.length > 0) args.push(...payloadArgs);
+      spawnDetached([cmd[0], ...args]);
+    }
   }
 } catch (_) {}
 
@@ -325,6 +345,15 @@ async function isFile(p) {
   }
 }
 
+async function isDir(p) {
+  try {
+    const st = await fs.stat(p);
+    return st.isDirectory();
+  } catch (_e) {
+    return false;
+  }
+}
+
 async function installLocalTrackerApp({ appDir }) {
   // Copy the current package's runtime (bin + src) into ~/.vibescore so notify can run sync without npx.
   const packageRoot = path.resolve(__dirname, '../..');
@@ -357,6 +386,10 @@ function spawnInitSync({ trackerBinPath, packageName }) {
     detached: true,
     stdio: 'ignore',
     env: process.env
+  });
+  child.on('error', (err) => {
+    const msg = err && err.message ? err.message : 'unknown error';
+    process.stderr.write(`Initial sync spawn failed: ${msg}\n`);
   });
   child.unref();
 }

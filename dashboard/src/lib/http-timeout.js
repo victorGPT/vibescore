@@ -19,18 +19,22 @@ export function createTimeoutFetch(baseFetch, { env } = {}) {
     if (!timeoutMs) return baseFetch(input, init);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    const signal = init.signal;
-    let removeAbortListener = null;
-    if (signal) {
+    const callerSignals = [];
+    const initSignal = init.signal;
+    if (initSignal) callerSignals.push(initSignal);
+    const inputSignal = getInputSignal(input);
+    if (inputSignal && inputSignal !== initSignal) callerSignals.push(inputSignal);
+    const abortListeners = callerSignals.map((signal) => {
       const onAbort = () => controller.abort();
       signal.addEventListener("abort", onAbort, { once: true });
-      removeAbortListener = () => signal.removeEventListener("abort", onAbort);
       if (signal.aborted) controller.abort();
-    }
+      return () => signal.removeEventListener("abort", onAbort);
+    });
     try {
       return await baseFetch(input, { ...init, signal: controller.signal });
     } catch (err) {
-      if (controller.signal.aborted && !(signal && signal.aborted)) {
+      const callerAborted = callerSignals.some((signal) => signal.aborted);
+      if (controller.signal.aborted && !callerAborted) {
         const timeoutErr = new Error(`Client timeout after ${timeoutMs}ms`);
         timeoutErr.cause = err;
         throw timeoutErr;
@@ -38,9 +42,16 @@ export function createTimeoutFetch(baseFetch, { env } = {}) {
       throw err;
     } finally {
       clearTimeout(timeoutId);
-      if (removeAbortListener) removeAbortListener();
+      for (const remove of abortListeners) remove();
     }
   };
+}
+
+function getInputSignal(input) {
+  if (!input || typeof input !== "object") return null;
+  const signal = input.signal;
+  if (signal && typeof signal === "object") return signal;
+  return null;
 }
 
 function clampInt(value, min, max) {

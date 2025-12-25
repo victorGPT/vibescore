@@ -3,6 +3,7 @@ const path = require('node:path');
 const fs = require('node:fs/promises');
 
 const { restoreCodexNotify, restoreEveryCodeNotify } = require('../lib/codex-config');
+const { removeClaudeHook, buildClaudeHookCommand } = require('../lib/claude-config');
 
 async function cmdUninstall(argv) {
   const opts = parseArgs(argv);
@@ -12,14 +13,17 @@ async function cmdUninstall(argv) {
   const codexConfigPath = path.join(home, '.codex', 'config.toml');
   const codeHome = process.env.CODE_HOME || path.join(home, '.code');
   const codeConfigPath = path.join(codeHome, 'config.toml');
+  const claudeSettingsPath = path.join(home, '.claude', 'settings.json');
   const notifyPath = path.join(binDir, 'notify.cjs');
   const notifyOriginalPath = path.join(trackerDir, 'codex_notify_original.json');
   const codeNotifyOriginalPath = path.join(trackerDir, 'code_notify_original.json');
   const codexNotifyCmd = ['/usr/bin/env', 'node', notifyPath];
   const codeNotifyCmd = ['/usr/bin/env', 'node', notifyPath, '--source=every-code'];
+  const claudeHookCommand = buildClaudeHookCommand(notifyPath);
 
   const codexConfigExists = await isFile(codexConfigPath);
   const codeConfigExists = await isFile(codeConfigPath);
+  const claudeConfigExists = await isFile(claudeSettingsPath);
   const codexRestore = codexConfigExists
     ? await restoreCodexNotify({
         codexConfigPath,
@@ -34,6 +38,9 @@ async function cmdUninstall(argv) {
         notifyCmd: codeNotifyCmd
       })
     : { restored: false, skippedReason: 'config-missing' };
+  const claudeRemove = claudeConfigExists
+    ? await removeClaudeHook({ settingsPath: claudeSettingsPath, hookCommand: claudeHookCommand })
+    : { removed: false, skippedReason: 'config-missing' };
 
   // Remove installed notify handler.
   await fs.unlink(notifyPath).catch(() => {});
@@ -62,6 +69,13 @@ async function cmdUninstall(argv) {
             ? '- Every Code notify: skipped (no backup; not installed)'
             : '- Every Code notify: no change'
         : '- Every Code notify: skipped (config.toml not found)',
+      claudeConfigExists
+        ? claudeRemove?.removed
+          ? `- Claude hooks removed: ${claudeSettingsPath}`
+          : claudeRemove?.skippedReason === 'hook-missing'
+            ? '- Claude hooks: no change'
+            : '- Claude hooks: skipped'
+        : '- Claude hooks: skipped (settings.json not found)',
       opts.purge ? `- Purged: ${path.join(home, '.vibescore')}` : '- Purge: skipped (use --purge)',
       ''
     ].join('\n')

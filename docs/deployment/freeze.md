@@ -12,6 +12,12 @@
 - Freeze artifact: `insforge-functions/vibescore-ingest.js`, `insforge-functions/vibescore-events-retention.js` (built via `npm run build:insforge`)
 - Cold regression step: `node scripts/acceptance/ingest-batch-metrics.cjs`
 
+## 2025-12-25-usage-model-dimension
+- Scope: model dimension in usage pipeline + usage model breakdown endpoint
+- Change IDs: `2025-12-25-add-usage-model`, `2025-12-25-add-usage-model-breakdown`
+- Freeze artifact: update `insforge-functions/` via `npm run build:insforge`
+- Cold regression step: `node scripts/acceptance/usage-model-breakdown.cjs`
+
 ## 2025-12-25-pricing-pipeline
 - Scope: pricing profiles table + OpenRouter pricing sync + pricing resolver defaults
 - Change IDs: `2025-12-25-add-pricing-table`, `2025-12-25-add-openrouter-pricing-sync`

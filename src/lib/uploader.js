@@ -6,7 +6,8 @@ const { ensureDir, readJson, writeJson } = require('./fs');
 const { ingestHourly } = require('./vibescore-api');
 
 const DEFAULT_SOURCE = 'codex';
-const SOURCE_SEPARATOR = '|';
+const DEFAULT_MODEL = 'unknown';
+const BUCKET_SEPARATOR = '|';
 
 async function drainQueueToCloud({ baseUrl, deviceToken, queuePath, queueStatePath, maxBatches, batchSize, onProgress }) {
   await ensureDir(require('node:path').dirname(queueStatePath));
@@ -74,7 +75,9 @@ async function readBatch(queuePath, startOffset, maxBuckets) {
     const hourStart = typeof bucket?.hour_start === 'string' ? bucket.hour_start : null;
     if (!hourStart) continue;
     const source = normalizeSource(bucket?.source) || DEFAULT_SOURCE;
+    const model = normalizeModel(bucket?.model) || DEFAULT_MODEL;
     bucket.source = source;
+    bucket.model = model;
     bucketMap.set(bucketKey(source, hourStart), bucket);
     linesRead += 1;
     if (linesRead >= maxBuckets) break;
@@ -95,12 +98,18 @@ async function safeFileSize(p) {
 }
 
 function bucketKey(source, hourStart) {
-  return `${source}${SOURCE_SEPARATOR}${hourStart}`;
+  return `${source}${BUCKET_SEPARATOR}${hourStart}`;
 }
 
 function normalizeSource(value) {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim().toLowerCase();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeModel(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
 

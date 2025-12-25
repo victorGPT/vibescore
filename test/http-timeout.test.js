@@ -117,6 +117,22 @@ test("createTimeoutFetch preserves caller abort errors", async () => {
   await assert.rejects(pending, /Caller aborted/);
 });
 
+test("createTimeoutFetch respects Request.signal", async () => {
+  const { createTimeoutFetch } = await loadModule();
+  const baseFetch = createAbortableFetch("Request aborted");
+  const caller = new AbortController();
+
+  const fetcher = createTimeoutFetch(baseFetch, {
+    env: { VITE_VIBESCORE_HTTP_TIMEOUT_MS: "5000" }
+  });
+
+  const req = new Request("http://example.com", { signal: caller.signal });
+  const pending = fetcher(req);
+  caller.abort();
+
+  await assert.rejects(pending, /Request aborted/);
+});
+
 test("createTimeoutFetch passes through when timeout disabled", async () => {
   const { createTimeoutFetch } = await loadModule();
   const baseFetch = async (_input, init = {}) => init.signal;

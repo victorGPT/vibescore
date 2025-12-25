@@ -4,6 +4,7 @@ const fs = require('node:fs/promises');
 
 const { readJson } = require('../lib/fs');
 const { readCodexNotify, readEveryCodeNotify } = require('../lib/codex-config');
+const { isClaudeHookConfigured, buildClaudeHookCommand } = require('../lib/claude-config');
 const { normalizeState: normalizeUploadState } = require('../lib/upload-throttle');
 const { collectTrackerDiagnostics } = require('../lib/diagnostics');
 
@@ -29,6 +30,8 @@ async function cmdStatus(argv = []) {
   const codexConfigPath = path.join(codexHome, 'config.toml');
   const codeHome = process.env.CODE_HOME || path.join(home, '.code');
   const codeConfigPath = path.join(codeHome, 'config.toml');
+  const claudeSettingsPath = path.join(home, '.claude', 'settings.json');
+  const claudeHookCommand = buildClaudeHookCommand(path.join(home, '.vibescore', 'bin', 'notify.cjs'));
 
   const config = await readJson(configPath);
   const cursors = await readJson(cursorsPath);
@@ -46,6 +49,10 @@ async function cmdStatus(argv = []) {
   const notifyConfigured = Array.isArray(codexNotify) && codexNotify.length > 0;
   const everyCodeNotify = await readEveryCodeNotify(codeConfigPath);
   const everyCodeConfigured = Array.isArray(everyCodeNotify) && everyCodeNotify.length > 0;
+  const claudeHookConfigured = await isClaudeHookConfigured({
+    settingsPath: claudeSettingsPath,
+    hookCommand: claudeHookCommand
+  });
 
   const lastUpload = uploadThrottle.lastSuccessMs
     ? parseEpochMsToIso(uploadThrottle.lastSuccessMs)
@@ -80,6 +87,7 @@ async function cmdStatus(argv = []) {
       autoRetryLine,
       `- Codex notify: ${notifyConfigured ? JSON.stringify(codexNotify) : 'unset'}`,
       `- Every Code notify: ${everyCodeConfigured ? JSON.stringify(everyCodeNotify) : 'unset'}`,
+      `- Claude hooks: ${claudeHookConfigured ? 'set' : 'unset'}`,
       ''
     ]
       .filter(Boolean)
