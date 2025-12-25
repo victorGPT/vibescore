@@ -1,14 +1,15 @@
 # PR Template (Minimal)
 
 ## PR Goal (one sentence)
-Enable pricing profiles table and OpenRouter sync so cost calculation is data-driven and auditable.
+Document pricing pipeline changes and add pricing resolver acceptance coverage.
 
 ## Commit Narrative
-- Commit 1: Add pricing profiles table + resolver updates + usage endpoints pricing metadata.
-- Commit 2: Add OpenRouter pricing sync function + cron trigger + ops health check.
+- Commit 1: `docs(openspec): update pricing pipeline change specs`
+- Commit 2: `test: add pricing resolver acceptance`
+- Commit 3: `docs: add pricing pipeline PR gate and freeze record`
 
 ## Rollback Semantics
-- Reverting this PR restores default pricing logic and removes the automated sync path.
+- Reverting this PR removes pricing pipeline documentation, freeze record, and pricing resolver acceptance coverage.
 
 ## Hidden Context
 - Requires `OPENROUTER_API_KEY` and `VIBESCORE_PRICING_SOURCE` configuration for live sync.
