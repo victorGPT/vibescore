@@ -4,8 +4,8 @@ import { MatrixButton } from "./MatrixButton.jsx";
 import { copy } from "../../../lib/copy.js"; // 假设有copy文件，或者这里直接写死文本
 
 export function UpgradeAlertModal({
-  currentVersion = "0.0.7",
-  requiredVersion = "0.0.9",
+  currentVersion = "0.0.9",
+  requiredVersion = "0.1",
   installCommand = "npx --yes @vibescore/tracker init",
   onClose,
 }) {
@@ -32,79 +32,55 @@ export function UpgradeAlertModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="w-full max-w-lg transform animate-in fade-in zoom-in duration-300">
-        {/* 使用金色/通知色调的 AsciiBox */}
-        <div className="relative border border-[#FFD700]/30 shadow-[0_0_30px_rgba(255,215,0,0.15)] bg-black/90">
-          <AsciiBox
-            title="SYSTEM_UPDATE_NOTICE"
-            className="border-none bg-transparent"
+    <div className="fixed top-0 left-0 right-0 z-[200] border-b border-[#FFD700]/30 bg-black/95 backdrop-blur-md shadow-[0_0_20px_rgba(255,215,0,0.1)] overflow-hidden">
+      {/* 扫描线效果 */}
+      <div className="absolute inset-0 pointer-events-none opacity-10">
+        <div className="w-full h-full bg-[linear-gradient(rgba(255,215,0,0)_50%,rgba(255,215,0,0.1)_50%)] bg-[length:100%_4px]" />
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 py-2 relative flex flex-col md:flex-row items-center justify-between gap-4">
+        {/* Left Side: Notice & Mission */}
+        <div className="flex items-center space-x-3">
+          <span className="text-xl animate-pulse">✨</span>
+          <div className="flex flex-col">
+            <h3 className="text-[#FFD700] font-black tracking-tighter text-[10px] uppercase leading-none">
+              System_Upgrade_Pending
+            </h3>
+            <p className="text-[8px] text-[#FFD700]/60 font-mono uppercase tracking-widest mt-0.5">
+              Protocol v{requiredVersion} available (Pulse check: v
+              {currentVersion})
+            </p>
+          </div>
+        </div>
+
+        {/* Middle: Command Area */}
+        <div className="flex-1 flex items-center justify-center max-w-xl w-full">
+          <div className="flex items-center w-full bg-black/50 border border-[#FFD700]/20 pl-3 rounded-sm group hover:border-[#FFD700]/40 transition-all overflow-hidden">
+            <span className="font-mono text-[9px] text-[#FFD700]/80 shrink-0">
+              $
+            </span>
+            <input
+              readOnly
+              value={installCommand}
+              className="bg-transparent border-none text-[10px] font-mono text-gray-300 w-full px-2 py-1 outline-none pointer-events-none"
+            />
+            <button
+              onClick={handleCopy}
+              className="shrink-0 bg-[#FFD700]/10 hover:bg-[#FFD700]/20 border-l border-[#FFD700]/20 px-3 py-1.5 text-[9px] font-black uppercase text-[#FFD700] transition-all"
+            >
+              {copied ? "[ COPIED ]" : "[ COPY ]"}
+            </button>
+          </div>
+        </div>
+
+        {/* Right Side: Actions */}
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={handleDismiss}
+            className="text-[9px] font-black uppercase text-[#FFD700]/40 hover:text-[#FFD700] transition-all tracking-[0.2em]"
           >
-            <div className="space-y-6 py-2 px-2">
-              {/* Header Icon / Warning */}
-              <div className="flex items-center space-x-4 border-b border-[#FFD700]/20 pb-4">
-                <div className="text-4xl">✨</div>
-                <div>
-                  <h3 className="text-[#FFD700] font-bold tracking-widest text-lg uppercase">
-                    New_Protocol_Available
-                  </h3>
-                  <p className="text-[10px] text-[#FFD700]/60 font-mono uppercase tracking-wider">
-                    Recommended update for optimal performance
-                  </p>
-                </div>
-              </div>
-
-              {/* Version Diff */}
-              <div className="grid grid-cols-2 gap-4 text-center font-mono">
-                <div className="bg-white/5 p-2 border border-white/10 opacity-50">
-                  <div className="text-[8px] uppercase text-gray-400">
-                    Current_Client
-                  </div>
-                  <div className="text-xl font-bold text-gray-500 decoration-2">
-                    v{currentVersion}
-                  </div>
-                </div>
-                <div className="bg-[#FFD700]/10 p-2 border border-[#FFD700]/40 shadow-[0_0_10px_rgba(255,215,0,0.2)]">
-                  <div className="text-[8px] uppercase text-[#FFD700]">
-                    Target_Client
-                  </div>
-                  <div className="text-xl font-bold text-[#FFD700]">
-                    v{requiredVersion}
-                  </div>
-                </div>
-              </div>
-
-              {/* Command Area */}
-              <div className="space-y-2">
-                <p className="text-[9px] text-gray-400 uppercase tracking-widest">
-                  Upgrade_Sequence:
-                </p>
-                <div className="group relative">
-                  <div className="font-mono text-sm bg-black border border-white/20 p-4 text-gray-300 flex items-center justify-between">
-                    <span className="mr-4">$ {installCommand}</span>
-                  </div>
-                  <div className="absolute top-0 right-0 bottom-0">
-                    <button
-                      onClick={handleCopy}
-                      className="h-full px-4 bg-white/5 hover:bg-white/20 border-l border-white/20 text-[10px] font-black uppercase tracking-wider transition-all text-gray-400 hover:text-white"
-                    >
-                      {copied ? "[ COPIED ]" : "[ COPY ]"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer Actions */}
-              <div className="flex justify-center pt-2 border-t border-white/10 mt-4">
-                <button
-                  onClick={handleDismiss}
-                  className="text-[10px] font-black uppercase text-[#FFD700]/60 hover:text-[#FFD700] border border-transparent hover:border-[#FFD700]/30 px-8 py-2 transition-all tracking-widest"
-                >
-                  [ DISMISS_NOTICE ]
-                </button>
-              </div>
-            </div>
-          </AsciiBox>
+            [ IGNORE_NOTICE ]
+          </button>
         </div>
       </div>
     </div>
