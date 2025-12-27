@@ -31,3 +31,19 @@
 #### Scenario: Tied dominant totals
 - WHEN two known models have equal total_tokens in the same bucket
 - THEN the selected dominant model SHALL be chosen by a stable lexicographic order
+
+### Requirement: Every Code unknown aligns to nearest Codex dominant model
+- Rationale: align Every Code model attribution with Codex usage when Every Code lacks model hints.
+
+#### Scenario: Every Code unknown uses nearest Codex model
+- WHEN an every-code half-hour bucket remains unknown after local backfill
+- AND a codex half-hour bucket exists at the nearest time (past or future)
+- THEN the every-code bucket SHALL use the dominant known model from that codex bucket
+
+#### Scenario: Nearest Codex bucket tie-breaker is deterministic
+- WHEN two codex buckets are equally distant in time from the every-code bucket
+- THEN the selected codex bucket SHALL be the earlier hour_start
+
+#### Scenario: No Codex known model available
+- WHEN the nearest codex bucket has no known model
+- THEN the every-code bucket SHALL keep model = "unknown"

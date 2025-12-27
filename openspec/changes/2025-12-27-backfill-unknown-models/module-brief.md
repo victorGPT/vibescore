@@ -1,8 +1,8 @@
 # Module Brief: Unknown Model Backfill (CLI Parser)
 
 ## Scope
-- IN: CLI parser aggregation and enqueue logic to reassign unknown totals within same source + half-hour.
-- OUT: backend schema, ingest logic, dashboard filtering, cross-file inference.
+- IN: CLI parser aggregation and enqueue logic to reassign unknown totals within same source + half-hour; align `every-code` unknown buckets to nearest `codex` dominant model.
+- OUT: backend schema, ingest logic, dashboard filtering, per-session attribution.
 
 ## Interfaces
 - Input: rollout JSONL token_count + turn_context within src/lib/rollout.js
@@ -13,10 +13,11 @@
 - Do not merge known models with each other.
 - Preserve total token counts.
 - Deterministic tie-breaker for dominant model.
+- `every-code` unknown alignment uses nearest `codex` bucket (past or future), deterministic tie-breaker.
 
 ## Non-Negotiables
 - Do not read or store conversational content.
-- Do not infer models across files or sessions.
+- Do not infer models across sessions or threads.
 - Keep unknown when no known models exist.
 
 ## Test Strategy

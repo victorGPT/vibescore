@@ -7,10 +7,11 @@
 - In scope:
   - CLI parser aggregation and enqueue logic for model attribution.
   - Deterministic dominant model selection within a half-hour bucket.
+  - Align `every-code` unknown buckets to the nearest `codex` dominant model.
 - Out of scope:
   - Backend schema or ingest changes.
   - Dashboard filtering changes.
-  - Cross-file or cross-session model inference.
+  - Per-session or per-thread attribution.
 
 ## Users / Actors
 - Codex CLI users and Every Code users relying on model breakdown.
@@ -27,11 +28,13 @@
 - Known models remain separate; no merging among known models.
 - Deterministic tie-breaker when dominant totals are equal.
 - If no known models exist, keep unknown.
+- For `every-code` unknown buckets, align to the nearest `codex` bucket’s dominant known model (past or future). If none exists, keep unknown.
 
 ## Assumptions
 - token_count events do not include model.
 - turn_context model appears intermittently within a file.
 - Total tokens must remain unchanged after backfill.
+- `codex` buckets exist for some nearby time windows to serve as alignment references.
 
 ## Dependencies
 - src/lib/rollout.js aggregation pipeline
@@ -39,4 +42,5 @@
 
 ## Risks
 - Unknown totals may be attributed to a dominant model that did not generate all unknown usage.
+- `every-code` unknowns may be aligned to a nearby `codex` model that does not match the true model.
 - Re-running sync can change per-model distribution for past buckets.
