@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { buildAuthUrl } from "../lib/auth-url.js";
 import { computeActiveStreakDays } from "../lib/activity-heatmap.js";
@@ -52,6 +52,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const [costModalOpen, setCostModalOpen] = useState(false);
   const [linkCode, setLinkCode] = useState(null);
   const [linkCodeLoading, setLinkCodeLoading] = useState(false);
+  const linkCodeRequestKeyRef = useRef(null);
   useEffect(() => {
     const t = window.setTimeout(() => setBooted(true), 900);
     return () => window.clearTimeout(t);
@@ -60,7 +61,10 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   useEffect(() => {
     if (!signedIn || !auth?.accessToken || !baseUrl) return;
     if (linkCode || linkCodeLoading) return;
+    const requestKey = `${baseUrl}:${auth.accessToken}`;
+    if (linkCodeRequestKeyRef.current === requestKey) return;
     let cancelled = false;
+    linkCodeRequestKeyRef.current = requestKey;
     setLinkCodeLoading(true);
     issueLinkCode({ baseUrl, accessToken: auth.accessToken })
       .then((data) => {

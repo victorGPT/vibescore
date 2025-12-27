@@ -8,6 +8,7 @@
 
 ## Tests Run
 - `node --test test/edge-functions.test.js`
+- `node --test test/dashboard-link-code-retry.test.js`
 - `node --test test/init-uninstall.test.js`
 - `node scripts/acceptance/link-code-exchange.cjs`
 - `npm test`
@@ -21,7 +22,7 @@
 ## Evidence
 - Edge tests include `vibescore-link-code-issue` and link-code RPC exchange cases.
 - Acceptance script output includes `{ "ok": true }`.
-- `npm test` reports 85 passing tests.
+- `npm test` reports 86 passing tests.
 
 ## Remaining Risks
 - Edge runtime missing service role key will block link-code exchange (returns 500).

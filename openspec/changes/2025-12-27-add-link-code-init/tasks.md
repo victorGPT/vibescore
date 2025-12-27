@@ -16,6 +16,7 @@
 - [x] 3.1 Request link code when signed in (Dashboard API).
 - [x] 3.2 Render masked install command + copy button in install panel.
 - [x] 3.3 Add copy registry keys in `dashboard/src/content/copy.csv`.
+- [x] 3.4 Guard link code issuance effect against tight retry loop.
 
 ## 4. Tests & Regression
 - [x] 4.1 Add edge function tests in `test/edge-functions.test.js`.
@@ -23,6 +24,7 @@
 - [x] 4.3 Add synthetic acceptance script under `scripts/acceptance/`.
 - [x] 4.4 Run `npm test` and `node scripts/validate-copy-registry.cjs`.
 - [x] 4.5 Add RPC path regression tests for link code exchange.
+- [x] 4.6 Add dashboard link code retry regression test.
 
 ## 5. Verification
 - [x] 5.1 Update `docs/plans/2025-12-27-link-code-init/verification-report.md`.
