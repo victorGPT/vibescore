@@ -477,37 +477,85 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
     }
   }
 
-  const toAppend = [];
-  for (const bucketStart of touchedBuckets) {
-    const parsed = parseBucketKey(bucketStart);
+  const groupedBuckets = new Map();
+  for (const [key, bucket] of Object.entries(hourlyState.buckets || {})) {
+    if (!bucket || !bucket.totals) continue;
+    const parsed = parseBucketKey(key);
     const hourStart = parsed.hourStart;
     if (!hourStart) continue;
     const groupKey = groupBucketKey(parsed.source, hourStart);
-    if (legacyGroups.has(groupKey)) continue;
+    if (!touchedGroups.has(groupKey) || legacyGroups.has(groupKey)) continue;
 
-    const normalizedKey = bucketKey(parsed.source, parsed.model, hourStart);
-    const bucket = hourlyState.buckets ? hourlyState.buckets[normalizedKey] : null;
-    if (!bucket || !bucket.totals) continue;
+    const source = normalizeSourceInput(parsed.source) || DEFAULT_SOURCE;
+    const model = normalizeModelInput(parsed.model) || DEFAULT_MODEL;
+    let group = groupedBuckets.get(groupKey);
+    if (!group) {
+      group = { source, hourStart, buckets: new Map() };
+      groupedBuckets.set(groupKey, group);
+    }
+
     if (bucket.queuedKey != null && typeof bucket.queuedKey !== 'string') {
       bucket.queuedKey = null;
     }
-    const key = totalsKey(bucket.totals);
-    if (bucket.queuedKey === key) continue;
-    const source = normalizeSourceInput(parsed.source) || DEFAULT_SOURCE;
-    const model = normalizeModelInput(parsed.model) || DEFAULT_MODEL;
+    group.buckets.set(model, bucket);
+  }
+
+  const codexDominants = collectCodexDominantModels(hourlyState);
+
+  const toAppend = [];
+  for (const group of groupedBuckets.values()) {
+    const unknownBucket = group.buckets.get(DEFAULT_MODEL) || null;
+    const dominantModel = pickDominantModel(group.buckets);
+
+    if (dominantModel) {
+      for (const [model, bucket] of group.buckets.entries()) {
+        if (model === DEFAULT_MODEL) continue;
+        let totals = bucket.totals;
+        if (model === dominantModel && unknownBucket?.totals) {
+          totals = cloneTotals(bucket.totals);
+          addTotals(totals, unknownBucket.totals);
+        }
+        const key = totalsKey(totals);
+        if (bucket.queuedKey === key) continue;
+        toAppend.push(
+          JSON.stringify({
+            source: group.source,
+            model,
+            hour_start: group.hourStart,
+            input_tokens: totals.input_tokens,
+            cached_input_tokens: totals.cached_input_tokens,
+            output_tokens: totals.output_tokens,
+            reasoning_output_tokens: totals.reasoning_output_tokens,
+            total_tokens: totals.total_tokens
+          })
+        );
+        bucket.queuedKey = key;
+      }
+      continue;
+    }
+
+    if (!unknownBucket?.totals) continue;
+    let outputModel = DEFAULT_MODEL;
+    if (group.source === 'every-code') {
+      const aligned = findNearestCodexModel(group.hourStart, codexDominants);
+      if (aligned) outputModel = aligned;
+    }
+    const key = totalsKey(unknownBucket.totals);
+    const outputKey = outputModel === DEFAULT_MODEL ? key : `${key}|${outputModel}`;
+    if (unknownBucket.queuedKey === outputKey) continue;
     toAppend.push(
       JSON.stringify({
-        source,
-        model,
-        hour_start: hourStart,
-        input_tokens: bucket.totals.input_tokens,
-        cached_input_tokens: bucket.totals.cached_input_tokens,
-        output_tokens: bucket.totals.output_tokens,
-        reasoning_output_tokens: bucket.totals.reasoning_output_tokens,
-        total_tokens: bucket.totals.total_tokens
+        source: group.source,
+        model: outputModel,
+        hour_start: group.hourStart,
+        input_tokens: unknownBucket.totals.input_tokens,
+        cached_input_tokens: unknownBucket.totals.cached_input_tokens,
+        output_tokens: unknownBucket.totals.output_tokens,
+        reasoning_output_tokens: unknownBucket.totals.reasoning_output_tokens,
+        total_tokens: unknownBucket.totals.total_tokens
       })
     );
-    bucket.queuedKey = key;
+    unknownBucket.queuedKey = outputKey;
   }
 
   if (legacyGroups.size > 0) {
@@ -562,6 +610,91 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
   }
 
   return toAppend.length;
+}
+
+function pickDominantModel(buckets) {
+  let dominantModel = null;
+  let dominantTotal = -1;
+  for (const [model, bucket] of buckets.entries()) {
+    if (model === DEFAULT_MODEL) continue;
+    const total = Number(bucket?.totals?.total_tokens || 0);
+    if (
+      dominantModel == null ||
+      total > dominantTotal ||
+      (total === dominantTotal && model < dominantModel)
+    ) {
+      dominantModel = model;
+      dominantTotal = total;
+    }
+  }
+  return dominantModel;
+}
+
+function cloneTotals(totals) {
+  const cloned = initTotals();
+  addTotals(cloned, totals || {});
+  return cloned;
+}
+
+function collectCodexDominantModels(hourlyState) {
+  const grouped = new Map();
+  for (const [key, bucket] of Object.entries(hourlyState.buckets || {})) {
+    if (!bucket || !bucket.totals) continue;
+    const parsed = parseBucketKey(key);
+    const hourStart = parsed.hourStart;
+    if (!hourStart) continue;
+    const source = normalizeSourceInput(parsed.source) || DEFAULT_SOURCE;
+    if (source !== DEFAULT_SOURCE) continue;
+    const model = normalizeModelInput(parsed.model) || DEFAULT_MODEL;
+    if (model === DEFAULT_MODEL) continue;
+
+    let models = grouped.get(hourStart);
+    if (!models) {
+      models = new Map();
+      grouped.set(hourStart, models);
+    }
+    const total = Number(bucket.totals.total_tokens || 0);
+    models.set(model, (models.get(model) || 0) + total);
+  }
+
+  const dominants = [];
+  for (const [hourStart, models] of grouped.entries()) {
+    let dominantModel = null;
+    let dominantTotal = -1;
+    for (const [model, total] of models.entries()) {
+      if (
+        dominantModel == null ||
+        total > dominantTotal ||
+        (total === dominantTotal && model < dominantModel)
+      ) {
+        dominantModel = model;
+        dominantTotal = total;
+      }
+    }
+    if (dominantModel) {
+      dominants.push({ hourStart, model: dominantModel });
+    }
+  }
+
+  return dominants;
+}
+
+function findNearestCodexModel(hourStart, dominants) {
+  if (!hourStart || !dominants || dominants.length === 0) return null;
+  const target = Date.parse(hourStart);
+  if (!Number.isFinite(target)) return null;
+
+  let best = null;
+  for (const entry of dominants) {
+    const candidate = Date.parse(entry.hourStart);
+    if (!Number.isFinite(candidate)) continue;
+    const diff = Math.abs(candidate - target);
+    if (!best || diff < best.diff || (diff === best.diff && candidate < best.time)) {
+      best = { diff, time: candidate, model: entry.model };
+    }
+  }
+
+  return best ? best.model : null;
 }
 
 function normalizeHourlyState(raw) {
