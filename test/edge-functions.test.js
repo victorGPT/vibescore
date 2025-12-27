@@ -1516,6 +1516,66 @@ test('vibescore-user-status returns pro.active for cutoff user', async () => {
   assert.equal(body.pro.sources.includes('registration_cutoff'), true);
 });
 
+test('vibescore-user-status falls back to users table when created_at missing', async () => {
+  const fn = require('../insforge-functions/vibescore-user-status');
+
+  const userId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+  const userJwt = 'user_jwt_test';
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            assert.equal(table, 'vibescore_user_entitlements');
+            return {
+              select: () => ({
+                eq: () => ({
+                  order: async () => ({ data: [], error: null })
+                })
+              })
+            };
+          }
+        }
+      };
+    }
+
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return {
+        database: {
+          from: (table) => {
+            assert.equal(table, 'users');
+            return {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({ data: { created_at: '2025-01-01T00:00:00Z' }, error: null })
+                })
+              })
+            };
+          }
+        }
+      };
+    }
+
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibescore-user-status', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${userJwt}` }
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+
+  assert.equal(body.pro.active, true);
+  assert.equal(body.pro.sources.includes('registration_cutoff'), true);
+});
+
 test('vibescore-entitlements rejects non-admin caller', async () => {
   const fn = require('../insforge-functions/vibescore-entitlements');
 

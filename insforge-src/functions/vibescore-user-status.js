@@ -5,7 +5,7 @@
 
 const { handleOptions, json, requireMethod } = require('../shared/http');
 const { getBearerToken, getEdgeClientAndUserId } = require('../shared/auth');
-const { getBaseUrl } = require('../shared/env');
+const { getAnonKey, getBaseUrl, getServiceRoleKey } = require('../shared/env');
 const { computeProStatus } = require('../shared/pro-status');
 
 module.exports = async function(request) {
@@ -25,9 +25,29 @@ module.exports = async function(request) {
   const { data: userData, error: userErr } = await auth.edgeClient.auth.getCurrentUser();
   if (userErr || !userData?.user?.id) return json({ error: 'Unauthorized' }, 401);
 
-  const createdAt = userData.user.created_at;
+  let createdAt = userData.user.created_at;
   if (typeof createdAt !== 'string' || createdAt.length === 0) {
-    return json({ error: 'Missing user created_at' }, 500);
+    const serviceRoleKey = getServiceRoleKey();
+    if (!serviceRoleKey) return json({ error: 'Missing user created_at' }, 500);
+
+    const anonKey = getAnonKey();
+    const serviceClient = createClient({
+      baseUrl,
+      anonKey: anonKey || serviceRoleKey,
+      edgeFunctionToken: serviceRoleKey
+    });
+
+    const { data: userRow, error: userRowErr } = await serviceClient.database
+      .from('users')
+      .select('created_at')
+      .eq('id', auth.userId)
+      .maybeSingle();
+
+    if (userRowErr) return json({ error: userRowErr.message }, 500);
+    if (typeof userRow?.created_at !== 'string' || userRow.created_at.length === 0) {
+      return json({ error: 'Missing user created_at' }, 500);
+    }
+    createdAt = userRow.created_at;
   }
 
   const { data: entitlements, error: entErr } = await auth.edgeClient.database

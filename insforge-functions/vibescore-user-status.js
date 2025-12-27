@@ -63,16 +63,16 @@ var require_env = __commonJS({
     function getBaseUrl2() {
       return Deno.env.get("INSFORGE_INTERNAL_URL") || "http://insforge:7130";
     }
-    function getServiceRoleKey() {
+    function getServiceRoleKey2() {
       return Deno.env.get("INSFORGE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("INSFORGE_API_KEY") || Deno.env.get("API_KEY") || null;
     }
-    function getAnonKey() {
+    function getAnonKey2() {
       return Deno.env.get("ANON_KEY") || Deno.env.get("INSFORGE_ANON_KEY") || null;
     }
     module2.exports = {
       getBaseUrl: getBaseUrl2,
-      getServiceRoleKey,
-      getAnonKey
+      getServiceRoleKey: getServiceRoleKey2,
+      getAnonKey: getAnonKey2
     };
   }
 });
@@ -81,7 +81,7 @@ var require_env = __commonJS({
 var require_auth = __commonJS({
   "insforge-src/shared/auth.js"(exports2, module2) {
     "use strict";
-    var { getAnonKey } = require_env();
+    var { getAnonKey: getAnonKey2 } = require_env();
     function getBearerToken2(headerValue) {
       if (!headerValue) return null;
       const prefix = "Bearer ";
@@ -124,7 +124,7 @@ var require_auth = __commonJS({
       return exp * 1e3 <= Date.now();
     }
     async function getEdgeClientAndUserId2({ baseUrl, bearer }) {
-      const anonKey = getAnonKey();
+      const anonKey = getAnonKey2();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const { data: userData, error: userErr } = await edgeClient.auth.getCurrentUser();
       const userId = userData?.user?.id;
@@ -132,7 +132,7 @@ var require_auth = __commonJS({
       return { ok: true, edgeClient, userId };
     }
     async function getEdgeClientAndUserIdFast({ baseUrl, bearer }) {
-      const anonKey = getAnonKey();
+      const anonKey = getAnonKey2();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const payload = decodeJwtPayload(bearer);
       if (payload && isJwtExpired(payload)) {
@@ -219,7 +219,7 @@ var require_pro_status = __commonJS({
 // insforge-src/functions/vibescore-user-status.js
 var { handleOptions, json, requireMethod } = require_http();
 var { getBearerToken, getEdgeClientAndUserId } = require_auth();
-var { getBaseUrl } = require_env();
+var { getAnonKey, getBaseUrl, getServiceRoleKey } = require_env();
 var { computeProStatus } = require_pro_status();
 module.exports = async function(request) {
   const opt = handleOptions(request);
@@ -233,9 +233,22 @@ module.exports = async function(request) {
   if (!auth.ok) return json({ error: "Unauthorized" }, 401);
   const { data: userData, error: userErr } = await auth.edgeClient.auth.getCurrentUser();
   if (userErr || !userData?.user?.id) return json({ error: "Unauthorized" }, 401);
-  const createdAt = userData.user.created_at;
+  let createdAt = userData.user.created_at;
   if (typeof createdAt !== "string" || createdAt.length === 0) {
-    return json({ error: "Missing user created_at" }, 500);
+    const serviceRoleKey = getServiceRoleKey();
+    if (!serviceRoleKey) return json({ error: "Missing user created_at" }, 500);
+    const anonKey = getAnonKey();
+    const serviceClient = createClient({
+      baseUrl,
+      anonKey: anonKey || serviceRoleKey,
+      edgeFunctionToken: serviceRoleKey
+    });
+    const { data: userRow, error: userRowErr } = await serviceClient.database.from("users").select("created_at").eq("id", auth.userId).maybeSingle();
+    if (userRowErr) return json({ error: userRowErr.message }, 500);
+    if (typeof userRow?.created_at !== "string" || userRow.created_at.length === 0) {
+      return json({ error: "Missing user created_at" }, 500);
+    }
+    createdAt = userRow.created_at;
   }
   const { data: entitlements, error: entErr } = await auth.edgeClient.database.from("vibescore_user_entitlements").select("source,effective_from,effective_to,revoked_at").eq("user_id", auth.userId).order("effective_to", { ascending: false });
   if (entErr) return json({ error: entErr.message }, 500);
