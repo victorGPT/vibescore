@@ -1,7 +1,7 @@
 # Test Strategy
 
 ## Objectives
-- Validate dashboard prefers `/api/functions` and safely falls back to `/functions` on 404.
+- Validate dashboard prefers `/functions` and safely falls back to `/api/functions` on 404.
 - Prevent regressions where non-404 errors are masked by retry.
 - Ensure backend probe reflects true availability.
 
@@ -12,7 +12,7 @@
 - Performance: Not applicable (single extra request only on 404).
 
 ## Test Matrix
-- Prefer `/api/functions` + fallback on 404 -> Unit + Integration -> FE -> Node test + curl logs
+- Prefer `/functions` + fallback on 404 -> Unit + Integration -> FE -> Node test + curl logs
 - Non-404 errors do not fallback -> Unit -> FE -> Node test
 - Probe uses same policy -> Regression -> FE -> dashboard refresh observation
 

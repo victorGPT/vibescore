@@ -2,16 +2,16 @@
 - [x] Add dashboard function path compatibility requirement to spec delta.
 
 ## 2. Dashboard
-- [x] Introduce a function-path resolver that prefers `/api/functions` and falls back to `/functions` on 404 (GET only).
+- [x] Introduce a function-path resolver that prefers `/functions` and falls back to `/api/functions` on 404 (GET only).
 - [x] Update dashboard request flow to use the resolver for usage endpoints and backend probe.
 
 ## 3. Tests
 - [x] Unit: resolver returns preferred path and falls back on simulated 404.
 - [x] Unit: non-404 errors do not trigger fallback.
-- [ ] Regression: repeatable manual script/curl confirming `/api/functions` is reachable and `/functions` fallback works when needed.
+- [ ] Regression: repeatable manual script/curl confirming `/functions` is reachable and `/api/functions` fallback works when needed.
 
 ## 4. Docs
-- [x] Update `docs/dashboard/api.md` to note preferred `/api/functions` path and 404 fallback.
+- [x] Update `docs/dashboard/api.md` to note preferred `/functions` path and 404 fallback.
 - [ ] If needed, align `BACKEND_API.md` with gateway path guidance.
 
 ## 5. Verification

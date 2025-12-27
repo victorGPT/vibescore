@@ -9,8 +9,8 @@ This document is a front-end friendly reference for the VibeScore tracker dashbo
 
 ## Function Path
 
-- Dashboard SHOULD call `/api/functions/<slug>` first.
-- If `/api/functions` returns `404`, fallback to `/functions/<slug>`.
+- Dashboard SHOULD call `/functions/<slug>` first.
+- If `/functions` returns `404`, fallback to `/api/functions/<slug>`.
 
 ## Auth
 

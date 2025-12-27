@@ -29,7 +29,7 @@ afterEach(() => {
   else globalThis.fetch = ORIGINAL_FETCH;
 });
 
-test('usage summary prefers /api/functions and falls back on 404', async () => {
+test('usage summary prefers /functions and falls back on 404', async () => {
   const { getUsageSummary } = await loadVibescoreApi();
   const calls = [];
 
@@ -38,9 +38,6 @@ test('usage summary prefers /api/functions and falls back on 404', async () => {
     calls.push(target);
 
     if (target.includes('/api/functions/vibescore-usage-summary')) {
-      return jsonResponse({ error: 'Not Found', message: 'Not Found' }, 404);
-    }
-    if (target.includes('/functions/vibescore-usage-summary')) {
       return jsonResponse(
         {
           from: '2025-01-01',
@@ -50,6 +47,9 @@ test('usage summary prefers /api/functions and falls back on 404', async () => {
         },
         200
       );
+    }
+    if (target.includes('/functions/vibescore-usage-summary')) {
+      return jsonResponse({ error: 'Not Found', message: 'Not Found' }, 404);
     }
 
     return jsonResponse({ error: 'Unexpected', message: 'Unexpected' }, 500);
@@ -63,8 +63,8 @@ test('usage summary prefers /api/functions and falls back on 404', async () => {
   });
 
   assert.equal(res?.totals?.total_tokens, '0');
-  assert.ok(calls[0]?.includes('/api/functions/'));
-  assert.ok(calls[1]?.includes('/functions/'));
+  assert.ok(calls[0]?.includes('/functions/'));
+  assert.ok(calls[1]?.includes('/api/functions/'));
 });
 
 test('usage summary does not fall back on 401', async () => {
@@ -76,10 +76,10 @@ test('usage summary does not fall back on 401', async () => {
     calls.push(target);
 
     if (target.includes('/api/functions/vibescore-usage-summary')) {
-      return jsonResponse({ error: 'Unauthorized', message: 'Unauthorized' }, 401);
+      return jsonResponse({ totals: { total_tokens: '0' } }, 200);
     }
     if (target.includes('/functions/vibescore-usage-summary')) {
-      return jsonResponse({ totals: { total_tokens: '0' } }, 200);
+      return jsonResponse({ error: 'Unauthorized', message: 'Unauthorized' }, 401);
     }
 
     return jsonResponse({ error: 'Unexpected', message: 'Unexpected' }, 500);
@@ -98,5 +98,5 @@ test('usage summary does not fall back on 401', async () => {
   );
 
   assert.equal(calls.length, 1);
-  assert.ok(calls[0]?.includes('/api/functions/'));
+  assert.ok(calls[0]?.includes('/functions/'));
 });

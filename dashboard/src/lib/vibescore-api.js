@@ -22,8 +22,8 @@ const PATHS = {
   usageModelBreakdown: "vibescore-usage-model-breakdown",
 };
 
-const FUNCTION_PREFIX = "/api/functions";
-const LEGACY_FUNCTION_PREFIX = "/functions";
+const FUNCTION_PREFIX = "/functions";
+const LEGACY_FUNCTION_PREFIX = "/api/functions";
 
 export async function probeBackend({ baseUrl, accessToken, signal } = {}) {
   const today = formatDateLocal(new Date());
