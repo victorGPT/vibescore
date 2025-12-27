@@ -14,20 +14,23 @@ const BACKEND_RUNTIME_UNAVAILABLE =
   "Backend runtime unavailable (InsForge). Please retry later.";
 
 const PATHS = {
-  usageSummary: "/functions/vibescore-usage-summary",
-  usageDaily: "/functions/vibescore-usage-daily",
-  usageHourly: "/functions/vibescore-usage-hourly",
-  usageMonthly: "/functions/vibescore-usage-monthly",
-  usageHeatmap: "/functions/vibescore-usage-heatmap",
-  usageModelBreakdown: "/functions/vibescore-usage-model-breakdown",
+  usageSummary: "vibescore-usage-summary",
+  usageDaily: "vibescore-usage-daily",
+  usageHourly: "vibescore-usage-hourly",
+  usageMonthly: "vibescore-usage-monthly",
+  usageHeatmap: "vibescore-usage-heatmap",
+  usageModelBreakdown: "vibescore-usage-model-breakdown",
 };
+
+const FUNCTION_PREFIX = "/functions";
+const LEGACY_FUNCTION_PREFIX = "/api/functions";
 
 export async function probeBackend({ baseUrl, accessToken, signal } = {}) {
   const today = formatDateLocal(new Date());
   await requestJson({
     baseUrl,
     accessToken,
-    path: PATHS.usageSummary,
+    slug: PATHS.usageSummary,
     params: { from: today, to: today },
     fetchOptions: { cache: "no-store", signal },
     retry: false,
@@ -53,7 +56,7 @@ export async function getUsageSummary({
   return requestJson({
     baseUrl,
     accessToken,
-    path: PATHS.usageSummary,
+    slug: PATHS.usageSummary,
     params: { from, to, ...filterParams, ...tzParams },
   });
 }
@@ -75,7 +78,7 @@ export async function getUsageModelBreakdown({
   return requestJson({
     baseUrl,
     accessToken,
-    path: PATHS.usageModelBreakdown,
+    slug: PATHS.usageModelBreakdown,
     params: { from, to, ...filterParams, ...tzParams },
   });
 }
@@ -98,7 +101,7 @@ export async function getUsageDaily({
   return requestJson({
     baseUrl,
     accessToken,
-    path: PATHS.usageDaily,
+    slug: PATHS.usageDaily,
     params: { from, to, ...filterParams, ...tzParams },
   });
 }
@@ -120,7 +123,7 @@ export async function getUsageHourly({
   return requestJson({
     baseUrl,
     accessToken,
-    path: PATHS.usageHourly,
+    slug: PATHS.usageHourly,
     params: day ? { day, ...filterParams, ...tzParams } : { ...filterParams, ...tzParams },
   });
 }
@@ -143,7 +146,7 @@ export async function getUsageMonthly({
   return requestJson({
     baseUrl,
     accessToken,
-    path: PATHS.usageMonthly,
+    slug: PATHS.usageMonthly,
     params: {
       ...(months ? { months: String(months) } : {}),
       ...(to ? { to } : {}),
@@ -177,7 +180,7 @@ export async function getUsageHeatmap({
   return requestJson({
     baseUrl,
     accessToken,
-    path: PATHS.usageHeatmap,
+    slug: PATHS.usageHeatmap,
     params: {
       weeks: String(weeks),
       to,
@@ -210,7 +213,7 @@ function buildFilterParams({ source, model } = {}) {
 async function requestJson({
   baseUrl,
   accessToken,
-  path,
+  slug,
   params,
   fetchOptions,
   errorPrefix,
@@ -220,10 +223,17 @@ async function requestJson({
   const http = client.getHttpClient();
   const retryOptions = normalizeRetryOptions(retry, "GET");
   let attempt = 0;
+  const { primaryPath, fallbackPath } = buildFunctionPaths(slug);
 
   while (true) {
     try {
-      return await http.get(path, { params, ...(fetchOptions || {}) });
+      return await requestWithFallback({
+        http,
+        primaryPath,
+        fallbackPath,
+        params,
+        fetchOptions,
+      });
     } catch (e) {
       if (e?.name === "AbortError") throw e;
       const err = normalizeSdkError(e, errorPrefix);
@@ -233,6 +243,46 @@ async function requestJson({
       attempt += 1;
     }
   }
+}
+
+function buildFunctionPaths(slug) {
+  const normalized = normalizeFunctionSlug(slug);
+  const primaryPath = `${normalizePrefix(FUNCTION_PREFIX)}/${normalized}`;
+  const fallbackPath = `${normalizePrefix(LEGACY_FUNCTION_PREFIX)}/${normalized}`;
+  return { primaryPath, fallbackPath };
+}
+
+function normalizeFunctionSlug(slug) {
+  const raw = typeof slug === "string" ? slug.trim() : "";
+  return raw.replace(/^\/+/, "");
+}
+
+function normalizePrefix(prefix) {
+  const raw = typeof prefix === "string" ? prefix.trim() : "";
+  return raw.endsWith("/") ? raw.slice(0, -1) : raw;
+}
+
+async function requestWithFallback({
+  http,
+  primaryPath,
+  fallbackPath,
+  params,
+  fetchOptions,
+}) {
+  try {
+    return await http.get(primaryPath, { params, ...(fetchOptions || {}) });
+  } catch (err) {
+    if (!shouldFallbackToLegacy(err, primaryPath)) throw err;
+    return await http.get(fallbackPath, { params, ...(fetchOptions || {}) });
+  }
+}
+
+function shouldFallbackToLegacy(error, primaryPath) {
+  if (!primaryPath || !primaryPath.startsWith(`${normalizePrefix(FUNCTION_PREFIX)}/`)) {
+    return false;
+  }
+  const status = error?.statusCode ?? error?.status;
+  return status === 404;
 }
 
 function normalizeSdkError(error, errorPrefix) {
