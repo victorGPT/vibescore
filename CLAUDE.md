@@ -71,4 +71,3 @@ npm run validate:copy             # Validate copy registry
 - Token data only - never store or upload conversation content
 - Use UTC for all timestamps
 - Half-hour buckets for aggregation
-- Workflow: Commit changes locally, do not push without explicit instruction.
