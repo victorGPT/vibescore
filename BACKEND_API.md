@@ -111,6 +111,48 @@ Response:
 
 ---
 
+### POST /functions/vibescore-link-code-issue
+
+Issue a short-lived, single-use link code for CLI bootstrap.
+
+Auth:
+- User mode: `Authorization: Bearer <user_jwt>`
+
+Request body:
+
+```json
+{}
+```
+
+Response:
+
+```json
+{ "link_code": "opaque", "expires_at": "iso" }
+```
+
+---
+
+### POST /functions/vibescore-link-code-exchange
+
+Exchange a link code for a device token. Requires service role key configured in the edge runtime.
+
+Auth:
+- None (link code in body)
+
+Request body:
+
+```json
+{ "link_code": "opaque", "device_name": "my-mac", "platform": "macos" }
+```
+
+Response:
+
+```json
+{ "device_id": "uuid", "token": "opaque", "created_at": "iso" }
+```
+
+---
+
 ### POST /functions/vibescore-ingest
 
 Ingest half-hour token usage aggregates from a device token idempotently.

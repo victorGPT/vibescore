@@ -20,6 +20,7 @@ const PATHS = {
   usageMonthly: "vibescore-usage-monthly",
   usageHeatmap: "vibescore-usage-heatmap",
   usageModelBreakdown: "vibescore-usage-model-breakdown",
+  linkCodeIssue: "vibescore-link-code-issue",
 };
 
 const FUNCTION_PREFIX = "/functions";
@@ -189,6 +190,16 @@ export async function getUsageHeatmap({
       ...tzParams,
     },
   });
+}
+
+export async function issueLinkCode({ baseUrl, accessToken }) {
+  const client = createInsforgeClient({ baseUrl, accessToken });
+  const { data, error } = await client.functions.invoke(PATHS.linkCodeIssue, {
+    method: "POST",
+    body: {},
+  });
+  if (error) throw normalizeSdkError(error, "Link code issue failed");
+  return data;
 }
 
 function buildTimeZoneParams({ timeZone, tzOffsetMinutes } = {}) {

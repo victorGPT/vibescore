@@ -14,7 +14,11 @@ const {
 } = require('../lib/codex-config');
 const { upsertClaudeHook, buildClaudeHookCommand } = require('../lib/claude-config');
 const { beginBrowserAuth } = require('../lib/browser-auth');
-const { issueDeviceTokenWithPassword, issueDeviceTokenWithAccessToken } = require('../lib/insforge');
+const {
+  issueDeviceTokenWithPassword,
+  issueDeviceTokenWithAccessToken,
+  issueDeviceTokenWithLinkCode
+} = require('../lib/insforge');
 
 async function cmdInit(argv) {
   const opts = parseArgs(argv);
@@ -44,16 +48,32 @@ async function cmdInit(argv) {
 
   await installLocalTrackerApp({ appDir });
 
-  if (!deviceToken && !opts.noAuth) {
+  if (!deviceToken) {
     const deviceName = opts.deviceName || os.hostname();
 
-    if (opts.email || opts.password) {
+    if (opts.linkCode) {
+      try {
+        const issued = await issueDeviceTokenWithLinkCode({
+          baseUrl,
+          linkCode: opts.linkCode,
+          deviceName
+        });
+        deviceToken = issued.token;
+        deviceId = issued.deviceId;
+      } catch (err) {
+        const msg = err && err.message ? err.message : 'unknown error';
+        process.stderr.write(`Link code exchange failed: ${msg}\n`);
+        if (opts.noAuth) throw err;
+      }
+    }
+
+    if (!deviceToken && !opts.noAuth && (opts.email || opts.password)) {
       const email = opts.email || (await prompt('Email: '));
       const password = opts.password || (await promptHidden('Password: '));
       const issued = await issueDeviceTokenWithPassword({ baseUrl, email, password, deviceName });
       deviceToken = issued.token;
       deviceId = issued.deviceId;
-    } else {
+    } else if (!deviceToken && !opts.noAuth) {
       if (!dashboardUrl) dashboardUrl = await detectLocalDashboardUrl();
       const flow = await beginBrowserAuth({ baseUrl, dashboardUrl, timeoutMs: 10 * 60_000, open: !opts.noOpen });
       process.stdout.write(
@@ -66,7 +86,11 @@ async function cmdInit(argv) {
         ].join('\n')
       );
       const callback = await flow.waitForCallback();
-      const issued = await issueDeviceTokenWithAccessToken({ baseUrl, accessToken: callback.accessToken, deviceName });
+      const issued = await issueDeviceTokenWithAccessToken({
+        baseUrl,
+        accessToken: callback.accessToken,
+        deviceName
+      });
       deviceToken = issued.token;
       deviceId = issued.deviceId;
     }
@@ -171,6 +195,7 @@ function parseArgs(argv) {
     email: null,
     password: null,
     deviceName: null,
+    linkCode: null,
     noAuth: false,
     noOpen: false
   };
@@ -182,6 +207,7 @@ function parseArgs(argv) {
     else if (a === '--email') out.email = argv[++i] || null;
     else if (a === '--password') out.password = argv[++i] || null;
     else if (a === '--device-name') out.deviceName = argv[++i] || null;
+    else if (a === '--link-code') out.linkCode = argv[++i] || null;
     else if (a === '--no-auth') out.noAuth = true;
     else if (a === '--no-open') out.noOpen = true;
     else throw new Error(`Unknown option: ${a}`);

@@ -15,6 +15,8 @@ import {
   toDisplayNumber,
 } from "../lib/format.js";
 import { buildFleetData } from "../lib/model-breakdown.js";
+import { issueLinkCode } from "../lib/vibescore-api.js";
+import { safeWriteClipboard } from "../lib/safe-browser.js";
 import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
 import { useTrendData } from "../hooks/use-trend-data.js";
 import { useUsageData } from "../hooks/use-usage-data.js";
@@ -48,10 +50,32 @@ const DETAILS_PAGED_PERIODS = new Set(["day", "total"]);
 export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const [booted, setBooted] = useState(false);
   const [costModalOpen, setCostModalOpen] = useState(false);
+  const [linkCode, setLinkCode] = useState(null);
+  const [linkCodeLoading, setLinkCodeLoading] = useState(false);
   useEffect(() => {
     const t = window.setTimeout(() => setBooted(true), 900);
     return () => window.clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    if (!signedIn || !auth?.accessToken || !baseUrl) return;
+    if (linkCode || linkCodeLoading) return;
+    let cancelled = false;
+    setLinkCodeLoading(true);
+    issueLinkCode({ baseUrl, accessToken: auth.accessToken })
+      .then((data) => {
+        if (cancelled) return;
+        setLinkCode(typeof data?.link_code === "string" ? data.link_code : null);
+        setLinkCodeLoading(false);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLinkCodeLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [signedIn, auth?.accessToken, baseUrl, linkCode, linkCodeLoading]);
 
   const timeZone = useMemo(() => getBrowserTimeZone(), []);
   const tzOffsetMinutes = useMemo(() => getBrowserTimeZoneOffsetMinutes(), []);
@@ -396,8 +420,24 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const costInfoEnabled =
     summaryCostValue && summaryCostValue !== "-" && fleetData.length > 0;
 
-  const installInitCmd = copy("dashboard.install.cmd.init");
+  const installInitCmdBase = copy("dashboard.install.cmd.init");
+  const installInitCmdFull = linkCode
+    ? copy("dashboard.install.cmd.init_linked", { code: linkCode })
+    : installInitCmdBase;
+  const installInitCmdMasked = useMemo(
+    () => maskLinkCode(installInitCmdFull),
+    [installInitCmdFull]
+  );
   const installSyncCmd = copy("dashboard.install.cmd.sync");
+  const installCopyLabel = copy("dashboard.install.copy");
+  const installCopiedLabel = copy("dashboard.install.copied");
+  const [installCopied, setInstallCopied] = useState(false);
+  const handleInstallCopy = useCallback(async () => {
+    const didCopy = await safeWriteClipboard(installInitCmdFull);
+    if (!didCopy) return;
+    setInstallCopied(true);
+    setTimeout(() => setInstallCopied(false), 2000);
+  }, [installInitCmdFull]);
   const installSeenKey = "vibescore.dashboard.install.seen.v1";
   const [installSeen] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -430,7 +470,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     () => [
       { text: `${copy("dashboard.install.step1")} ` },
       {
-        text: installInitCmd,
+        text: installInitCmdMasked,
         className: "px-1 py-0.5 bg-black/40 border border-[#00FF41]/20",
       },
       {
@@ -444,7 +484,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
       },
       { text: copy("dashboard.install.step3_suffix") },
     ],
-    [installInitCmd, installSyncCmd]
+    [installInitCmdMasked, installSyncCmd]
   );
 
   const redirectUrl = useMemo(
@@ -595,6 +635,11 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
                   wrap
                   active={shouldAnimateInstall}
                 />
+                <div className="mt-3 flex items-center gap-2">
+                  <MatrixButton type="button" onClick={handleInstallCopy}>
+                    {installCopied ? installCopiedLabel : installCopyLabel}
+                  </MatrixButton>
+                </div>
               </AsciiBox>
 
               <AsciiBox
@@ -782,4 +827,9 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
       />
     </>
   );
+}
+
+function maskLinkCode(command) {
+  if (typeof command !== "string") return "";
+  return command.replace(/(--link-code\s+)(\S+)/, (_match, prefix) => `${prefix}...`);
 }
