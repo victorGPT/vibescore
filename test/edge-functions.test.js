@@ -1734,6 +1734,35 @@ test('vibescore-entitlements accepts project_admin token', async () => {
   assert.equal(res.status, 200);
 });
 
+test('vibescore-entitlements accepts project_admin token from roles array', async () => {
+  const fn = require('../insforge-functions/vibescore-entitlements');
+
+  const db = createServiceDbMock();
+  const userId = '55555555-5555-5555-5555-555555555555';
+  const projectAdminJwt = createJwt({ app_metadata: { roles: ['user', 'project_admin'] } });
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === projectAdminJwt) {
+      return { database: db.db };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibescore-entitlements', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${projectAdminJwt}` },
+    body: JSON.stringify({
+      user_id: userId,
+      source: 'manual',
+      effective_from: '2025-01-01T00:00:00Z',
+      effective_to: '2124-01-01T00:00:00Z'
+    })
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+});
+
 test('vibescore-entitlements-revoke updates revoked_at (admin)', async () => {
   const fn = require('../insforge-functions/vibescore-entitlements-revoke');
 

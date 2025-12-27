@@ -126,6 +126,7 @@ var require_auth = __commonJS({
       if (typeof appRole === "string" && appRole.length > 0) return appRole;
       const roles = payload?.app_metadata?.roles;
       if (Array.isArray(roles)) {
+        if (roles.includes("project_admin")) return "project_admin";
         const match = roles.find((value) => typeof value === "string" && value.length > 0);
         if (match) return match;
       }
