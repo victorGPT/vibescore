@@ -60,11 +60,19 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
 
   useEffect(() => {
     if (!signedIn || !auth?.accessToken || !baseUrl) return;
+    const requestKey = `${baseUrl}:${auth.accessToken}`;
+    if (linkCodeRequestKeyRef.current !== requestKey) {
+      linkCodeRequestKeyRef.current = requestKey;
+      setLinkCode(null);
+    }
+  }, [signedIn, auth?.accessToken, baseUrl]);
+
+  useEffect(() => {
+    if (!signedIn || !auth?.accessToken || !baseUrl) return;
     if (linkCode || linkCodeLoading) return;
     const requestKey = `${baseUrl}:${auth.accessToken}`;
-    if (linkCodeRequestKeyRef.current === requestKey) return;
+    if (linkCodeRequestKeyRef.current !== requestKey) return;
     let cancelled = false;
-    linkCodeRequestKeyRef.current = requestKey;
     setLinkCodeLoading(true);
     issueLinkCode({ baseUrl, accessToken: auth.accessToken })
       .then((data) => {
@@ -72,7 +80,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
         setLinkCode(typeof data?.link_code === "string" ? data.link_code : null);
         setLinkCodeLoading(false);
       })
-      .catch((err) => {
+      .catch(() => {
         if (cancelled) return;
         setLinkCodeLoading(false);
       });
