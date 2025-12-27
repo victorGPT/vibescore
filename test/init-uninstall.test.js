@@ -33,7 +33,6 @@ test('init then uninstall restores original Codex notify (when pre-existing noti
     process.env.CODEX_HOME = path.join(tmp, '.codex');
     delete process.env.VIBESCORE_DEVICE_TOKEN;
     await fs.mkdir(process.env.CODEX_HOME, { recursive: true });
-
     const codexConfigPath = path.join(process.env.CODEX_HOME, 'config.toml');
     const originalNotify = 'notify = ["echo", "hello"]\n';
     await fs.writeFile(codexConfigPath, originalNotify, 'utf8');
@@ -66,6 +65,92 @@ test('init then uninstall restores original Codex notify (when pre-existing noti
     else process.env.CODEX_HOME = prevCodexHome;
     if (prevToken === undefined) delete process.env.VIBESCORE_DEVICE_TOKEN;
     else process.env.VIBESCORE_DEVICE_TOKEN = prevToken;
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('init uses link code exchange without browser auth', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-init-link-code-'));
+  const prevHome = process.env.HOME;
+  const prevCodexHome = process.env.CODEX_HOME;
+  const prevToken = process.env.VIBESCORE_DEVICE_TOKEN;
+  const prevWrite = process.stdout.write;
+
+  const initPath = require.resolve('../src/commands/init');
+  const insforgePath = require.resolve('../src/lib/insforge');
+  const browserAuthPath = require.resolve('../src/lib/browser-auth');
+  const originalInit = require.cache[initPath];
+  const originalInsforge = require.cache[insforgePath];
+  const originalBrowserAuth = require.cache[browserAuthPath];
+
+  const issued = { token: 'device-token-123', deviceId: 'device-id-123' };
+  const captured = [];
+
+  try {
+    process.env.HOME = tmp;
+    process.env.CODEX_HOME = path.join(tmp, '.codex');
+    delete process.env.VIBESCORE_DEVICE_TOKEN;
+    await fs.mkdir(process.env.CODEX_HOME, { recursive: true });
+    const codexConfigPath = path.join(process.env.CODEX_HOME, 'config.toml');
+    await fs.writeFile(codexConfigPath, '# empty\n', 'utf8');
+
+    delete require.cache[initPath];
+    require.cache[insforgePath] = {
+      exports: {
+        issueDeviceTokenWithPassword: async () => {
+          throw new Error('unexpected password auth');
+        },
+        issueDeviceTokenWithAccessToken: async () => {
+          throw new Error('unexpected access token auth');
+        },
+        issueDeviceTokenWithLinkCode: async (args) => {
+          captured.push(args);
+          return issued;
+        }
+      }
+    };
+    require.cache[browserAuthPath] = {
+      exports: {
+        beginBrowserAuth: async () => {
+          throw new Error('unexpected browser auth');
+        }
+      }
+    };
+
+    const { cmdInit: cmdInitWithLinkCode } = require('../src/commands/init');
+
+    process.stdout.write = () => true;
+    await cmdInitWithLinkCode([
+      '--link-code',
+      'link-code-test',
+      '--no-open',
+      '--base-url',
+      'https://example.invalid'
+    ]);
+
+    const configPath = path.join(tmp, '.vibescore', 'tracker', 'config.json');
+    const configRaw = await fs.readFile(configPath, 'utf8');
+    const config = JSON.parse(configRaw);
+    assert.equal(config.deviceToken, issued.token);
+    assert.equal(config.deviceId, issued.deviceId);
+    assert.equal(captured.length, 1);
+    assert.equal(captured[0].linkCode, 'link-code-test');
+  } finally {
+    process.stdout.write = prevWrite;
+    if (prevHome === undefined) delete process.env.HOME;
+    else process.env.HOME = prevHome;
+    if (prevCodexHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = prevCodexHome;
+    if (prevToken === undefined) delete process.env.VIBESCORE_DEVICE_TOKEN;
+    else process.env.VIBESCORE_DEVICE_TOKEN = prevToken;
+
+    if (originalInit === undefined) delete require.cache[initPath];
+    else require.cache[initPath] = originalInit;
+    if (originalInsforge === undefined) delete require.cache[insforgePath];
+    else require.cache[insforgePath] = originalInsforge;
+    if (originalBrowserAuth === undefined) delete require.cache[browserAuthPath];
+    else require.cache[browserAuthPath] = originalBrowserAuth;
+
     await fs.rm(tmp, { recursive: true, force: true });
   }
 });

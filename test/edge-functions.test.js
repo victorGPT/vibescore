@@ -73,6 +73,25 @@ function createServiceDbMock() {
   };
 }
 
+function createLinkCodeExchangeMock({ rpcResult, rpcError }) {
+  const rpcCalls = [];
+
+  async function rpc(name, args) {
+    rpcCalls.push({ name, args });
+    const data = typeof rpcResult === 'function' ? rpcResult({ name, args }) : rpcResult;
+    return { data: data ?? null, error: rpcError ?? null };
+  }
+
+  function from() {
+    throw new Error('Unexpected table access during link code exchange');
+  }
+
+  return {
+    db: { rpc, from },
+    rpcCalls
+  };
+}
+
 const ORIGINAL_DENO = globalThis.Deno;
 const ORIGINAL_CREATE_CLIENT = globalThis.createClient;
 const ORIGINAL_FETCH = globalThis.fetch;
@@ -176,6 +195,125 @@ test('vibescore-device-token-issue admin mode skips user lookup', async () => {
   const deviceInsert = service.inserts.find((i) => i.table === 'vibescore_tracker_devices');
   assert.ok(deviceInsert, 'device insert not performed');
   assert.equal(deviceInsert.rows?.[0]?.user_id, adminUserId);
+});
+
+test('vibescore-link-code-issue issues a hashed code with expiry', async () => {
+  const fn = require('../insforge-src/functions/vibescore-link-code-issue');
+
+  const calls = [];
+  const db = createServiceDbMock();
+  const userId = '55555555-5555-5555-5555-555555555555';
+  const userJwt = 'user_jwt_link_code';
+
+  globalThis.createClient = (args) => {
+    calls.push(args);
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: db.db
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibescore-link-code-issue', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userJwt}` },
+    body: JSON.stringify({})
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+
+  const data = await res.json();
+  assert.equal(typeof data.link_code, 'string');
+  assert.equal(typeof data.expires_at, 'string');
+
+  const insert = db.inserts.find((i) => i.table === 'vibescore_tracker_link_codes');
+  assert.ok(insert, 'link code insert not performed');
+  assert.equal(insert.rows?.[0]?.user_id, userId);
+  assert.ok(insert.rows?.[0]?.code_hash, 'code hash missing');
+  assert.notEqual(insert.rows?.[0]?.code_hash, data.link_code);
+});
+
+test('vibescore-link-code-exchange issues device token via rpc', async () => {
+  const { sha256Hex } = require('../insforge-src/shared/crypto');
+  const fn = require('../insforge-src/functions/vibescore-link-code-exchange');
+
+  const linkCode = 'link-code-abc';
+  const linkCodeHash = await sha256Hex(linkCode);
+  const userId = '66666666-6666-6666-6666-666666666666';
+  const usedAt = new Date(Date.now() - 5_000).toISOString();
+
+  const calls = [];
+  const db = createLinkCodeExchangeMock({
+    rpcResult: ({ args }) => ({
+      user_id: userId,
+      device_id: args.p_device_id,
+      used_at: usedAt
+    })
+  });
+
+  globalThis.createClient = (args) => {
+    calls.push(args);
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return { database: db.db };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibescore-link-code-exchange', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ link_code: linkCode, device_name: 'test-mac', platform: 'macos' })
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+
+  const data = await res.json();
+  assert.equal(typeof data.device_id, 'string');
+  assert.equal(typeof data.token, 'string');
+  assert.equal(data.created_at, usedAt);
+
+  assert.equal(db.rpcCalls.length, 1, 'expected rpc to be called once');
+  assert.equal(db.rpcCalls[0]?.name, 'vibescore_exchange_link_code');
+  assert.equal(db.rpcCalls[0]?.args?.p_code_hash, linkCodeHash);
+  assert.equal(db.rpcCalls[0]?.args?.p_device_id, data.device_id);
+  assert.equal(db.rpcCalls[0]?.args?.p_device_name, 'test-mac');
+  assert.equal(db.rpcCalls[0]?.args?.p_platform, 'macos');
+  assert.equal(typeof db.rpcCalls[0]?.args?.p_token_id, 'string');
+  assert.equal(typeof db.rpcCalls[0]?.args?.p_token_hash, 'string');
+});
+
+test('vibescore-link-code-exchange rejects invalid codes when rpc returns no row', async () => {
+  const fn = require('../insforge-src/functions/vibescore-link-code-exchange');
+
+  const calls = [];
+  const db = createLinkCodeExchangeMock({ rpcResult: null });
+
+  globalThis.createClient = (args) => {
+    calls.push(args);
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return { database: db.db };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibescore-link-code-exchange', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ link_code: 'invalid-code', device_name: 'test-mac', platform: 'macos' })
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 401);
+
+  const data = await res.json();
+  assert.equal(data.error, 'Invalid or expired link code');
+  assert.equal(db.rpcCalls.length, 1, 'expected rpc to be called for invalid code');
 });
 
 test('vibescore-ingest uses serviceRoleKey as edgeFunctionToken and ingests hourly aggregates', async () => {

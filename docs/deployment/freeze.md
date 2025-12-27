@@ -23,3 +23,9 @@
 - Change IDs: `2025-12-25-add-pricing-table`, `2025-12-25-add-openrouter-pricing-sync`
 - Freeze artifact: update `insforge-functions/` via `npm run build:insforge`
 - Cold regression step: `node scripts/acceptance/openrouter-pricing-sync.cjs`
+
+## 2025-12-27-link-code-init
+- Scope: link code bootstrap for CLI init + dashboard install command copy/masking
+- Change ID: `2025-12-27-add-link-code-init`
+- Freeze artifact: `insforge-functions/vibescore-link-code-issue.js`, `insforge-functions/vibescore-link-code-exchange.js` (built via `npm run build:insforge`)
+- Cold regression step: `node scripts/acceptance/link-code-exchange.cjs`

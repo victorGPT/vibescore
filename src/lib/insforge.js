@@ -1,4 +1,4 @@
-const { issueDeviceToken, signInWithPassword } = require('./vibescore-api');
+const { issueDeviceToken, signInWithPassword, exchangeLinkCode } = require('./vibescore-api');
 
 async function issueDeviceTokenWithPassword({ baseUrl, email, password, deviceName }) {
   const accessToken = await signInWithPassword({ baseUrl, email, password });
@@ -13,5 +13,11 @@ async function issueDeviceTokenWithAccessToken({ baseUrl, accessToken, deviceNam
 
 module.exports = {
   issueDeviceTokenWithPassword,
-  issueDeviceTokenWithAccessToken
+  issueDeviceTokenWithAccessToken,
+  issueDeviceTokenWithLinkCode
 };
+
+async function issueDeviceTokenWithLinkCode({ baseUrl, linkCode, deviceName }) {
+  const issued = await exchangeLinkCode({ baseUrl, linkCode, deviceName });
+  return issued;
+}
