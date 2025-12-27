@@ -15,7 +15,10 @@
 - Local test output recorded in CLI (see command above).
 - 2025-12-27: `node --test test/dashboard-function-path.test.js` → PASS.
 - 2025-12-27: `npm test` → PASS (69/69).
+- 2025-12-27: `GET /functions/vibescore-usage-summary` (user JWT) → 200 with totals.
+- 2025-12-27: `GET /api/functions/vibescore-usage-summary` (user JWT) → 403 `Admin access required`.
+- 2025-12-27: `GET /api/functions/vibescore-usage-summary` (admin API key) → 200 (returns function metadata, not runtime output).
 
 ## Remaining Risks
 - Gateway path behavior may differ across environments; re-verify on each deployment target.
-- Manual dashboard fetch check still pending.
+- Legacy `/api/functions` runtime behavior cannot be validated on this environment because admin endpoint returns metadata.

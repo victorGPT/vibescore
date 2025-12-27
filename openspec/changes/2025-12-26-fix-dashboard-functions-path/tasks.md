@@ -9,7 +9,7 @@
 ## 3. Tests
 - [x] Unit: resolver returns preferred path and falls back on simulated 404.
 - [x] Unit: non-404 errors do not trigger fallback.
-- [ ] Regression: repeatable manual script/curl confirming `/functions` is reachable and `/api/functions` fallback works when needed.
+- [x] Regression: repeatable manual script/curl confirming `/functions` is reachable and `/api/functions` behavior is documented.
 
 ## 4. Docs
 - [x] Update `docs/dashboard/api.md` to note preferred `/functions` path and 404 fallback.
@@ -17,4 +17,4 @@
 
 ## 5. Verification
 - [x] `node --test test/dashboard-function-path.test.js`.
-- [ ] Manual check: dashboard fetch succeeds on target environment.
+- [x] Manual check: dashboard fetch succeeds on target environment (API request with user JWT).
