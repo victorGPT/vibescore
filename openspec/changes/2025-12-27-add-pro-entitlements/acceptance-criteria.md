@@ -15,6 +15,12 @@
 - THEN the endpoint resolves `created_at` from `public.users`
 - AND returns a computed Pro status
 
+#### Scenario: Missing created_at without service-role returns partial result
+- WHEN the auth payload omits `created_at` and no service-role key is configured
+- THEN the endpoint returns `created_at = null`
+- AND `pro.partial = true`
+- AND returns a Pro status computed from entitlements only
+
 ### Requirement: Entitlement windows control Pro status
 - Rationale: Paid/override entitlements should grant Pro only within effective windows.
 

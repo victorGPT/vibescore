@@ -36,7 +36,7 @@
 - `pro.expires_at` uses the maximum expiry of active sources.
 
 ## Assumptions
-- If `created_at` is missing in the auth payload, a service-role key is available to query `public.users`.
+- If `created_at` is missing and no service-role key is available, Pro status can be computed from entitlements only as a partial result.
 - Server time is authoritative for `now_utc`.
 
 ## Dependencies
@@ -44,6 +44,6 @@
 - Edge function runtime for new endpoints.
 
 ## Risks
-- Service-role key missing prevents fallback lookup for `created_at`.
+- Service-role key missing prevents registration-cutoff eligibility, resulting in partial Pro status.
 - Timezone misinterpretation on cutoff boundary.
 - Increased read latency from extra queries.

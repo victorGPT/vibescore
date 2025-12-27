@@ -12,6 +12,12 @@ The system SHALL provide `GET /functions/vibescore-user-status` for authenticate
 - **THEN** the endpoint SHALL resolve `created_at` from `public.users`
 - **AND** continue computing Pro status without returning an error
 
+#### Scenario: Missing created_at without service-role returns partial result
+- **WHEN** the auth payload omits `created_at` and no service-role key is configured
+- **THEN** the endpoint SHALL return `created_at = null`
+- **AND** `pro.partial = true`
+- **AND** compute Pro status from entitlements only
+
 ### Requirement: Pro status calculation uses cutoff and entitlements
 The system MUST compute Pro status as `registration_cutoff OR active_entitlement`, where the registration cutoff is `2025-12-31T23:59:59` in `Asia/Shanghai` and an active entitlement is defined by the current UTC time in `[effective_from, effective_to)` with `revoked_at IS NULL`.
 

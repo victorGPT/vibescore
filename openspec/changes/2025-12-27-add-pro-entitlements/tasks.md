@@ -6,6 +6,7 @@
 - [x] 1.5 Add edge function tests for status + entitlement endpoints
 - [x] 1.6 Update `BACKEND_API.md` with new endpoints
 - [x] 1.7 Add `created_at` fallback via service-role lookup
+- [x] 1.8 Degrade to partial result when `created_at` is missing and no service-role key is configured
 
 ## 2. Verification
 - [x] 2.1 Run targeted tests (`node --test test/edge-functions.test.js`)

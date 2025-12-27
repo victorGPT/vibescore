@@ -187,11 +187,12 @@ Response:
 ```json
 {
   "user_id": "uuid",
-  "created_at": "iso",
+  "created_at": "iso|null",
   "pro": {
     "active": true,
     "sources": ["registration_cutoff", "entitlement"],
     "expires_at": "iso",
+    "partial": false,
     "as_of": "iso"
   }
 }
@@ -201,6 +202,7 @@ Notes:
 - Registration cutoff is fixed at `2025-12-31T23:59:59` Asia/Shanghai (`2025-12-31T15:59:59Z`).
 - Registration-based Pro expires at `created_at + 99 years`.
 - Entitlements are active when `now_utc` is in `[effective_from, effective_to)` and `revoked_at IS NULL`.
+- When `created_at` is unavailable and no service-role key is configured, the endpoint returns a partial result (`created_at: null`, `pro.partial: true`) computed from entitlements only.
 
 ---
 
