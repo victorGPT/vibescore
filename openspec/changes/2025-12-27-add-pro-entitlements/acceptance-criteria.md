@@ -39,3 +39,7 @@
 #### Scenario: Missing admin auth is rejected
 - WHEN a non-admin caller invokes `POST /functions/vibescore-entitlements`
 - THEN the endpoint responds with `401` or `403`
+
+#### Scenario: Project-admin token is accepted
+- WHEN a caller provides a `project_admin` JWT
+- THEN entitlement grant/revoke endpoints accept the request

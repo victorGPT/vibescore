@@ -11,7 +11,7 @@
 - PASS
 
 ## Evidence
-- Edge function tests include both service-role fallback and partial-result scenarios; all passed (see command output in shell history).
+- Edge function tests include service-role fallback, partial-result, and `project_admin` acceptance scenarios; all passed (see command output in shell history).
 
 ## Remaining Risks
 - `created_at` availability under user_jwt is unverified in production; fallback may be required.

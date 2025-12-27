@@ -40,7 +40,7 @@
 - Server time is authoritative for `now_utc`.
 
 ## Dependencies
-- InsForge auth + database; RLS policies.
+- InsForge auth + database; RLS policies; project-admin JWTs when service role is unavailable.
 - Edge function runtime for new endpoints.
 
 ## Risks

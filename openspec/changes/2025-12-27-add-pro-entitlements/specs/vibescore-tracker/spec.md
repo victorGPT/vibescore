@@ -39,3 +39,7 @@ The system MUST restrict entitlement grant/revoke endpoints to service-role or p
 #### Scenario: Non-admin callers are rejected
 - **WHEN** a non-admin caller invokes `POST /functions/vibescore-entitlements`
 - **THEN** the endpoint SHALL respond with `401` or `403`
+
+#### Scenario: Project-admin token is accepted
+- **WHEN** a caller provides a `project_admin` JWT
+- **THEN** the entitlement grant/revoke endpoints SHALL accept the request

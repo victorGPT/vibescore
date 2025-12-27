@@ -211,7 +211,7 @@ Notes:
 Grant an entitlement for a user (admin only).
 
 Auth:
-- `Authorization: Bearer <service_role_key>`
+- `Authorization: Bearer <service_role_key>` or a `project_admin` JWT
 
 Request body:
 
@@ -248,7 +248,7 @@ Response:
 Revoke an entitlement by id (admin only).
 
 Auth:
-- `Authorization: Bearer <service_role_key>`
+- `Authorization: Bearer <service_role_key>` or a `project_admin` JWT
 
 Request body:
 
