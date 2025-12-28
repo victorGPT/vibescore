@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-12-28
+### Added
+- One-login link code install flow (Dashboard copy + CLI `init --link-code`).
+- Link code init/exchange edge functions + RPC for short-lived codes.
+- Retry-safe link code exchange in CLI via persisted request_id.
+
+### Changed
+- Dashboard shows a non-blocking session-expired banner with copy actions.
+- Link code expiry auto-refreshes and re-requests on expiry.
+
+### Fixed
+- Link code exchange payload now matches RPC parameter names.
+- Link code inserts allow authenticated users without service role key.
+
+### Release
+- Published to npm as `@vibescore/tracker@0.2.0`.
+
 ## [0.1.2] - 2025-12-27
 ### Changed
 - Backfill unknown totals into the dominant known model within the same source + half-hour bucket.
