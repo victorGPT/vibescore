@@ -18,6 +18,7 @@
 - `npm test`: pass (105/105)
 - `node scripts/validate-copy-registry.cjs`: ok (warnings about existing unused keys)
 - Manual check: pass (banner visible, dashboard rendered).
+- `node --test test/dashboard-session-expired-banner.test.js`: pass (post border color update)
 
 ## Evidence
 - Test output captured in session logs (see run timestamps in shell history).
