@@ -239,6 +239,7 @@ async function requestJson({
   const client = createInsforgeClient({ baseUrl, accessToken });
   const http = client.getHttpClient();
   const retryOptions = normalizeRetryOptions(retry, "GET");
+  const hadAccessToken = hasAccessTokenValue(accessToken);
   let attempt = 0;
   const { primaryPath, fallbackPath } = buildFunctionPaths(slug);
 
@@ -253,7 +254,7 @@ async function requestJson({
       });
     } catch (e) {
       if (e?.name === "AbortError") throw e;
-      const err = normalizeSdkError(e, errorPrefix);
+      const err = normalizeSdkError(e, { errorPrefix, hadAccessToken });
       if (!shouldRetry({ err, attempt, retryOptions })) throw err;
       const delayMs = computeRetryDelayMs({ retryOptions, attempt });
       await sleep(delayMs);
@@ -274,6 +275,7 @@ async function requestPostJson({
   const client = createInsforgeClient({ baseUrl, accessToken });
   const http = client.getHttpClient();
   const retryOptions = normalizeRetryOptions(retry, "POST");
+  const hadAccessToken = hasAccessTokenValue(accessToken);
   let attempt = 0;
   const { primaryPath, fallbackPath } = buildFunctionPaths(slug);
 
@@ -288,7 +290,7 @@ async function requestPostJson({
       });
     } catch (e) {
       if (e?.name === "AbortError") throw e;
-      const err = normalizeSdkError(e, errorPrefix);
+      const err = normalizeSdkError(e, { errorPrefix, hadAccessToken });
       if (!shouldRetry({ err, attempt, retryOptions })) throw err;
       const delayMs = computeRetryDelayMs({ retryOptions, attempt });
       await sleep(delayMs);
@@ -371,13 +373,13 @@ function shouldFallbackToLegacy(error, primaryPath) {
   return status === 404;
 }
 
-function normalizeSdkError(error, errorPrefix) {
+function normalizeSdkError(error, { errorPrefix, hadAccessToken } = {}) {
   const raw = error?.message || String(error || "Unknown error");
   const msg = normalizeBackendErrorMessage(raw);
   const err = new Error(errorPrefix ? `${errorPrefix}: ${msg}` : msg);
   err.cause = error;
   const status = error?.statusCode ?? error?.status;
-  if (status === 401) {
+  if (status === 401 && hadAccessToken) {
     markSessionExpired();
   }
   if (typeof status === "number") {
@@ -445,6 +447,11 @@ function normalizeRetryOptions(retry, method) {
       ? Math.max(0, Math.min(0.5, retry.jitterRatio))
       : defaultRetry.jitterRatio;
   return { maxRetries, baseDelayMs, maxDelayMs, jitterRatio };
+}
+
+function hasAccessTokenValue(accessToken) {
+  if (typeof accessToken !== "string") return false;
+  return accessToken.trim().length > 0;
 }
 
 function shouldRetry({ err, attempt, retryOptions }) {

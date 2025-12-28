@@ -20,6 +20,7 @@
 - Manual check: pass (banner visible, dashboard rendered).
 - `node --test test/dashboard-session-expired-banner.test.js`: pass (post border color update)
 - `node --test test/dashboard-session-expired-banner.test.js`: pass (PR gate doc)
+- `node --test test/dashboard-session-expired-banner.test.js`: pass (guard session-expired on access token)
 
 ## Evidence
 - Test output captured in session logs (see run timestamps in shell history).

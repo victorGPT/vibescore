@@ -39,7 +39,8 @@ test("DashboardPage shows session expired banner and bypasses auth gate", () => 
 test("vibescore-api marks session expired on 401", () => {
   const src = read("dashboard/src/lib/vibescore-api.js");
   assert.match(src, /markSessionExpired/);
-  assert.match(src, /status\s*===\s*401/);
+  assert.match(src, /status\s*===\s*401\s*&&\s*hadAccessToken/);
+  assert.match(src, /hasAccessTokenValue/);
 });
 
 test("copy registry includes session expired strings", () => {
