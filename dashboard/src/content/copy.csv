@@ -84,18 +84,18 @@ identity_card.name_default,ui,IdentityCard,IdentityCard,name_default,"VOLT.SYS_3
 identity_card.unknown,ui,IdentityCard,IdentityCard,unknown_label,"UNKNOWN_GHOST",,active
 identity_card.operator_label,ui,IdentityCard,IdentityCard,operator_label,"Handle",,active
 identity_card.decrypt,ui,IdentityCard,IdentityCard,decrypt_label,"[ ! ] DECRYPT_IDENTITY",,active
-identity_card.rank_label,ui,IdentityCard,IdentityCard,rank_label,"strar",,active
-identity_card.streak_label,ui,IdentityCard,IdentityCard,streak_label,"Streak",,active
+identity_card.rank_label,ui,IdentityCard,IdentityCard,rank_label,"START",,active
+identity_card.streak_label,ui,IdentityCard,IdentityCard,streak_label,"ACTIVE",,active
 identity_card.rank_placeholder,ui,IdentityCard,IdentityCard,rank_placeholder,"—",,active
-identity_card.streak_value,ui,IdentityCard,IdentityCard,streak_value,"{{days}}_DAYS",,active
+identity_card.streak_value,ui,IdentityCard,IdentityCard,streak_value,"{{days}} DAY",,active
 
 identity_panel.badge,ui,IdentityPanel,IdentityPanel,badge,"VS",,active
 identity_panel.level,ui,IdentityPanel,IdentityPanel,level,"Lvl_05",,active
 identity_panel.access_label,ui,IdentityPanel,IdentityPanel,access_label,"Handle",,active
-identity_panel.rank_label,ui,IdentityPanel,IdentityPanel,rank_label,"Rank",,active
-identity_panel.streak_label,ui,IdentityPanel,IdentityPanel,streak_label,"Streak",,active
+identity_panel.rank_label,ui,IdentityPanel,IdentityPanel,rank_label,"START",,active
+identity_panel.streak_label,ui,IdentityPanel,IdentityPanel,streak_label,"ACTIVE",,active
 identity_panel.rank_placeholder,ui,IdentityPanel,IdentityPanel,rank_placeholder,"—",,active
-identity_panel.streak_value,ui,IdentityPanel,IdentityPanel,streak_value,"{{days}}_DAYS",,active
+identity_panel.streak_value,ui,IdentityPanel,IdentityPanel,streak_value,"{{days}} DAY",,active
 
 usage.panel.title,ui,UsagePanel,UsagePanel,title,"CORE_INDEX",,active
 usage.summary.total_system_output,ui,UsagePanel,UsagePanel,summary_label_total_system,"TOTAL_SYSTEM_OUTPUT",,active

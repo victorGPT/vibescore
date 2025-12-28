@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 import { buildAuthUrl } from "../lib/auth-url.js";
-import { computeActiveStreakDays } from "../lib/activity-heatmap.js";
 import { copy } from "../lib/copy.js";
 import { getRangeForPeriod } from "../lib/date-range.js";
 import { getDetailsSortColumns, sortDailyRows } from "../lib/daily.js";
@@ -48,6 +47,26 @@ import { isMockEnabled } from "../lib/mock-data.js";
 const PERIODS = ["day", "week", "month", "total"];
 const DETAILS_DATE_KEYS = new Set(["day", "hour", "month"]);
 const DETAILS_PAGED_PERIODS = new Set(["day", "total"]);
+
+function hasUsageValue(value, level) {
+  if (typeof level === "number" && level > 0) return true;
+  if (typeof value === "bigint") return value > 0n;
+  if (typeof value === "number") return Number.isFinite(value) && value > 0;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    if (/^[0-9]+$/.test(trimmed)) {
+      try {
+        return BigInt(trimmed) > 0n;
+      } catch (_e) {
+        return false;
+      }
+    }
+    const numeric = Number(trimmed);
+    return Number.isFinite(numeric) && numeric > 0;
+  }
+  return false;
+}
 
 export function DashboardPage({
   baseUrl,
@@ -403,21 +422,37 @@ export function DashboardPage({
     return effectiveSort.dir === "asc" ? "▲" : "▼";
   }
 
-  const streakDays = useMemo(() => {
+  const activeDays = useMemo(() => {
     if (!signedIn && !mockEnabled) return 0;
-    const serverStreak = Number(heatmap?.streak_days);
-    if (Number.isFinite(serverStreak)) return serverStreak;
-    return computeActiveStreakDays({
-      dailyRows: heatmapDaily,
-      to: heatmapRange.to,
-    });
-  }, [
-    signedIn,
-    mockEnabled,
-    heatmap?.streak_days,
-    heatmapDaily,
-    heatmapRange.to,
-  ]);
+    const serverActive = Number(heatmap?.active_days);
+    if (Number.isFinite(serverActive)) return serverActive;
+
+    let count = 0;
+    const seen = new Set();
+    const considerDay = (day, value, level) => {
+      if (typeof day !== "string" || !day) return;
+      if (seen.has(day)) return;
+      if (!hasUsageValue(value, level)) return;
+      seen.add(day);
+      count += 1;
+    };
+
+    if (Array.isArray(heatmapDaily)) {
+      for (const row of heatmapDaily) {
+        considerDay(row?.day, row?.total_tokens);
+      }
+    }
+
+    const weeks = Array.isArray(heatmap?.weeks) ? heatmap.weeks : [];
+    for (const week of weeks) {
+      for (const cell of Array.isArray(week) ? week : []) {
+        const value = cell?.value ?? cell?.total_tokens;
+        considerDay(cell?.day, value, cell?.level);
+      }
+    }
+
+    return count;
+  }, [signedIn, mockEnabled, heatmap?.active_days, heatmap?.weeks, heatmapDaily]);
 
   const refreshAll = useCallback(() => {
     refreshUsage();
@@ -460,30 +495,10 @@ export function DashboardPage({
       if (!earliest || day < earliest) earliest = day;
     };
 
-    const hasUsage = (value, level) => {
-      if (typeof level === "number" && level > 0) return true;
-      if (typeof value === "bigint") return value > 0n;
-      if (typeof value === "number") return Number.isFinite(value) && value > 0;
-      if (typeof value === "string") {
-        const trimmed = value.trim();
-        if (!trimmed) return false;
-        if (/^[0-9]+$/.test(trimmed)) {
-          try {
-            return BigInt(trimmed) > 0n;
-          } catch (_e) {
-            return false;
-          }
-        }
-        const numeric = Number(trimmed);
-        return Number.isFinite(numeric) && numeric > 0;
-      }
-      return false;
-    };
-
     if (Array.isArray(heatmapDaily)) {
       for (const row of heatmapDaily) {
         if (!row?.day) continue;
-        if (!hasUsage(row?.total_tokens)) continue;
+        if (!hasUsageValue(row?.total_tokens)) continue;
         considerDay(row.day);
       }
     }
@@ -494,7 +509,7 @@ export function DashboardPage({
         if (!cell?.day) continue;
         const value = cell?.value ?? cell?.total_tokens;
         const level = cell?.level;
-        if (!hasUsage(value, level)) continue;
+        if (!hasUsageValue(value, level)) continue;
         considerDay(cell.day);
       }
     }
@@ -807,7 +822,7 @@ export function DashboardPage({
                 name={identityHandle}
                 isPublic
                 rankLabel={identityStartDate ?? copy("identity_card.rank_placeholder")}
-                streakDays={streakDays}
+                streakDays={activeDays}
               />
 
               {!signedIn ? (
