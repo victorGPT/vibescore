@@ -13,7 +13,12 @@ export function toDisplayNumber(value) {
 
 export function formatCompactNumber(
   value,
-  { thousandSuffix = "K", millionSuffix = "M", decimals = 1 } = {}
+  {
+    thousandSuffix = "K",
+    millionSuffix = "M",
+    billionSuffix = "B",
+    decimals = 1,
+  } = {}
 ) {
   const n = Number(String(value));
   if (!Number.isFinite(n)) return "-";
@@ -29,8 +34,21 @@ export function formatCompactNumber(
     return `${sign}${normalized}${suffix}`;
   };
 
+  const formatWithCarry = (val, suffix, nextSuffix) => {
+    const fixed = val.toFixed(safeDecimals);
+    const normalized = Number(fixed);
+    if (nextSuffix && normalized >= 1000) {
+      return formatWithSuffix(normalized / 1000, nextSuffix);
+    }
+    return `${sign}${normalized.toString()}${suffix}`;
+  };
+
+  if (abs >= 1000000000) {
+    return formatWithSuffix(abs / 1000000000, billionSuffix);
+  }
+
   if (abs >= 1000000) {
-    return formatWithSuffix(abs / 1000000, millionSuffix);
+    return formatWithCarry(abs / 1000000, millionSuffix, billionSuffix);
   }
 
   const kValue = abs / 1000;

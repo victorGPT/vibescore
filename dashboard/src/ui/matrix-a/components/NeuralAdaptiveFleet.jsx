@@ -13,9 +13,11 @@ export const NeuralAdaptiveFleet = React.memo(function NeuralAdaptiveFleet({
   const percentSymbol = copy("shared.unit.percent");
   const thousandSuffix = copy("shared.unit.thousand_abbrev");
   const millionSuffix = copy("shared.unit.million_abbrev");
+  const billionSuffix = copy("shared.unit.billion_abbrev");
   const usageValue = formatCompactNumber(usage, {
     thousandSuffix,
     millionSuffix,
+    billionSuffix,
     decimals: 1,
   });
   const usageLabel = copy("dashboard.model_breakdown.usage_label", {

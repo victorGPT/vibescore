@@ -11,8 +11,10 @@ import {
   trimLeadingZeroMonths,
 } from "../lib/details.js";
 import {
+  formatCompactNumber,
   formatUsdCurrency,
   toDisplayNumber,
+  toFiniteNumber,
 } from "../lib/format.js";
 import { requestInstallLinkCode } from "../lib/vibescore-api.js";
 import { buildFleetData } from "../lib/model-breakdown.js";
@@ -62,6 +64,10 @@ export function DashboardPage({
   const [linkCodeError, setLinkCodeError] = useState(null);
   const [linkCodeExpiryTick, setLinkCodeExpiryTick] = useState(0);
   const [linkCodeRefreshToken, setLinkCodeRefreshToken] = useState(0);
+  const [compactSummary, setCompactSummary] = useState(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return false;
+    return window.matchMedia("(max-width: 640px)").matches;
+  });
   const [installCopied, setInstallCopied] = useState(false);
   const [sessionExpiredCopied, setSessionExpiredCopied] = useState(false);
   const mockEnabled = isMockEnabled();
@@ -151,9 +157,22 @@ export function DashboardPage({
       if (typeof document !== "undefined") {
         document.removeEventListener("visibilitychange", handleVisibilityChange);
       }
-      window.removeEventListener("focus", handleVisibilityChange);
-    };
-  }, [linkCodeExpiresAt]);
+    window.removeEventListener("focus", handleVisibilityChange);
+  };
+}, [linkCodeExpiresAt]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const media = window.matchMedia("(max-width: 640px)");
+    const sync = () => setCompactSummary(media.matches);
+    sync();
+    if (media.addEventListener) {
+      media.addEventListener("change", sync);
+      return () => media.removeEventListener("change", sync);
+    }
+    media.addListener(sync);
+    return () => media.removeListener(sync);
+  }, []);
 
   const timeZone = useMemo(() => getBrowserTimeZone(), []);
   const tzOffsetMinutes = useMemo(() => getBrowserTimeZoneOffsetMinutes(), []);
@@ -452,6 +471,28 @@ export function DashboardPage({
     period === "total"
       ? copy("usage.summary.total_system_output")
       : copy("usage.summary.total");
+  const thousandSuffix = copy("shared.unit.thousand_abbrev");
+  const millionSuffix = copy("shared.unit.million_abbrev");
+  const billionSuffix = copy("shared.unit.billion_abbrev");
+  const summaryNumber = toFiniteNumber(summary?.total_tokens);
+  const useCompactSummary =
+    compactSummary && summaryNumber != null && Math.abs(summaryNumber) >= 1000000000;
+  const summaryValue = useMemo(() => {
+    if (!useCompactSummary) return toDisplayNumber(summary?.total_tokens);
+    return formatCompactNumber(summaryNumber, {
+      thousandSuffix,
+      millionSuffix,
+      billionSuffix,
+      decimals: 1,
+    });
+  }, [
+    billionSuffix,
+    millionSuffix,
+    summary?.total_tokens,
+    summaryNumber,
+    thousandSuffix,
+    useCompactSummary,
+  ]);
 
   const metricsRows = useMemo(
     () => [
@@ -822,7 +863,7 @@ export function DashboardPage({
                 showSummary={period === "total"}
                 useSummaryLayout
                 summaryLabel={summaryLabel}
-                summaryValue={toDisplayNumber(summary?.total_tokens)}
+                summaryValue={summaryValue}
                 summaryCostValue={summaryCostValue}
                 onCostInfo={costInfoEnabled ? openCostModal : null}
                 onRefresh={refreshAll}

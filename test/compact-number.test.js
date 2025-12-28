@@ -14,4 +14,7 @@ test("formatCompactNumber rounds and carries", async () => {
   assert.equal(formatCompactNumber(999950), "1M");
   assert.equal(formatCompactNumber(1000000), "1M");
   assert.equal(formatCompactNumber(1250000), "1.3M");
+  assert.equal(formatCompactNumber(999950000), "1B");
+  assert.equal(formatCompactNumber(1000000000), "1B");
+  assert.equal(formatCompactNumber(1250000000), "1.3B");
 });
