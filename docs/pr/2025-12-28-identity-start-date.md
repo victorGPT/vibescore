@@ -1,10 +1,11 @@
 # PR Template (Minimal)
 
 ## PR Goal (one sentence)
-Replace IdentityCard rank display with start date label in yyyy-mm-dd format.
+Replace IdentityCard rank display with earliest usage date (yyyy-mm-dd) and render it in yellow.
 
 ## Commit Narrative
-- Commit 1: `feat(dashboard): show identity start date instead of rank`
+- Commit 1: `feat(dashboard): show earliest usage date on identity card`
+- Commit 2: `style(dashboard): render identity start date in yellow`
 
 ## Regression Test Gate
 ### Most likely regression surface

@@ -103,7 +103,7 @@ export function IdentityCard({
                   <div className="text-[7px] opacity-40 uppercase font-black">
                     {copy("identity_card.rank_label")}
                   </div>
-                  <div className="text-[#00FF41] font-black underline underline-offset-2">
+                  <div className="text-yellow-400 font-black underline underline-offset-2">
                     {rankValue}
                   </div>
                 </div>

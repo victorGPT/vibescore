@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { buildAuthUrl } from "../lib/auth-url.js";
 import { computeActiveStreakDays } from "../lib/activity-heatmap.js";
 import { copy } from "../lib/copy.js";
-import { formatDateLocal, getRangeForPeriod } from "../lib/date-range.js";
+import { getRangeForPeriod } from "../lib/date-range.js";
 import { getDetailsSortColumns, sortDailyRows } from "../lib/daily.js";
 import {
   DETAILS_PAGE_SIZE,
@@ -453,12 +453,54 @@ export function DashboardPage({
     return identityLabel.replace(/[^a-zA-Z0-9._-]/g, "_");
   }, [identityLabel]);
   const identityStartDate = useMemo(() => {
-    const raw = auth?.savedAt;
-    if (!raw) return null;
-    const ts = Date.parse(raw);
-    if (!Number.isFinite(ts)) return null;
-    return formatDateLocal(new Date(ts));
-  }, [auth?.savedAt]);
+    let earliest = null;
+
+    const considerDay = (day) => {
+      if (typeof day !== "string" || !day) return;
+      if (!earliest || day < earliest) earliest = day;
+    };
+
+    const hasUsage = (value, level) => {
+      if (typeof level === "number" && level > 0) return true;
+      if (typeof value === "bigint") return value > 0n;
+      if (typeof value === "number") return Number.isFinite(value) && value > 0;
+      if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (!trimmed) return false;
+        if (/^[0-9]+$/.test(trimmed)) {
+          try {
+            return BigInt(trimmed) > 0n;
+          } catch (_e) {
+            return false;
+          }
+        }
+        const numeric = Number(trimmed);
+        return Number.isFinite(numeric) && numeric > 0;
+      }
+      return false;
+    };
+
+    if (Array.isArray(heatmapDaily)) {
+      for (const row of heatmapDaily) {
+        if (!row?.day) continue;
+        if (!hasUsage(row?.total_tokens)) continue;
+        considerDay(row.day);
+      }
+    }
+
+    const weeks = Array.isArray(heatmap?.weeks) ? heatmap.weeks : [];
+    for (const week of weeks) {
+      for (const cell of Array.isArray(week) ? week : []) {
+        if (!cell?.day) continue;
+        const value = cell?.value ?? cell?.total_tokens;
+        const level = cell?.level;
+        if (!hasUsage(value, level)) continue;
+        considerDay(cell.day);
+      }
+    }
+
+    return earliest;
+  }, [heatmap?.weeks, heatmapDaily]);
 
   const heatmapFrom = heatmap?.from || heatmapRange.from;
   const heatmapTo = heatmap?.to || heatmapRange.to;
