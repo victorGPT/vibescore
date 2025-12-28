@@ -30,6 +30,12 @@ export const UsagePanel = React.memo(function UsagePanel({
   costInfoIcon = copy("usage.cost_info.icon"),
   summarySubLabel,
   breakdown,
+  breakdownCollapsed = false,
+  onToggleBreakdown,
+  collapseLabel,
+  expandLabel,
+  collapseAriaLabel,
+  expandAriaLabel,
   useSummaryLayout = false,
   onRefresh,
   loading = false,
@@ -40,6 +46,11 @@ export const UsagePanel = React.memo(function UsagePanel({
   className = "",
 }) {
   const tabs = normalizePeriods(periods);
+  const toggleLabel = breakdownCollapsed ? expandLabel : collapseLabel;
+  const toggleAriaLabel = breakdownCollapsed
+    ? expandAriaLabel
+    : collapseAriaLabel;
+  const showBreakdownToggle = Boolean(onToggleBreakdown && toggleLabel);
   const breakdownRows =
     breakdown && breakdown.length
       ? breakdown
@@ -93,6 +104,16 @@ export const UsagePanel = React.memo(function UsagePanel({
               <span className="text-[8px] uppercase tracking-widest opacity-50 font-black">
                 {statusLabel}
               </span>
+            ) : null}
+            {showBreakdownToggle ? (
+              <MatrixButton
+                className="px-2 py-1 text-[9px]"
+                aria-label={toggleAriaLabel}
+                title={toggleAriaLabel}
+                onClick={onToggleBreakdown}
+              >
+                {toggleLabel}
+              </MatrixButton>
             ) : null}
             {onRefresh ? (
               <MatrixButton primary disabled={loading} onClick={onRefresh}>
@@ -164,7 +185,7 @@ export const UsagePanel = React.memo(function UsagePanel({
             ) : null}
           </div>
 
-          {breakdownRows.length ? (
+          {!breakdownCollapsed && breakdownRows.length ? (
             <div className="w-full px-6">
               <div className="grid grid-cols-2 gap-3 border-t border-b border-[#00FF41]/10 py-4 relative">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1px] h-full bg-[#00FF41]/10"></div>

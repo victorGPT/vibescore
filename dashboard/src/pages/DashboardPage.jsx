@@ -68,6 +68,7 @@ export function DashboardPage({
     if (typeof window === "undefined" || !window.matchMedia) return false;
     return window.matchMedia("(max-width: 640px)").matches;
   });
+  const [coreIndexCollapsed, setCoreIndexCollapsed] = useState(true);
   const [installCopied, setInstallCopied] = useState(false);
   const [sessionExpiredCopied, setSessionExpiredCopied] = useState(false);
   const mockEnabled = isMockEnabled();
@@ -536,6 +537,11 @@ export function DashboardPage({
     useCompactSummary,
   ]);
 
+  const coreIndexCollapseLabel = copy("dashboard.core_index.collapse_label");
+  const coreIndexExpandLabel = copy("dashboard.core_index.expand_label");
+  const coreIndexCollapseAria = copy("dashboard.core_index.collapse_aria");
+  const coreIndexExpandAria = copy("dashboard.core_index.expand_aria");
+
   const metricsRows = useMemo(
     () => [
       {
@@ -908,6 +914,14 @@ export function DashboardPage({
                 summaryValue={summaryValue}
                 summaryCostValue={summaryCostValue}
                 onCostInfo={costInfoEnabled ? openCostModal : null}
+                breakdownCollapsed={coreIndexCollapsed}
+                onToggleBreakdown={() =>
+                  setCoreIndexCollapsed((value) => !value)
+                }
+                collapseLabel={coreIndexCollapseLabel}
+                expandLabel={coreIndexExpandLabel}
+                collapseAriaLabel={coreIndexCollapseAria}
+                expandAriaLabel={coreIndexExpandAria}
                 onRefresh={refreshAll}
                 loading={usageLoadingState}
                 error={usageError}

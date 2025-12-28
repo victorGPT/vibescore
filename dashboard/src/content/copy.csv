@@ -98,6 +98,10 @@ identity_panel.rank_placeholder,ui,IdentityPanel,IdentityPanel,rank_placeholder,
 identity_panel.streak_value,ui,IdentityPanel,IdentityPanel,streak_value,"{{days}}_DAYS",,active
 
 usage.panel.title,ui,UsagePanel,UsagePanel,title,"CORE_INDEX",,active
+dashboard.core_index.collapse_label,dashboard,DashboardPage,UsagePanel,toggle,"▾",,active
+dashboard.core_index.expand_label,dashboard,DashboardPage,UsagePanel,toggle,"▸",,active
+dashboard.core_index.collapse_aria,dashboard,DashboardPage,UsagePanel,toggle_aria,"Collapse CORE_INDEX breakdown",,active
+dashboard.core_index.expand_aria,dashboard,DashboardPage,UsagePanel,toggle_aria,"Expand CORE_INDEX breakdown",,active
 usage.summary.total_system_output,ui,UsagePanel,UsagePanel,summary_label_total_system,"TOTAL_SYSTEM_OUTPUT",,active
 usage.summary.total,ui,UsagePanel,UsagePanel,summary_label_total,"TOTAL_TOKENS",,active
 usage.summary.since,ui,UsagePanel,UsagePanel,summary_label_since,"SINCE {{range}} {{tz}}",,active
