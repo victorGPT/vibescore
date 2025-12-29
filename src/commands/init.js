@@ -421,7 +421,7 @@ async function installLocalTrackerApp({ appDir }) {
 
 function spawnInitSync({ trackerBinPath, packageName }) {
   const fallbackPkg = packageName || '@vibescore/tracker';
-  const argv = ['sync'];
+  const argv = ['sync', '--drain'];
   const hasLocalRuntime = typeof trackerBinPath === 'string' && fssync.existsSync(trackerBinPath);
   const cmd = hasLocalRuntime
     ? [process.execPath, trackerBinPath, ...argv]

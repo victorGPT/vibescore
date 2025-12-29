@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 ### Changed
 - Dashboard install panel restores the copy button and link code fetch flow.
+- Init now runs a drain sync to upload all queued buckets immediately.
 
 ### Fixed
 - Link code exchange uses records API to avoid RPC gateway 404s.
