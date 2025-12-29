@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+## [0.2.1] - 2025-12-29
 ### Changed
 - Dashboard install panel restores the copy button and link code fetch flow.
 - Init now runs a drain sync to upload all queued buckets immediately.
