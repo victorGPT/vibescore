@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Changed
-- Dashboard install panel temporarily hides the copy button and link code fetch flow.
+- Dashboard install panel restores the copy button and link code fetch flow.
 
 ### Fixed
 - Link code exchange uses records API to avoid RPC gateway 404s.

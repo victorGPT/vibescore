@@ -32,26 +32,22 @@ test("copy registry includes link code install keys", () => {
   }
 });
 
-test("DashboardPage omits link code install copy flow", () => {
+test("DashboardPage wires link code install copy flow", () => {
   const src = readFile(pagePath);
   assert.ok(
     src.includes("dashboard.install.cmd.init"),
     "expected base install command usage"
   );
   assert.ok(
+    src.includes("dashboard.install.cmd.init_link_code"),
+    "expected link code install command usage for copy"
+  );
+  assert.ok(
     src.includes("const installInitCmdDisplay = installInitCmdBase;"),
     "expected install display to stay on base command"
   );
   assert.ok(
-    !src.includes("dashboard.install.cmd.init_link_code"),
-    "expected link code copy command to be removed"
-  );
-  assert.ok(
-    !src.includes("dashboard.install.copy"),
-    "expected install copy labels to be removed"
-  );
-  assert.ok(
-    !src.includes("handleCopyInstall"),
-    "expected install copy handler to be removed"
+    src.includes("safeWriteClipboard"),
+    "expected clipboard helper usage"
   );
 });

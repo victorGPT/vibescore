@@ -15,6 +15,7 @@ import {
   toDisplayNumber,
   toFiniteNumber,
 } from "../lib/format.js";
+import { requestInstallLinkCode } from "../lib/vibescore-api.js";
 import { buildFleetData } from "../lib/model-breakdown.js";
 import { safeWriteClipboard } from "../lib/safe-browser.js";
 import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
@@ -76,11 +77,18 @@ export function DashboardPage({
 }) {
   const [booted, setBooted] = useState(false);
   const [costModalOpen, setCostModalOpen] = useState(false);
+  const [linkCode, setLinkCode] = useState(null);
+  const [linkCodeExpiresAt, setLinkCodeExpiresAt] = useState(null);
+  const [linkCodeLoading, setLinkCodeLoading] = useState(false);
+  const [linkCodeError, setLinkCodeError] = useState(null);
+  const [linkCodeExpiryTick, setLinkCodeExpiryTick] = useState(0);
+  const [linkCodeRefreshToken, setLinkCodeRefreshToken] = useState(0);
   const [compactSummary, setCompactSummary] = useState(() => {
     if (typeof window === "undefined" || !window.matchMedia) return false;
     return window.matchMedia("(max-width: 640px)").matches;
   });
   const [coreIndexCollapsed, setCoreIndexCollapsed] = useState(true);
+  const [installCopied, setInstallCopied] = useState(false);
   const [sessionExpiredCopied, setSessionExpiredCopied] = useState(false);
   const mockEnabled = isMockEnabled();
   const accessEnabled = signedIn || mockEnabled;
@@ -88,6 +96,93 @@ export function DashboardPage({
     const t = window.setTimeout(() => setBooted(true), 900);
     return () => window.clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    if (!signedIn || mockEnabled) {
+      setLinkCode(null);
+      setLinkCodeExpiresAt(null);
+      setLinkCodeLoading(false);
+      setLinkCodeError(null);
+      return;
+    }
+    let active = true;
+    setLinkCodeLoading(true);
+    setLinkCodeError(null);
+    requestInstallLinkCode({ baseUrl, accessToken: auth?.accessToken || null })
+      .then((data) => {
+        if (!active) return;
+        setLinkCode(typeof data?.link_code === "string" ? data.link_code : null);
+        setLinkCodeExpiresAt(
+          typeof data?.expires_at === "string" ? data.expires_at : null
+        );
+      })
+      .catch((err) => {
+        if (!active) return;
+        setLinkCode(null);
+        setLinkCodeExpiresAt(null);
+        setLinkCodeError(err?.message || "Failed to load link code");
+      })
+      .finally(() => {
+        if (!active) return;
+        setLinkCodeLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [baseUrl, mockEnabled, signedIn, auth?.accessToken, linkCodeRefreshToken]);
+
+  const linkCodeExpired = useMemo(() => {
+    if (!linkCodeExpiresAt) return false;
+    const ts = Date.parse(linkCodeExpiresAt);
+    if (!Number.isFinite(ts)) return false;
+    const now = linkCodeExpiryTick || Date.now();
+    return ts <= now;
+  }, [linkCodeExpiresAt, linkCodeExpiryTick]);
+
+  useEffect(() => {
+    if (!signedIn || mockEnabled) return;
+    if (!linkCodeExpiresAt || !linkCodeExpired) return;
+    if (linkCodeLoading) return;
+    setLinkCode(null);
+    setLinkCodeExpiresAt(null);
+    setLinkCodeError(null);
+    setLinkCodeRefreshToken((value) => value + 1);
+  }, [
+    linkCodeExpired,
+    linkCodeExpiresAt,
+    linkCodeLoading,
+    mockEnabled,
+    signedIn,
+  ]);
+
+  useEffect(() => {
+    if (!linkCodeExpiresAt) return;
+    const ts = Date.parse(linkCodeExpiresAt);
+    if (!Number.isFinite(ts)) return;
+    const now = Date.now();
+    setLinkCodeExpiryTick(now);
+    if (ts <= now) return;
+    const timeoutId = window.setTimeout(
+      () => setLinkCodeExpiryTick(Date.now()),
+      ts - now
+    );
+    const handleVisibilityChange = () => {
+      if (typeof document === "undefined") return;
+      if (document.visibilityState !== "visible") return;
+      setLinkCodeExpiryTick(Date.now());
+    };
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+    }
+    window.addEventListener("focus", handleVisibilityChange);
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      }
+      window.removeEventListener("focus", handleVisibilityChange);
+    };
+  }, [linkCodeExpiresAt]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
@@ -516,8 +611,18 @@ export function DashboardPage({
     summaryCostValue && summaryCostValue !== "-" && fleetData.length > 0;
 
   const installInitCmdBase = copy("dashboard.install.cmd.init");
+  const resolvedLinkCode = !linkCodeExpired ? linkCode : null;
   const installInitCmdDisplay = installInitCmdBase;
+  const installInitCmdCopy = resolvedLinkCode
+    ? copy("dashboard.install.cmd.init_link_code", {
+        link_code: resolvedLinkCode,
+      })
+    : installInitCmdBase;
   const installSyncCmd = copy("dashboard.install.cmd.sync");
+  const installCopyLabel = resolvedLinkCode
+    ? copy("dashboard.install.copy")
+    : copy("dashboard.install.copy_base");
+  const installCopiedLabel = copy("dashboard.install.copied");
   const sessionExpiredCopyLabel = copy("dashboard.session_expired.copy_label");
   const sessionExpiredCopiedLabel = copy("dashboard.session_expired.copied");
   const installSeenKey = "vibescore.dashboard.install.seen.v1";
@@ -563,6 +668,14 @@ export function DashboardPage({
     ],
     [installInitCmdDisplay]
   );
+
+  const handleCopyInstall = useCallback(async () => {
+    if (!installInitCmdCopy) return;
+    const didCopy = await safeWriteClipboard(installInitCmdCopy);
+    if (!didCopy) return;
+    setInstallCopied(true);
+    window.setTimeout(() => setInstallCopied(false), 2000);
+  }, [installInitCmdCopy]);
 
   const handleCopySessionExpired = useCallback(async () => {
     if (!installInitCmdBase) return;
@@ -754,6 +867,22 @@ export function DashboardPage({
                   wrap
                   active={shouldAnimateInstall}
                 />
+                <div className="mt-4 flex flex-col gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <MatrixButton onClick={handleCopyInstall}>
+                      {installCopied ? installCopiedLabel : installCopyLabel}
+                    </MatrixButton>
+                    {linkCodeLoading ? (
+                      <span className="text-[9px] opacity-40">
+                        {copy("dashboard.install.link_code.loading")}
+                      </span>
+                    ) : linkCodeError ? (
+                      <span className="text-[9px] opacity-40">
+                        {copy("dashboard.install.link_code.failed")}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
               </AsciiBox>
 
               <AsciiBox
