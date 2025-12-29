@@ -35,15 +35,15 @@ test("copy registry includes link code install keys", () => {
 test("DashboardPage wires link code install copy flow", () => {
   const src = readFile(pagePath);
   assert.ok(
-    src.includes("dashboard.install.cmd.init_link_code"),
-    "expected link code install command usage"
+    src.includes("dashboard.install.cmd.init"),
+    "expected base install command usage"
+  );
+  assert.ok(
+    !src.includes("dashboard.install.cmd.init_link_code"),
+    "expected link code install command to be hidden"
   );
   assert.ok(
     src.includes("safeWriteClipboard"),
     "expected clipboard helper usage"
-  );
-  assert.ok(
-    src.includes("maskSecret"),
-    "expected masked display helper"
   );
 });

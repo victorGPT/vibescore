@@ -609,12 +609,7 @@ export function DashboardPage({
 
   const installInitCmdBase = copy("dashboard.install.cmd.init");
   const resolvedLinkCode = !linkCodeExpired ? linkCode : null;
-  const linkCodeMasked = resolvedLinkCode ? maskSecret(resolvedLinkCode) : null;
-  const installInitCmdDisplay = resolvedLinkCode
-    ? copy("dashboard.install.cmd.init_link_code", {
-        link_code: linkCodeMasked,
-      })
-    : installInitCmdBase;
+  const installInitCmdDisplay = installInitCmdBase;
   const installInitCmdCopy = installInitCmdBase;
   const installSyncCmd = copy("dashboard.install.cmd.sync");
   const installCopyLabel = resolvedLinkCode
@@ -1075,11 +1070,4 @@ export function DashboardPage({
       />
     </>
   );
-}
-
-function maskSecret(value) {
-  if (typeof value !== "string") return "";
-  const s = value.trim();
-  if (s.length <= 8) return "***";
-  return `${s.slice(0, 4)}...${s.slice(-4)}`;
 }
