@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-test('link code exchange payload uses rpc parameter names', () => {
+test('link code exchange uses records API (no rpc)', () => {
   const filePath = path.join(
     __dirname,
     '..',
@@ -12,17 +12,8 @@ test('link code exchange payload uses rpc parameter names', () => {
     'vibescore-link-code-exchange.js'
   );
   const src = fs.readFileSync(filePath, 'utf8');
-  const requiredKeys = [
-    'p_code_hash',
-    'p_request_id',
-    'p_device_name',
-    'p_platform',
-    'p_token_hash'
-  ];
-  for (const key of requiredKeys) {
-    assert.ok(
-      src.includes(key),
-      `expected payload to include ${key}`
-    );
-  }
+  assert.ok(src.includes('vibescore_link_codes'), 'expected link code table access');
+  assert.ok(src.includes('vibescore_tracker_devices'), 'expected device table access');
+  assert.ok(src.includes('vibescore_tracker_device_tokens'), 'expected token table access');
+  assert.ok(!src.includes('/rpc/'), 'expected rpc path to be removed');
 });

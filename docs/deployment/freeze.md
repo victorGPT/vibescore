@@ -29,3 +29,9 @@
 - Change ID: `fix-link-code-exchange-rpc-path` (bug fix; no OpenSpec change)
 - Freeze artifact: `insforge-functions/vibescore-link-code-exchange.js` (built via `npm run build:insforge`)
 - Cold regression step: `node scripts/acceptance/link-code-exchange.cjs`
+
+## 2025-12-29-link-code-exchange-records
+- Scope: link code exchange uses records API (no RPC dependency)
+- Change ID: `fix-link-code-exchange-records` (bug fix; no OpenSpec change)
+- Freeze artifact: `insforge-functions/vibescore-link-code-exchange.js` (built via `npm run build:insforge`)
+- Cold regression step: `node scripts/acceptance/link-code-exchange.cjs`

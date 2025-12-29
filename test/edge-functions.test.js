@@ -74,6 +74,102 @@ function createServiceDbMock() {
   };
 }
 
+function createLinkCodeExchangeDbMock(linkCodeRow) {
+  const inserts = [];
+  const updates = [];
+  const deletes = [];
+  let row = linkCodeRow ? { ...linkCodeRow } : null;
+
+  function matchesFilters(target, filters) {
+    if (!target) return false;
+    return filters.every((filter) => {
+      if (filter.op === 'eq') return target[filter.col] === filter.value;
+      if (filter.op === 'is') {
+        if (filter.value === null) return target[filter.col] == null;
+        return target[filter.col] === filter.value;
+      }
+      return false;
+    });
+  }
+
+  function from(table) {
+    if (table === 'vibescore_link_codes') {
+      return {
+        select: (columns) => {
+          const q = { table, columns, filters: [] };
+          return {
+            eq: (col, value) => {
+              q.filters.push({ op: 'eq', col, value });
+              return {
+                maybeSingle: async () => ({
+                  data: matchesFilters(row, q.filters) ? row : null,
+                  error: null
+                })
+              };
+            }
+          };
+        },
+        update: (values) => {
+          const q = { table, values, filters: [] };
+          const builder = {
+            eq: (col, value) => {
+              q.filters.push({ op: 'eq', col, value });
+              return builder;
+            },
+            is: (col, value) => {
+              q.filters.push({ op: 'is', col, value });
+              return builder;
+            },
+            select: (columns) => {
+              q.columns = columns;
+              return builder;
+            },
+            maybeSingle: async () => {
+              updates.push(q);
+              if (!matchesFilters(row, q.filters)) {
+                return { data: null, error: null };
+              }
+              row = { ...row, ...values };
+              return { data: row, error: null };
+            }
+          };
+          return builder;
+        }
+      };
+    }
+
+    if (table === 'vibescore_tracker_devices' || table === 'vibescore_tracker_device_tokens') {
+      return {
+        insert: async (rows) => {
+          inserts.push({ table, rows });
+          return { error: null };
+        },
+        delete: () => ({
+          eq: async (col, value) => {
+            deletes.push({ table, col, value });
+            return { error: null };
+          }
+        })
+      };
+    }
+
+    return {
+      insert: async () => ({ error: null }),
+      delete: () => ({
+        eq: async () => ({ error: null })
+      })
+    };
+  }
+
+  return {
+    db: { from },
+    inserts,
+    updates,
+    deletes,
+    getRow: () => row
+  };
+}
+
 const ORIGINAL_DENO = globalThis.Deno;
 const ORIGINAL_CREATE_CLIENT = globalThis.createClient;
 const ORIGINAL_FETCH = globalThis.fetch;
@@ -1867,21 +1963,28 @@ test('vibescore-link-code-init issues a short-lived link code', async () => {
   assert.equal(row.used_at, null);
 });
 
-test('vibescore-link-code-exchange calls rpc with hash and returns device token', async () => {
+test('vibescore-link-code-exchange creates device token and marks link code used', async () => {
   const fn = require('../insforge-functions/vibescore-link-code-exchange');
 
   const linkCode = 'link_code_test';
   const requestId = 'req_123';
-  const deviceId = 'device_abc';
   const userId = '77777777-7777-7777-7777-777777777777';
+  const linkCodeRow = {
+    id: 'link_code_id',
+    user_id: userId,
+    code_hash: createHash('sha256').update(linkCode).digest('hex'),
+    expires_at: new Date(Date.now() + 60_000).toISOString(),
+    used_at: null,
+    request_id: null,
+    device_id: null
+  };
+  const db = createLinkCodeExchangeDbMock(linkCodeRow);
 
-  const calls = [];
-  globalThis.fetch = async (url, init) => {
-    calls.push({ url, init });
-    return new Response(JSON.stringify({ device_id: deviceId, user_id: userId }), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' }
-    });
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return { database: db.db };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
   const req = new Request('http://localhost/functions/vibescore-link-code-exchange', {
@@ -1899,14 +2002,67 @@ test('vibescore-link-code-exchange calls rpc with hash and returns device token'
     .update(`${SERVICE_ROLE_KEY}:${codeHash}:${requestId}`)
     .digest('hex');
   const expectedTokenHash = createHash('sha256').update(expectedToken).digest('hex');
+
   assert.equal(body.token, expectedToken);
-  assert.equal(body.device_id, deviceId);
   assert.equal(body.user_id, userId);
 
-  assert.equal(calls.length, 1);
-  assert.ok(String(calls[0].url).includes('/rpc/vibescore_exchange_link_code'));
-  const payload = JSON.parse(calls[0].init?.body || '{}');
-  assert.equal(payload.p_code_hash, codeHash);
-  assert.equal(payload.p_request_id, requestId);
-  assert.equal(payload.p_token_hash, expectedTokenHash);
+  const deviceInsert = db.inserts.find((entry) => entry.table === 'vibescore_tracker_devices');
+  assert.ok(deviceInsert, 'device insert missing');
+  const deviceRow = deviceInsert.rows[0];
+  assert.equal(body.device_id, deviceRow.id);
+
+  const tokenInsert = db.inserts.find((entry) => entry.table === 'vibescore_tracker_device_tokens');
+  assert.ok(tokenInsert, 'token insert missing');
+  assert.equal(tokenInsert.rows[0].token_hash, expectedTokenHash);
+  assert.equal(tokenInsert.rows[0].device_id, deviceRow.id);
+
+  const update = db.updates.find((entry) => entry.table === 'vibescore_link_codes');
+  assert.ok(update, 'link code update missing');
+  assert.equal(update.values.request_id, requestId);
+  assert.equal(update.values.device_id, deviceRow.id);
+  assert.equal(
+    update.filters.some((filter) => filter.op === 'is' && filter.col === 'used_at' && filter.value === null),
+    true
+  );
+});
+
+test('vibescore-link-code-exchange returns existing device for repeated request', async () => {
+  const fn = require('../insforge-functions/vibescore-link-code-exchange');
+
+  const linkCode = 'link_code_used';
+  const requestId = 'req_repeat';
+  const userId = '88888888-8888-8888-8888-888888888888';
+  const deviceId = 'device_existing';
+  const linkCodeRow = {
+    id: 'link_code_id_used',
+    user_id: userId,
+    code_hash: createHash('sha256').update(linkCode).digest('hex'),
+    expires_at: new Date(Date.now() + 60_000).toISOString(),
+    used_at: new Date().toISOString(),
+    request_id: requestId,
+    device_id: deviceId
+  };
+  const db = createLinkCodeExchangeDbMock(linkCodeRow);
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return { database: db.db };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibescore-link-code-exchange', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ link_code: linkCode, request_id: requestId })
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+
+  assert.equal(body.device_id, deviceId);
+  assert.equal(body.user_id, userId);
+  assert.equal(db.inserts.length, 0);
+  assert.equal(db.updates.length, 0);
 });

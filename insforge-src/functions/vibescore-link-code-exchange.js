@@ -4,11 +4,15 @@
 'use strict';
 
 const { handleOptions, json, requireMethod, readJson } = require('../shared/http');
-const { getBaseUrl, getServiceRoleKey } = require('../shared/env');
+const { getAnonKey, getBaseUrl, getServiceRoleKey } = require('../shared/env');
 const { sha256Hex } = require('../shared/crypto');
 const { withRequestLogging } = require('../shared/logging');
 
-module.exports = withRequestLogging('vibescore-link-code-exchange', async function(request, ctx) {
+const ISSUE_ERROR_MESSAGE = 'Link code exchange failed';
+const DEVICE_NAME_FALLBACK = 'VibeScore CLI';
+const PLATFORM_FALLBACK = 'macos';
+
+module.exports = withRequestLogging('vibescore-link-code-exchange', async function(request) {
   const opt = handleOptions(request);
   if (opt) return opt;
 
@@ -30,39 +34,104 @@ module.exports = withRequestLogging('vibescore-link-code-exchange', async functi
   const serviceRoleKey = getServiceRoleKey();
   if (!serviceRoleKey) return json({ error: 'Missing service role key' }, 500);
 
+  const anonKey = getAnonKey();
+  const dbClient = createClient({
+    baseUrl,
+    anonKey: anonKey || serviceRoleKey,
+    edgeFunctionToken: serviceRoleKey
+  });
+
   const codeHash = await sha256Hex(linkCode);
   const token = await deriveToken({ secret: serviceRoleKey, codeHash, requestId });
   const tokenHash = await sha256Hex(token);
 
-  const url = new URL('/rpc/vibescore_exchange_link_code', baseUrl);
-  const res = await ctx.fetch(url.toString(), {
-    method: 'POST',
-    headers: {
-      apikey: serviceRoleKey,
-      Authorization: `Bearer ${serviceRoleKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      p_code_hash: codeHash,
-      p_request_id: requestId,
-      p_device_name: deviceName,
-      p_platform: platform,
-      p_token_hash: tokenHash
-    })
-  });
+  const { row: linkRow, error: linkErr } = await fetchLinkCodeRow({ dbClient, codeHash });
+  if (linkErr) {
+    logIssueError('link code select failed', linkErr?.message || ISSUE_ERROR_MESSAGE);
+    return json({ error: ISSUE_ERROR_MESSAGE }, 500);
+  }
+  if (!linkRow) return json({ error: 'invalid link code' }, 400);
 
-  const { data, error } = await readApiJson(res);
-  if (!res.ok) {
-    const msg = error || 'Link code exchange failed';
-    return json({ error: msg }, res.status >= 400 ? res.status : 500);
+  if (linkRow.used_at) {
+    if (linkRow.request_id === requestId && typeof linkRow.device_id === 'string') {
+      return json({ token, device_id: linkRow.device_id, user_id: linkRow.user_id }, 200);
+    }
+    return json({ error: 'link code already used' }, 409);
   }
 
-  const row = Array.isArray(data) ? data[0] : data;
-  if (!row || typeof row.device_id !== 'string' || typeof row.user_id !== 'string') {
-    return json({ error: 'Link code exchange failed' }, 500);
+  if (isExpired(linkRow.expires_at)) {
+    return json({ error: 'link code expired' }, 400);
   }
 
-  return json({ token, device_id: row.device_id, user_id: row.user_id }, 200);
+  const userId = linkRow.user_id;
+  if (typeof userId !== 'string' || userId.length === 0) {
+    logIssueError('link code missing user_id', ISSUE_ERROR_MESSAGE);
+    return json({ error: ISSUE_ERROR_MESSAGE }, 500);
+  }
+
+  const deviceId = crypto.randomUUID();
+  const tokenId = crypto.randomUUID();
+  const nowIso = new Date().toISOString();
+
+  const { error: deviceErr } = await dbClient.database
+    .from('vibescore_tracker_devices')
+    .insert([
+      {
+        id: deviceId,
+        user_id: userId,
+        device_name: deviceName || DEVICE_NAME_FALLBACK,
+        platform: platform || PLATFORM_FALLBACK
+      }
+    ]);
+  if (deviceErr) {
+    logIssueError('device insert failed', deviceErr?.message || ISSUE_ERROR_MESSAGE);
+    return json({ error: ISSUE_ERROR_MESSAGE }, 500);
+  }
+
+  const { error: tokenErr } = await dbClient.database
+    .from('vibescore_tracker_device_tokens')
+    .insert([
+      {
+        id: tokenId,
+        user_id: userId,
+        device_id: deviceId,
+        token_hash: tokenHash
+      }
+    ]);
+  if (tokenErr) {
+    logIssueError('token insert failed', tokenErr?.message || ISSUE_ERROR_MESSAGE);
+    await bestEffortDeleteDevice({ dbClient, deviceId, userId });
+    return json({ error: ISSUE_ERROR_MESSAGE }, 500);
+  }
+
+  const { data: updatedRow, error: updateErr } = await dbClient.database
+    .from('vibescore_link_codes')
+    .update({ used_at: nowIso, request_id: requestId, device_id: deviceId })
+    .eq('id', linkRow.id)
+    .is('used_at', null)
+    .select('user_id, device_id, request_id')
+    .maybeSingle();
+
+  if (updateErr) {
+    logIssueError('link code update failed', updateErr?.message || ISSUE_ERROR_MESSAGE);
+    await bestEffortDeleteToken({ dbClient, tokenId });
+    await bestEffortDeleteDevice({ dbClient, deviceId, userId });
+    return json({ error: ISSUE_ERROR_MESSAGE }, 500);
+  }
+
+  if (updatedRow && typeof updatedRow.device_id === 'string') {
+    return json({ token, device_id: updatedRow.device_id, user_id: updatedRow.user_id }, 200);
+  }
+
+  await bestEffortDeleteToken({ dbClient, tokenId });
+  await bestEffortDeleteDevice({ dbClient, deviceId, userId });
+
+  const { row: freshRow } = await fetchLinkCodeRow({ dbClient, codeHash });
+  if (freshRow && freshRow.request_id === requestId && typeof freshRow.device_id === 'string') {
+    return json({ token, device_id: freshRow.device_id, user_id: freshRow.user_id }, 200);
+  }
+
+  return json({ error: 'link code already used' }, 409);
 });
 
 function sanitizeText(value, maxLen) {
@@ -77,13 +146,49 @@ async function deriveToken({ secret, codeHash, requestId }) {
   return sha256Hex(input);
 }
 
-async function readApiJson(res) {
-  const text = await res.text();
-  if (!text) return { data: null, error: null };
+async function fetchLinkCodeRow({ dbClient, codeHash }) {
+  const { data, error } = await dbClient.database
+    .from('vibescore_link_codes')
+    .select('id,user_id,expires_at,used_at,request_id,device_id')
+    .eq('code_hash', codeHash)
+    .maybeSingle();
+  return { row: data || null, error };
+}
+
+function isExpired(expiresAt) {
+  if (typeof expiresAt !== 'string') return true;
+  const ts = Date.parse(expiresAt);
+  if (!Number.isFinite(ts)) return true;
+  return ts <= Date.now();
+}
+
+async function bestEffortDeleteToken({ dbClient, tokenId }) {
   try {
-    const parsed = JSON.parse(text);
-    return { data: parsed, error: parsed?.message || parsed?.error || null };
-  } catch (_e) {
-    return { data: null, error: text.slice(0, 300) };
+    const { error } = await dbClient.database
+      .from('vibescore_tracker_device_tokens')
+      .delete()
+      .eq('id', tokenId);
+    if (error) {
+      logIssueError('compensation token delete failed', ISSUE_ERROR_MESSAGE);
+    }
+  } catch (_err) {
+    logIssueError('compensation token delete threw', ISSUE_ERROR_MESSAGE);
   }
+}
+
+async function bestEffortDeleteDevice({ dbClient, deviceId, userId }) {
+  try {
+    let query = dbClient.database.from('vibescore_tracker_devices').delete().eq('id', deviceId);
+    if (userId) query = query.eq('user_id', userId);
+    const { error } = await query;
+    if (error) {
+      logIssueError('compensation device delete failed', ISSUE_ERROR_MESSAGE);
+    }
+  } catch (_err) {
+    logIssueError('compensation device delete threw', ISSUE_ERROR_MESSAGE);
+  }
+}
+
+function logIssueError(stage, message) {
+  console.error(`link code exchange ${stage}: ${message}`);
 }
