@@ -6,24 +6,23 @@ import {
   safeWriteClipboard,
 } from "../../../lib/safe-browser.js";
 
-export function UpgradeAlertModal({
-  requiredVersion = "0.2.2",
-  installCommand,
-  onClose,
-}) {
+export function UpgradeAlertModal({ requiredVersion, installCommand, onClose }) {
+  const normalizedRequired =
+    typeof requiredVersion === "string" ? requiredVersion.trim() : "";
+  if (!normalizedRequired) return null;
   const resolvedInstallCommand =
     installCommand ?? copy("dashboard.upgrade_alert.install_command");
   const sparkleLabel = copy("dashboard.upgrade_alert.sparkle");
   const titleLabel = copy("dashboard.upgrade_alert.title");
   const subtitleLabel = copy("dashboard.upgrade_alert.subtitle", {
-    required: requiredVersion,
+    required: normalizedRequired,
   });
   const promptLabel = copy("dashboard.upgrade_alert.prompt");
   const copyLabel = copy("dashboard.upgrade_alert.copy");
   const copiedLabel = copy("dashboard.upgrade_alert.copied");
   const ignoreLabel = copy("dashboard.upgrade_alert.ignore");
   const [copied, setCopied] = useState(false);
-  const storageKey = `vibescore_upgrade_dismissed_${requiredVersion}`;
+  const storageKey = `vibescore_upgrade_dismissed_${normalizedRequired}`;
   const [isVisible, setIsVisible] = useState(() => {
     // If running on server, default to true (or handle hydration mismatch)
     if (typeof window === "undefined") return true;
