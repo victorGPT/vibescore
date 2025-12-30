@@ -23,19 +23,19 @@ export function LandingExtras({
           />
           <div className="flex-1 text-left space-y-3">
             <div className="flex flex-col">
-              <label className="text-[8px] opacity-40 uppercase tracking-widest mb-1 font-bold">
+              <label className="text-caption text-matrix-muted uppercase mb-2 font-bold">
                 {copy("landing.handle.label")}
               </label>
               <input
                 type="text"
                 value={handle}
                 onChange={onHandleChange}
-                className="w-full bg-transparent border-b border-[#00FF41]/50 text-white font-black text-xl p-1 focus:outline-none focus:border-[#00FF41] transition-colors"
+                className="w-full bg-transparent border-b border-matrix-dim text-matrix-bright font-black text-2xl md:text-3xl p-1 focus:outline-none focus:border-matrix-primary transition-colors"
                 maxLength={10}
                 placeholder={handlePlaceholder}
               />
             </div>
-            <div className="text-[8px] opacity-60">{rankLabel}</div>
+            <div className="text-caption text-matrix-muted">{rankLabel}</div>
           </div>
         </div>
       </SignalBox>

@@ -16,6 +16,7 @@ export function useUsageData({
   cacheKey,
   timeZone,
   tzOffsetMinutes,
+  now,
 } = {}) {
   const [daily, setDaily] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -86,6 +87,7 @@ export function useUsageData({
         nextDaily = fillDailyGaps(nextDaily, from, to, {
           timeZone,
           offsetMinutes: tzOffsetMinutes,
+          now,
         });
       }
       const nextSummary = shouldDeriveSummary
@@ -117,6 +119,7 @@ export function useUsageData({
           ? fillDailyGaps(cachedDaily, cached.from || from, cached.to || to, {
               timeZone,
               offsetMinutes: tzOffsetMinutes,
+              now,
             })
           : cachedDaily;
         setDaily(filledDaily);
@@ -140,6 +143,7 @@ export function useUsageData({
     includeDaily,
     deriveSummaryFromDaily,
     mockEnabled,
+    now,
     readCache,
     timeZone,
     to,
@@ -165,6 +169,7 @@ export function useUsageData({
         ? fillDailyGaps(cachedDaily, cached.from || from, cached.to || to, {
             timeZone,
             offsetMinutes: tzOffsetMinutes,
+            now,
           })
         : cachedDaily;
       setDaily(filledDaily);
@@ -218,14 +223,16 @@ function addUtcDays(date, days) {
   );
 }
 
-function fillDailyGaps(rows, from, to, { timeZone, offsetMinutes } = {}) {
+function fillDailyGaps(rows, from, to, { timeZone, offsetMinutes, now } = {}) {
   const start = parseUtcDate(from);
   const end = parseUtcDate(to);
   if (!start || !end || end < start) return Array.isArray(rows) ? rows : [];
 
-  const todayKey = getLocalDayKey({ timeZone, offsetMinutes, date: new Date() });
+  const baseDate =
+    now instanceof Date && Number.isFinite(now.getTime()) ? now : new Date();
+  const todayKey = getLocalDayKey({ timeZone, offsetMinutes, date: baseDate });
   const today = parseUtcDate(todayKey);
-  const todayTime = today ? today.getTime() : new Date().getTime();
+  const todayTime = today ? today.getTime() : baseDate.getTime();
 
   const byDay = new Map();
   for (const row of rows || []) {

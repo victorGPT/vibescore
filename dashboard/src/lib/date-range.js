@@ -40,8 +40,12 @@ function formatDateParts(parts) {
   return `${y}-${m}-${d}`;
 }
 
-export function getRangeForPeriod(period, { timeZone, offsetMinutes } = {}) {
-  const parts = getLocalDateParts({ timeZone, offsetMinutes, date: new Date() });
+export function getRangeForPeriod(
+  period,
+  { timeZone, offsetMinutes, now } = {}
+) {
+  const baseDate = now instanceof Date && Number.isFinite(now.getTime()) ? now : new Date();
+  const parts = getLocalDateParts({ timeZone, offsetMinutes, date: baseDate });
   if (!parts) {
     const fallbackKey = formatDateLocal(new Date());
     return { from: fallbackKey, to: fallbackKey };

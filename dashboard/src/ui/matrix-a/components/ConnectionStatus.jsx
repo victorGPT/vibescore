@@ -23,8 +23,8 @@ export function ConnectionStatus({
   const configs = {
     STABLE: {
       text: copy("status.link.stable"),
-      color: "text-[#00FF41]",
-      bg: "bg-[#00FF41]",
+      color: "text-matrix-primary",
+      bg: "bg-matrix-primary",
       glow: "shadow-[0_0_10px_#00FF41]",
       indicator: bit,
       anim: "animate-pulse",
@@ -56,10 +56,9 @@ export function ConnectionStatus({
       onClick={onClick}
       title={title}
       className={[
-        "flex items-center space-x-3 font-mono transition-all duration-700",
-        "p-2 border border-white/5 bg-black/20",
+        "matrix-header-chip matrix-header-action font-matrix transition-all duration-700",
         onClick
-          ? "hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00FF41]/30"
+          ? "hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-matrix-primary/30"
           : null,
         current.color,
         className,
@@ -67,12 +66,12 @@ export function ConnectionStatus({
         .filter(Boolean)
         .join(" ")}
     >
-      <span className="text-[10px] font-black uppercase tracking-[0.2em]">
+      <span className="text-caption font-bold uppercase">
         {current.text}
       </span>
       <div className="flex items-center">
-        <span className="text-[8px] opacity-30 mr-1">[</span>
-        <span className="text-[9px] w-[8px] inline-block text-center font-black">
+        <span className="text-caption text-matrix-dim mr-1">[</span>
+        <span className="text-caption w-[10px] inline-block text-center font-black">
           {current.indicator}
         </span>
         <div
@@ -85,7 +84,7 @@ export function ConnectionStatus({
             .filter(Boolean)
             .join(" ")}
         ></div>
-        <span className="text-[8px] opacity-30 ml-1">]</span>
+        <span className="text-caption text-matrix-dim ml-1">]</span>
       </div>
     </Comp>
   );

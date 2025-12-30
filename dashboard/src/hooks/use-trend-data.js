@@ -21,6 +21,7 @@ export function useTrendData({
   cacheKey,
   timeZone,
   tzOffsetMinutes,
+  now,
   sharedRows,
   sharedRange,
 } = {}) {
@@ -133,16 +134,19 @@ export function useTrendData({
         nextRows = fillDailyGaps(nextRows, nextFrom || from, nextTo || to, {
           timeZone,
           offsetMinutes: tzOffsetMinutes,
+          now,
         });
       } else if (mode === "hourly") {
         nextRows = markHourlyFuture(nextRows, {
           timeZone,
           offsetMinutes: tzOffsetMinutes,
+          now,
         });
       } else if (mode === "monthly") {
         nextRows = markMonthlyFuture(nextRows, {
           timeZone,
           offsetMinutes: tzOffsetMinutes,
+          now,
         });
       }
       const nowIso = new Date().toISOString();
@@ -167,6 +171,7 @@ export function useTrendData({
             ? fillDailyGaps(cached.rows || [], cached.from || from, cached.to || to, {
                 timeZone,
                 offsetMinutes: tzOffsetMinutes,
+                now,
               })
             : Array.isArray(cached.rows)
             ? cached.rows
@@ -175,11 +180,13 @@ export function useTrendData({
           filledRows = markHourlyFuture(filledRows, {
             timeZone,
             offsetMinutes: tzOffsetMinutes,
+            now,
           });
         } else if (mode === "monthly") {
           filledRows = markMonthlyFuture(filledRows, {
             timeZone,
             offsetMinutes: tzOffsetMinutes,
+            now,
           });
         }
         setRows(filledRows);
@@ -212,6 +219,7 @@ export function useTrendData({
     timeZone,
     to,
     tzOffsetMinutes,
+    now,
     writeCache,
   ]);
 
@@ -238,10 +246,11 @@ export function useTrendData({
     if (cached?.rows) {
       let filledRows =
         mode === "daily"
-          ? fillDailyGaps(cached.rows || [], cached.from || from, cached.to || to, {
-              timeZone,
-              offsetMinutes: tzOffsetMinutes,
-            })
+        ? fillDailyGaps(cached.rows || [], cached.from || from, cached.to || to, {
+            timeZone,
+            offsetMinutes: tzOffsetMinutes,
+            now,
+          })
         : Array.isArray(cached.rows)
         ? cached.rows
         : [];
@@ -249,11 +258,13 @@ export function useTrendData({
         filledRows = markHourlyFuture(filledRows, {
           timeZone,
           offsetMinutes: tzOffsetMinutes,
+          now,
         });
       } else if (mode === "monthly") {
         filledRows = markMonthlyFuture(filledRows, {
           timeZone,
           offsetMinutes: tzOffsetMinutes,
+          now,
         });
       }
       setRows(filledRows);
@@ -309,14 +320,16 @@ function addUtcDays(date, days) {
   );
 }
 
-function fillDailyGaps(rows, from, to, { timeZone, offsetMinutes } = {}) {
+function fillDailyGaps(rows, from, to, { timeZone, offsetMinutes, now } = {}) {
   const start = parseUtcDate(from);
   const end = parseUtcDate(to);
   if (!start || !end || end < start) return Array.isArray(rows) ? rows : [];
 
-  const todayKey = getLocalDayKey({ timeZone, offsetMinutes, date: new Date() });
+  const baseDate =
+    now instanceof Date && Number.isFinite(now.getTime()) ? now : new Date();
+  const todayKey = getLocalDayKey({ timeZone, offsetMinutes, date: baseDate });
   const today = parseUtcDate(todayKey);
-  const todayTime = today ? today.getTime() : new Date().getTime();
+  const todayTime = today ? today.getTime() : baseDate.getTime();
 
   const byDay = new Map();
   for (const row of rows || []) {
@@ -347,9 +360,9 @@ function fillDailyGaps(rows, from, to, { timeZone, offsetMinutes } = {}) {
   return filled;
 }
 
-function markHourlyFuture(rows, { timeZone, offsetMinutes } = {}) {
+function markHourlyFuture(rows, { timeZone, offsetMinutes, now } = {}) {
   if (!Array.isArray(rows)) return [];
-  const nowParts = getNowParts({ timeZone, offsetMinutes });
+  const nowParts = getNowParts({ timeZone, offsetMinutes, now });
   if (!nowParts) return rows;
 
   return rows.map((row) => {
@@ -365,9 +378,9 @@ function markHourlyFuture(rows, { timeZone, offsetMinutes } = {}) {
   });
 }
 
-function markMonthlyFuture(rows, { timeZone, offsetMinutes } = {}) {
+function markMonthlyFuture(rows, { timeZone, offsetMinutes, now } = {}) {
   if (!Array.isArray(rows)) return [];
-  const nowParts = getNowParts({ timeZone, offsetMinutes });
+  const nowParts = getNowParts({ timeZone, offsetMinutes, now });
   if (!nowParts) return rows;
 
   return rows.map((row) => {
@@ -383,8 +396,9 @@ function markMonthlyFuture(rows, { timeZone, offsetMinutes } = {}) {
   });
 }
 
-function getNowParts({ timeZone, offsetMinutes } = {}) {
-  const now = new Date();
+function getNowParts({ timeZone, offsetMinutes, now } = {}) {
+  const baseDate =
+    now instanceof Date && Number.isFinite(now.getTime()) ? now : new Date();
   if (timeZone && typeof Intl !== "undefined" && Intl.DateTimeFormat) {
     try {
       const formatter = new Intl.DateTimeFormat("en-CA", {
@@ -396,7 +410,7 @@ function getNowParts({ timeZone, offsetMinutes } = {}) {
         minute: "2-digit",
         hourCycle: "h23",
       });
-      const parts = formatter.formatToParts(now);
+      const parts = formatter.formatToParts(baseDate);
       const values = parts.reduce((acc, part) => {
         if (part.type && part.value) acc[part.type] = part.value;
         return acc;
@@ -430,7 +444,7 @@ function getNowParts({ timeZone, offsetMinutes } = {}) {
   }
 
   if (Number.isFinite(offsetMinutes)) {
-    const shifted = new Date(now.getTime() + offsetMinutes * 60 * 1000);
+    const shifted = new Date(baseDate.getTime() + offsetMinutes * 60 * 1000);
     const year = shifted.getUTCFullYear();
     const month = shifted.getUTCMonth() + 1;
     const day = shifted.getUTCDate();
@@ -448,11 +462,11 @@ function getNowParts({ timeZone, offsetMinutes } = {}) {
     };
   }
 
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const day = now.getDate();
-  const hour = now.getHours();
-  const minute = now.getMinutes();
+  const year = baseDate.getFullYear();
+  const month = baseDate.getMonth() + 1;
+  const day = baseDate.getDate();
+  const hour = baseDate.getHours();
+  const minute = baseDate.getMinutes();
   const slot = hour * 2 + (minute >= 30 ? 1 : 0);
   return {
     year,

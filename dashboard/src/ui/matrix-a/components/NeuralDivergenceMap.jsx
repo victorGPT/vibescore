@@ -36,7 +36,7 @@ export const NeuralDivergenceMap = React.memo(function NeuralDivergenceMap({
         })}
       </div>
       {footer ? (
-        <div className="mt-auto pt-1 border-t border-white/5 opacity-10 text-[7px] uppercase tracking-[0.4em] text-center italic leading-none">
+        <div className="mt-auto pt-3 border-t border-matrix-ghost text-caption uppercase text-center italic leading-none text-matrix-dim">
           {footer}
         </div>
       ) : null}

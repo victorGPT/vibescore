@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/geist-mono": "^5.2.0",
     "@insforge/sdk": "^1.0.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

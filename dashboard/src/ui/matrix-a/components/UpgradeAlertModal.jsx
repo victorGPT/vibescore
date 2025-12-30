@@ -48,7 +48,7 @@ export function UpgradeAlertModal({
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[200] border-b border-[#FFD700]/30 bg-black/95 backdrop-blur-md shadow-[0_0_20px_rgba(255,215,0,0.1)] overflow-hidden">
+    <div className="fixed top-0 left-0 right-0 z-[200] border-b border-gold/30 bg-matrix-dark/95 backdrop-blur-md shadow-[0_0_20px_rgba(255,215,0,0.1)] overflow-hidden">
       {/* Scanline effect */}
       <div className="absolute inset-0 pointer-events-none opacity-10">
         <div className="w-full h-full bg-[linear-gradient(rgba(255,215,0,0)_50%,rgba(255,215,0,0.1)_50%)] bg-[length:100%_4px]" />
@@ -59,10 +59,10 @@ export function UpgradeAlertModal({
         <div className="flex items-center space-x-3">
           <span className="text-xl animate-pulse">{sparkleLabel}</span>
           <div className="flex flex-col">
-            <h3 className="text-[#FFD700] font-black tracking-tighter text-[10px] uppercase leading-none">
+            <h3 className="text-gold font-black text-heading uppercase leading-none">
               {titleLabel}
             </h3>
-            <p className="text-[8px] text-[#FFD700]/60 font-mono uppercase tracking-widest mt-0.5">
+            <p className="text-caption text-gold/60 uppercase mt-1">
               {subtitleLabel}
             </p>
           </div>
@@ -70,18 +70,18 @@ export function UpgradeAlertModal({
 
         {/* Middle: Command Area */}
         <div className="flex-1 flex items-center justify-center max-w-xl w-full">
-          <div className="flex items-center w-full bg-black/50 border border-[#FFD700]/20 pl-3 rounded-sm group hover:border-[#FFD700]/40 transition-all overflow-hidden">
-            <span className="font-mono text-[9px] text-[#FFD700]/80 shrink-0">
+          <div className="flex items-center w-full bg-matrix-panel border border-gold/20 pl-3 rounded-sm group hover:border-gold/40 transition-all overflow-hidden">
+            <span className="text-caption text-gold/80 shrink-0">
               {promptLabel}
             </span>
             <input
               readOnly
               value={resolvedInstallCommand}
-              className="bg-transparent border-none text-[10px] font-mono text-gray-300 w-full px-2 py-1 outline-none pointer-events-none"
+              className="bg-transparent border-none text-body text-gray-300 w-full px-2 py-1 outline-none pointer-events-none"
             />
             <button
               onClick={handleCopy}
-              className="shrink-0 bg-[#FFD700]/10 hover:bg-[#FFD700]/20 border-l border-[#FFD700]/20 px-3 py-1.5 text-[9px] font-black uppercase text-[#FFD700] transition-all"
+              className="shrink-0 bg-gold/10 hover:bg-gold/20 border-l border-gold/20 px-3 py-1.5 text-caption font-black uppercase text-gold transition-all"
             >
               {copied ? copiedLabel : copyLabel}
             </button>
@@ -92,7 +92,7 @@ export function UpgradeAlertModal({
         <div className="flex items-center space-x-4">
           <button
             onClick={handleDismiss}
-            className="text-[9px] font-black uppercase text-[#FFD700]/40 hover:text-[#FFD700] transition-all tracking-[0.2em]"
+            className="text-caption font-black uppercase text-gold/40 hover:text-gold transition-all tracking-[0.2em]"
           >
             {ignoreLabel}
           </button>

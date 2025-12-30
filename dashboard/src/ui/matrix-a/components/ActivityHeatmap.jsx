@@ -365,7 +365,7 @@ export function ActivityHeatmap({ heatmap, timeZoneLabel, timeZoneShortLabel }) 
 
   if (!weeks.length) {
     return (
-      <div className="text-[10px] opacity-40 font-mono">
+      <div className="text-caption text-matrix-muted">
         {copy("heatmap.empty")}
       </div>
     );
@@ -427,7 +427,7 @@ export function ActivityHeatmap({ heatmap, timeZoneLabel, timeZoneShortLabel }) 
           >
             <div
               style={gridColumns}
-              className="text-[8px] uppercase opacity-40 tracking-widest mb-2"
+              className="text-caption uppercase text-matrix-muted mb-2"
             >
               <span></span>
               {monthMarkers.map((label) => (
@@ -444,7 +444,7 @@ export function ActivityHeatmap({ heatmap, timeZoneLabel, timeZoneShortLabel }) 
             <div style={gridColumns}>
               <div
                 style={labelRows}
-                className="text-[8px] uppercase opacity-40 tracking-widest"
+                className="text-caption uppercase text-matrix-muted sticky left-0 z-10 bg-matrix-panel pr-2"
               >
                 {dayLabels.map((label) => (
                   <span key={label} className="leading-none">
@@ -485,7 +485,7 @@ export function ActivityHeatmap({ heatmap, timeZoneLabel, timeZoneShortLabel }) 
                           unit: copy("heatmap.unit.tokens"),
                           tz: tzDetail,
                         })}
-                        className="rounded-[2px] border border-[#00FF41]/10"
+                        className="rounded-[2px] border border-matrix-ghost"
                         style={{
                           width: CELL_SIZE,
                           height: CELL_SIZE,
@@ -504,7 +504,7 @@ export function ActivityHeatmap({ heatmap, timeZoneLabel, timeZoneShortLabel }) 
       {/* Custom Scrollbar Track */}
       <div
         ref={trackRef}
-        className="heatmap-scrollbar-track relative h-[6px] rounded-full bg-[#00FF41]/10 border border-[#00FF41]/20 overflow-visible mt-1 transition-opacity duration-150"
+        className="heatmap-scrollbar-track relative h-[6px] rounded-full bg-matrix-panelStrong border border-matrix-ghost overflow-visible mt-1 transition-opacity duration-150"
         style={{
           opacity: showScrollbar ? 1 : 0,
           pointerEvents: showScrollbar ? "auto" : "none",
@@ -527,14 +527,14 @@ export function ActivityHeatmap({ heatmap, timeZoneLabel, timeZoneShortLabel }) 
         />
       </div>
 
-      <div className="flex justify-between items-center text-[7px] border-t border-[#00FF41]/5 pt-2 opacity-40 font-black uppercase tracking-widest">
+      <div className="flex justify-between items-center text-caption border-t border-matrix-ghost pt-2 text-matrix-muted font-bold uppercase">
         <div className="flex items-center gap-2">
           <span>{copy("heatmap.legend.less")}</span>
           <div className="flex gap-1">
             {[0, 1, 2, 3, 4].map((level) => (
               <span
                 key={level}
-                className="rounded-[2px] border border-[#00FF41]/10"
+                className="rounded-[2px] border border-matrix-ghost"
                 style={{
                   width: 10,
                   height: 10,

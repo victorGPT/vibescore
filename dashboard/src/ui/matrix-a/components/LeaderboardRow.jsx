@@ -25,32 +25,34 @@ export function LeaderboardRow({
   isTheOne,
   className = "",
 }) {
-  const highlight = isSelf ? "bg-[#00FF41]/20 border-l-2 border-l-[#00FF41]" : "";
+  const highlight = isSelf
+    ? "bg-matrix-panelStrong border-l-2 border-l-matrix-primary"
+    : "";
   const rankValue = Number(rank);
   const showGold = Boolean(isTheOne ?? rankValue === 1);
 
   return (
     <div
-      className={`flex justify-between items-center py-2 px-2 border-b border-[#00FF41]/10 hover:bg-[#00FF41]/5 group ${highlight} ${className}`}
+      className={`flex justify-between items-center py-3 px-2 border-b border-matrix-ghost hover:bg-matrix-panel group ${highlight} ${className}`}
     >
       <div className="flex items-center space-x-3">
         <span
-          className={`font-mono text-[9px] w-6 ${
-            rankValue <= 3 ? "text-[#00FF41] font-bold" : "opacity-40"
+          className={`text-caption w-6 ${
+            rankValue <= 3 ? "text-matrix-primary font-bold" : "text-matrix-muted"
           }`}
         >
           {formatRank(rank)}
         </span>
         <MatrixAvatar name={name} isAnon={isAnon} isTheOne={showGold} size={24} />
         <span
-          className={`text-[10px] uppercase font-bold tracking-tight ${
-            isAnon ? "opacity-30 blur-[1px]" : "text-white"
+          className={`text-body uppercase font-bold tracking-tight ${
+            isAnon ? "text-matrix-dim blur-[1px]" : "text-matrix-bright"
           }`}
         >
           {name}
         </span>
       </div>
-      <span className="font-mono text-[10px] text-[#00FF41]">
+      <span className="text-body font-bold text-matrix-primary">
         {formatValue(value)}
       </span>
     </div>

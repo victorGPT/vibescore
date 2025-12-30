@@ -115,7 +115,7 @@ usage.metric.cached_short,ui,UsagePanel,UsagePanel,metric_cached_short,"CACHED",
 usage.metric.reasoning_short,ui,UsagePanel,UsagePanel,metric_reasoning_short,"REASONING",,active
 usage.button.loading,ui,UsagePanel,UsagePanel,button_loading,"Loading…",,active
 usage.button.refresh,ui,UsagePanel,UsagePanel,button_refresh,"Refresh",,active
-usage.cost_info.icon,ui,UsagePanel,UsagePanel,cost_info_icon,"ⓘ",,active
+usage.cost_info.icon,ui,UsagePanel,UsagePanel,cost_info_icon,"[ KEY ]",,active
 usage.cost_info.label,ui,UsagePanel,UsagePanel,cost_info_label,"Detail",,active
 usage.range_label,ui,UsagePanel,UsagePanel,range_label,"Range: {{range}}",,active
 
@@ -260,16 +260,16 @@ dashboard.auth_optional.body,dashboard,DashboardPage,AsciiBox,body,"Sign in / si
 dashboard.install.title,dashboard,DashboardPage,AsciiBox,title,"Install",,active
 dashboard.install.subtitle,dashboard,DashboardPage,AsciiBox,subtitle,"CLI",,active
 dashboard.install.headline,dashboard,DashboardPage,AsciiBox,headline,">> START_HERE: INSTALL_CLI",,active
-dashboard.install.step1,dashboard,DashboardPage,AsciiBox,install_step,"1) run",,active
+dashboard.install.step1,dashboard,DashboardPage,AsciiBox,install_step,"1) run the copied install command in your CLI",,active
 dashboard.install.cmd.init,dashboard,DashboardPage,AsciiBox,install_cmd,"npx --yes @vibescore/tracker init",,active
 dashboard.install.cmd.init_link_code,dashboard,DashboardPage,AsciiBox,install_cmd,"npx --yes @vibescore/tracker init --link-code {{link_code}}",,active
-dashboard.install.copy,dashboard,DashboardPage,AsciiBox,install_copy,"Copy install script",,active
-dashboard.install.copy_base,dashboard,DashboardPage,AsciiBox,install_copy,"Copy base command",,active
-dashboard.install.copied,dashboard,DashboardPage,AsciiBox,install_copy,"Copied",,active
+dashboard.install.copy,dashboard,DashboardPage,AsciiBox,install_copy,"Copy install command",,active
+dashboard.install.copy_base,dashboard,DashboardPage,AsciiBox,install_copy,"Copy init command",,active
+dashboard.install.copied,dashboard,DashboardPage,AsciiBox,install_copy,"Copied to clipboard",,active
 dashboard.install.link_code.loading,dashboard,DashboardPage,AsciiBox,install_status,"Generating private code...",,active
 dashboard.install.link_code.failed,dashboard,DashboardPage,AsciiBox,install_status,"Private code unavailable",,active
-dashboard.install.step2,dashboard,DashboardPage,AsciiBox,install_step,"2) use Codex, Claude Code or Gemini CLI normally",,active
-dashboard.install.step3,dashboard,DashboardPage,AsciiBox,install_step,"3) wait for auto sync",,active
+dashboard.install.step2,dashboard,DashboardPage,AsciiBox,install_step,"2) use Codex, Claude Code, Gemini CLI, or OpenCode as usual",,active
+dashboard.install.step3,dashboard,DashboardPage,AsciiBox,install_step,"3) wait for auto sync to complete",,active
 dashboard.install.cmd.sync,dashboard,DashboardPage,AsciiBox,install_cmd,"npx --yes @vibescore/tracker sync",,active
 
 dashboard.activity.title,dashboard,DashboardPage,AsciiBox,title,"Activity_Grid",,active

@@ -65,16 +65,16 @@ export const CostAnalysisModal = React.memo(function CostAnalysisModal({
   const totalUsdLabel = formatUsdValue(totalUsd);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-matrix-dark/95 backdrop-blur-md">
       <div className="w-full max-w-2xl transform animate-in fade-in zoom-in duration-200">
         <AsciiBox title={copy("dashboard.cost_breakdown.title")}>
           <div className="space-y-8 py-4">
-            <div className="text-center pb-6 border-b border-[#00FF41]/20">
-              <div className="text-[10px] opacity-40 uppercase tracking-[0.4em] mb-2 font-bold text-[#00FF41]">
+            <div className="text-center pb-6 border-b border-matrix-ghost">
+              <div className="text-caption text-matrix-muted uppercase mb-2 font-bold">
                 {copy("dashboard.cost_breakdown.total_label")}
               </div>
               <div
-                className="text-5xl font-black text-[#FFD700] tracking-tighter"
+                className="text-body font-black text-gold tracking-tight"
                 style={{ textShadow: "0 0 20px rgba(255, 215, 0, 0.4)" }}
               >
                 {totalUsdLabel}
@@ -84,11 +84,11 @@ export const CostAnalysisModal = React.memo(function CostAnalysisModal({
             <div className="space-y-6 max-h-[45vh] overflow-y-auto no-scrollbar pr-2">
               {normalizedFleet.map((fleet, index) => (
                 <div key={`${fleet.label}-${index}`} className="space-y-3">
-                  <div className="flex justify-between items-baseline border-b border-white/5 pb-1">
-                    <span className="text-[11px] font-black text-white uppercase tracking-widest">
+                  <div className="flex justify-between items-baseline border-b border-matrix-ghost pb-2">
+                    <span className="text-body font-black text-matrix-bright uppercase tracking-widest">
                       {fleet.label}
                     </span>
-                    <span className="text-[10px] font-bold text-[#FFD700]">
+                    <span className="text-body font-bold text-gold">
                       {fleet.usdLabel}
                     </span>
                   </div>
@@ -96,7 +96,7 @@ export const CostAnalysisModal = React.memo(function CostAnalysisModal({
                     {fleet.models.map((model, modelIndex) => (
                       <div
                         key={`${model.name}-${modelIndex}`}
-                        className="flex justify-between text-[9px] font-mono text-[#00FF41]/60"
+                        className="flex justify-between text-caption text-matrix-muted"
                       >
                         <span>
                           {model.name} ({model.shareLabel})
@@ -111,15 +111,15 @@ export const CostAnalysisModal = React.memo(function CostAnalysisModal({
               ))}
             </div>
 
-            <div className="pt-6 border-t border-[#00FF41]/20 flex justify-between items-center">
+            <div className="pt-6 border-t border-matrix-ghost flex justify-between items-center">
               <button
                 onClick={onClose}
-                className="text-[10px] font-black uppercase text-[#00FF41] border border-[#00FF41]/40 px-6 py-2 hover:bg-[#00FF41] hover:text-black transition-all"
+                className="text-caption font-bold uppercase text-matrix-primary border border-matrix-dim px-6 py-2 hover:bg-matrix-primary hover:text-black transition-all"
                 type="button"
               >
                 {copy("dashboard.cost_breakdown.close")}
               </button>
-              <p className="text-[7px] opacity-20 uppercase font-mono text-[#00FF41]">
+              <p className="text-caption text-matrix-dim uppercase">
                 {copy("dashboard.cost_breakdown.footer")}
               </p>
             </div>

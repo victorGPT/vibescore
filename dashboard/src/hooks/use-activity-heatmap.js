@@ -17,10 +17,11 @@ export function useActivityHeatmap({
   cacheKey,
   timeZone,
   tzOffsetMinutes,
+  now,
 } = {}) {
   const range = useMemo(() => {
-    return getHeatmapRangeLocal({ weeks, weekStartsOn });
-  }, [weeks, weekStartsOn]);
+    return getHeatmapRangeLocal({ weeks, weekStartsOn, now });
+  }, [now, weeks, weekStartsOn]);
   const [daily, setDaily] = useState([]);
   const [heatmap, setHeatmap] = useState(null);
   const [source, setSource] = useState("edge");

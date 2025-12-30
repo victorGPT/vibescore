@@ -20,6 +20,44 @@ export function isMockEnabled() {
   return false;
 }
 
+function readMockNowRaw() {
+  if (typeof import.meta !== "undefined" && import.meta.env) {
+    const envNow = String(import.meta.env.VITE_VIBESCORE_MOCK_NOW || "").trim();
+    if (envNow) return envNow;
+    const envToday = String(import.meta.env.VITE_VIBESCORE_MOCK_TODAY || "").trim();
+    if (envToday) return envToday;
+  }
+  if (typeof window !== "undefined") {
+    const params = new URLSearchParams(window.location.search);
+    const queryNow = String(params.get("mock_now") || "").trim();
+    if (queryNow) return queryNow;
+    const queryToday = String(params.get("mock_today") || "").trim();
+    if (queryToday) return queryToday;
+  }
+  return "";
+}
+
+function parseMockNow(raw) {
+  if (!raw) return null;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const [y, m, d] = trimmed.split("-").map(Number);
+    if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+      return null;
+    }
+    const localNoon = new Date(y, m - 1, d, 12, 0, 0);
+    return Number.isFinite(localNoon.getTime()) ? localNoon : null;
+  }
+  const parsed = new Date(trimmed);
+  return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+export function getMockNow() {
+  if (!isMockEnabled()) return null;
+  return parseMockNow(readMockNowRaw());
+}
+
 function readMockSeed() {
   if (typeof import.meta !== "undefined" && import.meta.env) {
     const seed = String(import.meta.env.VITE_VIBESCORE_MOCK_SEED || "").trim();

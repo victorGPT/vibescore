@@ -15,6 +15,7 @@ export function TrendMonitor({
   period,
   timeZoneLabel,
   showTimeZoneLabel = true,
+  className = "",
 }) {
   const series = Array.isArray(rows) && rows.length ? rows : null;
   const fallbackValues = data.length > 0 ? data : Array.from({ length: 48 }, () => 0);
@@ -58,8 +59,9 @@ export function TrendMonitor({
   const plotSpan = Math.max(plotWidth - xPadding * 2, 0);
   const stepWithPadding =
     pointCount > 1 ? plotSpan / (pointCount - 1) : 0;
-  const plotTop = 4;
-  const plotBottom = 4;
+  const pointRadius = 2.4;
+  const plotTop = Math.max(6, pointRadius + 3);
+  const plotBottom = Math.max(8, pointRadius + 4);
   const plotHeight = height - plotTop - plotBottom;
 
   function parseDate(value) {
@@ -235,7 +237,29 @@ export function TrendMonitor({
     });
     if (current.length) segments.push(current);
     return segments;
-  }, [max, plotHeight, plotTop, plotWidth, pointCount, seriesValues, stepWithPadding, xPadding]);
+  }, [
+    max,
+    plotHeight,
+    plotTop,
+    plotWidth,
+    pointCount,
+    seriesValues,
+    stepWithPadding,
+    xPadding,
+  ]);
+  const singlePoints = useMemo(() => {
+    if (!lineSegments.length) return [];
+    return lineSegments
+      .filter((segment) => segment.length === 1)
+      .map((segment, idx) => {
+        const pt = segment[0];
+        const clampedY = Math.min(
+          Math.max(pt.y, plotTop + pointRadius),
+          plotTop + plotHeight
+        );
+        return { key: `single-${idx}`, x: pt.x, y: clampedY };
+      });
+  }, [lineSegments, plotHeight, plotTop, pointRadius]);
 
   function solveSmoothPath(points) {
     if (!Array.isArray(points) || points.length === 0) return "";
@@ -265,28 +289,6 @@ export function TrendMonitor({
     return d;
   }
 
-  const missingPoints = useMemo(() => {
-    if (!series || seriesValues.length === 0) return [];
-    return seriesMeta
-      .map((meta, i) => {
-        if (!meta?.missing || meta?.future) return null;
-        const x =
-          pointCount > 1 ? xPadding + i * stepWithPadding : plotWidth / 2;
-        const y = plotTop + plotHeight;
-        return { x, y, index: i };
-      })
-      .filter(Boolean);
-  }, [
-    plotHeight,
-    plotTop,
-    plotWidth,
-    pointCount,
-    series,
-    seriesMeta,
-    seriesValues.length,
-    stepWithPadding,
-    xPadding,
-  ]);
   const xLabels = useMemo(() => buildXAxisLabels(), [from, period, to]);
 
   const plotRef = useRef(null);
@@ -337,23 +339,25 @@ export function TrendMonitor({
   }
 
   return (
-    <div className="w-full h-full min-h-[160px] flex flex-col relative group select-none bg-[#050505] border border-white/10 p-1">
-      <div className="flex items-center leading-none px-1 mb-1">
-        <span className="shrink-0 text-[#00FF41]/30">{ASCII_CHARS.TOP_LEFT}</span>
-        <span className="mx-2 shrink-0 font-black uppercase tracking-[0.2em] text-[#00FF41] px-2 py-0.5 bg-[#00FF41]/10 text-[9px] border border-[#00FF41]/20">
+    <div
+      className={`w-full h-full min-h-[160px] flex flex-col relative group select-none matrix-panel p-2 ${className}`}
+    >
+      <div className="flex items-center leading-none px-1 mb-2">
+        <span className="shrink-0 text-matrix-dim">{ASCII_CHARS.TOP_LEFT}</span>
+        <span className="mx-3 shrink-0 text-heading uppercase text-matrix-primary px-2 py-1 bg-matrix-panelStrong border border-matrix-ghost">
           {label}
         </span>
-        <div className="flex gap-3 text-[8px] font-mono text-[#00FF41]/50">
+        <div className="flex gap-3 text-caption text-matrix-muted">
           <span>{copy("trend.monitor.max_label", { value: Math.round(max) })}</span>
           <span>{copy("trend.monitor.avg_label", { value: Math.round(avg) })}</span>
         </div>
-        <span className="flex-1 overflow-hidden whitespace-nowrap opacity-10 text-[#00FF41]">
+        <span className="flex-1 overflow-hidden whitespace-nowrap text-matrix-ghost">
           {ASCII_CHARS.HORIZONTAL.repeat(100)}
         </span>
-        <span className="shrink-0 text-[#00FF41]/30">{ASCII_CHARS.TOP_RIGHT}</span>
+        <span className="shrink-0 text-matrix-dim">{ASCII_CHARS.TOP_RIGHT}</span>
       </div>
 
-      <div className="flex-1 relative overflow-hidden border border-white/5 bg-black/40">
+      <div className="flex-1 relative overflow-hidden border border-matrix-ghost bg-matrix-panel">
         <div
           className="absolute inset-0 opacity-10 pointer-events-none"
           style={{
@@ -380,20 +384,7 @@ export function TrendMonitor({
           </defs>
 
           {lineSegments.map((segment, idx) => {
-            if (segment.length < 2) {
-              const pt = segment[0];
-              return (
-                <circle
-                  key={`seg-dot-${idx}`}
-                  cx={pt.x}
-                  cy={pt.y}
-                  r="2"
-                  fill={color}
-                  opacity="0.9"
-                  className="drop-shadow-[0_0_5px_rgba(0,255,65,0.8)]"
-                />
-              );
-            }
+            if (segment.length < 2) return null;
             const first = segment[0];
             const last = segment[segment.length - 1];
             const linePath = solveSmoothPath(segment);
@@ -414,22 +405,19 @@ export function TrendMonitor({
               </React.Fragment>
             );
           })}
-          {missingPoints.map((pt) => (
-            <circle
-              key={`missing-${pt.index}`}
-              cx={pt.x}
-              cy={pt.y}
-              r="2.2"
-              fill="none"
-              stroke={color}
-              strokeWidth="1"
-              strokeDasharray="2 2"
-              opacity="0.8"
-            />
-          ))}
         </svg>
+        {singlePoints.map((pt) => (
+          <div
+            key={pt.key}
+            className="absolute z-15 w-2.5 h-2.5 rounded-full bg-[#00FF41] shadow-[0_0_8px_rgba(0,255,65,0.85)]"
+            style={{
+              left: `calc(${(pt.x / width) * 100}% - 5px)`,
+              top: `calc(${(pt.y / height) * 100}% - 5px)`,
+            }}
+          />
+        ))}
 
-        <div className="absolute right-0 top-0 bottom-0 flex flex-col justify-between py-1 px-1 text-[7px] font-mono text-[#00FF41]/60 pointer-events-none bg-black/70 border-l border-white/5 w-8 text-right">
+        <div className="absolute right-0 top-0 bottom-0 flex flex-col justify-between py-1 px-1 text-caption text-matrix-muted pointer-events-none bg-matrix-panelStrong border-l border-matrix-ghost w-10 text-right">
           <span>{formatCompact(max)}</span>
           <span>{formatCompact(max * 0.75)}</span>
           <span>{formatCompact(max * 0.5)}</span>
@@ -460,7 +448,7 @@ export function TrendMonitor({
               ></div>
             </div>
             <div
-              className="absolute z-30 px-2 py-1 text-[9px] font-mono bg-black/90 border border-[#00FF41]/30 text-[#00FF41] pointer-events-none"
+              className="absolute z-30 px-3 py-2 text-caption bg-matrix-panelStrong border border-matrix-ghost text-matrix-bright pointer-events-none"
               style={{
                 left: Math.min(
                   hover.x + 10,
@@ -469,7 +457,7 @@ export function TrendMonitor({
                 top: Math.max(hover.y - 24, 6),
               }}
             >
-              <div className="opacity-70">
+              <div className="text-matrix-muted">
                 {formatTooltipLabel(hover.label)}
               </div>
               {hover.missing ? (
@@ -487,13 +475,13 @@ export function TrendMonitor({
         ) : null}
       </div>
 
-      <div className="h-4 flex justify-between items-center px-1 mt-1 text-[8px] font-mono text-[#00FF41]/40 border-t border-white/5 pt-1">
+      <div className="h-5 flex justify-between items-center px-1 mt-2 text-caption text-matrix-muted border-t border-matrix-ghost pt-2">
         {xLabels.map((labelText, idx) => (
           <span
             key={`${labelText}-${idx}`}
             className={
               labelText === copy("trend.monitor.now_label")
-                ? "text-[#00FF41] font-bold animate-pulse"
+                ? "text-matrix-primary font-bold animate-pulse"
                 : ""
             }
           >
