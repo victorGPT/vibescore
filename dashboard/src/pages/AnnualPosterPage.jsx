@@ -117,30 +117,8 @@ export function AnnualPosterPage({ baseUrl, auth, signedIn }) {
         value: toDisplayNumber(summary?.total_tokens),
         valueClassName: "text-white",
       },
-      {
-        label: copy("usage.metric.input"),
-        value: toDisplayNumber(summary?.input_tokens),
-      },
-      {
-        label: copy("usage.metric.output"),
-        value: toDisplayNumber(summary?.output_tokens),
-      },
-      {
-        label: copy("usage.metric.cached_input"),
-        value: toDisplayNumber(summary?.cached_input_tokens),
-      },
-      {
-        label: copy("usage.metric.reasoning_output"),
-        value: toDisplayNumber(summary?.reasoning_output_tokens),
-      },
     ],
-    [
-      summary?.cached_input_tokens,
-      summary?.input_tokens,
-      summary?.output_tokens,
-      summary?.reasoning_output_tokens,
-      summary?.total_tokens,
-    ]
+    [summary?.total_tokens]
   );
 
   const summaryCostValue = useMemo(() => {
@@ -251,14 +229,14 @@ export function AnnualPosterPage({ baseUrl, auth, signedIn }) {
                   metrics={metricsRows}
                   showSummary
                   useSummaryLayout
-                  summaryLabel={summaryLabel}
-                  summaryValue={summaryValue}
-                  summaryCostValue={summaryCostValue}
-                  summaryAnimate={false}
-                  breakdownCollapsed={false}
-                  hideHeader
-                  className="min-h-[360px]"
-                />
+                summaryLabel={summaryLabel}
+                summaryValue={summaryValue}
+                summaryCostValue={summaryCostValue}
+                summaryAnimate={false}
+                breakdownCollapsed
+                hideHeader
+                className="min-h-[360px]"
+              />
 
                 <div className="matrix-panel border border-matrix-ghost p-3 h-full min-h-[360px]">
                   <TrendMonitor

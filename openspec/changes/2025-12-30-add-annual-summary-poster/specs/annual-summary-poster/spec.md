@@ -23,6 +23,13 @@
 - **WHEN** 海报视图渲染
 - **THEN** 视角固定为 2025-01-01 至 2025-12-31 的年度范围
 
+### Requirement: Hide input breakdown metrics
+系统 SHALL 在海报视图中隐藏输入/输出/缓存输入/推理输出四项明细模块，仅保留总量摘要。
+
+#### Scenario: Summary only
+- **WHEN** 海报视图渲染
+- **THEN** Usage 区域不展示四项输入相关明细模块
+
 ### Requirement: Poster headline copy
 系统 SHALL 展示“年度总结”标题文案，并从 copy registry 读取。
 
