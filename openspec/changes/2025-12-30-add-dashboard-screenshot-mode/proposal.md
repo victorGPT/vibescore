@@ -9,6 +9,8 @@
 - 截图模式下隐藏安装区与明细表。
 - 截图模式下隐藏 Core Index 的四项输入明细模块。
 - 在非生产环境的 Dashboard 顶部栏新增截图入口（Wrapped 2025）。
+- 截图模式调整为横向两列，仅保留 Identity/热力图/Core/Model。
+- 截图模式仅在非生产环境启用。
 
 ## Impact
 - Affected specs: `dashboard-screenshot-mode`

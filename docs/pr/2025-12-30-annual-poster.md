@@ -9,6 +9,7 @@ Add a static 2025 annual summary poster view and export a shareable image.
 - `npm --prefix dashboard run build` => PASS (vite build, re-run after adding share page + X card)
 - `npm --prefix dashboard run build` => PASS (vite build, after adding Wrapped 2025 entry + screenshot)
 - `npm --prefix dashboard run build` => PASS (vite build, after adding wrapped static page)
+- `npm --prefix dashboard run build` => PASS (vite build, after updating screenshot layout to 2-column mode)
 
 ## Poster Export
 - Dev server: `npm --prefix dashboard run dev -- --host 127.0.0.1 --port 4173`
@@ -26,5 +27,9 @@ Add a static 2025 annual summary poster view and export a shareable image.
 ## Wrapped Static Page
 - Entry URL: `/wrapped-2025.html` (non-production only)
 - Static image: `dashboard/public/wrapped-2025.png`
-- Image source: `https://vibescore-git-feat-2025-annual-poster-victorwus-projects.vercel.app/?screenshot=1&mock=1`
-- Capture command: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --headless --disable-gpu --window-size=1200,6000 --hide-scrollbars --virtual-time-budget=8000 --run-all-compositor-stages-before-draw --screenshot=docs/screenshots/wrapped-2025.png "https://vibescore-git-feat-2025-annual-poster-victorwus-projects.vercel.app/?screenshot=1&mock=1"`
+- Image source: `http://127.0.0.1:4173/?screenshot=1&mock=1`
+- Capture command: `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --headless --disable-gpu --window-size=1400,2200 --hide-scrollbars --virtual-time-budget=8000 --run-all-compositor-stages-before-draw --screenshot=docs/screenshots/wrapped-2025.png "http://127.0.0.1:4173/?screenshot=1&mock=1"`
+
+## Screenshot Layout
+- Mode URL: `/?screenshot=1` (non-production only)
+- Layout: left = Identity + Heatmap, right = Core + Model

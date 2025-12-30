@@ -68,13 +68,6 @@ function hasUsageValue(value, level) {
   return false;
 }
 
-function isScreenshotModeEnabled() {
-  if (typeof window === "undefined") return false;
-  const params = new URLSearchParams(window.location.search);
-  const raw = String(params.get("screenshot") || "").toLowerCase();
-  return raw === "1" || raw === "true";
-}
-
 function isProductionHost(hostname) {
   if (!hostname) return false;
   return (
@@ -82,6 +75,14 @@ function isProductionHost(hostname) {
     hostname === "www.vibescore.space" ||
     hostname === "vibescore.vercel.app"
   );
+}
+
+function isScreenshotModeEnabled() {
+  if (typeof window === "undefined") return false;
+  if (isProductionHost(window.location.hostname)) return false;
+  const params = new URLSearchParams(window.location.search);
+  const raw = String(params.get("screenshot") || "").toLowerCase();
+  return raw === "1" || raw === "true";
 }
 
 export function DashboardPage({
@@ -111,7 +112,8 @@ export function DashboardPage({
   }, []);
   const wrappedEntryUrl = useMemo(() => {
     if (!wrappedEntryEnabled || typeof window === "undefined") return "";
-    const url = new URL("/wrapped-2025.html", window.location.origin);
+    const url = new URL("/", window.location.origin);
+    url.searchParams.set("screenshot", "1");
     return url.toString();
   }, [wrappedEntryEnabled]);
   const showWrappedEntry =
@@ -625,26 +627,6 @@ export function DashboardPage({
   const coreIndexCollapseAria = copy("dashboard.core_index.collapse_aria");
   const coreIndexExpandAria = copy("dashboard.core_index.expand_aria");
   const allowBreakdownToggle = !screenshotMode;
-  const screenshotShareText = copy("dashboard.screenshot.share_text");
-  const screenshotShareLabel = copy("dashboard.screenshot.share_label");
-  const screenshotShareUrl = useMemo(() => {
-    if (!screenshotMode || typeof window === "undefined") return "";
-    const shareUrl = new URL("/share.html", window.location.origin);
-    const intentUrl = new URL("https://twitter.com/intent/tweet");
-    intentUrl.searchParams.set("text", screenshotShareText);
-    intentUrl.searchParams.set("url", shareUrl.toString());
-    return intentUrl.toString();
-  }, [screenshotMode, screenshotShareText]);
-  const handleShareToX = useCallback(() => {
-    if (!screenshotShareUrl || typeof window === "undefined") return;
-    const popup = window.open(
-      screenshotShareUrl,
-      "x-share",
-      "width=550,height=420,noopener,noreferrer"
-    );
-    if (popup) return;
-    window.location.href = screenshotShareUrl;
-  }, [screenshotShareUrl]);
   const footerLeftContent = screenshotMode
     ? null
     : accessEnabled
@@ -852,9 +834,7 @@ export function DashboardPage({
         footerRight={
           <span className="font-bold">{copy("dashboard.footer.right")}</span>
         }
-        contentClassName={
-          screenshotMode ? "w-full max-w-[720px] mx-auto" : ""
-        }
+        contentClassName=""
       >
         {sessionExpired ? (
           <div className="mb-6">
@@ -913,22 +893,6 @@ export function DashboardPage({
           </div>
         ) : (
           <>
-            {screenshotMode ? (
-              <div className="mb-6 flex items-center justify-between gap-3">
-                <h1 className="text-3xl md:text-4xl font-black text-white tracking-[-0.03em] glow-text">
-                  {copy("dashboard.screenshot.title")}
-                </h1>
-                <MatrixButton
-                  type="button"
-                  onClick={handleShareToX}
-                  aria-label={screenshotShareLabel}
-                  title={screenshotShareLabel}
-                  className="h-10 w-10 px-0 text-base"
-                >
-                  {copy("dashboard.screenshot.share_button")}
-                </MatrixButton>
-              </div>
-            ) : null}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-4 flex flex-col gap-6 min-w-0">
               <IdentityCard
@@ -942,7 +906,7 @@ export function DashboardPage({
                 scrambleDurationMs={identityScrambleDurationMs}
               />
 
-              {!signedIn ? (
+              {!screenshotMode && !signedIn ? (
                 <AsciiBox
                   title={copy("dashboard.auth_optional.title")}
                   subtitle={copy("dashboard.auth_optional.subtitle")}
@@ -1004,7 +968,7 @@ export function DashboardPage({
                 </AsciiBox>
               ) : null}
 
-              {!screenshotMode ? activityHeatmapBlock : null}
+              {activityHeatmapBlock}
             </div>
 
             <div className="lg:col-span-8 flex flex-col gap-6 min-w-0">
@@ -1049,8 +1013,6 @@ export function DashboardPage({
                 summaryScrambleDurationMs={identityScrambleDurationMs}
                 summaryAnimate={false}
               />
-
-              {screenshotMode ? activityHeatmapBlock : null}
 
               <NeuralDivergenceMap
                 fleetData={fleetData}

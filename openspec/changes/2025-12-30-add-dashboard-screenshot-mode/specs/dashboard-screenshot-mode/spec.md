@@ -9,12 +9,19 @@
 - **WHEN** 用户访问带参数 `?screenshot=1` 的 Dashboard
 - **THEN** Dashboard 进入截图模式
 
-### Requirement: Narrow layout in screenshot mode
-系统 SHALL 在截图模式下将 Dashboard 主内容区域收窄为单列纵向布局。
+### Requirement: Horizontal layout in screenshot mode
+系统 SHALL 在截图模式下使用横向两列布局，左侧为 Identity 与活动热力图，右侧为 Core 与 Model。
 
-#### Scenario: Narrow content
+#### Scenario: Two-column layout
 - **WHEN** 截图模式启用
-- **THEN** Dashboard 内容区域为窄屏布局并居中显示
+- **THEN** 页面左侧仅展示 Identity 与热力图，右侧仅展示 Core 与 Model
+
+### Requirement: Only four modules in screenshot mode
+系统 SHALL 在截图模式下仅保留 Identity、活动热力图、Core、Model 四个模块。
+
+#### Scenario: Extra modules removed
+- **WHEN** 截图模式启用
+- **THEN** 安装区、趋势、明细与其他非目标模块不显示
 
 ### Requirement: Hide install section
 系统 SHALL 在截图模式下隐藏安装区模块。
@@ -72,13 +79,6 @@
 - **WHEN** 截图模式启用
 - **THEN** Usage 区域不显示刷新按钮与状态信息
 
-### Requirement: Swap usage and heatmap order
-系统 SHALL 在截图模式下将 Usage 区域置于活动热力图之上。
-
-#### Scenario: Usage above heatmap
-- **WHEN** 截图模式启用
-- **THEN** Usage 模块位于活动热力图之前
-
 ### Requirement: Hide heatmap legend
 系统 SHALL 在截图模式下隐藏热力图的 less/more 图例行。
 
@@ -86,19 +86,12 @@
 - **WHEN** 截图模式启用
 - **THEN** 热力图不显示 less/more 图例行
 
-### Requirement: Replace header with screenshot title
-系统 SHALL 在截图模式下隐藏顶部栏，并显示截图标题 “Coding Agent Wrapped 2025”。
+### Requirement: Hide header in screenshot mode
+系统 SHALL 在截图模式下隐藏顶部栏，仅保留截图内容区。
 
-#### Scenario: Header replaced
+#### Scenario: Header hidden
 - **WHEN** 截图模式启用
-- **THEN** 顶部栏不显示，页面顶部展示截图标题
-
-### Requirement: X share button
-系统 SHALL 在截图模式标题右侧提供 X 分享按钮，并跳转到 X Web Intent 页面以分享当前页面链接。
-
-#### Scenario: Share to X
-- **WHEN** 用户点击 X 分享按钮
-- **THEN** 页面跳转到 X Web Intent 分享窗口，并带上分享页 URL
+- **THEN** 顶部栏不显示
 
 ### Requirement: Share page with OG image
 系统 SHALL 提供用于分享的静态页面，并通过 OG/Twitter Card 指向截图图片。
