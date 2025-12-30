@@ -1,4 +1,4 @@
-import React, { Suspense, useMemo } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 
 import { getInsforgeBaseUrl } from "./lib/config.js";
 import { useAuth } from "./hooks/use-auth.js";
@@ -6,6 +6,7 @@ import { buildAuthUrl } from "./lib/auth-url.js";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { LandingPage } from "./pages/LandingPage.jsx";
 import { isMockEnabled } from "./lib/mock-data.js";
+import { fetchLatestTrackerVersion } from "./lib/npm-version.js";
 
 import { UpgradeAlertModal } from "./ui/matrix-a/components/UpgradeAlertModal.jsx";
 
@@ -35,6 +36,18 @@ export default function App() {
   const baseUrl = useMemo(() => getInsforgeBaseUrl(), []);
   const { auth, signedIn, sessionExpired, signOut } = useAuth();
   const mockEnabled = isMockEnabled();
+  const [latestVersion, setLatestVersion] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchLatestTrackerVersion({ allowStale: true }).then((version) => {
+      if (!active) return;
+      setLatestVersion(version);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const pageUrl = new URL(window.location.href);
   const safeRedirect = getSafeRedirect(pageUrl.searchParams);
@@ -66,7 +79,7 @@ export default function App() {
   } else {
     content = (
       <Suspense fallback={loadingShell}>
-        <UpgradeAlertModal currentVersion="0.1" requiredVersion="0.1.1" />
+        <UpgradeAlertModal requiredVersion={latestVersion} />
         <DashboardPage
           baseUrl={baseUrl}
           auth={auth}

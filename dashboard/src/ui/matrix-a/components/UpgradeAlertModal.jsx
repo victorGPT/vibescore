@@ -1,36 +1,55 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { copy } from "../../../lib/copy.js";
 import {
   safeGetItem,
+  safeRemoveItem,
   safeSetItem,
   safeWriteClipboard,
 } from "../../../lib/safe-browser.js";
 
-export function UpgradeAlertModal({
-  currentVersion = "0.1",
-  requiredVersion = "0.1.1",
-  installCommand,
-  onClose,
-}) {
+export function UpgradeAlertModal({ requiredVersion, installCommand, onClose }) {
+  const normalizedRequired =
+    typeof requiredVersion === "string" ? requiredVersion.trim() : "";
+  const hasVersion = normalizedRequired.length > 0;
+  const unknownDismissKey = "vibescore_upgrade_dismissed_unknown";
   const resolvedInstallCommand =
     installCommand ?? copy("dashboard.upgrade_alert.install_command");
   const sparkleLabel = copy("dashboard.upgrade_alert.sparkle");
   const titleLabel = copy("dashboard.upgrade_alert.title");
-  const subtitleLabel = copy("dashboard.upgrade_alert.subtitle", {
-    required: requiredVersion,
-    current: currentVersion,
-  });
+  const subtitleLabel = hasVersion
+    ? copy("dashboard.upgrade_alert.subtitle", {
+        required: normalizedRequired,
+      })
+    : copy("dashboard.upgrade_alert.subtitle_generic");
   const promptLabel = copy("dashboard.upgrade_alert.prompt");
   const copyLabel = copy("dashboard.upgrade_alert.copy");
   const copiedLabel = copy("dashboard.upgrade_alert.copied");
   const ignoreLabel = copy("dashboard.upgrade_alert.ignore");
   const [copied, setCopied] = useState(false);
-  const storageKey = `vibescore_upgrade_dismissed_${requiredVersion}`;
+  const storageKey = useMemo(
+    () =>
+      hasVersion
+        ? `vibescore_upgrade_dismissed_${normalizedRequired}`
+        : unknownDismissKey,
+    [hasVersion, normalizedRequired, unknownDismissKey]
+  );
   const [isVisible, setIsVisible] = useState(() => {
     // If running on server, default to true (or handle hydration mismatch)
     if (typeof window === "undefined") return true;
     return !safeGetItem(storageKey);
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const dismissed = safeGetItem(storageKey);
+    if (!dismissed && hasVersion && safeGetItem(unknownDismissKey)) {
+      safeSetItem(storageKey, "true");
+      safeRemoveItem(unknownDismissKey);
+      setIsVisible(false);
+      return;
+    }
+    setIsVisible(!dismissed);
+  }, [storageKey, hasVersion, unknownDismissKey]);
 
   if (!isVisible) return null;
 

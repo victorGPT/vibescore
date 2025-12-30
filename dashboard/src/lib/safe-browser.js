@@ -29,6 +29,17 @@ export function safeSetItem(key, value, { storage } = {}) {
   }
 }
 
+export function safeRemoveItem(key, { storage } = {}) {
+  const target = storage ?? getLocalStorage();
+  if (!target || typeof target.removeItem !== "function") return false;
+  try {
+    target.removeItem(key);
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
 export async function safeWriteClipboard(text, { clipboard } = {}) {
   const target = clipboard ?? getClipboard();
   if (!target || typeof target.writeText !== "function") return false;
