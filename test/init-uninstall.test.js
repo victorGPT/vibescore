@@ -26,12 +26,14 @@ test('init then uninstall restores original Codex notify (when pre-existing noti
   const prevHome = process.env.HOME;
   const prevCodexHome = process.env.CODEX_HOME;
   const prevToken = process.env.VIBESCORE_DEVICE_TOKEN;
+  const prevOpencodeConfigDir = process.env.OPENCODE_CONFIG_DIR;
   const prevWrite = process.stdout.write;
 
   try {
     process.env.HOME = tmp;
     process.env.CODEX_HOME = path.join(tmp, '.codex');
     delete process.env.VIBESCORE_DEVICE_TOKEN;
+    process.env.OPENCODE_CONFIG_DIR = path.join(tmp, '.config', 'opencode');
     await fs.mkdir(process.env.CODEX_HOME, { recursive: true });
 
     const codexConfigPath = path.join(process.env.CODEX_HOME, 'config.toml');
@@ -66,6 +68,8 @@ test('init then uninstall restores original Codex notify (when pre-existing noti
     else process.env.CODEX_HOME = prevCodexHome;
     if (prevToken === undefined) delete process.env.VIBESCORE_DEVICE_TOKEN;
     else process.env.VIBESCORE_DEVICE_TOKEN = prevToken;
+    if (prevOpencodeConfigDir === undefined) delete process.env.OPENCODE_CONFIG_DIR;
+    else process.env.OPENCODE_CONFIG_DIR = prevOpencodeConfigDir;
     await fs.rm(tmp, { recursive: true, force: true });
   }
 });
@@ -75,12 +79,14 @@ test('init then uninstall removes notify when none existed', async () => {
   const prevHome = process.env.HOME;
   const prevCodexHome = process.env.CODEX_HOME;
   const prevToken = process.env.VIBESCORE_DEVICE_TOKEN;
+  const prevOpencodeConfigDir = process.env.OPENCODE_CONFIG_DIR;
   const prevWrite = process.stdout.write;
 
   try {
     process.env.HOME = tmp;
     process.env.CODEX_HOME = path.join(tmp, '.codex');
     delete process.env.VIBESCORE_DEVICE_TOKEN;
+    process.env.OPENCODE_CONFIG_DIR = path.join(tmp, '.config', 'opencode');
     await fs.mkdir(process.env.CODEX_HOME, { recursive: true });
 
     const codexConfigPath = path.join(process.env.CODEX_HOME, 'config.toml');
@@ -104,6 +110,8 @@ test('init then uninstall removes notify when none existed', async () => {
     else process.env.CODEX_HOME = prevCodexHome;
     if (prevToken === undefined) delete process.env.VIBESCORE_DEVICE_TOKEN;
     else process.env.VIBESCORE_DEVICE_TOKEN = prevToken;
+    if (prevOpencodeConfigDir === undefined) delete process.env.OPENCODE_CONFIG_DIR;
+    else process.env.OPENCODE_CONFIG_DIR = prevOpencodeConfigDir;
     await fs.rm(tmp, { recursive: true, force: true });
   }
 });
@@ -114,6 +122,7 @@ test('init then uninstall restores original Every Code notify (when config exist
   const prevCodexHome = process.env.CODEX_HOME;
   const prevCodeHome = process.env.CODE_HOME;
   const prevToken = process.env.VIBESCORE_DEVICE_TOKEN;
+  const prevOpencodeConfigDir = process.env.OPENCODE_CONFIG_DIR;
   const prevWrite = process.stdout.write;
 
   try {
@@ -121,6 +130,7 @@ test('init then uninstall restores original Every Code notify (when config exist
     process.env.CODEX_HOME = path.join(tmp, '.codex');
     process.env.CODE_HOME = path.join(tmp, '.code');
     delete process.env.VIBESCORE_DEVICE_TOKEN;
+    process.env.OPENCODE_CONFIG_DIR = path.join(tmp, '.config', 'opencode');
     await fs.mkdir(process.env.CODEX_HOME, { recursive: true });
     await fs.mkdir(process.env.CODE_HOME, { recursive: true });
 
@@ -152,6 +162,8 @@ test('init then uninstall restores original Every Code notify (when config exist
     else process.env.CODE_HOME = prevCodeHome;
     if (prevToken === undefined) delete process.env.VIBESCORE_DEVICE_TOKEN;
     else process.env.VIBESCORE_DEVICE_TOKEN = prevToken;
+    if (prevOpencodeConfigDir === undefined) delete process.env.OPENCODE_CONFIG_DIR;
+    else process.env.OPENCODE_CONFIG_DIR = prevOpencodeConfigDir;
     await fs.rm(tmp, { recursive: true, force: true });
   }
 });
@@ -162,6 +174,7 @@ test('init skips Every Code notify when config is missing', async () => {
   const prevCodexHome = process.env.CODEX_HOME;
   const prevCodeHome = process.env.CODE_HOME;
   const prevToken = process.env.VIBESCORE_DEVICE_TOKEN;
+  const prevOpencodeConfigDir = process.env.OPENCODE_CONFIG_DIR;
   const prevWrite = process.stdout.write;
 
   try {
@@ -169,6 +182,7 @@ test('init skips Every Code notify when config is missing', async () => {
     process.env.CODEX_HOME = path.join(tmp, '.codex');
     process.env.CODE_HOME = path.join(tmp, '.code');
     delete process.env.VIBESCORE_DEVICE_TOKEN;
+    process.env.OPENCODE_CONFIG_DIR = path.join(tmp, '.config', 'opencode');
     await fs.mkdir(process.env.CODEX_HOME, { recursive: true });
     await fs.mkdir(process.env.CODE_HOME, { recursive: true });
 
@@ -190,6 +204,8 @@ test('init skips Every Code notify when config is missing', async () => {
     else process.env.CODE_HOME = prevCodeHome;
     if (prevToken === undefined) delete process.env.VIBESCORE_DEVICE_TOKEN;
     else process.env.VIBESCORE_DEVICE_TOKEN = prevToken;
+    if (prevOpencodeConfigDir === undefined) delete process.env.OPENCODE_CONFIG_DIR;
+    else process.env.OPENCODE_CONFIG_DIR = prevOpencodeConfigDir;
     await fs.rm(tmp, { recursive: true, force: true });
   }
 });
@@ -199,12 +215,14 @@ test('uninstall skips notify restore when no backup and notify not installed', a
   const prevHome = process.env.HOME;
   const prevCodexHome = process.env.CODEX_HOME;
   const prevCodeHome = process.env.CODE_HOME;
+  const prevOpencodeConfigDir = process.env.OPENCODE_CONFIG_DIR;
   const prevWrite = process.stdout.write;
 
   try {
     process.env.HOME = tmp;
     process.env.CODEX_HOME = path.join(tmp, '.codex');
     process.env.CODE_HOME = path.join(tmp, '.code');
+    process.env.OPENCODE_CONFIG_DIR = path.join(tmp, '.config', 'opencode');
     await fs.mkdir(process.env.CODEX_HOME, { recursive: true });
     await fs.mkdir(process.env.CODE_HOME, { recursive: true });
 
@@ -228,6 +246,8 @@ test('uninstall skips notify restore when no backup and notify not installed', a
     else process.env.CODEX_HOME = prevCodexHome;
     if (prevCodeHome === undefined) delete process.env.CODE_HOME;
     else process.env.CODE_HOME = prevCodeHome;
+    if (prevOpencodeConfigDir === undefined) delete process.env.OPENCODE_CONFIG_DIR;
+    else process.env.OPENCODE_CONFIG_DIR = prevOpencodeConfigDir;
     await fs.rm(tmp, { recursive: true, force: true });
   }
 });
@@ -237,12 +257,14 @@ test('init then uninstall manages Claude hooks without removing existing hooks',
   const prevHome = process.env.HOME;
   const prevCodexHome = process.env.CODEX_HOME;
   const prevToken = process.env.VIBESCORE_DEVICE_TOKEN;
+  const prevOpencodeConfigDir = process.env.OPENCODE_CONFIG_DIR;
   const prevWrite = process.stdout.write;
 
   try {
     process.env.HOME = tmp;
     process.env.CODEX_HOME = path.join(tmp, '.codex');
     delete process.env.VIBESCORE_DEVICE_TOKEN;
+    process.env.OPENCODE_CONFIG_DIR = path.join(tmp, '.config', 'opencode');
     await fs.mkdir(process.env.CODEX_HOME, { recursive: true });
 
     const codexConfigPath = path.join(process.env.CODEX_HOME, 'config.toml');
@@ -291,6 +313,96 @@ test('init then uninstall manages Claude hooks without removing existing hooks',
     else process.env.CODEX_HOME = prevCodexHome;
     if (prevToken === undefined) delete process.env.VIBESCORE_DEVICE_TOKEN;
     else process.env.VIBESCORE_DEVICE_TOKEN = prevToken;
+    if (prevOpencodeConfigDir === undefined) delete process.env.OPENCODE_CONFIG_DIR;
+    else process.env.OPENCODE_CONFIG_DIR = prevOpencodeConfigDir;
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('init then uninstall manages Opencode plugin without removing other plugins', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-init-uninstall-'));
+  const prevHome = process.env.HOME;
+  const prevCodexHome = process.env.CODEX_HOME;
+  const prevToken = process.env.VIBESCORE_DEVICE_TOKEN;
+  const prevOpencodeConfigDir = process.env.OPENCODE_CONFIG_DIR;
+  const prevWrite = process.stdout.write;
+
+  try {
+    process.env.HOME = tmp;
+    process.env.CODEX_HOME = path.join(tmp, '.codex');
+    delete process.env.VIBESCORE_DEVICE_TOKEN;
+    process.env.OPENCODE_CONFIG_DIR = path.join(tmp, '.config', 'opencode');
+    await fs.mkdir(process.env.CODEX_HOME, { recursive: true });
+
+    const codexConfigPath = path.join(process.env.CODEX_HOME, 'config.toml');
+    await fs.writeFile(codexConfigPath, '# empty\n', 'utf8');
+
+    const opencodeDir = path.join(tmp, '.config', 'opencode');
+    const pluginDir = path.join(opencodeDir, 'plugin');
+    await fs.mkdir(pluginDir, { recursive: true });
+    const existingPluginPath = path.join(pluginDir, 'existing.js');
+    await fs.writeFile(existingPluginPath, '// existing\n', 'utf8');
+
+    process.stdout.write = () => true;
+    await cmdInit(['--no-auth', '--no-open', '--base-url', 'https://example.invalid']);
+
+    const pluginPath = path.join(pluginDir, 'vibescore-tracker.js');
+    const installed = await fs.readFile(pluginPath, 'utf8');
+    assert.match(installed, /VIBESCORE_TRACKER_PLUGIN/);
+
+    await cmdUninstall([]);
+
+    await assert.rejects(fs.stat(pluginPath), /ENOENT/);
+    const existing = await fs.readFile(existingPluginPath, 'utf8');
+    assert.ok(existing.includes('existing'));
+  } finally {
+    process.stdout.write = prevWrite;
+    if (prevHome === undefined) delete process.env.HOME;
+    else process.env.HOME = prevHome;
+    if (prevCodexHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = prevCodexHome;
+    if (prevToken === undefined) delete process.env.VIBESCORE_DEVICE_TOKEN;
+    else process.env.VIBESCORE_DEVICE_TOKEN = prevToken;
+    if (prevOpencodeConfigDir === undefined) delete process.env.OPENCODE_CONFIG_DIR;
+    else process.env.OPENCODE_CONFIG_DIR = prevOpencodeConfigDir;
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('init installs Opencode plugin when config dir is missing', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-init-uninstall-'));
+  const prevHome = process.env.HOME;
+  const prevCodexHome = process.env.CODEX_HOME;
+  const prevToken = process.env.VIBESCORE_DEVICE_TOKEN;
+  const prevOpencodeConfigDir = process.env.OPENCODE_CONFIG_DIR;
+  const prevWrite = process.stdout.write;
+
+  try {
+    process.env.HOME = tmp;
+    process.env.CODEX_HOME = path.join(tmp, '.codex');
+    delete process.env.VIBESCORE_DEVICE_TOKEN;
+    process.env.OPENCODE_CONFIG_DIR = path.join(tmp, '.config', 'opencode');
+    await fs.mkdir(process.env.CODEX_HOME, { recursive: true });
+
+    const codexConfigPath = path.join(process.env.CODEX_HOME, 'config.toml');
+    await fs.writeFile(codexConfigPath, '# empty\n', 'utf8');
+
+    process.stdout.write = () => true;
+    await cmdInit(['--no-auth', '--no-open', '--base-url', 'https://example.invalid']);
+
+    const pluginPath = path.join(process.env.OPENCODE_CONFIG_DIR, 'plugin', 'vibescore-tracker.js');
+    const installed = await fs.readFile(pluginPath, 'utf8');
+    assert.match(installed, /VIBESCORE_TRACKER_PLUGIN/);
+  } finally {
+    process.stdout.write = prevWrite;
+    if (prevHome === undefined) delete process.env.HOME;
+    else process.env.HOME = prevHome;
+    if (prevCodexHome === undefined) delete process.env.CODEX_HOME;
+    else process.env.CODEX_HOME = prevCodexHome;
+    if (prevToken === undefined) delete process.env.VIBESCORE_DEVICE_TOKEN;
+    else process.env.VIBESCORE_DEVICE_TOKEN = prevToken;
+    if (prevOpencodeConfigDir === undefined) delete process.env.OPENCODE_CONFIG_DIR;
+    else process.env.OPENCODE_CONFIG_DIR = prevOpencodeConfigDir;
     await fs.rm(tmp, { recursive: true, force: true });
   }
 });

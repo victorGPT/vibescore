@@ -61,6 +61,14 @@ async function listGeminiSessionFiles(tmpDir) {
   return out;
 }
 
+async function listOpencodeMessageFiles(storageDir) {
+  const out = [];
+  const messageDir = path.join(storageDir, 'message');
+  await walkOpencodeMessages(messageDir, out);
+  out.sort((a, b) => a.localeCompare(b));
+  return out;
+}
+
 async function parseRolloutIncremental({ rolloutFiles, cursors, queuePath, onProgress, source }) {
   await ensureDir(path.dirname(queuePath));
   let filesProcessed = 0;
@@ -245,6 +253,91 @@ async function parseGeminiIncremental({ sessionFiles, cursors, queuePath, onProg
       lastIndex: result.lastIndex,
       lastTotals: result.lastTotals,
       lastModel: result.lastModel,
+      updatedAt: new Date().toISOString()
+    };
+
+    filesProcessed += 1;
+    eventsAggregated += result.eventsAggregated;
+
+    if (cb) {
+      cb({
+        index: idx + 1,
+        total: totalFiles,
+        filePath,
+        filesProcessed,
+        eventsAggregated,
+        bucketsQueued: touchedBuckets.size
+      });
+    }
+  }
+
+  const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
+  hourlyState.updatedAt = new Date().toISOString();
+  cursors.hourly = hourlyState;
+
+  return { filesProcessed, eventsAggregated, bucketsQueued };
+}
+
+async function parseOpencodeIncremental({ messageFiles, cursors, queuePath, onProgress, source }) {
+  await ensureDir(path.dirname(queuePath));
+  let filesProcessed = 0;
+  let eventsAggregated = 0;
+
+  const cb = typeof onProgress === 'function' ? onProgress : null;
+  const files = Array.isArray(messageFiles) ? messageFiles : [];
+  const totalFiles = files.length;
+  const hourlyState = normalizeHourlyState(cursors?.hourly);
+  const touchedBuckets = new Set();
+  const defaultSource = normalizeSourceInput(source) || 'opencode';
+
+  if (!cursors.files || typeof cursors.files !== 'object') {
+    cursors.files = {};
+  }
+
+  for (let idx = 0; idx < files.length; idx++) {
+    const entry = files[idx];
+    const filePath = typeof entry === 'string' ? entry : entry?.path;
+    if (!filePath) continue;
+    const fileSource =
+      typeof entry === 'string' ? defaultSource : normalizeSourceInput(entry?.source) || defaultSource;
+    const st = await fs.stat(filePath).catch(() => null);
+    if (!st || !st.isFile()) continue;
+
+    const key = filePath;
+    const prev = cursors.files[key] || null;
+    const inode = st.ino || 0;
+    const size = Number.isFinite(st.size) ? st.size : 0;
+    const mtimeMs = Number.isFinite(st.mtimeMs) ? st.mtimeMs : 0;
+    const unchanged = prev && prev.inode === inode && prev.size === size && prev.mtimeMs === mtimeMs;
+    if (unchanged) {
+      filesProcessed += 1;
+      if (cb) {
+        cb({
+          index: idx + 1,
+          total: totalFiles,
+          filePath,
+          filesProcessed,
+          eventsAggregated,
+          bucketsQueued: touchedBuckets.size
+        });
+      }
+      continue;
+    }
+
+    const lastTotals = prev && prev.inode === inode ? prev.lastTotals || null : null;
+    const result = await parseOpencodeMessageFile({
+      filePath,
+      lastTotals,
+      hourlyState,
+      touchedBuckets,
+      source: fileSource
+    });
+
+    cursors.files[key] = {
+      inode,
+      size,
+      mtimeMs,
+      lastTotals: result.lastTotals,
       updatedAt: new Date().toISOString()
     };
 
@@ -455,6 +548,37 @@ async function parseGeminiFile({
     lastModel: model,
     eventsAggregated
   };
+}
+
+async function parseOpencodeMessageFile({ filePath, lastTotals, hourlyState, touchedBuckets, source }) {
+  const raw = await fs.readFile(filePath, 'utf8').catch(() => '');
+  if (!raw.trim()) return { lastTotals, eventsAggregated: 0 };
+
+  let msg;
+  try {
+    msg = JSON.parse(raw);
+  } catch (_e) {
+    return { lastTotals, eventsAggregated: 0 };
+  }
+
+  const currentTotals = normalizeOpencodeTokens(msg?.tokens);
+  if (!currentTotals) return { lastTotals, eventsAggregated: 0 };
+
+  const delta = diffGeminiTotals(currentTotals, lastTotals);
+  if (!delta || isAllZeroUsage(delta)) return { lastTotals: currentTotals, eventsAggregated: 0 };
+
+  const timestampMs = coerceEpochMs(msg?.time?.completed) || coerceEpochMs(msg?.time?.created);
+  if (!timestampMs) return { lastTotals, eventsAggregated: 0 };
+
+  const tsIso = new Date(timestampMs).toISOString();
+  const bucketStart = toUtcHalfHourStart(tsIso);
+  if (!bucketStart) return { lastTotals, eventsAggregated: 0 };
+
+  const model = normalizeModelInput(msg?.modelID) || DEFAULT_MODEL;
+  const bucket = getHourlyBucket(hourlyState, source, model, bucketStart);
+  addTotals(bucket.totals, delta);
+  touchedBuckets.add(bucketKey(source, model, bucketStart));
+  return { lastTotals: currentTotals, eventsAggregated: 1 };
 }
 
 async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets }) {
@@ -984,6 +1108,23 @@ function normalizeGeminiTokens(tokens) {
   };
 }
 
+function normalizeOpencodeTokens(tokens) {
+  if (!tokens || typeof tokens !== 'object') return null;
+  const input = toNonNegativeInt(tokens.input);
+  const output = toNonNegativeInt(tokens.output);
+  const reasoning = toNonNegativeInt(tokens.reasoning);
+  const cached = toNonNegativeInt(tokens.cache?.read);
+  const total = input + output + reasoning;
+
+  return {
+    input_tokens: input,
+    cached_input_tokens: cached,
+    output_tokens: output,
+    reasoning_output_tokens: reasoning,
+    total_tokens: total
+  };
+}
+
 function sameGeminiTotals(a, b) {
   if (!a || !b) return false;
   return (
@@ -1125,6 +1266,13 @@ function toNonNegativeInt(v) {
   return Math.floor(n);
 }
 
+function coerceEpochMs(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  if (n < 1e12) return Math.floor(n * 1000);
+  return Math.floor(n);
+}
+
 async function safeReadDir(dir) {
   try {
     return await fs.readdir(dir, { withFileTypes: true });
@@ -1145,11 +1293,25 @@ async function walkClaudeProjects(dir, out) {
   }
 }
 
+async function walkOpencodeMessages(dir, out) {
+  const entries = await safeReadDir(dir);
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await walkOpencodeMessages(fullPath, out);
+      continue;
+    }
+    if (entry.isFile() && entry.name.startsWith('msg_') && entry.name.endsWith('.json')) out.push(fullPath);
+  }
+}
+
 module.exports = {
   listRolloutFiles,
   listClaudeProjectFiles,
   listGeminiSessionFiles,
+  listOpencodeMessageFiles,
   parseRolloutIncremental,
   parseClaudeIncremental,
-  parseGeminiIncremental
+  parseGeminiIncremental,
+  parseOpencodeIncremental
 };

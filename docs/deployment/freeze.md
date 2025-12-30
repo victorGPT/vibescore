@@ -35,3 +35,9 @@
 - Change ID: `fix-link-code-exchange-records` (bug fix; no OpenSpec change)
 - Freeze artifact: `insforge-functions/vibescore-link-code-exchange.js` (built via `npm run build:insforge`)
 - Cold regression step: `node scripts/acceptance/link-code-exchange.cjs`
+
+## 2025-12-29-add-opencode-usage
+- Scope: Opencode plugin hook + local storage parser + sync integration
+- Change ID: `2025-12-29-add-opencode-usage`
+- Freeze artifact: CLI package `@vibescore/tracker` (publish from this commit)
+- Cold regression step: `node scripts/acceptance/opencode-plugin-install.cjs`

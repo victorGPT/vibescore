@@ -8,9 +8,11 @@ const {
   listRolloutFiles,
   listClaudeProjectFiles,
   listGeminiSessionFiles,
+  listOpencodeMessageFiles,
   parseRolloutIncremental,
   parseClaudeIncremental,
-  parseGeminiIncremental
+  parseGeminiIncremental,
+  parseOpencodeIncremental
 } = require('../lib/rollout');
 const { drainQueueToCloud } = require('../lib/uploader');
 const { createProgress, renderBar, formatNumber, formatBytes } = require('../lib/progress');
@@ -54,6 +56,9 @@ async function cmdSync(argv) {
     const claudeProjectsDir = path.join(home, '.claude', 'projects');
     const geminiHome = process.env.GEMINI_HOME || path.join(home, '.gemini');
     const geminiTmpDir = path.join(geminiHome, 'tmp');
+    const xdgDataHome = process.env.XDG_DATA_HOME || path.join(home, '.local', 'share');
+    const opencodeHome = process.env.OPENCODE_HOME || path.join(xdgDataHome, 'opencode');
+    const opencodeStorageDir = path.join(opencodeHome, 'storage');
 
     const sources = [
       { source: 'codex', sessionsDir: path.join(codexHome, 'sessions') },
@@ -133,6 +138,29 @@ async function cmdSync(argv) {
           );
         },
         source: 'gemini'
+      });
+    }
+
+    const opencodeFiles = await listOpencodeMessageFiles(opencodeStorageDir);
+    let opencodeResult = { filesProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+    if (opencodeFiles.length > 0) {
+      if (progress?.enabled) {
+        progress.start(`Parsing Opencode ${renderBar(0)} 0/${formatNumber(opencodeFiles.length)} files | buckets 0`);
+      }
+      opencodeResult = await parseOpencodeIncremental({
+        messageFiles: opencodeFiles,
+        cursors,
+        queuePath,
+        onProgress: (p) => {
+          if (!progress?.enabled) return;
+          const pct = p.total > 0 ? p.index / p.total : 1;
+          progress.update(
+            `Parsing Opencode ${renderBar(pct)} ${formatNumber(p.index)}/${formatNumber(
+              p.total
+            )} files | buckets ${formatNumber(p.bucketsQueued)}`
+          );
+        },
+        source: 'opencode'
       });
     }
 
@@ -261,8 +289,16 @@ async function cmdSync(argv) {
     });
 
     if (!opts.auto) {
-      const totalParsed = parseResult.filesProcessed + claudeResult.filesProcessed + geminiResult.filesProcessed;
-      const totalBuckets = parseResult.bucketsQueued + claudeResult.bucketsQueued + geminiResult.bucketsQueued;
+      const totalParsed =
+        parseResult.filesProcessed +
+        claudeResult.filesProcessed +
+        geminiResult.filesProcessed +
+        opencodeResult.filesProcessed;
+      const totalBuckets =
+        parseResult.bucketsQueued +
+        claudeResult.bucketsQueued +
+        geminiResult.bucketsQueued +
+        opencodeResult.bucketsQueued;
       process.stdout.write(
         [
           'Sync finished:',

@@ -5,6 +5,7 @@ const fs = require('node:fs/promises');
 const { readJson } = require('./fs');
 const { readCodexNotify, readEveryCodeNotify } = require('./codex-config');
 const { isClaudeHookConfigured, buildClaudeHookCommand } = require('./claude-config');
+const { resolveOpencodeConfigDir, isOpencodePluginInstalled } = require('./opencode-config');
 const { normalizeState: normalizeUploadState } = require('./upload-throttle');
 
 async function collectTrackerDiagnostics({
@@ -24,6 +25,7 @@ async function collectTrackerDiagnostics({
   const codexConfigPath = path.join(codexHome, 'config.toml');
   const codeConfigPath = path.join(codeHome, 'config.toml');
   const claudeConfigPath = path.join(home, '.claude', 'settings.json');
+  const opencodeConfigDir = resolveOpencodeConfigDir({ home, env: process.env });
 
   const config = await readJson(configPath);
   const cursors = await readJson(cursorsPath);
@@ -49,6 +51,7 @@ async function collectTrackerDiagnostics({
     settingsPath: claudeConfigPath,
     hookCommand: claudeHookCommand
   });
+  const opencodePluginConfigured = await isOpencodePluginInstalled({ configDir: opencodeConfigDir });
 
   const lastSuccessAt = uploadThrottle.lastSuccessMs ? new Date(uploadThrottle.lastSuccessMs).toISOString() : null;
   const autoRetryAt = parseEpochMsToIso(autoRetry?.retryAtMs);
@@ -68,7 +71,8 @@ async function collectTrackerDiagnostics({
       codex_config: redactValue(codexConfigPath, home),
       code_home: redactValue(codeHome, home),
       code_config: redactValue(codeConfigPath, home),
-      claude_config: redactValue(claudeConfigPath, home)
+      claude_config: redactValue(claudeConfigPath, home),
+      opencode_config: redactValue(opencodeConfigDir, home)
     },
     config: {
       base_url: typeof config?.baseUrl === 'string' ? config.baseUrl : null,
@@ -93,7 +97,8 @@ async function collectTrackerDiagnostics({
       codex_notify: codexNotify,
       every_code_notify_configured: everyCodeConfigured,
       every_code_notify: everyCodeNotify,
-      claude_hook_configured: claudeHookConfigured
+      claude_hook_configured: claudeHookConfigured,
+      opencode_plugin_configured: opencodePluginConfigured
     },
     upload: {
       last_success_at: lastSuccessAt,

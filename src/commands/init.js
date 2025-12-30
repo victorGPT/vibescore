@@ -14,6 +14,7 @@ const {
   loadEveryCodeNotifyOriginal
 } = require('../lib/codex-config');
 const { upsertClaudeHook, buildClaudeHookCommand } = require('../lib/claude-config');
+const { resolveOpencodeConfigDir, upsertOpencodePlugin } = require('../lib/opencode-config');
 const { beginBrowserAuth } = require('../lib/browser-auth');
 const {
   issueDeviceTokenWithPassword,
@@ -162,6 +163,12 @@ async function cmdInit(argv) {
     });
   }
 
+  const opencodeConfigDir = resolveOpencodeConfigDir({ home, env: process.env });
+  const opencodeResult = await upsertOpencodePlugin({
+    configDir: opencodeConfigDir,
+    notifyPath
+  });
+
   process.stdout.write(
     [
       'Installed:',
@@ -186,6 +193,11 @@ async function cmdInit(argv) {
           ? `- Claude hooks: updated (${claudeSettingsPath})`
           : `- Claude hooks: already set (${claudeSettingsPath})`
         : '- Claude hooks: skipped (~/.claude not found)',
+      opencodeResult?.skippedReason === 'config-missing'
+        ? '- Opencode plugin: skipped (config dir missing)'
+        : opencodeResult?.changed
+          ? `- Opencode plugin: updated (${opencodeConfigDir})`
+          : `- Opencode plugin: already set (${opencodeConfigDir})`,
       deviceToken ? `- Device token: stored (${maskSecret(deviceToken)})` : '- Device token: not configured (set VIBESCORE_DEVICE_TOKEN and re-run init)',
       ''
     ].join('\n')
@@ -306,7 +318,12 @@ try {
 
 // Chain the original notify if present (Codex/Every Code only).
 try {
-  const originalPath = source === 'every-code' ? codeOriginalPath : source === 'claude' ? null : codexOriginalPath;
+  const originalPath =
+    source === 'every-code'
+      ? codeOriginalPath
+      : source === 'claude' || source === 'opencode'
+        ? null
+        : codexOriginalPath;
   if (originalPath) {
     const original = JSON.parse(fs.readFileSync(originalPath, 'utf8'));
     const cmd = Array.isArray(original?.notify) ? original.notify : null;

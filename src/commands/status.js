@@ -5,6 +5,7 @@ const fs = require('node:fs/promises');
 const { readJson } = require('../lib/fs');
 const { readCodexNotify, readEveryCodeNotify } = require('../lib/codex-config');
 const { isClaudeHookConfigured, buildClaudeHookCommand } = require('../lib/claude-config');
+const { resolveOpencodeConfigDir, isOpencodePluginInstalled } = require('../lib/opencode-config');
 const { normalizeState: normalizeUploadState } = require('../lib/upload-throttle');
 const { collectTrackerDiagnostics } = require('../lib/diagnostics');
 
@@ -31,6 +32,7 @@ async function cmdStatus(argv = []) {
   const codeHome = process.env.CODE_HOME || path.join(home, '.code');
   const codeConfigPath = path.join(codeHome, 'config.toml');
   const claudeSettingsPath = path.join(home, '.claude', 'settings.json');
+  const opencodeConfigDir = resolveOpencodeConfigDir({ home, env: process.env });
   const claudeHookCommand = buildClaudeHookCommand(path.join(home, '.vibescore', 'bin', 'notify.cjs'));
 
   const config = await readJson(configPath);
@@ -53,6 +55,7 @@ async function cmdStatus(argv = []) {
     settingsPath: claudeSettingsPath,
     hookCommand: claudeHookCommand
   });
+  const opencodePluginConfigured = await isOpencodePluginInstalled({ configDir: opencodeConfigDir });
 
   const lastUpload = uploadThrottle.lastSuccessMs
     ? parseEpochMsToIso(uploadThrottle.lastSuccessMs)
@@ -88,6 +91,7 @@ async function cmdStatus(argv = []) {
       `- Codex notify: ${notifyConfigured ? JSON.stringify(codexNotify) : 'unset'}`,
       `- Every Code notify: ${everyCodeConfigured ? JSON.stringify(everyCodeNotify) : 'unset'}`,
       `- Claude hooks: ${claudeHookConfigured ? 'set' : 'unset'}`,
+      `- Opencode plugin: ${opencodePluginConfigured ? 'set' : 'unset'}`,
       ''
     ]
       .filter(Boolean)
