@@ -163,12 +163,6 @@ function resolvePostAuthRedirect({ dashboardUrl, authUrl }) {
       }
       return null;
     }
-    if (authUrl) {
-      const target = new URL('/', authUrl);
-      if (target.protocol === 'http:' || target.protocol === 'https:') {
-        return target.toString();
-      }
-    }
   } catch (_e) {
     return null;
   }
