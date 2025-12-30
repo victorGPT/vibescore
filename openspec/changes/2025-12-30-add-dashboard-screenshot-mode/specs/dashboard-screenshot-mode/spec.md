@@ -43,3 +43,10 @@
 #### Scenario: Usage header simplified
 - **WHEN** 截图模式启用
 - **THEN** Usage 区域不显示 `day` 选项与范围区间
+
+### Requirement: Hide range captions in screenshot mode
+系统 SHALL 在截图模式下隐藏范围说明文字（包括活动热力图范围与页脚范围）。
+
+#### Scenario: Range captions removed
+- **WHEN** 截图模式启用
+- **THEN** 页面不显示范围说明文字

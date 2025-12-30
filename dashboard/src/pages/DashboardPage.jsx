@@ -577,6 +577,11 @@ export function DashboardPage({
   const coreIndexCollapseAria = copy("dashboard.core_index.collapse_aria");
   const coreIndexExpandAria = copy("dashboard.core_index.expand_aria");
   const allowBreakdownToggle = !screenshotMode;
+  const footerLeftContent = screenshotMode
+    ? null
+    : accessEnabled
+    ? copy("dashboard.footer.active", { range: timeZoneRangeLabel })
+    : copy("dashboard.footer.auth");
   const periodsForDisplay = useMemo(
     () => (screenshotMode ? PERIODS.filter((p) => p !== "day") : PERIODS),
     [screenshotMode]
@@ -760,13 +765,7 @@ export function DashboardPage({
         }
         headerRight={headerRight}
         footerLeft={
-          accessEnabled ? (
-            <span>
-              {copy("dashboard.footer.active", { range: timeZoneRangeLabel })}
-            </span>
-          ) : (
-            <span>{copy("dashboard.footer.auth")}</span>
-          )
+          footerLeftContent ? <span>{footerLeftContent}</span> : null
         }
         footerRight={
           <span className="font-bold">{copy("dashboard.footer.right")}</span>
@@ -918,13 +917,15 @@ export function DashboardPage({
                   timeZoneLabel={timeZoneLabel}
                   timeZoneShortLabel={timeZoneShortLabel}
                 />
-                <div className="mt-3 text-[8px] opacity-30 uppercase tracking-widest font-black">
-                  {copy("dashboard.activity.range", {
-                    from: heatmapFrom,
-                    to: heatmapTo,
-                  })}{" "}
-                  {timeZoneRangeLabel}
-                </div>
+                {!screenshotMode ? (
+                  <div className="mt-3 text-[8px] opacity-30 uppercase tracking-widest font-black">
+                    {copy("dashboard.activity.range", {
+                      from: heatmapFrom,
+                      to: heatmapTo,
+                    })}{" "}
+                    {timeZoneRangeLabel}
+                  </div>
+                ) : null}
                 <div className="mt-1 text-[8px] opacity-30 uppercase tracking-widest font-black">
                   {heatmapSourceLabel}
                 </div>
