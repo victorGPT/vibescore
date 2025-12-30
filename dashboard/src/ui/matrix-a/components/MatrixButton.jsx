@@ -4,16 +4,22 @@ export function MatrixButton({
   as: Comp = "button",
   children,
   primary = false,
+  size = "default",
   className = "",
   ...props
 }) {
   const base =
-    "inline-flex items-center justify-center px-3 py-2 border font-black uppercase tracking-widest text-[10px] transition-colors select-none";
-  const variant = primary
-    ? "bg-[#00FF41] text-black border-[#00FF41] hover:bg-white hover:border-white"
-    : "bg-[#00FF41]/5 text-[#00FF41] border-[#00FF41]/30 hover:bg-[#00FF41]/15";
+    size === "header"
+      ? "matrix-header-chip matrix-header-action text-caption uppercase font-bold tracking-[0.2em] select-none"
+      : "inline-flex items-center justify-center px-3 py-2 border text-caption uppercase font-bold transition-colors select-none";
+  const variant =
+    size === "header"
+      ? "text-matrix-primary border-matrix-ghost bg-matrix-panel"
+      : primary
+        ? "bg-matrix-primary text-black border-matrix-primary hover:bg-white hover:border-white"
+        : "bg-matrix-panel text-matrix-primary border-matrix-ghost hover:bg-matrix-panelStrong hover:border-matrix-dim";
   const disabled =
-    "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#00FF41]/5";
+    "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-matrix-panel";
 
   return (
     <Comp className={`${base} ${variant} ${disabled} ${className}`} {...props}>

@@ -19,12 +19,12 @@ export function ArchiveHeatmap({
       <div className="flex flex-col h-full">
         <ActivityHeatmap heatmap={heatmap} />
         {rangeLabel ? (
-          <div className="mt-3 text-[8px] opacity-30 uppercase tracking-widest font-black">
+          <div className="mt-4 text-caption text-matrix-dim uppercase font-bold">
             {copy("shared.range.simple", { range: rangeLabel })}
           </div>
         ) : null}
         {showFooter ? (
-          <div className="mt-auto pt-2 border-t border-[#00FF41]/10 text-[8px] opacity-50 flex justify-between uppercase">
+          <div className="mt-auto pt-3 border-t border-matrix-ghost text-caption text-matrix-muted flex justify-between uppercase">
             <span>{footerLeft}</span>
             {footerRight ? <span>{footerRight}</span> : null}
           </div>

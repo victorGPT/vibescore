@@ -37,9 +37,9 @@ export function MatrixAvatar({
     return (
       <div
         style={{ width: size, height: size }}
-        className={`bg-[#00FF41]/5 border border-[#00FF41]/20 flex items-center justify-center overflow-hidden ${className}`}
+        className={`bg-matrix-panel border border-matrix-ghost flex items-center justify-center overflow-hidden ${className}`}
       >
-        <span className="text-[#00FF41] font-black text-xl opacity-50">
+        <span className="text-matrix-primary font-black text-body opacity-60">
           {copy("shared.placeholder.anon_mark")}
         </span>
       </div>
@@ -52,7 +52,7 @@ export function MatrixAvatar({
       className={`relative p-1 transition-transform duration-300 hover:scale-105 ${
         isTheOne
           ? "bg-yellow-900/20 border border-yellow-500/50"
-          : "bg-[#001100] border border-[#00FF41]/40"
+          : "bg-matrix-panelStrong border border-matrix-dim"
       } ${className}`}
     >
       {isTheOne ? (

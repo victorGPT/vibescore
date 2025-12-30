@@ -26,15 +26,15 @@ export function LeaderboardPanel({
 
   return (
     <AsciiBox title={title} className={className}>
-      <div className="flex border-b border-[#00FF41]/20 mb-2 pb-1 gap-4 px-2">
+      <div className="flex border-b border-matrix-ghost mb-3 pb-2 gap-4 px-2">
         {periods.map((p) => (
           <button
             key={p.key}
             type="button"
-            className={`text-[9px] font-black uppercase ${
+            className={`text-caption uppercase font-bold ${
               period === p.key
-                ? "text-white border-b-2 border-[#00FF41]"
-                : "text-[#00FF41]/40"
+                ? "text-matrix-bright border-b-2 border-matrix-primary"
+                : "text-matrix-muted"
             }`}
             onClick={() => onPeriodChange?.(p.key)}
           >
@@ -46,14 +46,14 @@ export function LeaderboardPanel({
       {showSummary ? (
         <div className="flex-1 flex flex-col items-center justify-center space-y-6 opacity-90 py-4">
           <div className="text-center">
-            <div className="text-[10px] uppercase opacity-50 tracking-widest mb-2">
+            <div className="text-caption uppercase text-matrix-muted mb-2">
               {summary?.totalLabel}
             </div>
-            <div className="text-4xl font-black text-white">
+            <div className="text-body font-black text-matrix-bright">
               {summary?.totalValue}
             </div>
             {summary?.sinceLabel ? (
-              <div className="text-[8px] opacity-40 mt-1">
+              <div className="text-caption text-matrix-muted mt-2">
                 {summary.sinceLabel}
               </div>
             ) : null}
@@ -67,12 +67,12 @@ export function LeaderboardPanel({
               {stats.map((stat, idx) => (
                 <div
                   key={`${stat.label || "stat"}-${idx}`}
-                  className="border border-[#00FF41]/30 bg-[#00FF41]/5 p-3 text-center"
+                  className="border border-matrix-ghost bg-matrix-panel p-3 text-center"
                 >
-                  <div className="text-[8px] opacity-50 uppercase">
+                  <div className="text-caption text-matrix-muted uppercase">
                     {stat.label}
                   </div>
-                  <div className="text-xl font-bold text-white">
+                  <div className="text-body font-bold text-matrix-bright">
                     {stat.value}
                   </div>
                 </div>
@@ -95,7 +95,7 @@ export function LeaderboardPanel({
               />
             ))
           ) : (
-            <div className="text-center text-[9px] opacity-40 py-2">
+            <div className="text-center text-caption text-matrix-muted py-2">
               {copy("leaderboard.empty")}
             </div>
           )}
@@ -103,7 +103,7 @@ export function LeaderboardPanel({
             <button
               type="button"
               onClick={onLoadMore}
-              className="w-full text-center text-[8px] opacity-40 py-2 hover:text-[#00FF41]"
+              className="w-full text-center text-caption text-matrix-muted py-2 hover:text-matrix-primary"
             >
               {loadMoreLabel}
             </button>

@@ -68,10 +68,7 @@ export function IdentityCard({
 
           <div className="flex-1 space-y-2">
             <div>
-              <div className="text-[8px] opacity-50 uppercase tracking-widest">
-                {copy("identity_card.operator_label")}
-              </div>
-              <div className="text-white font-black text-xl tracking-tighter">
+              <div className="text-2xl md:text-3xl font-black text-matrix-bright tracking-tight leading-none">
                 {animate ? (
                   <ScrambleText
                     text={displayName}
@@ -91,7 +88,7 @@ export function IdentityCard({
               <button
                 type="button"
                 onClick={onDecrypt}
-                className="text-[9px] text-black bg-[#00FF41] px-2 py-1 font-bold uppercase hover:bg-white transition-colors"
+                className="text-caption text-black bg-matrix-primary px-3 py-1 font-bold uppercase hover:bg-white transition-colors"
               >
                 {copy("identity_card.decrypt")}
               </button>
@@ -99,19 +96,19 @@ export function IdentityCard({
 
             {shouldShowStats ? (
               <div className="grid grid-cols-2 gap-2 pt-1">
-                <div className="bg-[#00FF41]/5 p-1 border border-[#00FF41]/10 text-center">
-                  <div className="text-[7px] opacity-40 uppercase font-black">
+                <div className="bg-matrix-panel p-2 border border-matrix-ghost text-center">
+                  <div className="text-caption text-matrix-muted uppercase font-bold">
                     {copy("identity_card.rank_label")}
                   </div>
-                  <div className="text-yellow-400 font-black underline underline-offset-2">
+                  <div className="text-gold font-black text-body">
                     {rankValue}
                   </div>
                 </div>
-                <div className="bg-[#00FF41]/5 p-1 border border-[#00FF41]/10 text-center">
-                  <div className="text-[7px] opacity-40 uppercase font-black">
+                <div className="bg-matrix-panel p-2 border border-matrix-ghost text-center">
+                  <div className="text-caption text-matrix-muted uppercase font-bold">
                     {copy("identity_card.streak_label")}
                   </div>
-                  <div className="text-yellow-400 font-black tracking-tighter">
+                  <div className="text-gold font-black tracking-tight text-body">
                     {streakValue}
                   </div>
                 </div>

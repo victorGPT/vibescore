@@ -26,26 +26,26 @@ export const NeuralAdaptiveFleet = React.memo(function NeuralAdaptiveFleet({
 
   return (
     <div className="w-full space-y-4">
-      <div className="flex justify-between items-baseline border-b border-[#00FF41]/10 pb-1.5">
+      <div className="flex justify-between items-baseline border-b border-matrix-ghost pb-2">
         <div className="flex items-baseline gap-2">
-          <span className="text-[12px] font-black text-white uppercase tracking-[0.2em]">
+          <span className="text-heading font-black text-matrix-bright uppercase">
             {label}
           </span>
-          <span className="text-[9px] font-mono text-[#00FF41]/60 tracking-wider">
+          <span className="text-caption text-matrix-muted">
             {usageLabel}
           </span>
         </div>
         <div className="flex items-baseline space-x-1">
-          <span className="text-[11px] font-black text-[#00FF41] font-mono">
+          <span className="text-body font-black text-matrix-primary">
             {totalPercent}
           </span>
-          <span className="text-[7px] text-[#00FF41]/40 font-bold">
+          <span className="text-caption text-matrix-dim font-bold">
             {percentSymbol}
           </span>
         </div>
       </div>
 
-      <div className="h-1 w-full bg-white/5 flex overflow-hidden relative">
+      <div className="h-1 w-full bg-matrix-panel flex overflow-hidden relative">
         {models.map((model, index) => {
           const styleConfig = TEXTURES[index % TEXTURES.length];
           return (
@@ -73,7 +73,7 @@ export const NeuralAdaptiveFleet = React.memo(function NeuralAdaptiveFleet({
               className="flex items-center space-x-2"
             >
               <div
-                className="w-2 h-2 border border-[#00FF41]/20 shrink-0"
+                className="w-2 h-2 border border-matrix-ghost shrink-0"
                 style={{
                   backgroundColor: styleConfig.bg,
                   backgroundImage: styleConfig.pattern,
@@ -82,12 +82,12 @@ export const NeuralAdaptiveFleet = React.memo(function NeuralAdaptiveFleet({
               />
               <div className="flex items-baseline space-x-2 min-w-0">
                 <span
-                  className="text-[9px] font-mono truncate uppercase text-[#00FF41] font-bold"
+                  className="text-caption truncate uppercase text-matrix-primary font-bold"
                   title={model.name}
                 >
                   {model.name}
                 </span>
-                <span className="text-[8px] font-mono text-[#00FF41]/60 font-bold">
+                <span className="text-caption text-matrix-muted font-bold">
                   {model.share}
                   {percentSymbol}
                 </span>

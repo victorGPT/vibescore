@@ -42,7 +42,7 @@ import { NeuralDivergenceMap } from "../ui/matrix-a/components/NeuralDivergenceM
 import { CostAnalysisModal } from "../ui/matrix-a/components/CostAnalysisModal.jsx";
 import { MatrixShell } from "../ui/matrix-a/layout/MatrixShell.jsx";
 import { GithubStar } from "../ui/matrix-a/components/GithubStar.jsx";
-import { isMockEnabled } from "../lib/mock-data.js";
+import { getMockNow, isMockEnabled } from "../lib/mock-data.js";
 
 const PERIODS = ["day", "week", "month", "total"];
 const DETAILS_DATE_KEYS = new Set(["day", "hour", "month"]);
@@ -87,6 +87,7 @@ export function DashboardPage({
     if (typeof window === "undefined" || !window.matchMedia) return false;
     return window.matchMedia("(max-width: 640px)").matches;
   });
+  const identityScrambleDurationMs = 2200;
   const [coreIndexCollapsed, setCoreIndexCollapsed] = useState(true);
   const [installCopied, setInstallCopied] = useState(false);
   const [sessionExpiredCopied, setSessionExpiredCopied] = useState(false);
@@ -199,11 +200,16 @@ export function DashboardPage({
 
   const timeZone = useMemo(() => getBrowserTimeZone(), []);
   const tzOffsetMinutes = useMemo(() => getBrowserTimeZoneOffsetMinutes(), []);
+  const mockNow = useMemo(() => getMockNow(), []);
   const [period, setPeriod] = useState("week");
   const range = useMemo(
     () =>
-      getRangeForPeriod(period, { timeZone, offsetMinutes: tzOffsetMinutes }),
-    [period, timeZone, tzOffsetMinutes]
+      getRangeForPeriod(period, {
+        timeZone,
+        offsetMinutes: tzOffsetMinutes,
+        now: mockNow,
+      }),
+    [mockNow, period, timeZone, tzOffsetMinutes]
   );
   const from = range.from;
   const to = range.to;
@@ -228,9 +234,9 @@ export function DashboardPage({
       getLocalDayKey({
         timeZone,
         offsetMinutes: tzOffsetMinutes,
-        date: new Date(),
+        date: mockNow || new Date(),
       }),
-    [timeZone, tzOffsetMinutes]
+    [mockNow, timeZone, tzOffsetMinutes]
   );
 
   const {
@@ -250,6 +256,7 @@ export function DashboardPage({
     cacheKey: auth?.userId || auth?.email || "default",
     timeZone,
     tzOffsetMinutes,
+    now: mockNow,
   });
 
   const {
@@ -291,6 +298,7 @@ export function DashboardPage({
     cacheKey: auth?.userId || auth?.email || "default",
     timeZone: trendTimeZone,
     tzOffsetMinutes: trendTzOffsetMinutes,
+    now: mockNow,
     sharedRows: shareDailyToTrend ? daily : null,
     sharedRange: shareDailyToTrend ? { from, to } : null,
   });
@@ -309,6 +317,7 @@ export function DashboardPage({
     cacheKey: auth?.userId || auth?.email || "default",
     timeZone,
     tzOffsetMinutes,
+    now: mockNow,
   });
 
   const detailsDateKey = useMemo(() => {
@@ -655,18 +664,14 @@ export function DashboardPage({
     240;
   const installSegments = useMemo(
     () => [
-      { text: `${copy("dashboard.install.step1")} ` },
+      { text: `${copy("dashboard.install.step1")}\n` },
       {
-        text: installInitCmdDisplay,
-        className: "px-1 py-0.5 bg-black/40 border border-[#00FF41]/20",
-      },
-      {
-        text: `\n${copy("dashboard.install.step2")}\n${copy(
+        text: `${copy("dashboard.install.step2")}\n${copy(
           "dashboard.install.step3"
         )}`,
       },
     ],
-    [installInitCmdDisplay]
+    []
   );
 
   const handleCopyInstall = useCallback(async () => {
@@ -710,14 +715,11 @@ export function DashboardPage({
 
   const headerRight = (
     <div className="flex items-center gap-4">
-      <GithubStar isFixed={false} />
+      <GithubStar isFixed={false} size="header" />
 
       {signedIn ? (
         <>
-          <span className="hidden md:block text-[10px] opacity-60 max-w-[240px] truncate">
-            {identityLabel}
-          </span>
-          <MatrixButton onClick={signOut}>
+          <MatrixButton onClick={signOut} size="header">
             {copy("dashboard.sign_out")}
           </MatrixButton>
         </>
@@ -823,6 +825,8 @@ export function DashboardPage({
                 isPublic
                 rankLabel={identityStartDate ?? copy("identity_card.rank_placeholder")}
                 streakDays={activeDays}
+                animateTitle={false}
+                scrambleDurationMs={identityScrambleDurationMs}
               />
 
               {!signedIn ? (
@@ -849,7 +853,7 @@ export function DashboardPage({
                 subtitle={copy("dashboard.install.subtitle")}
                 className="relative"
               >
-                <div className="text-[9px] uppercase tracking-[0.25em] font-black text-[#00FF41]">
+                <div className="text-[12px] uppercase tracking-[0.25em] font-black text-[#00FF41]">
                   <TypewriterText
                     text={installHeadline}
                     startDelayMs={installHeadlineDelayMs}
@@ -859,7 +863,7 @@ export function DashboardPage({
                   />
                 </div>
                 <TypewriterText
-                  className="text-[10px] opacity-50 mt-2"
+                  className="text-[12px] opacity-50 mt-2"
                   segments={installSegments}
                   startDelayMs={installBodyDelayMs}
                   speedMs={installBodySpeedMs}
@@ -873,11 +877,11 @@ export function DashboardPage({
                       {installCopied ? installCopiedLabel : installCopyLabel}
                     </MatrixButton>
                     {linkCodeLoading ? (
-                      <span className="text-[9px] opacity-40">
+                      <span className="text-[12px] opacity-40">
                         {copy("dashboard.install.link_code.loading")}
                       </span>
                     ) : linkCodeError ? (
-                      <span className="text-[9px] opacity-40">
+                      <span className="text-[12px] opacity-40">
                         {copy("dashboard.install.link_code.failed")}
                       </span>
                     ) : null}
@@ -937,9 +941,15 @@ export function DashboardPage({
                 rangeLabel={rangeLabel}
                 rangeTimeZoneLabel={timeZoneRangeLabel}
                 statusLabel={usageSourceLabel}
+                summaryScrambleDurationMs={identityScrambleDurationMs}
+                summaryAnimate={false}
               />
 
-              <NeuralDivergenceMap fleetData={fleetData} className="min-w-0" />
+              <NeuralDivergenceMap
+                fleetData={fleetData}
+                className="min-w-0"
+                footer={null}
+              />
 
               <TrendMonitor
                 rows={trendRowsForDisplay}
@@ -948,6 +958,7 @@ export function DashboardPage({
                 period={period}
                 timeZoneLabel={trendTimeZoneLabel}
                 showTimeZoneLabel={false}
+                className="min-h-[240px]"
               />
 
               <AsciiBox
@@ -1013,22 +1024,22 @@ export function DashboardPage({
                               : ""
                           }`}
                         >
-                          <td className="px-3 py-2 text-[10px] opacity-80 font-mono">
+                          <td className="px-3 py-2 text-[12px] opacity-80 font-mono">
                             {renderDetailDate(r)}
                           </td>
-                          <td className="px-3 py-2 text-[10px] font-mono">
+                          <td className="px-3 py-2 text-[12px] font-mono">
                             {renderDetailCell(r, "total_tokens")}
                           </td>
-                          <td className="px-3 py-2 text-[10px] font-mono">
+                          <td className="px-3 py-2 text-[12px] font-mono">
                             {renderDetailCell(r, "input_tokens")}
                           </td>
-                          <td className="px-3 py-2 text-[10px] font-mono">
+                          <td className="px-3 py-2 text-[12px] font-mono">
                             {renderDetailCell(r, "output_tokens")}
                           </td>
-                          <td className="px-3 py-2 text-[10px] font-mono">
+                          <td className="px-3 py-2 text-[12px] font-mono">
                             {renderDetailCell(r, "cached_input_tokens")}
                           </td>
-                          <td className="px-3 py-2 text-[10px] font-mono">
+                          <td className="px-3 py-2 text-[12px] font-mono">
                             {renderDetailCell(r, "reasoning_output_tokens")}
                           </td>
                         </tr>

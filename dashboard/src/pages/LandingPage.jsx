@@ -71,9 +71,7 @@ export function LandingPage({ signInUrl }) {
   );
 
   return (
-    <div className="min-h-screen bg-[#050505] font-mono text-[#00FF41] flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      {/* 视觉层 */}
-      {/* 视觉层 */}
+    <div className="min-h-screen bg-matrix-dark font-matrix text-matrix-primary text-body flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {effectsReady ? (
         <Suspense fallback={null}>
           <MatrixRain />
@@ -88,21 +86,21 @@ export function LandingPage({ signInUrl }) {
         <div className="text-center space-y-6">
           <h1 className="text-5xl md:text-8xl font-black text-white tracking-tighter leading-none glow-text select-none">
             <DecodingText text={copy("landing.hero.title_primary")} /> <br />
-            <span className="text-[#00FF41]">
+            <span className="text-matrix-primary">
               <DecodingText text={copy("landing.hero.title_secondary")} />
             </span>
           </h1>
 
           <div className="flex flex-col items-center space-y-2">
-            <div className="px-6 py-2 border-l border-r border-[#00FF41]/40 bg-[#00FF41]/5 relative group">
-              <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-[#00FF41]"></div>
-              <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-[#00FF41]"></div>
-              <p className="text-[10px] md:text-xs uppercase tracking-[0.4em] font-bold">
+            <div className="px-6 py-3 border border-matrix-ghost bg-matrix-panel relative group">
+              <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-matrix-primary"></div>
+              <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-matrix-primary"></div>
+              <p className="text-caption uppercase font-bold text-matrix-bright">
                 {copy("landing.hero.tagline")}
               </p>
             </div>
             {/* 包含 Codex CLI Token 的精准描述 */}
-            <p className="text-[9px] text-[#00FF41]/60 uppercase tracking-[0.2em]">
+            <p className="text-caption text-matrix-muted uppercase">
               {copy("landing.hero.subtagline")}
             </p>
           </div>
@@ -123,28 +121,28 @@ export function LandingPage({ signInUrl }) {
           extrasSkeleton
         )}
 
-        <section className="w-full max-w-3xl border border-[#00FF41]/20 bg-[#00FF41]/5 px-6 py-6 space-y-4">
-          <h2 className="text-xl md:text-2xl font-bold text-white tracking-tight">
+        <section className="w-full max-w-3xl border border-matrix-ghost bg-matrix-panel px-6 py-6 space-y-4">
+          <h2 className="text-2xl md:text-3xl font-bold text-matrix-bright tracking-tight">
             {copy("landing.seo.title")}
           </h2>
-          <p className="text-xs md:text-sm text-[#00FF41]/70">
+          <p className="text-body text-matrix-muted">
             {copy("landing.seo.summary")}
           </p>
-          <ul className="space-y-2 text-[11px] md:text-xs text-[#00FF41]/80">
+          <ul className="space-y-2 text-body text-matrix-muted">
             <li className="flex gap-2">
-              <span className="text-[#00FF41]">-</span>
+              <span className="text-matrix-primary">-</span>
               <span>{copy("landing.seo.point1")}</span>
             </li>
             <li className="flex gap-2">
-              <span className="text-[#00FF41]">-</span>
+              <span className="text-matrix-primary">-</span>
               <span>{copy("landing.seo.point2")}</span>
             </li>
             <li className="flex gap-2">
-              <span className="text-[#00FF41]">-</span>
+              <span className="text-matrix-primary">-</span>
               <span>{copy("landing.seo.point3")}</span>
             </li>
           </ul>
-          <p className="text-[9px] text-[#00FF41]/50 uppercase tracking-[0.2em]">
+          <p className="text-caption text-matrix-dim uppercase">
             {copy("landing.seo.roadmap")}
           </p>
         </section>
@@ -153,9 +151,9 @@ export function LandingPage({ signInUrl }) {
         <div className="w-full max-w-sm flex flex-col items-center space-y-4">
           <a
             href={signInUrl}
-            className="block w-full group relative border-2 border-[#00FF41] bg-[#00FF41]/10 py-5 overflow-hidden transition-all hover:bg-[#00FF41] hover:text-black active:scale-95 shadow-[0_0_20px_rgba(0,255,65,0.2)] text-center no-underline text-[#00FF41] hover:text-black"
+            className="block w-full group relative border-2 border-matrix-primary bg-matrix-panelStrong py-5 overflow-hidden transition-all hover:bg-matrix-primary hover:text-black active:scale-95 shadow-[0_0_20px_rgba(0,255,65,0.2)] text-center no-underline text-matrix-primary hover:text-black"
           >
-            <span className="font-black uppercase tracking-[0.4em] text-sm relative z-10 animate-pulse group-hover:animate-none">
+            <span className="font-black uppercase tracking-[0.4em] text-heading relative z-10 animate-pulse group-hover:animate-none">
               {copy("landing.cta.initialize")}
             </span>
             <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
@@ -163,34 +161,28 @@ export function LandingPage({ signInUrl }) {
 
           {/* 核心补充 */}
           <div className="text-center">
-            <p className="text-[9px] text-[#00FF41]/60 uppercase tracking-widest font-bold">
+            <p className="text-caption text-matrix-muted uppercase font-bold">
               {copy("landing.cta.subtext")}
             </p>
           </div>
 
-          <div className="flex space-x-8 opacity-20 text-[9px] uppercase tracking-widest pt-4">
-            <span className="hover:text-white cursor-pointer transition-colors">
+          <div className="flex space-x-8 text-caption uppercase tracking-widest text-matrix-dim pt-4">
+            <span className="hover:text-matrix-bright cursor-pointer transition-colors">
               {copy("landing.footer.link.manifesto")}
             </span>
-            <span className="hover:text-white cursor-pointer transition-colors">
+            <span className="hover:text-matrix-bright cursor-pointer transition-colors">
               {copy("landing.footer.link.docs")}
             </span>
-            <span className="hover:text-white cursor-pointer transition-colors">
+            <span className="hover:text-matrix-bright cursor-pointer transition-colors">
               {copy("landing.footer.link.security")}
             </span>
           </div>
         </div>
       </main>
 
-      <footer className="absolute bottom-8 opacity-20 text-[9px] tracking-[0.6em] uppercase select-none">
+      <footer className="absolute bottom-8 text-caption text-matrix-dim tracking-[0.6em] uppercase select-none">
         {copy("landing.footer.system_ready")}
       </footer>
-
-      <style>
-        {`
-        .glow-text { text-shadow: 0 0 20px rgba(0, 255, 65, 0.5); }
-        `}
-      </style>
     </div>
   );
 }

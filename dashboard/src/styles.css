@@ -4,6 +4,20 @@
 
 :root {
   color-scheme: dark;
+  --matrix-bg: #050505;
+  --matrix-panel-bg: rgba(0, 10, 0, 0.7);
+  --matrix-panel-border: rgba(0, 255, 65, 0.18);
+  --matrix-panel-border-strong: rgba(0, 255, 65, 0.32);
+  --matrix-ink: #00ff41;
+  --matrix-ink-bright: #e8ffe9;
+  --matrix-ink-muted: rgba(0, 255, 65, 0.6);
+  --matrix-ink-dim: rgba(0, 255, 65, 0.35);
+  --matrix-ink-ghost: rgba(0, 255, 65, 0.18);
+  --matrix-glow: rgba(0, 255, 65, 0.45);
+  --matrix-display-size: clamp(48px, 6vw, 72px);
+  --matrix-heading-size: 14px;
+  --matrix-body-size: 16px;
+  --matrix-caption-size: 12px;
 }
 
 html,
@@ -13,10 +27,95 @@ body {
 
 body {
   margin: 0;
-  background: #050505;
-  color: #00ff41;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  background: var(--matrix-bg);
+  color: var(--matrix-ink);
+  font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: var(--matrix-body-size);
+  line-height: 1.5;
+}
+
+@layer components {
+  .matrix-panel {
+    background: var(--matrix-panel-bg);
+    border: 1px solid var(--matrix-panel-border);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 0 0 1px rgba(0, 255, 65, 0.08),
+      0 18px 40px rgba(0, 0, 0, 0.45);
+  }
+
+  .matrix-panel-strong {
+    border-color: var(--matrix-panel-border-strong);
+  }
+
+  .matrix-header-chip {
+    height: 40px;
+    min-width: 160px;
+    padding: 0 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    border: 1px solid var(--matrix-panel-border);
+    background: var(--matrix-panel-bg);
+    text-transform: uppercase;
+    position: relative;
+    overflow: hidden;
+    --matrix-header-corner: var(--matrix-ink);
+    background-image:
+      linear-gradient(var(--matrix-header-corner) 0 0),
+      linear-gradient(var(--matrix-header-corner) 0 0),
+      linear-gradient(var(--matrix-header-corner) 0 0),
+      linear-gradient(var(--matrix-header-corner) 0 0);
+    background-repeat: no-repeat;
+    background-size: 10px 1px, 1px 10px, 10px 1px, 1px 10px;
+    background-position:
+      top 6px left 6px,
+      top 6px left 6px,
+      bottom 6px right 6px,
+      bottom 6px right 6px;
+  }
+
+  .matrix-header-chip--solid {
+    background: var(--matrix-ink);
+    border-color: var(--matrix-ink);
+    color: #000;
+    box-shadow: 0 0 12px rgba(0, 255, 65, 0.35);
+    --matrix-header-corner: #000;
+  }
+
+  .matrix-header-action {
+    transition: all 200ms ease;
+  }
+
+  .matrix-header-action:hover {
+    background: rgba(0, 10, 0, 0.82);
+    border-color: var(--matrix-ink);
+  }
+
+  .matrix-header-action::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      120deg,
+      transparent 0%,
+      rgba(0, 255, 65, 0.2) 45%,
+      rgba(255, 255, 255, 0.2) 50%,
+      rgba(0, 255, 65, 0.2) 55%,
+      transparent 100%
+    );
+    transform: translateX(-120%);
+    opacity: 0;
+    transition: transform 300ms ease, opacity 200ms ease;
+    pointer-events: none;
+  }
+
+  .matrix-header-action:hover::after {
+    transform: translateX(120%);
+    opacity: 1;
+  }
 }
 
 @layer utilities {
@@ -29,10 +128,10 @@ body {
   }
 
   .glow-text {
-    text-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
+    text-shadow: 0 0 16px var(--matrix-glow);
   }
   .glow-text-strong {
-    text-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
+    text-shadow: 0 0 26px var(--matrix-glow);
   }
   .shadow-glow {
     filter: drop-shadow(0 0 2px rgba(0, 255, 65, 0.3));

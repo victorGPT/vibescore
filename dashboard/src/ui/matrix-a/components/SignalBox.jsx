@@ -8,18 +8,18 @@ import { copy } from "../../../lib/copy.js";
  */
 export const SignalBox = ({ title = copy("signalbox.title_default"), children, className = "" }) => (
   <div
-    className={`relative flex flex-col bg-black/90 border border-[#00FF41]/30 ${className}`}
+    className={`relative flex flex-col matrix-panel ${className}`}
   >
-    <div className="flex items-center text-[#00FF41] leading-none text-[10px] p-1 border-b border-[#00FF41]/20">
-      <span className="font-black bg-[#00FF41]/10 px-2 py-0.5 border border-[#00FF41]/30 mr-2">
+    <div className="flex items-center text-matrix-primary leading-none text-heading p-2 border-b border-matrix-ghost">
+      <span className="font-black uppercase bg-matrix-panelStrong px-2 py-1 border border-matrix-ghost mr-2">
         <DecodingText text={title} />
       </span>
-      <span className="flex-1 opacity-10 truncate">
+      <span className="flex-1 text-matrix-ghost truncate">
         --------------------------------------------------
       </span>
     </div>
     <div className="p-4 relative z-10 h-full">{children}</div>
-    <div className="absolute top-0 left-0 w-1.5 h-1.5 bg-[#00FF41] opacity-60"></div>
-    <div className="absolute bottom-0 right-0 w-1.5 h-1.5 bg-[#00FF41] opacity-60"></div>
+    <div className="absolute top-0 left-0 w-1.5 h-1.5 bg-matrix-primary opacity-60"></div>
+    <div className="absolute bottom-0 right-0 w-1.5 h-1.5 bg-matrix-primary opacity-60"></div>
   </div>
 );
