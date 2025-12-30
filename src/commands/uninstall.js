@@ -17,7 +17,8 @@ async function cmdUninstall(argv) {
   const home = os.homedir();
   const trackerDir = path.join(home, '.vibescore', 'tracker');
   const binDir = path.join(home, '.vibescore', 'bin');
-  const codexConfigPath = path.join(home, '.codex', 'config.toml');
+  const codexHome = process.env.CODEX_HOME || path.join(home, '.codex');
+  const codexConfigPath = path.join(codexHome, 'config.toml');
   const codeHome = process.env.CODE_HOME || path.join(home, '.code');
   const codeConfigPath = path.join(codeHome, 'config.toml');
   const claudeSettingsPath = path.join(home, '.claude', 'settings.json');

@@ -1,10 +1,11 @@
 # PR Template (Minimal)
 
 ## PR Goal (one sentence)
-Skip Codex notify installation when Codex config is missing to avoid init failures on systems without Codex.
+Avoid init/uninstall failures when Codex config is missing or located under CODEX_HOME.
 
 ## Commit Narrative
 - fix(cli): skip Codex notify when config missing
+- fix(cli): honor CODEX_HOME during uninstall
 
 ## Regression Test Gate
 ### Most likely regression surface

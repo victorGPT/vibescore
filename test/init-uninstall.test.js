@@ -36,7 +36,7 @@ test('init then uninstall restores original Codex notify (when pre-existing noti
 
   try {
     process.env.HOME = tmp;
-    process.env.CODEX_HOME = path.join(tmp, '.codex');
+    process.env.CODEX_HOME = path.join(tmp, '.codex-alt');
     delete process.env.VIBESCORE_DEVICE_TOKEN;
     process.env.OPENCODE_CONFIG_DIR = path.join(tmp, '.config', 'opencode');
     await fs.mkdir(process.env.CODEX_HOME, { recursive: true });
