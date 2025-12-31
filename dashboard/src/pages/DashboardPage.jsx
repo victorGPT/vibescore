@@ -79,7 +79,6 @@ function isProductionHost(hostname) {
 
 function isScreenshotModeEnabled() {
   if (typeof window === "undefined") return false;
-  if (isProductionHost(window.location.hostname)) return false;
   const params = new URLSearchParams(window.location.search);
   const raw = String(params.get("screenshot") || "").toLowerCase();
   return raw === "1" || raw === "true";
@@ -109,7 +108,7 @@ export function DashboardPage({
   const wrappedEntryLabel = copy("dashboard.wrapped.entry");
   const wrappedEntryEnabled = useMemo(() => {
     if (typeof window === "undefined") return false;
-    return !isProductionHost(window.location.hostname);
+    return true;
   }, []);
   const wrappedEntryUrl = useMemo(() => {
     if (!wrappedEntryEnabled || typeof window === "undefined") return "";

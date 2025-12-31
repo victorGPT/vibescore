@@ -27,3 +27,4 @@
 - [x] 1.24 增加 Playwright 截图脚本用于生成与浏览器一致的图片。
 - [x] 1.25 增加剪贴板+X 分享回归脚本并接入命令。
 - [x] 1.26 记录 freeze entry（dashboard share flow）。
+- [x] 1.27 生产环境开放 Wrapped 入口与截图模式。
