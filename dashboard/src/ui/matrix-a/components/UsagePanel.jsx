@@ -45,6 +45,7 @@ export const UsagePanel = React.memo(function UsagePanel({
   statusLabel,
   summaryAnimate = true,
   summaryScrambleDurationMs = 2200,
+  hideHeader = false,
   className = "",
 }) {
   const tabs = normalizePeriods(periods);
@@ -86,50 +87,52 @@ export const UsagePanel = React.memo(function UsagePanel({
 
   return (
     <AsciiBox title={title} className={className}>
-      <div className="flex flex-wrap items-center justify-between border-b border-matrix-ghost mb-3 pb-2 gap-4 px-2">
-        <div className="flex flex-wrap gap-4">
-          {tabs.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              className={`text-caption uppercase font-bold ${
-                period === p.key
-                  ? "text-matrix-bright border-b-2 border-matrix-primary"
-                  : "text-matrix-muted"
-              }`}
-              onClick={() => onPeriodChange?.(p.key)}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-        {onRefresh || statusLabel ? (
-          <div className="flex items-center gap-3">
-            {statusLabel ? (
-              <span className="text-caption uppercase font-bold text-matrix-muted">
-                {statusLabel}
-              </span>
-            ) : null}
-            {showBreakdownToggle ? (
-              <MatrixButton
-                className="px-2 py-1"
-                aria-label={toggleAriaLabel}
-                title={toggleAriaLabel}
-                onClick={onToggleBreakdown}
+      {!hideHeader ? (
+        <div className="flex flex-wrap items-center justify-between border-b border-matrix-ghost mb-3 pb-2 gap-4 px-2">
+          <div className="flex flex-wrap gap-4">
+            {tabs.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                className={`text-caption uppercase font-bold ${
+                  period === p.key
+                    ? "text-matrix-bright border-b-2 border-matrix-primary"
+                    : "text-matrix-muted"
+                }`}
+                onClick={() => onPeriodChange?.(p.key)}
               >
-                {toggleLabel}
-              </MatrixButton>
-            ) : null}
-            {onRefresh ? (
-              <MatrixButton primary disabled={loading} onClick={onRefresh}>
-                {loading
-                  ? copy("usage.button.loading")
-                  : copy("usage.button.refresh")}
-              </MatrixButton>
-            ) : null}
+                {p.label}
+              </button>
+            ))}
           </div>
-        ) : null}
-      </div>
+          {onRefresh || statusLabel ? (
+            <div className="flex items-center gap-3">
+              {statusLabel ? (
+                <span className="text-caption uppercase font-bold text-matrix-muted">
+                  {statusLabel}
+                </span>
+              ) : null}
+              {showBreakdownToggle ? (
+                <MatrixButton
+                  className="px-2 py-1"
+                  aria-label={toggleAriaLabel}
+                  title={toggleAriaLabel}
+                  onClick={onToggleBreakdown}
+                >
+                  {toggleLabel}
+                </MatrixButton>
+              ) : null}
+              {onRefresh ? (
+                <MatrixButton primary disabled={loading} onClick={onRefresh}>
+                  {loading
+                    ? copy("usage.button.loading")
+                    : copy("usage.button.refresh")}
+                </MatrixButton>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {error ? (
         <div className="text-caption text-red-400/90 px-2 py-1">
@@ -143,7 +146,7 @@ export const UsagePanel = React.memo(function UsagePanel({
             <div className="text-heading text-matrix-muted mb-2">
               {summaryLabel}
             </div>
-            <div className="text-5xl md:text-8xl font-black text-white tracking-[-0.06em] tabular-nums leading-none glow-text select-none">
+            <div className="text-5xl md:text-8xl font-black text-white tracking-[-0.06em] tabular-nums leading-none glow-text select-none -translate-y-[5px]">
               {summaryValue && summaryValue !== "—" ? (
                 <span className="relative inline-block leading-none">
                   {summaryAnimate ? (

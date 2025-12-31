@@ -11,7 +11,14 @@ const COPY_REQUIRED_KEYS = [
   'landing.meta.og_type',
   'landing.meta.og_image',
   'landing.meta.og_url',
-  'landing.meta.twitter_card'
+  'landing.meta.twitter_card',
+  'share.meta.title',
+  'share.meta.description',
+  'share.meta.og_site_name',
+  'share.meta.og_type',
+  'share.meta.og_image',
+  'share.meta.og_url',
+  'share.meta.twitter_card'
 ];
 
 const ROOT_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -116,9 +123,9 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;');
 }
 
-function buildMeta() {
+function buildMeta(prefix = 'landing') {
   const map = loadCopyRegistry();
-  const read = (key) => map.get(key) || '';
+  const read = (key) => map.get(`${prefix}.meta.${key}`) || '';
 
   const missing = COPY_REQUIRED_KEYS.filter((key) => !map.has(key));
   if (missing.length) {
@@ -126,18 +133,27 @@ function buildMeta() {
   }
 
   return {
-    title: read('landing.meta.title'),
-    description: read('landing.meta.description'),
-    ogSiteName: read('landing.meta.og_site_name'),
-    ogType: read('landing.meta.og_type'),
-    ogImage: read('landing.meta.og_image'),
-    ogUrl: read('landing.meta.og_url'),
-    twitterCard: read('landing.meta.twitter_card')
+    title: read('title'),
+    description: read('description'),
+    ogSiteName: read('og_site_name'),
+    ogType: read('og_type'),
+    ogImage: read('og_image'),
+    ogUrl: read('og_url'),
+    twitterCard: read('twitter_card')
   };
 }
 
-function injectRichMeta(html) {
-  const meta = buildMeta();
+function resolveMetaPrefix(ctx) {
+  const rawPath = String(
+    ctx?.path || ctx?.filename || ctx?.originalUrl || ''
+  ).toLowerCase();
+  if (rawPath.includes('share')) return 'share';
+  if (rawPath.includes('wrapped-2025')) return 'share';
+  return 'landing';
+}
+
+function injectRichMeta(html, prefix) {
+  const meta = buildMeta(prefix);
   const replacements = {
     '__VIBESCORE_TITLE__': meta.title,
     '__VIBESCORE_DESCRIPTION__': meta.description,
@@ -163,14 +179,23 @@ function injectRichMeta(html) {
 function richLinkMetaPlugin() {
   return {
     name: 'vibescore-rich-link-meta',
-    transformIndexHtml(html) {
-      return injectRichMeta(html);
+    transformIndexHtml(html, ctx) {
+      return injectRichMeta(html, resolveMetaPrefix(ctx));
     }
   };
 }
 
 export default defineConfig({
   plugins: [react(), richLinkMetaPlugin()],
+  build: {
+    rollupOptions: {
+      input: {
+        main: path.resolve(ROOT_DIR, 'index.html'),
+        share: path.resolve(ROOT_DIR, 'share.html'),
+        wrapped: path.resolve(ROOT_DIR, 'wrapped-2025.html')
+      }
+    }
+  },
   server: {
     port: 5173,
     // Prefer 5173 for local CLI integration, but don't fail if already in use.

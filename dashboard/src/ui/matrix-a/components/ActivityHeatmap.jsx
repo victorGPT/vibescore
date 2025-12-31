@@ -115,7 +115,12 @@ function buildFullYearMonthMarkers({ weeksCount, to, weekStartsOn }) {
   return markers;
 }
 
-export function ActivityHeatmap({ heatmap, timeZoneLabel, timeZoneShortLabel }) {
+export function ActivityHeatmap({
+  heatmap,
+  timeZoneLabel,
+  timeZoneShortLabel,
+  hideLegend = false,
+}) {
   const weekStartsOn = heatmap?.week_starts_on === "mon" ? "mon" : "sun";
   const normalizedHeatmap = useMemo(() => {
     const sourceWeeks = Array.isArray(heatmap?.weeks) ? heatmap.weeks : [];
@@ -527,29 +532,31 @@ export function ActivityHeatmap({ heatmap, timeZoneLabel, timeZoneShortLabel }) 
         />
       </div>
 
-      <div className="flex justify-between items-center text-caption border-t border-matrix-ghost pt-2 text-matrix-muted font-bold uppercase">
-        <div className="flex items-center gap-2">
-          <span>{copy("heatmap.legend.less")}</span>
-          <div className="flex gap-1">
-            {[0, 1, 2, 3, 4].map((level) => (
-              <span
-                key={level}
-                className="rounded-[2px] border border-matrix-ghost"
-                style={{
-                  width: 10,
-                  height: 10,
-                  background:
-                    level === 0
-                      ? "rgba(0,255,65,0.08)"
-                      : `rgba(0,255,65,${OPACITY_BY_LEVEL[level]})`,
-                }}
-              ></span>
-            ))}
+      {!hideLegend ? (
+        <div className="flex justify-between items-center text-caption border-t border-matrix-ghost pt-2 text-matrix-muted font-bold uppercase">
+          <div className="flex items-center gap-2">
+            <span>{copy("heatmap.legend.less")}</span>
+            <div className="flex gap-1">
+              {[0, 1, 2, 3, 4].map((level) => (
+                <span
+                  key={level}
+                  className="rounded-[2px] border border-matrix-ghost"
+                  style={{
+                    width: 10,
+                    height: 10,
+                    background:
+                      level === 0
+                        ? "rgba(0,255,65,0.08)"
+                        : `rgba(0,255,65,${OPACITY_BY_LEVEL[level]})`,
+                  }}
+                ></span>
+              ))}
+            </div>
+            <span>{copy("heatmap.legend.more")}</span>
           </div>
-          <span>{copy("heatmap.legend.more")}</span>
+          <span>{timeZoneShortLabel || copy("heatmap.legend.utc")}</span>
         </div>
-        <span>{timeZoneShortLabel || copy("heatmap.legend.utc")}</span>
-      </div>
+      ) : null}
     </div>
   );
 }

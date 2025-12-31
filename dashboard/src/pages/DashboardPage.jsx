@@ -17,7 +17,7 @@ import {
 } from "../lib/format.js";
 import { requestInstallLinkCode } from "../lib/vibescore-api.js";
 import { buildFleetData } from "../lib/model-breakdown.js";
-import { safeWriteClipboard } from "../lib/safe-browser.js";
+import { safeWriteClipboard, safeWriteClipboardImage } from "../lib/safe-browser.js";
 import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
 import { useTrendData } from "../hooks/use-trend-data.js";
 import { useUsageData } from "../hooks/use-usage-data.js";
@@ -68,6 +68,23 @@ function hasUsageValue(value, level) {
   return false;
 }
 
+function isProductionHost(hostname) {
+  if (!hostname) return false;
+  return (
+    hostname === "vibescore.space" ||
+    hostname === "www.vibescore.space" ||
+    hostname === "vibescore.vercel.app"
+  );
+}
+
+function isScreenshotModeEnabled() {
+  if (typeof window === "undefined") return false;
+  if (isProductionHost(window.location.hostname)) return false;
+  const params = new URLSearchParams(window.location.search);
+  const raw = String(params.get("screenshot") || "").toLowerCase();
+  return raw === "1" || raw === "true";
+}
+
 export function DashboardPage({
   baseUrl,
   auth,
@@ -87,6 +104,21 @@ export function DashboardPage({
     if (typeof window === "undefined" || !window.matchMedia) return false;
     return window.matchMedia("(max-width: 640px)").matches;
   });
+  const screenshotMode = useMemo(() => isScreenshotModeEnabled(), []);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const wrappedEntryLabel = copy("dashboard.wrapped.entry");
+  const wrappedEntryEnabled = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return !isProductionHost(window.location.hostname);
+  }, []);
+  const wrappedEntryUrl = useMemo(() => {
+    if (!wrappedEntryEnabled || typeof window === "undefined") return "";
+    const url = new URL("/", window.location.origin);
+    url.searchParams.set("screenshot", "1");
+    return url.toString();
+  }, [wrappedEntryEnabled]);
+  const showWrappedEntry =
+    wrappedEntryEnabled && !screenshotMode && Boolean(wrappedEntryUrl);
   const identityScrambleDurationMs = 2200;
   const [coreIndexCollapsed, setCoreIndexCollapsed] = useState(true);
   const [installCopied, setInstallCopied] = useState(false);
@@ -201,7 +233,8 @@ export function DashboardPage({
   const timeZone = useMemo(() => getBrowserTimeZone(), []);
   const tzOffsetMinutes = useMemo(() => getBrowserTimeZoneOffsetMinutes(), []);
   const mockNow = useMemo(() => getMockNow(), []);
-  const [period, setPeriod] = useState("week");
+  const [selectedPeriod, setSelectedPeriod] = useState("week");
+  const period = screenshotMode ? "total" : selectedPeriod;
   const range = useMemo(
     () =>
       getRangeForPeriod(period, {
@@ -532,15 +565,38 @@ export function DashboardPage({
 
   const heatmapFrom = heatmap?.from || heatmapRange.from;
   const heatmapTo = heatmap?.to || heatmapRange.to;
+  const activityHeatmapBlock = (
+    <AsciiBox
+      title={copy("dashboard.activity.title")}
+      subtitle={accessEnabled ? copy("dashboard.activity.subtitle") : "—"}
+      className="min-w-0 overflow-hidden"
+    >
+      <ActivityHeatmap
+        heatmap={heatmap}
+        timeZoneLabel={timeZoneLabel}
+        timeZoneShortLabel={timeZoneShortLabel}
+        hideLegend={screenshotMode}
+      />
+      {!screenshotMode ? (
+        <div className="mt-3 text-[8px] opacity-30 uppercase tracking-widest font-black">
+          {copy("dashboard.activity.range", {
+            from: heatmapFrom,
+            to: heatmapTo,
+          })}{" "}
+          {timeZoneRangeLabel}
+        </div>
+      ) : null}
+      <div className="mt-1 text-[8px] opacity-30 uppercase tracking-widest font-black">
+        {heatmapSourceLabel}
+      </div>
+    </AsciiBox>
+  );
 
   const rangeLabel = useMemo(() => {
     return `${from}..${to}`;
   }, [from, period, to]);
 
-  const summaryLabel =
-    period === "total"
-      ? copy("usage.summary.total_system_output")
-      : copy("usage.summary.total");
+  const summaryLabel = copy("usage.summary.total");
   const thousandSuffix = copy("shared.unit.thousand_abbrev");
   const millionSuffix = copy("shared.unit.million_abbrev");
   const billionSuffix = copy("shared.unit.billion_abbrev");
@@ -568,6 +624,150 @@ export function DashboardPage({
   const coreIndexExpandLabel = copy("dashboard.core_index.expand_label");
   const coreIndexCollapseAria = copy("dashboard.core_index.collapse_aria");
   const coreIndexExpandAria = copy("dashboard.core_index.expand_aria");
+  const allowBreakdownToggle = !screenshotMode;
+  const screenshotTitleLine1 = copy("dashboard.screenshot.title_line1");
+  const screenshotTitleLine2 = copy("dashboard.screenshot.title_line2");
+  const screenshotTwitterLabel = copy("dashboard.screenshot.twitter_label");
+  const screenshotTwitterButton = copy("dashboard.screenshot.twitter_button");
+  const screenshotTwitterHint = copy("dashboard.screenshot.twitter_hint");
+  const placeholderShort = copy("shared.placeholder.short");
+  const agentSummary = useMemo(() => {
+    const sources = Array.isArray(modelBreakdown?.sources)
+      ? modelBreakdown.sources
+      : [];
+    let topSource = null;
+    let topSourceTokens = 0;
+
+    for (const source of sources) {
+      const tokens = toFiniteNumber(source?.totals?.total_tokens);
+      if (!Number.isFinite(tokens) || tokens <= 0) continue;
+      if (tokens > topSourceTokens) {
+        topSourceTokens = tokens;
+        topSource = source;
+      }
+    }
+
+    let agentName = placeholderShort;
+    let modelName = placeholderShort;
+    let modelPercent = "0.0";
+
+    if (topSource && topSourceTokens > 0) {
+      agentName = topSource?.source
+        ? String(topSource.source).toUpperCase()
+        : placeholderShort;
+      const models = Array.isArray(topSource?.models) ? topSource.models : [];
+      let topModelTokens = 0;
+      for (const model of models) {
+        const tokens = toFiniteNumber(model?.totals?.total_tokens);
+        if (!Number.isFinite(tokens) || tokens <= 0) continue;
+        if (tokens > topModelTokens) {
+          topModelTokens = tokens;
+          modelName = model?.model ? String(model.model) : placeholderShort;
+        }
+      }
+      if (topModelTokens > 0) {
+        modelPercent = ((topModelTokens / topSourceTokens) * 100).toFixed(1);
+      }
+    }
+
+    return { agentName, modelName, modelPercent };
+  }, [modelBreakdown, placeholderShort]);
+  const displayTotalTokens = toDisplayNumber(summary?.total_tokens);
+  const twitterTotalTokens =
+    displayTotalTokens === "-" ? placeholderShort : displayTotalTokens;
+  const screenshotTwitterText = copy("dashboard.screenshot.twitter_text", {
+    total_tokens: twitterTotalTokens,
+    agent_name: agentSummary.agentName,
+    model_name: agentSummary.modelName,
+    model_percent: agentSummary.modelPercent,
+  });
+  const screenshotTwitterUrl = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    const intentUrl = new URL("https://twitter.com/intent/tweet");
+    intentUrl.searchParams.set("text", screenshotTwitterText);
+    return intentUrl.toString();
+  }, [screenshotTwitterText]);
+  const captureScreenshotBlob = useCallback(async () => {
+    if (typeof window === "undefined") return null;
+    const root = document.querySelector("#root") || document.body;
+    const docEl = document.documentElement;
+    const { scrollWidth, scrollHeight } = document.documentElement;
+    docEl?.classList.add("screenshot-capture");
+    document.body?.classList.add("screenshot-capture");
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    try {
+      const { toBlob, toPng } = await import("html-to-image");
+      const blob = await toBlob(root, {
+        backgroundColor: "#050505",
+        pixelRatio: 2,
+        cacheBust: true,
+        width: scrollWidth,
+        height: scrollHeight,
+        style: {
+          width: `${scrollWidth}px`,
+          height: `${scrollHeight}px`,
+        },
+        filter: (node) =>
+          !(node instanceof HTMLElement) ||
+          node.dataset?.screenshotExclude !== "true",
+      });
+      if (blob) return blob;
+      const dataUrl = await toPng(root, {
+        backgroundColor: "#050505",
+        pixelRatio: 2,
+        cacheBust: true,
+        width: scrollWidth,
+        height: scrollHeight,
+        style: {
+          width: `${scrollWidth}px`,
+          height: `${scrollHeight}px`,
+        },
+        filter: (node) =>
+          !(node instanceof HTMLElement) ||
+          node.dataset?.screenshotExclude !== "true",
+      });
+      if (!dataUrl) return null;
+      const response = await fetch(dataUrl);
+      return await response.blob();
+    } finally {
+      docEl?.classList.remove("screenshot-capture");
+      document.body?.classList.remove("screenshot-capture");
+    }
+  }, []);
+  const handleShareToX = useCallback(async () => {
+    if (typeof window === "undefined" || isCapturing) return;
+    setIsCapturing(true);
+    let copied = false;
+    try {
+      const blob = await captureScreenshotBlob();
+      if (blob) {
+        if (typeof document !== "undefined" && !document.hasFocus()) {
+          window.focus?.();
+        }
+        copied = await safeWriteClipboardImage(blob);
+      }
+    } catch (error) {
+      console.error("Failed to capture screenshot", error);
+    } finally {
+      setIsCapturing(false);
+      if (!copied) {
+        console.warn("Failed to write screenshot to clipboard.");
+        return;
+      }
+      if (screenshotTwitterUrl) {
+        window.location.href = screenshotTwitterUrl;
+      }
+    }
+  }, [captureScreenshotBlob, isCapturing, screenshotTwitterUrl]);
+  const footerLeftContent = screenshotMode
+    ? null
+    : accessEnabled
+    ? copy("dashboard.footer.active", { range: timeZoneRangeLabel })
+    : copy("dashboard.footer.auth");
+  const periodsForDisplay = useMemo(
+    () => (screenshotMode ? [] : PERIODS),
+    [screenshotMode]
+  );
 
   const metricsRows = useMemo(
     () => [
@@ -714,6 +914,23 @@ export function DashboardPage({
 
   const headerRight = (
     <div className="flex items-center gap-4">
+      {showWrappedEntry ? (
+        <MatrixButton
+          as="a"
+          href={wrappedEntryUrl}
+          size="header"
+          aria-label={wrappedEntryLabel}
+          title={wrappedEntryLabel}
+          className="matrix-header-action--ghost bg-transparent text-gold border-gold hover:border-gold hover:text-gold"
+          style={{
+            "--matrix-header-corner": "#FFD700",
+            borderColor: "#FFD700",
+            color: "#FFD700",
+          }}
+        >
+          {wrappedEntryLabel}
+        </MatrixButton>
+      ) : null}
       <GithubStar isFixed={false} size="header" />
 
       {signedIn ? (
@@ -739,6 +956,7 @@ export function DashboardPage({
   return (
     <>
       <MatrixShell
+        hideHeader={screenshotMode}
         headerStatus={
           <BackendStatus
             baseUrl={baseUrl}
@@ -747,17 +965,13 @@ export function DashboardPage({
         }
         headerRight={headerRight}
         footerLeft={
-          accessEnabled ? (
-            <span>
-              {copy("dashboard.footer.active", { range: timeZoneRangeLabel })}
-            </span>
-          ) : (
-            <span>{copy("dashboard.footer.auth")}</span>
-          )
+          footerLeftContent ? <span>{footerLeftContent}</span> : null
         }
         footerRight={
           <span className="font-bold">{copy("dashboard.footer.right")}</span>
         }
+        contentClassName=""
+        rootClassName={screenshotMode ? "screenshot-mode" : ""}
       >
         {sessionExpired ? (
           <div className="mb-6">
@@ -815,8 +1029,21 @@ export function DashboardPage({
             </AsciiBox>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-4 flex flex-col gap-6 min-w-0">
+              {screenshotMode ? (
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-3xl md:text-4xl font-black text-white tracking-[-0.03em] leading-none glow-text">
+                      {screenshotTitleLine1}
+                    </span>
+                    <span className="text-2xl md:text-3xl font-black text-white tracking-[-0.03em] leading-none glow-text">
+                      {screenshotTitleLine2}
+                    </span>
+                  </div>
+                </div>
+              ) : null}
               <IdentityCard
                 title={copy("dashboard.identity.title")}
                 subtitle={copy("dashboard.identity.subtitle")}
@@ -828,7 +1055,7 @@ export function DashboardPage({
                 scrambleDurationMs={identityScrambleDurationMs}
               />
 
-              {!signedIn ? (
+              {!screenshotMode && !signedIn ? (
                 <AsciiBox
                   title={copy("dashboard.auth_optional.title")}
                   subtitle={copy("dashboard.auth_optional.subtitle")}
@@ -847,78 +1074,80 @@ export function DashboardPage({
                 </AsciiBox>
               ) : null}
 
-              <AsciiBox
-                title={copy("dashboard.install.title")}
-                subtitle={copy("dashboard.install.subtitle")}
-                className="relative"
-              >
-                <div className="text-[12px] uppercase tracking-[0.25em] font-black text-[#00FF41]">
+              {!screenshotMode ? (
+                <AsciiBox
+                  title={copy("dashboard.install.title")}
+                  subtitle={copy("dashboard.install.subtitle")}
+                  className="relative"
+                >
+                  <div className="text-[12px] uppercase tracking-[0.25em] font-black text-[#00FF41]">
+                    <TypewriterText
+                      text={installHeadline}
+                      startDelayMs={installHeadlineDelayMs}
+                      speedMs={installHeadlineSpeedMs}
+                      cursor={false}
+                      active={shouldAnimateInstall}
+                    />
+                  </div>
                   <TypewriterText
-                    text={installHeadline}
-                    startDelayMs={installHeadlineDelayMs}
-                    speedMs={installHeadlineSpeedMs}
+                    className="text-[12px] opacity-50 mt-2"
+                    segments={installSegments}
+                    startDelayMs={installBodyDelayMs}
+                    speedMs={installBodySpeedMs}
                     cursor={false}
+                    wrap
                     active={shouldAnimateInstall}
                   />
-                </div>
-                <TypewriterText
-                  className="text-[12px] opacity-50 mt-2"
-                  segments={installSegments}
-                  startDelayMs={installBodyDelayMs}
-                  speedMs={installBodySpeedMs}
-                  cursor={false}
-                  wrap
-                  active={shouldAnimateInstall}
-                />
-                <div className="mt-4 flex flex-col gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <MatrixButton onClick={handleCopyInstall}>
-                      {installCopied ? installCopiedLabel : installCopyLabel}
-                    </MatrixButton>
-                    {linkCodeLoading ? (
-                      <span className="text-[12px] opacity-40">
-                        {copy("dashboard.install.link_code.loading")}
-                      </span>
-                    ) : linkCodeError ? (
-                      <span className="text-[12px] opacity-40">
-                        {copy("dashboard.install.link_code.failed")}
-                      </span>
-                    ) : null}
+                  <div className="mt-4 flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <MatrixButton onClick={handleCopyInstall}>
+                        {installCopied ? installCopiedLabel : installCopyLabel}
+                      </MatrixButton>
+                      {linkCodeLoading ? (
+                        <span className="text-[12px] opacity-40">
+                          {copy("dashboard.install.link_code.loading")}
+                        </span>
+                      ) : linkCodeError ? (
+                        <span className="text-[12px] opacity-40">
+                          {copy("dashboard.install.link_code.failed")}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
-                </div>
-              </AsciiBox>
+                </AsciiBox>
+              ) : null}
 
-              <AsciiBox
-                title={copy("dashboard.activity.title")}
-                subtitle={
-                  accessEnabled ? copy("dashboard.activity.subtitle") : "—"
-                }
-                className="min-w-0 overflow-hidden"
-              >
-                <ActivityHeatmap
-                  heatmap={heatmap}
-                  timeZoneLabel={timeZoneLabel}
-                  timeZoneShortLabel={timeZoneShortLabel}
-                />
-                <div className="mt-3 text-[8px] opacity-30 uppercase tracking-widest font-black">
-                  {copy("dashboard.activity.range", {
-                    from: heatmapFrom,
-                    to: heatmapTo,
-                  })}{" "}
-                  {timeZoneRangeLabel}
+              {activityHeatmapBlock}
+              {screenshotMode ? (
+                <div
+                  className="mt-4 flex flex-col items-center gap-2"
+                  data-screenshot-exclude="true"
+                  style={isCapturing ? { display: "none" } : undefined}
+                >
+                  <MatrixButton
+                    type="button"
+                    onClick={handleShareToX}
+                    aria-label={screenshotTwitterLabel}
+                    title={screenshotTwitterLabel}
+                    className="h-12 md:h-14 px-6 text-base tracking-[0.25em]"
+                    primary
+                    disabled={isCapturing}
+                  >
+                    {screenshotTwitterButton}
+                  </MatrixButton>
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-matrix-muted">
+                    {screenshotTwitterHint}
+                  </span>
                 </div>
-                <div className="mt-1 text-[8px] opacity-30 uppercase tracking-widest font-black">
-                  {heatmapSourceLabel}
-                </div>
-              </AsciiBox>
+              ) : null}
             </div>
 
             <div className="lg:col-span-8 flex flex-col gap-6 min-w-0">
               <UsagePanel
                 title={copy("usage.panel.title")}
                 period={period}
-                periods={PERIODS}
-                onPeriodChange={setPeriod}
+                periods={periodsForDisplay}
+                onPeriodChange={setSelectedPeriod}
                 metrics={metricsRows}
                 showSummary={period === "total"}
                 useSummaryLayout
@@ -926,20 +1155,32 @@ export function DashboardPage({
                 summaryValue={summaryValue}
                 summaryCostValue={summaryCostValue}
                 onCostInfo={costInfoEnabled ? openCostModal : null}
-                breakdownCollapsed={coreIndexCollapsed}
-                onToggleBreakdown={() =>
-                  setCoreIndexCollapsed((value) => !value)
+                breakdownCollapsed={
+                  allowBreakdownToggle ? coreIndexCollapsed : true
                 }
-                collapseLabel={coreIndexCollapseLabel}
-                expandLabel={coreIndexExpandLabel}
-                collapseAriaLabel={coreIndexCollapseAria}
-                expandAriaLabel={coreIndexExpandAria}
-                onRefresh={refreshAll}
+                onToggleBreakdown={
+                  allowBreakdownToggle
+                    ? () => setCoreIndexCollapsed((value) => !value)
+                    : null
+                }
+                collapseLabel={
+                  allowBreakdownToggle ? coreIndexCollapseLabel : undefined
+                }
+                expandLabel={
+                  allowBreakdownToggle ? coreIndexExpandLabel : undefined
+                }
+                collapseAriaLabel={
+                  allowBreakdownToggle ? coreIndexCollapseAria : undefined
+                }
+                expandAriaLabel={
+                  allowBreakdownToggle ? coreIndexExpandAria : undefined
+                }
+                onRefresh={screenshotMode ? null : refreshAll}
                 loading={usageLoadingState}
                 error={usageError}
-                rangeLabel={rangeLabel}
+                rangeLabel={screenshotMode ? null : rangeLabel}
                 rangeTimeZoneLabel={timeZoneRangeLabel}
-                statusLabel={usageSourceLabel}
+                statusLabel={screenshotMode ? null : usageSourceLabel}
                 summaryScrambleDurationMs={identityScrambleDurationMs}
                 summaryAnimate={false}
               />
@@ -950,135 +1191,140 @@ export function DashboardPage({
                 footer={null}
               />
 
-              <TrendMonitor
-                rows={trendRowsForDisplay}
-                from={trendFromForDisplay}
-                to={trendToForDisplay}
-                period={period}
-                timeZoneLabel={trendTimeZoneLabel}
-                showTimeZoneLabel={false}
-                className="min-h-[240px]"
-              />
+              {!screenshotMode ? (
+                <TrendMonitor
+                  rows={trendRowsForDisplay}
+                  from={trendFromForDisplay}
+                  to={trendToForDisplay}
+                  period={period}
+                  timeZoneLabel={trendTimeZoneLabel}
+                  showTimeZoneLabel={false}
+                  className="min-h-[240px]"
+                />
+              ) : null}
 
-              <AsciiBox
-                title={copy("dashboard.daily.title")}
-                subtitle={copy("dashboard.daily.subtitle")}
-              >
-                {!hasDetailsActual ? (
-                  <div className="text-[10px] opacity-40 mb-2">
-                    {dailyEmptyPrefix}
-                    <code className="px-1 py-0.5 bg-black/40 border border-[#00FF41]/20">
-                      {installSyncCmd}
-                    </code>
-                    {dailyEmptySuffix}
-                  </div>
-                ) : null}
-                <div
-                  className="overflow-auto max-h-[520px] border border-[#00FF41]/10"
-                  role="region"
-                  aria-label={copy("daily.table.aria_label")}
-                  tabIndex={0}
+              {!screenshotMode ? (
+                <AsciiBox
+                  title={copy("dashboard.daily.title")}
+                  subtitle={copy("dashboard.daily.subtitle")}
                 >
-                  <table className="w-full border-collapse">
-                    <thead className="sticky top-0 bg-black/90">
-                      <tr className="border-b border-[#00FF41]/10">
-                        {detailsColumns.map((c) => (
-                          <th
-                            key={c.key}
-                            aria-sort={ariaSortFor(c.key)}
-                            className="text-left p-0"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => toggleSort(c.key)}
-                              title={c.title}
-                              className="w-full px-3 py-2 text-left text-[9px] uppercase tracking-widest font-black opacity-70 hover:opacity-100 hover:bg-[#00FF41]/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00FF41]/30 flex items-center justify-start"
+                  {!hasDetailsActual ? (
+                    <div className="text-[10px] opacity-40 mb-2">
+                      {dailyEmptyPrefix}
+                      <code className="px-1 py-0.5 bg-black/40 border border-[#00FF41]/20">
+                        {installSyncCmd}
+                      </code>
+                      {dailyEmptySuffix}
+                    </div>
+                  ) : null}
+                  <div
+                    className="overflow-auto max-h-[520px] border border-[#00FF41]/10"
+                    role="region"
+                    aria-label={copy("daily.table.aria_label")}
+                    tabIndex={0}
+                  >
+                    <table className="w-full border-collapse">
+                      <thead className="sticky top-0 bg-black/90">
+                        <tr className="border-b border-[#00FF41]/10">
+                          {detailsColumns.map((c) => (
+                            <th
+                              key={c.key}
+                              aria-sort={ariaSortFor(c.key)}
+                              className="text-left p-0"
                             >
-                              <span className="inline-flex items-center gap-2">
-                                <span>{c.label}</span>
-                                <span className="opacity-40">
-                                  {sortIconFor(c.key)}
+                              <button
+                                type="button"
+                                onClick={() => toggleSort(c.key)}
+                                title={c.title}
+                                className="w-full px-3 py-2 text-left text-[9px] uppercase tracking-widest font-black opacity-70 hover:opacity-100 hover:bg-[#00FF41]/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00FF41]/30 flex items-center justify-start"
+                              >
+                                <span className="inline-flex items-center gap-2">
+                                  <span>{c.label}</span>
+                                  <span className="opacity-40">
+                                    {sortIconFor(c.key)}
+                                  </span>
                                 </span>
-                              </span>
-                            </button>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pagedDetails.map((r) => (
-                        <tr
-                          key={String(
-                            r?.[detailsDateKey] ||
-                              r?.day ||
-                              r?.hour ||
-                              r?.month ||
-                              ""
-                          )}
-                          className={`border-b border-[#00FF41]/5 hover:bg-[#00FF41]/5 ${
-                            r.missing
-                              ? "text-[#00FF41]/50"
-                              : r.future
-                              ? "text-[#00FF41]/30"
-                              : ""
-                          }`}
-                        >
-                          <td className="px-3 py-2 text-[12px] opacity-80 font-mono">
-                            {renderDetailDate(r)}
-                          </td>
-                          <td className="px-3 py-2 text-[12px] font-mono">
-                            {renderDetailCell(r, "total_tokens")}
-                          </td>
-                          <td className="px-3 py-2 text-[12px] font-mono">
-                            {renderDetailCell(r, "input_tokens")}
-                          </td>
-                          <td className="px-3 py-2 text-[12px] font-mono">
-                            {renderDetailCell(r, "output_tokens")}
-                          </td>
-                          <td className="px-3 py-2 text-[12px] font-mono">
-                            {renderDetailCell(r, "cached_input_tokens")}
-                          </td>
-                          <td className="px-3 py-2 text-[12px] font-mono">
-                            {renderDetailCell(r, "reasoning_output_tokens")}
-                          </td>
+                              </button>
+                            </th>
+                          ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {DETAILS_PAGED_PERIODS.has(period) && detailsPageCount > 1 ? (
-                  <div className="flex items-center justify-between mt-3 text-[9px] uppercase tracking-widest font-black">
-                    <MatrixButton
-                      type="button"
-                      onClick={() =>
-                        setDetailsPage((prev) => Math.max(0, prev - 1))
-                      }
-                      disabled={detailsPage === 0}
-                    >
-                      {copy("details.pagination.prev")}
-                    </MatrixButton>
-                    <span className="opacity-50">
-                      {copy("details.pagination.page", {
-                        page: detailsPage + 1,
-                        total: detailsPageCount,
-                      })}
-                    </span>
-                    <MatrixButton
-                      type="button"
-                      onClick={() =>
-                        setDetailsPage((prev) =>
-                          Math.min(detailsPageCount - 1, prev + 1)
-                        )
-                      }
-                      disabled={detailsPage + 1 >= detailsPageCount}
-                    >
-                      {copy("details.pagination.next")}
-                    </MatrixButton>
+                      </thead>
+                      <tbody>
+                        {pagedDetails.map((r) => (
+                          <tr
+                            key={String(
+                              r?.[detailsDateKey] ||
+                                r?.day ||
+                                r?.hour ||
+                                r?.month ||
+                                ""
+                            )}
+                            className={`border-b border-[#00FF41]/5 hover:bg-[#00FF41]/5 ${
+                              r.missing
+                                ? "text-[#00FF41]/50"
+                                : r.future
+                                ? "text-[#00FF41]/30"
+                                : ""
+                            }`}
+                          >
+                            <td className="px-3 py-2 text-[12px] opacity-80 font-mono">
+                              {renderDetailDate(r)}
+                            </td>
+                            <td className="px-3 py-2 text-[12px] font-mono">
+                              {renderDetailCell(r, "total_tokens")}
+                            </td>
+                            <td className="px-3 py-2 text-[12px] font-mono">
+                              {renderDetailCell(r, "input_tokens")}
+                            </td>
+                            <td className="px-3 py-2 text-[12px] font-mono">
+                              {renderDetailCell(r, "output_tokens")}
+                            </td>
+                            <td className="px-3 py-2 text-[12px] font-mono">
+                              {renderDetailCell(r, "cached_input_tokens")}
+                            </td>
+                            <td className="px-3 py-2 text-[12px] font-mono">
+                              {renderDetailCell(r, "reasoning_output_tokens")}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                ) : null}
-              </AsciiBox>
+                  {DETAILS_PAGED_PERIODS.has(period) && detailsPageCount > 1 ? (
+                    <div className="flex items-center justify-between mt-3 text-[9px] uppercase tracking-widest font-black">
+                      <MatrixButton
+                        type="button"
+                        onClick={() =>
+                          setDetailsPage((prev) => Math.max(0, prev - 1))
+                        }
+                        disabled={detailsPage === 0}
+                      >
+                        {copy("details.pagination.prev")}
+                      </MatrixButton>
+                      <span className="opacity-50">
+                        {copy("details.pagination.page", {
+                          page: detailsPage + 1,
+                          total: detailsPageCount,
+                        })}
+                      </span>
+                      <MatrixButton
+                        type="button"
+                        onClick={() =>
+                          setDetailsPage((prev) =>
+                            Math.min(detailsPageCount - 1, prev + 1)
+                          )
+                        }
+                        disabled={detailsPage + 1 >= detailsPageCount}
+                      >
+                        {copy("details.pagination.next")}
+                      </MatrixButton>
+                    </div>
+                  ) : null}
+                </AsciiBox>
+              ) : null}
             </div>
           </div>
+          </>
         )}
       </MatrixShell>
       <CostAnalysisModal

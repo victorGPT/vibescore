@@ -15,6 +15,11 @@ const DashboardPage = React.lazy(() =>
     default: mod.DashboardPage,
   }))
 );
+const AnnualPosterPage = React.lazy(() =>
+  import("./pages/AnnualPosterPage.jsx").then((mod) => ({
+    default: mod.AnnualPosterPage,
+  }))
+);
 
 const LOCAL_REDIRECT_HOSTS = new Set(["127.0.0.1", "localhost"]);
 
@@ -51,6 +56,8 @@ export default function App() {
 
   const pageUrl = new URL(window.location.href);
   const safeRedirect = getSafeRedirect(pageUrl.searchParams);
+  const posterYear = pageUrl.searchParams.get("poster") || "";
+  const showPoster = posterYear === "2025";
   const baseUrlOverride =
     safeRedirect && pageUrl.searchParams.get("base_url")
       ? pageUrl.searchParams.get("base_url")
@@ -76,6 +83,16 @@ export default function App() {
   const accessEnabled = signedIn || mockEnabled || sessionExpired;
   if (!signedIn && !mockEnabled && !sessionExpired) {
     content = <LandingPage signInUrl={signInUrl} />;
+  } else if (showPoster) {
+    content = (
+      <Suspense fallback={loadingShell}>
+        <AnnualPosterPage
+          baseUrl={baseUrl}
+          auth={auth}
+          signedIn={signedIn}
+        />
+      </Suspense>
+    );
   } else {
     content = (
       <Suspense fallback={loadingShell}>
