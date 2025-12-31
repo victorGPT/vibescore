@@ -239,8 +239,14 @@ export function ActivityHeatmap({
     const el = scrollRef.current;
     if (!el) return;
     if (hasAutoScrolledRef.current) return;
+    if (defaultToLatestMonth) {
+      el.dataset.latestMonthReady = "false";
+    }
     if (el.scrollWidth <= el.clientWidth + 1) {
       updateScrollState();
+      if (defaultToLatestMonth) {
+        el.dataset.latestMonthReady = "true";
+      }
       hasAutoScrolledRef.current = true;
       return;
     }
@@ -261,6 +267,9 @@ export function ActivityHeatmap({
       }
       el.scrollLeft = targetScroll;
       updateScrollState();
+      if (defaultToLatestMonth) {
+        el.dataset.latestMonthReady = "true";
+      }
       hasAutoScrolledRef.current = true;
     };
 
@@ -434,6 +443,7 @@ export function ActivityHeatmap({
         {/* Scroll Container: Hide native scrollbar but allow scrolling */}
         <div
           ref={scrollRef}
+          data-heatmap-scroll="true"
           className="w-full max-w-full overflow-x-scroll no-scrollbar select-none pb-2 outline-none"
           tabIndex={0}
           aria-label={copy("heatmap.aria_label")}

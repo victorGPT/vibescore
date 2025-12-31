@@ -689,12 +689,23 @@ export function DashboardPage({
   }, [screenshotTwitterText]);
   const captureScreenshotBlob = useCallback(async () => {
     if (typeof window === "undefined") return null;
+    const waitForHeatmapLatest = async () => {
+      const maxWaitMs = 900;
+      const start = performance.now();
+      while (performance.now() - start < maxWaitMs) {
+        const el = document.querySelector("[data-heatmap-scroll='true']");
+        if (!el) return;
+        if (el.dataset.latestMonthReady === "true") return;
+        await new Promise((resolve) => requestAnimationFrame(resolve));
+      }
+    };
     const root = document.querySelector("#root") || document.body;
     const docEl = document.documentElement;
     const { scrollWidth, scrollHeight } = document.documentElement;
     docEl?.classList.add("screenshot-capture");
     document.body?.classList.add("screenshot-capture");
     await new Promise((resolve) => requestAnimationFrame(resolve));
+    await waitForHeatmapLatest();
     try {
       const { toBlob, toPng } = await import("html-to-image");
       const blob = await toBlob(root, {
