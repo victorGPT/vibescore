@@ -79,10 +79,14 @@ function createEntitlementsDbMock(options = {}) {
   const rows = new Map();
   const seedRows = Array.isArray(options.seedRows) ? options.seedRows : [];
   const failOnDuplicate = options.failOnDuplicate !== false;
+  const conflictRow = options.conflictRow && typeof options.conflictRow.id === 'string'
+    ? options.conflictRow
+    : null;
   const duplicateError = options.duplicateError || {
     message: 'duplicate key value violates unique constraint "vibescore_user_entitlements_pkey"',
     code: '23505'
   };
+  let conflictArmed = Boolean(conflictRow);
 
   for (const row of seedRows) {
     if (row && typeof row.id === 'string') rows.set(row.id, row);
@@ -93,6 +97,14 @@ function createEntitlementsDbMock(options = {}) {
       return {
         insert: async (newRows) => {
           inserts.push({ table, rows: newRows });
+          if (conflictArmed) {
+            const hasConflict = newRows.some((row) => row && row.id === conflictRow.id);
+            if (hasConflict) {
+              conflictArmed = false;
+              rows.set(conflictRow.id, conflictRow);
+              return { error: duplicateError };
+            }
+          }
           if (failOnDuplicate) {
             for (const row of newRows) {
               if (row && typeof row.id === 'string' && rows.has(row.id)) {
@@ -2266,6 +2278,95 @@ test('vibescore-entitlements replays idempotency_key without duplicate insert', 
   assert.equal(db.rows.size, 1);
 });
 
+test('vibescore-entitlements rejects idempotency_key payload mismatch', async () => {
+  const fn = require('../insforge-functions/vibescore-entitlements');
+
+  const db = createEntitlementsDbMock();
+  const userId = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return { database: db.db };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const base = {
+    user_id: userId,
+    source: 'manual',
+    effective_from: '2025-01-01T00:00:00Z',
+    effective_to: '2124-01-01T00:00:00Z',
+    note: 'alpha',
+    idempotency_key: 'entitlement-mismatch'
+  };
+
+  const res1 = await fn(
+    new Request('http://localhost/functions/vibescore-entitlements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+      body: JSON.stringify(base)
+    })
+  );
+  assert.equal(res1.status, 200);
+
+  const res2 = await fn(
+    new Request('http://localhost/functions/vibescore-entitlements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+      body: JSON.stringify({ ...base, note: 'beta' })
+    })
+  );
+
+  assert.equal(res2.status, 409);
+  const body = await res2.json();
+  assert.equal(body.error, 'Entitlement already exists with different payload');
+  assert.equal(db.rows.size, 1);
+});
+
+test('vibescore-entitlements returns existing row after insert conflict', async () => {
+  const fn = require('../insforge-functions/vibescore-entitlements');
+
+  const userId = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+  const conflictRow = {
+    id: '99999999-9999-9999-9999-999999999999',
+    user_id: userId,
+    source: 'manual',
+    effective_from: '2025-01-01T00:00:00Z',
+    effective_to: '2124-01-01T00:00:00Z',
+    revoked_at: null,
+    note: 'test',
+    created_at: '2025-01-01T00:00:00Z',
+    updated_at: '2025-01-01T00:00:00Z',
+    created_by: null
+  };
+  const db = createEntitlementsDbMock({ conflictRow });
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return { database: db.db };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibescore-entitlements', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+    body: JSON.stringify({
+      id: conflictRow.id,
+      user_id: userId,
+      source: 'manual',
+      effective_from: conflictRow.effective_from,
+      effective_to: conflictRow.effective_to,
+      note: conflictRow.note
+    })
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.id, conflictRow.id);
+});
+
 test('vibescore-entitlements rejects id reuse across users', async () => {
   const fn = require('../insforge-functions/vibescore-entitlements');
 
@@ -2307,7 +2408,7 @@ test('vibescore-entitlements rejects id reuse across users', async () => {
   const res = await fn(req);
   assert.equal(res.status, 409);
   const body = await res.json();
-  assert.equal(body.error, 'entitlement id already exists for a different user');
+  assert.equal(body.error, 'Entitlement already exists with different payload');
 });
 
 test('vibescore-entitlements accepts project_admin token', async () => {
