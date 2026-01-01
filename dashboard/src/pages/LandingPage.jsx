@@ -1,6 +1,7 @@
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { DecodingText } from "../ui/matrix-a/components/DecodingText.jsx";
 import { GithubStar } from "../ui/matrix-a/components/GithubStar.jsx";
+import { MatrixButton } from "../ui/matrix-a/components/MatrixButton.jsx";
 import { copy } from "../lib/copy.js";
 
 const MatrixRain = React.lazy(() =>
@@ -40,7 +41,7 @@ function useDeferredMount(delayMs = 0) {
   return mounted;
 }
 
-export function LandingPage({ signInUrl }) {
+export function LandingPage({ signInUrl, signUpUrl }) {
   const specialHandle = copy("landing.handle.special");
   const defaultHandle = copy("landing.handle.default");
   const [handle, setHandle] = useState(defaultHandle);
@@ -88,6 +89,19 @@ export function LandingPage({ signInUrl }) {
         </Suspense>
       ) : null}
       <GithubStar />
+      <div className="absolute top-6 right-6 z-20 flex flex-col items-end gap-3 sm:flex-row sm:items-center">
+        <MatrixButton as="a" size="header" href={signInUrl}>
+          {copy("landing.nav.login")}
+        </MatrixButton>
+        <MatrixButton
+          as="a"
+          size="header"
+          href={signUpUrl}
+          className="bg-matrix-primary text-black border-matrix-primary hover:bg-white hover:border-white"
+        >
+          {copy("landing.nav.signup")}
+        </MatrixButton>
+      </div>
       <div className="pointer-events-none fixed inset-0 z-50 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%)] bg-[length:100%_4px]"></div>
 
       {/* 主面板 */}
