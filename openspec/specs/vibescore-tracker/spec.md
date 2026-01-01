@@ -780,14 +780,21 @@ The system SHALL attempt database-side monthly aggregation for `GET /functions/v
 - **WHEN** the database aggregation attempt fails
 - **THEN** the endpoint SHALL fall back to the legacy aggregation path without changing response fields
 
-### Requirement: Usage summary prefers DB-side aggregation
-The system MUST prefer database-side aggregation for `usage-summary` in the UTC path and MUST fall back to the legacy daily-rollup if aggregation is unsupported.
+### Requirement: UTC daily rollup is maintained from hourly buckets
+The system SHALL maintain a UTC daily rollup keyed by `user_id + day + source + model`, derived from `vibescore_tracker_hourly`. Rollup updates MUST be idempotent and replayable.
 
-#### Scenario: DB aggregation success
-- **GIVEN** the database supports aggregate selects
-- **WHEN** the user calls `GET /functions/vibescore-usage-summary`
-- **THEN** the response SHALL be computed via DB aggregation
-- **AND** the legacy daily-rollup path SHALL NOT execute
+#### Scenario: Hourly upsert updates rollup totals
+- **GIVEN** an hourly bucket upsert for a user
+- **WHEN** the row is inserted or updated
+- **THEN** the daily rollup for the corresponding UTC day SHALL reflect the delta
+
+### Requirement: Usage summary prefers rollup aggregation
+The system MUST prefer rollup aggregation for `usage-summary` and MUST fall back to hourly aggregation if rollup data is unavailable.
+
+#### Scenario: Rollup unavailable
+- **GIVEN** rollup data is missing or unavailable
+- **WHEN** a user requests usage summary
+- **THEN** the endpoint SHALL fall back to hourly aggregation without changing response fields
 
 ### Requirement: Usage day-range endpoints enforce maximum range
 The system SHALL reject usage requests that exceed a maximum day range for `GET /functions/vibescore-usage-summary`, `GET /functions/vibescore-usage-daily`, and `GET /functions/vibescore-usage-model-breakdown`. The maximum day range SHALL default to 800 days and be configurable via `VIBESCORE_USAGE_MAX_DAYS`.
@@ -816,14 +823,21 @@ The dashboard MUST avoid issuing redundant `GET /functions/vibescore-usage-daily
 - **THEN** it SHALL issue at most one `usage-daily` request for that window
 - **AND** the trend chart SHALL reuse the daily rows already fetched
 
-### Requirement: Summary is derived from daily when available
-When daily rows are already fetched (i.e., `period!=total`), the dashboard MUST compute `summary` locally and MUST NOT call `GET /functions/vibescore-usage-summary` for the same window.
+### Requirement: Usage daily returns backend summary
+`GET /functions/vibescore-usage-daily` SHALL include a backend-computed `summary` object so the dashboard does not compute totals locally.
 
-#### Scenario: Month period skips summary call
+#### Scenario: Daily response includes summary
+- **WHEN** a user requests usage daily for any range
+- **THEN** the response SHALL include `summary.totals` with token totals
+
+### Requirement: Summary is backend-derived when daily rows exist
+When daily rows are already fetched (i.e., `period!=total`), the dashboard MUST use backend-provided totals and MUST NOT compute summary locally.
+
+#### Scenario: Month period uses backend summary
 - **GIVEN** `period=month`
 - **WHEN** the dashboard refreshes usage data
-- **THEN** it SHALL compute summary from daily rows
-- **AND** it SHALL NOT issue a `usage-summary` request for that window
+- **THEN** it SHALL use backend summary totals
+- **AND** it SHALL NOT compute summary from daily rows on the client
 
 ### Requirement: Auto sync health is diagnosable
 The CLI SHALL expose sufficient diagnostics to determine whether auto sync is functioning, degraded, or failing.

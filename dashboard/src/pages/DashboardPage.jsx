@@ -284,7 +284,6 @@ export function DashboardPage({
     from,
     to,
     includeDaily: period !== "total",
-    deriveSummaryFromDaily: false,
     cacheKey: auth?.userId || auth?.email || "default",
     timeZone,
     tzOffsetMinutes,

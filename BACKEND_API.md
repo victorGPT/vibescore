@@ -478,10 +478,46 @@ Query:
 Response:
 
 ```json
-{ "from": "YYYY-MM-DD", "to": "YYYY-MM-DD", "data": [ { "day": "YYYY-MM-DD", "total_tokens": 0 } ] }
+{
+  "from": "YYYY-MM-DD",
+  "to": "YYYY-MM-DD",
+  "data": [
+    {
+      "day": "YYYY-MM-DD",
+      "total_tokens": "0",
+      "input_tokens": "0",
+      "cached_input_tokens": "0",
+      "output_tokens": "0",
+      "reasoning_output_tokens": "0"
+    }
+  ],
+  "summary": {
+    "totals": {
+      "total_tokens": "0",
+      "input_tokens": "0",
+      "cached_input_tokens": "0",
+      "output_tokens": "0",
+      "reasoning_output_tokens": "0",
+      "total_cost_usd": "0.000000"
+    },
+    "pricing": {
+      "model": "gpt-5.2-codex",
+      "pricing_mode": "overlap",
+      "source": "openrouter",
+      "effective_from": "2025-12-23",
+      "rates_per_million_usd": {
+        "input": "1.750000",
+        "cached_input": "0.175000",
+        "output": "14.000000",
+        "reasoning_output": "14.000000"
+      }
+    }
+  }
+}
 ```
 
 Notes:
+- The response includes backend-computed `summary` totals; the dashboard MUST NOT compute totals locally.
 - When `debug=1` is set, the response includes a `debug` object with `request_id`, `status`, `query_ms`, `slow_threshold_ms`, `slow_query`.
 
 ---

@@ -4,7 +4,6 @@ import { getUsageDaily, getUsageSummary } from "../lib/vibescore-api.js";
 import { formatDateLocal, formatDateUTC } from "../lib/date-range.js";
 import { isMockEnabled } from "../lib/mock-data.js";
 import { getLocalDayKey, getTimeZoneCacheKey } from "../lib/timezone.js";
-import { sumDailyRowsToTotals } from "../lib/usage-aggregate.js";
 
 export function useUsageData({
   baseUrl,
@@ -12,7 +11,6 @@ export function useUsageData({
   from,
   to,
   includeDaily = true,
-  deriveSummaryFromDaily = false,
   cacheKey,
   timeZone,
   tzOffsetMinutes,
@@ -64,22 +62,13 @@ export function useUsageData({
     setLoading(true);
     setError(null);
     try {
-      const shouldDeriveSummary = includeDaily && deriveSummaryFromDaily;
-      const promises = [];
+      let dailyRes = null;
+      let summaryRes = null;
       if (includeDaily) {
-        promises.push(
-          getUsageDaily({ baseUrl, accessToken, from, to, timeZone, tzOffsetMinutes })
-        );
+        dailyRes = await getUsageDaily({ baseUrl, accessToken, from, to, timeZone, tzOffsetMinutes });
+      } else {
+        summaryRes = await getUsageSummary({ baseUrl, accessToken, from, to, timeZone, tzOffsetMinutes });
       }
-      if (!shouldDeriveSummary) {
-        promises.push(
-          getUsageSummary({ baseUrl, accessToken, from, to, timeZone, tzOffsetMinutes })
-        );
-      }
-
-      const results = await Promise.all(promises);
-      const dailyRes = includeDaily ? results[0] : null;
-      const summaryRes = shouldDeriveSummary ? null : results[includeDaily ? 1 : 0];
 
       let nextDaily =
         includeDaily && Array.isArray(dailyRes?.data) ? dailyRes.data : [];
@@ -90,9 +79,18 @@ export function useUsageData({
           now,
         });
       }
-      const nextSummary = shouldDeriveSummary
-        ? sumDailyRowsToTotals(nextDaily)
-        : summaryRes?.totals || null;
+      let nextSummary = summaryRes?.totals || dailyRes?.summary?.totals || null;
+      if (includeDaily && !nextSummary) {
+        const fallback = await getUsageSummary({
+          baseUrl,
+          accessToken,
+          from,
+          to,
+          timeZone,
+          tzOffsetMinutes
+        });
+        nextSummary = fallback?.totals || null;
+      }
       const nowIso = new Date().toISOString();
 
       setDaily(nextDaily);
@@ -141,7 +139,6 @@ export function useUsageData({
     baseUrl,
     from,
     includeDaily,
-    deriveSummaryFromDaily,
     mockEnabled,
     now,
     readCache,

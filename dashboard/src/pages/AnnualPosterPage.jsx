@@ -105,7 +105,6 @@ export function AnnualPosterPage({ baseUrl, auth, signedIn }) {
     from: POSTER_FROM,
     to: POSTER_TO,
     includeDaily: true,
-    deriveSummaryFromDaily: false,
     cacheKey: auth?.userId || auth?.email || "default",
     timeZone,
     tzOffsetMinutes,
