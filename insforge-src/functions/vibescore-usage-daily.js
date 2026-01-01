@@ -109,6 +109,13 @@ module.exports = withRequestLogging('vibescore-usage-daily', async function(requ
     distinctModels = new Set();
     rowCount = 0;
     rollupHit = false;
+    for (const bucket of buckets.values()) {
+      bucket.total = 0n;
+      bucket.input = 0n;
+      bucket.cached = 0n;
+      bucket.output = 0n;
+      bucket.reasoning = 0n;
+    }
   };
 
   const ingestRow = (row) => {
