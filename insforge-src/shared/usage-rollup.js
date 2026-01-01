@@ -2,6 +2,7 @@
 
 const { applyCanaryFilter } = require('./canary');
 const { toBigInt } = require('./numbers');
+const { forEachPage } = require('./pagination');
 
 function createTotals() {
   return {
@@ -23,18 +24,30 @@ function addRowTotals(target, row) {
 }
 
 async function fetchRollupRows({ edgeClient, userId, fromDay, toDay, source, model }) {
-  let query = edgeClient.database
-    .from('vibescore_tracker_daily_rollup')
-    .select('day,source,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
-    .eq('user_id', userId)
-    .gte('day', fromDay)
-    .lte('day', toDay);
-  if (source) query = query.eq('source', source);
-  if (model) query = query.eq('model', model);
-  query = applyCanaryFilter(query, { source, model });
-  const { data, error } = await query.order('day', { ascending: true });
+  const rows = [];
+  const { error } = await forEachPage({
+    createQuery: () => {
+      let query = edgeClient.database
+        .from('vibescore_tracker_daily_rollup')
+        .select('day,source,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
+        .eq('user_id', userId)
+        .gte('day', fromDay)
+        .lte('day', toDay);
+      if (source) query = query.eq('source', source);
+      if (model) query = query.eq('model', model);
+      query = applyCanaryFilter(query, { source, model });
+      return query
+        .order('day', { ascending: true })
+        .order('source', { ascending: true })
+        .order('model', { ascending: true });
+    },
+    onPage: (pageRows) => {
+      if (!Array.isArray(pageRows) || pageRows.length === 0) return;
+      rows.push(...pageRows);
+    }
+  });
   if (error) return { ok: false, error };
-  return { ok: true, rows: Array.isArray(data) ? data : [] };
+  return { ok: true, rows };
 }
 
 function sumRollupRows(rows) {

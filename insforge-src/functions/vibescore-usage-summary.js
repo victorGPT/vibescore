@@ -124,7 +124,13 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
         if (source) query = query.eq('source', source);
         if (model) query = query.eq('model', model);
         query = applyCanaryFilter(query, { source, model });
-        return query.gte('hour_start', rangeStartIso).lt('hour_start', rangeEndIso).order('hour_start', { ascending: true });
+        return query
+          .gte('hour_start', rangeStartIso)
+          .lt('hour_start', rangeEndIso)
+          .order('hour_start', { ascending: true })
+          .order('device_id', { ascending: true })
+          .order('source', { ascending: true })
+          .order('model', { ascending: true });
       },
       onPage: (rows) => {
         const pageRows = Array.isArray(rows) ? rows : [];
