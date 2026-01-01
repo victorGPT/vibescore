@@ -77,21 +77,12 @@ export default function App() {
       }),
     [authBaseUrl, defaultRedirectUrl, safeRedirect]
   );
-  const signUpUrl = useMemo(
-    () =>
-      buildAuthUrl({
-        baseUrl: authBaseUrl,
-        path: "/auth/sign-up",
-        redirectUrl: safeRedirect || defaultRedirectUrl,
-      }),
-    [authBaseUrl, defaultRedirectUrl, safeRedirect]
-  );
 
   const loadingShell = <div className="min-h-screen bg-[#050505]" />;
   let content = null;
   const accessEnabled = signedIn || mockEnabled || sessionExpired;
   if (!signedIn && !mockEnabled && !sessionExpired) {
-    content = <LandingPage signInUrl={signInUrl} signUpUrl={signUpUrl} />;
+    content = <LandingPage signInUrl={signInUrl} />;
   } else if (showPoster) {
     content = (
       <Suspense fallback={loadingShell}>
