@@ -11,6 +11,8 @@ const { getModelParam, normalizeModel } = require('../shared/model');
 const { applyCanaryFilter } = require('../shared/canary');
 const {
   addDatePartsDays,
+  addUtcDays,
+  formatDateUTC,
   getUsageMaxDays,
   getUsageTimeZoneContext,
   listDateStrings,
@@ -18,8 +20,12 @@ const {
   normalizeDateRangeLocal,
   parseDateParts
 } = require('../shared/date');
-const { toBigInt } = require('../shared/numbers');
 const { forEachPage } = require('../shared/pagination');
+const {
+  addRowTotals,
+  createTotals,
+  fetchRollupRows
+} = require('../shared/usage-rollup');
 const {
   buildPricingMetadata,
   computeUsageCost,
@@ -79,48 +85,162 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
   const startIso = startUtc.toISOString();
   const endIso = endUtc.toISOString();
 
-  let totalTokens = 0n;
-  let inputTokens = 0n;
-  let cachedInputTokens = 0n;
-  let outputTokens = 0n;
-  let reasoningOutputTokens = 0n;
-  const distinctModels = new Set();
-  const sourcesMap = new Map();
+  let totals = createTotals();
+  let sourcesMap = new Map();
+  let distinctModels = new Set();
 
   const queryStartMs = Date.now();
   let rowCount = 0;
-  const { error } = await forEachPage({
-    createQuery: () => {
-      let query = auth.edgeClient.database
-        .from('vibescore_tracker_hourly')
-        .select(
-          'hour_start,source,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens'
-        )
-        .eq('user_id', auth.userId);
-      if (source) query = query.eq('source', source);
-      if (model) query = query.eq('model', model);
-      query = applyCanaryFilter(query, { source, model });
-      return query.gte('hour_start', startIso).lt('hour_start', endIso).order('hour_start', { ascending: true });
-    },
-    onPage: (rows) => {
-      const pageRows = Array.isArray(rows) ? rows : [];
-      rowCount += pageRows.length;
-      for (const row of pageRows) {
-        totalTokens += toBigInt(row?.total_tokens);
-        inputTokens += toBigInt(row?.input_tokens);
-        cachedInputTokens += toBigInt(row?.cached_input_tokens);
-        outputTokens += toBigInt(row?.output_tokens);
-        reasoningOutputTokens += toBigInt(row?.reasoning_output_tokens);
-        const sourceKey = normalizeSource(row?.source) || DEFAULT_SOURCE;
-        const sourceEntry = getSourceEntry(sourcesMap, sourceKey);
-        addTotals(sourceEntry.totals, row);
-        const normalizedModel = normalizeModel(row?.model);
-        if (normalizedModel && normalizedModel.toLowerCase() !== 'unknown') {
-          distinctModels.add(normalizedModel);
+  let rollupHit = false;
+
+  const resetAggregation = () => {
+    totals = createTotals();
+    sourcesMap = new Map();
+    distinctModels = new Set();
+    rowCount = 0;
+    rollupHit = false;
+  };
+
+  const ingestRow = (row) => {
+    addRowTotals(totals, row);
+    const sourceKey = normalizeSource(row?.source) || DEFAULT_SOURCE;
+    const sourceEntry = getSourceEntry(sourcesMap, sourceKey);
+    addRowTotals(sourceEntry.totals, row);
+    const normalizedModel = normalizeModel(row?.model);
+    if (normalizedModel && normalizedModel.toLowerCase() !== 'unknown') {
+      distinctModels.add(normalizedModel);
+    }
+  };
+
+  const sumHourlyRange = async (rangeStartIso, rangeEndIso) => {
+    const { error } = await forEachPage({
+      createQuery: () => {
+        let query = auth.edgeClient.database
+          .from('vibescore_tracker_hourly')
+          .select(
+            'hour_start,source,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens'
+          )
+          .eq('user_id', auth.userId);
+        if (source) query = query.eq('source', source);
+        if (model) query = query.eq('model', model);
+        query = applyCanaryFilter(query, { source, model });
+        return query
+          .gte('hour_start', rangeStartIso)
+          .lt('hour_start', rangeEndIso)
+          .order('hour_start', { ascending: true })
+          .order('device_id', { ascending: true })
+          .order('source', { ascending: true })
+          .order('model', { ascending: true });
+      },
+      onPage: (rows) => {
+        const pageRows = Array.isArray(rows) ? rows : [];
+        rowCount += pageRows.length;
+        for (const row of pageRows) ingestRow(row);
+      }
+    });
+    if (error) return { ok: false, error };
+    return { ok: true };
+  };
+
+  const hasHourlyData = async (rangeStartIso, rangeEndIso) => {
+    let query = auth.edgeClient.database
+      .from('vibescore_tracker_hourly')
+      .select('hour_start')
+      .eq('user_id', auth.userId);
+    if (source) query = query.eq('source', source);
+    if (model) query = query.eq('model', model);
+    query = applyCanaryFilter(query, { source, model });
+    const { data, error } = await query
+      .gte('hour_start', rangeStartIso)
+      .lt('hour_start', rangeEndIso)
+      .order('hour_start', { ascending: true })
+      .limit(1);
+    if (error) return { ok: false, error };
+    return { ok: true, hasRows: Array.isArray(data) && data.length > 0 };
+  };
+
+  const sumRollupRange = async (fromDay, toDay) => {
+    const rollupRes = await fetchRollupRows({
+      edgeClient: auth.edgeClient,
+      userId: auth.userId,
+      fromDay,
+      toDay,
+      source,
+      model
+    });
+    if (!rollupRes.ok) return { ok: false, error: rollupRes.error };
+    const rows = Array.isArray(rollupRes.rows) ? rollupRes.rows : [];
+    rowCount += rows.length;
+    rollupHit = true;
+    for (const row of rows) ingestRow(row);
+    return { ok: true, rowsCount: rows.length };
+  };
+
+  const startDayUtc = new Date(Date.UTC(
+    startUtc.getUTCFullYear(),
+    startUtc.getUTCMonth(),
+    startUtc.getUTCDate()
+  ));
+  const endDayUtc = new Date(Date.UTC(
+    endUtc.getUTCFullYear(),
+    endUtc.getUTCMonth(),
+    endUtc.getUTCDate()
+  ));
+
+  const sameUtcDay = startDayUtc.getTime() === endDayUtc.getTime();
+  const startIsBoundary = startUtc.getTime() === startDayUtc.getTime();
+  const endIsBoundary = endUtc.getTime() === endDayUtc.getTime();
+
+  let hourlyError = null;
+  let rollupEmptyWithHourly = false;
+  if (sameUtcDay) {
+    const hourlyRes = await sumHourlyRange(startIso, endIso);
+    if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+  } else {
+    const rollupStartDate = startIsBoundary
+      ? startDayUtc
+      : addUtcDays(startDayUtc, 1);
+    const rollupEndDate = addUtcDays(endDayUtc, -1);
+
+    if (!startIsBoundary) {
+      const hourlyRes = await sumHourlyRange(startIso, rollupStartDate.toISOString());
+      if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+    }
+
+    if (!endIsBoundary && !hourlyError) {
+      const hourlyRes = await sumHourlyRange(endDayUtc.toISOString(), endIso);
+      if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+    }
+
+    if (!hourlyError) {
+      if (rollupStartDate.getTime() <= rollupEndDate.getTime()) {
+        const rollupRes = await sumRollupRange(
+          formatDateUTC(rollupStartDate),
+          formatDateUTC(rollupEndDate)
+        );
+        if (!rollupRes.ok) {
+          hourlyError = rollupRes.error;
+        } else if (rollupRes.rowsCount === 0) {
+          const hourlyCheck = await hasHourlyData(startIso, endIso);
+          if (!hourlyCheck.ok) {
+            hourlyError = hourlyCheck.error;
+          } else if (hourlyCheck.hasRows) {
+            rollupEmptyWithHourly = true;
+          }
         }
       }
     }
-  });
+  }
+
+  if (hourlyError || rollupEmptyWithHourly) {
+    resetAggregation();
+    const fallbackRes = await sumHourlyRange(startIso, endIso);
+    if (!fallbackRes.ok) {
+      const queryDurationMs = Date.now() - queryStartMs;
+      return respond({ error: fallbackRes.error.message }, 500, queryDurationMs);
+    }
+  }
+
   const queryDurationMs = Date.now() - queryStartMs;
   logSlowQuery(logger, {
     query_label: 'usage_summary',
@@ -130,10 +250,9 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
     source: source || null,
     model: model || null,
     tz: tzContext?.timeZone || null,
-    tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
+    tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null,
+    rollup_hit: rollupHit
   });
-
-  if (error) return respond({ error: error.message }, 500, queryDurationMs);
 
   const impliedModel =
     model || (distinctModels.size === 1 ? Array.from(distinctModels)[0] : null);
@@ -152,11 +271,11 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
 
   const overallCost = computeUsageCost(
     {
-      total_tokens: totalTokens,
-      input_tokens: inputTokens,
-      cached_input_tokens: cachedInputTokens,
-      output_tokens: outputTokens,
-      reasoning_output_tokens: reasoningOutputTokens
+      total_tokens: totals.total_tokens,
+      input_tokens: totals.input_tokens,
+      cached_input_tokens: totals.cached_input_tokens,
+      output_tokens: totals.output_tokens,
+      reasoning_output_tokens: totals.reasoning_output_tokens
     },
     pricingProfile
   );
@@ -168,12 +287,12 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
     summaryPricingMode = 'mixed';
   }
 
-  const totals = {
-    total_tokens: totalTokens.toString(),
-    input_tokens: inputTokens.toString(),
-    cached_input_tokens: cachedInputTokens.toString(),
-    output_tokens: outputTokens.toString(),
-    reasoning_output_tokens: reasoningOutputTokens.toString(),
+  const totalsPayload = {
+    total_tokens: totals.total_tokens.toString(),
+    input_tokens: totals.input_tokens.toString(),
+    cached_input_tokens: totals.cached_input_tokens.toString(),
+    output_tokens: totals.output_tokens.toString(),
+    reasoning_output_tokens: totals.reasoning_output_tokens.toString(),
     total_cost_usd: formatUsdFromMicros(totalCostMicros)
   };
 
@@ -182,7 +301,7 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
       from,
       to,
       days: dayKeys.length,
-      totals,
+      totals: totalsPayload,
       pricing: buildPricingMetadata({
         profile: overallCost.profile,
         pricingMode: summaryPricingMode
@@ -192,27 +311,6 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
     queryDurationMs
   );
 });
-
-function createTotals() {
-  return {
-    total_tokens: 0n,
-    input_tokens: 0n,
-    cached_input_tokens: 0n,
-    output_tokens: 0n,
-    reasoning_output_tokens: 0n
-  };
-}
-
-function addTotals(target, row) {
-  if (!target || !row) return;
-  target.total_tokens = toBigInt(target.total_tokens) + toBigInt(row.total_tokens);
-  target.input_tokens = toBigInt(target.input_tokens) + toBigInt(row.input_tokens);
-  target.cached_input_tokens =
-    toBigInt(target.cached_input_tokens) + toBigInt(row.cached_input_tokens);
-  target.output_tokens = toBigInt(target.output_tokens) + toBigInt(row.output_tokens);
-  target.reasoning_output_tokens =
-    toBigInt(target.reasoning_output_tokens) + toBigInt(row.reasoning_output_tokens);
-}
 
 function getSourceEntry(map, source) {
   if (map.has(source)) return map.get(source);

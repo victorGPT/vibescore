@@ -261,14 +261,19 @@ async function listUsageModels({ serviceClient, windowDays }) {
   const since = cutoff.toISOString();
 
   const { error } = await forEachPage({
-    createQuery: () =>
-      applyCanaryFilter(
-        serviceClient.database
-          .from('vibescore_tracker_hourly')
-          .select('model')
-          .gte('hour_start', since),
-        { source: null, model: null }
-      ),
+    createQuery: () => {
+      let query = serviceClient.database
+        .from('vibescore_tracker_hourly')
+        .select('model')
+        .gte('hour_start', since);
+      query = applyCanaryFilter(query, { source: null, model: null });
+      return query
+        .order('hour_start', { ascending: true })
+        .order('user_id', { ascending: true })
+        .order('device_id', { ascending: true })
+        .order('source', { ascending: true })
+        .order('model', { ascending: true });
+    },
     onPage: (rows) => {
       for (const row of rows || []) {
         const normalized = normalizeUsageModel(row?.model);

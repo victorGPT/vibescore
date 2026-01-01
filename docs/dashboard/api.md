@@ -177,9 +177,34 @@ Response:
       "output_tokens": "0",
       "reasoning_output_tokens": "0"
     }
-  ]
+  ],
+  "summary": {
+    "totals": {
+      "total_tokens": "0",
+      "input_tokens": "0",
+      "cached_input_tokens": "0",
+      "output_tokens": "0",
+      "reasoning_output_tokens": "0",
+      "total_cost_usd": "0.000000"
+    },
+    "pricing": {
+      "model": "gpt-5.2-codex",
+      "pricing_mode": "overlap",
+      "source": "openrouter",
+      "effective_from": "2025-12-23",
+      "rates_per_million_usd": {
+        "input": "1.750000",
+        "cached_input": "0.175000",
+        "output": "14.000000",
+        "reasoning_output": "14.000000"
+      }
+    }
+  }
 }
 ```
+
+Notes:
+- The dashboard should use `summary.totals` directly and MUST NOT compute totals locally.
 
 ### GET /functions/vibescore-usage-hourly
 
