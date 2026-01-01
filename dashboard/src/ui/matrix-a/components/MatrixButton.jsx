@@ -14,7 +14,7 @@ export function MatrixButton({
       : "inline-flex items-center justify-center px-3 py-2 border text-caption uppercase font-bold transition-colors select-none";
   const variant =
     size === "header"
-      ? "text-matrix-primary border-matrix-ghost bg-matrix-panel"
+      ? "text-matrix-primary"
       : primary
         ? "bg-matrix-primary text-black border-matrix-primary hover:bg-white hover:border-white"
         : "bg-matrix-panel text-matrix-primary border-matrix-ghost hover:bg-matrix-panelStrong hover:border-matrix-dim";
