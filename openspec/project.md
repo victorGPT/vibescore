@@ -135,7 +135,7 @@
 - `INSFORGE_SERVICE_ROLE_KEY`（或 `SERVICE_ROLE_KEY`）：可选；仅用于 admin bootstrap（若需要）
 - `INSFORGE_INTERNAL_URL`：内部 base URL（默认 `http://insforge:7130`）
 - `INSFORGE_ANON_KEY`（或 `ANON_KEY`）：用于无 service role key 场景下的 records API 写入（ingest）
-- `VIBESCORE_USAGE_MAX_DAYS`：usage summary/daily/model-breakdown 最大天数（默认 `370`）
+- `VIBESCORE_USAGE_MAX_DAYS`：usage summary/daily/model-breakdown 最大天数（默认 `800`）
 - `VIBESCORE_SLOW_QUERY_MS`：usage 查询慢日志阈值（毫秒；默认 `2000`）
 - `VIBESCORE_INGEST_MAX_INFLIGHT`：ingest 并发上限（每实例；默认 `0` 表示不限制）
 - `VIBESCORE_INGEST_RETRY_AFTER_MS`：ingest 触发并发限流时的 Retry-After（毫秒）
