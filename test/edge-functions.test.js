@@ -30,6 +30,50 @@ function setDenoEnv(env) {
   };
 }
 
+function createThenableQuery({ rows = [], error = null, onOrder } = {}) {
+  const query = {
+    order: (col, opts) => {
+      if (typeof onOrder === 'function') onOrder(col, opts);
+      return query;
+    },
+    then: (resolve, _reject) => resolve({ data: rows, error })
+  };
+  return query;
+}
+
+function createFilterQuery({ rows = [], error = null, filters = [] } = {}) {
+  const query = createThenableQuery({
+    rows,
+    error,
+    onOrder: (col, opts) => filters.push({ op: 'order', col, opts })
+  });
+  query.eq = (col, value) => {
+    filters.push({ op: 'eq', col, value });
+    return query;
+  };
+  query.neq = (col, value) => {
+    filters.push({ op: 'neq', col, value });
+    return query;
+  };
+  query.gte = (col, value) => {
+    filters.push({ op: 'gte', col, value });
+    return query;
+  };
+  query.lte = (col, value) => {
+    filters.push({ op: 'lte', col, value });
+    return query;
+  };
+  query.lt = (col, value) => {
+    filters.push({ op: 'lt', col, value });
+    return query;
+  };
+  query.limit = (value) => {
+    filters.push({ op: 'limit', value });
+    return query;
+  };
+  return query;
+}
+
 function createServiceDbMock() {
   const inserts = [];
   const updates = [];
@@ -789,10 +833,12 @@ test('vibescore-usage-heatmap returns a week-aligned grid with derived fields', 
     { hour_start: '2025-12-12T01:00:00.000Z', total_tokens: '40' },
     { hour_start: '2025-12-18T00:00:00.000Z', total_tokens: '1000' }
   ];
+  const filters = [];
 
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
       assert.equal(args.anonKey, ANON_KEY);
+      const query = createFilterQuery({ rows, filters });
       return {
         auth: {
           getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
@@ -800,33 +846,7 @@ test('vibescore-usage-heatmap returns a week-aligned grid with derived fields', 
         database: {
           from: (table) => {
             assert.equal(table, 'vibescore_tracker_hourly');
-            return {
-              select: () => ({
-                eq: (col, value) => {
-                  assert.equal(col, 'user_id');
-                  assert.equal(value, userId);
-                  return {
-                    gte: (gteCol, from) => {
-                      assert.equal(gteCol, 'hour_start');
-                      assert.equal(from, '2025-12-07T00:00:00.000Z');
-                      return {
-                        lt: (ltCol, to) => {
-                          assert.equal(ltCol, 'hour_start');
-                          assert.equal(to, '2025-12-19T00:00:00.000Z');
-                          return {
-                            order: async (orderCol, opts) => {
-                              assert.equal(orderCol, 'hour_start');
-                              assert.equal(opts?.ascending, true);
-                              return { data: rows, error: null };
-                            }
-                          };
-                        }
-                      };
-                    }
-                  };
-                }
-              })
-            };
+            return { select: () => query };
           }
         }
       };
@@ -845,6 +865,10 @@ test('vibescore-usage-heatmap returns a week-aligned grid with derived fields', 
   const res = await fn(req);
   assert.equal(res.status, 200);
   const body = await res.json();
+
+  assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
+  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'hour_start'));
+  assert.ok(filters.some((f) => f.op === 'lt' && f.col === 'hour_start'));
 
   assert.equal(body.from, '2025-12-07');
   assert.equal(body.to, '2025-12-18');
@@ -892,34 +916,29 @@ test('vibescore-usage-daily applies optional source filter', async () => {
   const userId = '66666666-6666-6666-6666-666666666666';
   const userJwt = 'user_jwt_test';
   const filters = [];
+  const rows = [
+    {
+      day: '2025-12-20',
+      source: 'codex',
+      model: 'gpt-5.2-codex',
+      total_tokens: '0',
+      input_tokens: '0',
+      cached_input_tokens: '0',
+      output_tokens: '0',
+      reasoning_output_tokens: '0'
+    }
+  ];
 
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
+      const query = createFilterQuery({ rows, filters });
       return {
         auth: {
           getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
-            const query = {
-              eq: (col, value) => {
-                filters.push({ op: 'eq', col, value });
-                return query;
-              },
-              gte: (col, value) => {
-                filters.push({ op: 'gte', col, value });
-                return query;
-              },
-              lt: (col, value) => {
-                filters.push({ op: 'lt', col, value });
-                return query;
-              },
-              order: async (col, opts) => {
-                filters.push({ op: 'order', col, opts });
-                return { data: [], error: null };
-              }
-            };
+            assert.equal(table, 'vibescore_tracker_daily_rollup');
             return { select: () => query };
           }
         }
@@ -948,34 +967,29 @@ test('vibescore-usage-daily applies optional model filter', async () => {
   const userId = '66666666-6666-6666-6666-666666666666';
   const userJwt = 'user_jwt_test';
   const filters = [];
+  const rows = [
+    {
+      day: '2025-12-20',
+      source: 'codex',
+      model: 'claude-3-5-sonnet',
+      total_tokens: '0',
+      input_tokens: '0',
+      cached_input_tokens: '0',
+      output_tokens: '0',
+      reasoning_output_tokens: '0'
+    }
+  ];
 
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
+      const query = createFilterQuery({ rows, filters });
       return {
         auth: {
           getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
-            const query = {
-              eq: (col, value) => {
-                filters.push({ op: 'eq', col, value });
-                return query;
-              },
-              gte: (col, value) => {
-                filters.push({ op: 'gte', col, value });
-                return query;
-              },
-              lt: (col, value) => {
-                filters.push({ op: 'lt', col, value });
-                return query;
-              },
-              order: async (col, opts) => {
-                filters.push({ op: 'order', col, opts });
-                return { data: [], error: null };
-              }
-            };
+            assert.equal(table, 'vibescore_tracker_daily_rollup');
             return { select: () => query };
           }
         }
@@ -1004,34 +1018,29 @@ test('vibescore-usage-daily treats empty source as missing', async () => {
   const userId = '66666666-6666-6666-6666-666666666666';
   const userJwt = 'user_jwt_test';
   const filters = [];
+  const rows = [
+    {
+      day: '2025-12-20',
+      source: 'codex',
+      model: 'gpt-5.2-codex',
+      total_tokens: '0',
+      input_tokens: '0',
+      cached_input_tokens: '0',
+      output_tokens: '0',
+      reasoning_output_tokens: '0'
+    }
+  ];
 
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
+      const query = createFilterQuery({ rows, filters });
       return {
         auth: {
           getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
-            const query = {
-              eq: (col, value) => {
-                filters.push({ op: 'eq', col, value });
-                return query;
-              },
-              gte: (col, value) => {
-                filters.push({ op: 'gte', col, value });
-                return query;
-              },
-              lt: (col, value) => {
-                filters.push({ op: 'lt', col, value });
-                return query;
-              },
-              order: async (col, opts) => {
-                filters.push({ op: 'order', col, opts });
-                return { data: [], error: null };
-              }
-            };
+            assert.equal(table, 'vibescore_tracker_daily_rollup');
             return { select: () => query };
           }
         }
@@ -1060,35 +1069,29 @@ test('vibescore-usage-daily excludes canary buckets by default', async () => {
   const userId = '66666666-6666-6666-6666-666666666666';
   const userJwt = 'user_jwt_test';
   const filters = [];
+  const rows = [
+    {
+      day: '2025-12-20',
+      source: 'codex',
+      model: 'gpt-5.2-codex',
+      total_tokens: '0',
+      input_tokens: '0',
+      cached_input_tokens: '0',
+      output_tokens: '0',
+      reasoning_output_tokens: '0'
+    }
+  ];
 
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
+      const query = createFilterQuery({ rows, filters });
       return {
         auth: {
           getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
-            const query = {
-              eq: (col, value) => {
-                filters.push({ op: 'eq', col, value });
-                return query;
-              },
-              neq: (col, value) => {
-                filters.push({ op: 'neq', col, value });
-                return query;
-              },
-              gte: (col, value) => {
-                filters.push({ op: 'gte', col, value });
-                return query;
-              },
-              lt: (col, value) => {
-                filters.push({ op: 'lt', col, value });
-                return query;
-              },
-              order: async () => ({ data: [], error: null })
-            };
+            assert.equal(table, 'vibescore_tracker_daily_rollup');
             return { select: () => query };
           }
         }
@@ -1153,42 +1156,67 @@ test('vibescore-usage-hourly aggregates half-hour buckets into half-hour totals'
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
-            return {
-              select: (columns) => {
-                const isAggregate =
-                  typeof columns === 'string' && columns.includes('sum(');
-                return {
-                  eq: (col, value) => {
+            if (table === 'vibescore_tracker_hourly') {
+              return {
+                select: (columns) => {
+                  const isAggregate =
+                    typeof columns === 'string' && columns.includes('sum(');
+                  const query = createFilterQuery({
+                    rows: isAggregate ? null : rows,
+                    error: isAggregate ? { message: 'not supported' } : null
+                  });
+                  const allowedOrders = isAggregate
+                    ? new Set(['hour'])
+                    : new Set(['hour_start', 'device_id', 'source', 'model']);
+                  const baseOrder = query.order;
+                  query.order = (orderCol, opts) => {
+                    assert.equal(opts?.ascending, true);
+                    assert.ok(allowedOrders.has(orderCol));
+                    return baseOrder(orderCol, opts);
+                  };
+                  query.eq = (col, value) => {
                     assert.equal(col, 'user_id');
                     assert.equal(value, userId);
-                    return {
-                      gte: (gteCol, from) => {
-                        assert.equal(gteCol, 'hour_start');
-                        assert.equal(from, '2025-12-21T00:00:00.000Z');
-                        return {
-                          lt: (ltCol, to) => {
-                            assert.equal(ltCol, 'hour_start');
-                            assert.equal(to, '2025-12-22T00:00:00.000Z');
-                            return {
-                              order: async (orderCol, opts) => {
-                                assert.equal(opts?.ascending, true);
-                                if (isAggregate) {
-                                  assert.equal(orderCol, 'hour');
-                                  return { data: null, error: { message: 'not supported' } };
-                                }
-                                assert.equal(orderCol, 'hour_start');
-                                return { data: rows, error: null };
-                              }
-                            };
-                          }
-                        };
-                      }
-                    };
-                  }
-                };
-              }
-            };
+                    return query;
+                  };
+                  query.gte = (gteCol, from) => {
+                    assert.equal(gteCol, 'hour_start');
+                    assert.equal(from, '2025-12-21T00:00:00.000Z');
+                    return query;
+                  };
+                  query.lt = (ltCol, to) => {
+                    assert.equal(ltCol, 'hour_start');
+                    assert.equal(to, '2025-12-22T00:00:00.000Z');
+                    return query;
+                  };
+                  return query;
+                }
+              };
+            }
+            if (table === 'vibescore_tracker_device_tokens') {
+              return {
+                select: () => {
+                  const query = createFilterQuery({ rows: [] });
+                  const baseOrder = query.order;
+                  query.order = (orderCol, opts) => {
+                    assert.equal(orderCol, 'last_sync_at');
+                    assert.equal(opts?.ascending, false);
+                    return baseOrder(orderCol, opts);
+                  };
+                  query.eq = (col, value) => {
+                    assert.equal(col, 'user_id');
+                    assert.equal(value, userId);
+                    return query;
+                  };
+                  query.limit = (value) => {
+                    assert.equal(value, 1);
+                    return query;
+                  };
+                  return query;
+                }
+              };
+            }
+            throw new Error(`Unexpected table: ${table}`);
           }
         }
       };
@@ -1257,31 +1285,32 @@ test('vibescore-usage-monthly aggregates hourly rows into months', async () => {
           from: (table) => {
             assert.equal(table, 'vibescore_tracker_hourly');
             return {
-              select: () => ({
-                eq: (col, value) => {
+              select: () => {
+                const query = createFilterQuery({ rows });
+                const allowedOrders = new Set(['hour_start', 'device_id', 'source', 'model']);
+                const baseOrder = query.order;
+                query.order = (orderCol, opts) => {
+                  assert.equal(opts?.ascending, true);
+                  assert.ok(allowedOrders.has(orderCol));
+                  return baseOrder(orderCol, opts);
+                };
+                query.eq = (col, value) => {
                   assert.equal(col, 'user_id');
                   assert.equal(value, userId);
-                  return {
-                    gte: (gteCol, from) => {
-                      assert.equal(gteCol, 'hour_start');
-                      assert.equal(from, '2025-11-01T00:00:00.000Z');
-                      return {
-                        lt: (ltCol, to) => {
-                          assert.equal(ltCol, 'hour_start');
-                          assert.equal(to, '2025-12-22T00:00:00.000Z');
-                          return {
-                            order: async (orderCol, opts) => {
-                              assert.equal(orderCol, 'hour_start');
-                              assert.equal(opts?.ascending, true);
-                              return { data: rows, error: null };
-                            }
-                          };
-                        }
-                      };
-                    }
-                  };
-                }
-              })
+                  return query;
+                };
+                query.gte = (gteCol, from) => {
+                  assert.equal(gteCol, 'hour_start');
+                  assert.equal(from, '2025-11-01T00:00:00.000Z');
+                  return query;
+                };
+                query.lt = (ltCol, to) => {
+                  assert.equal(ltCol, 'hour_start');
+                  assert.equal(to, '2025-12-22T00:00:00.000Z');
+                  return query;
+                };
+                return query;
+              }
             };
           }
         }
@@ -1320,12 +1349,14 @@ test('vibescore-usage-summary returns total_cost_usd and pricing metadata', asyn
 
   const rows = [
     {
-      hour_start: '2025-12-21T01:00:00.000Z',
+      source: 'codex',
+      model: 'gpt-5.2-codex',
       total_tokens: '1500000',
       input_tokens: '1000000',
       cached_input_tokens: '200000',
       output_tokens: '500000',
-      reasoning_output_tokens: '100000'
+      reasoning_output_tokens: '100000',
+      rows_scanned_total: 1
     }
   ];
 
@@ -1337,35 +1368,15 @@ test('vibescore-usage-summary returns total_cost_usd and pricing metadata', asyn
           getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
         },
         database: {
-          from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
-            return {
-              select: () => ({
-                eq: (col, value) => {
-                  assert.equal(col, 'user_id');
-                  assert.equal(value, userId);
-                  return {
-                    gte: (gteCol, from) => {
-                      assert.equal(gteCol, 'hour_start');
-                      assert.equal(from, '2025-12-21T00:00:00.000Z');
-                      return {
-                        lt: (ltCol, to) => {
-                          assert.equal(ltCol, 'hour_start');
-                          assert.equal(to, '2025-12-22T00:00:00.000Z');
-                          return {
-                            order: async (orderCol, opts) => {
-                              assert.equal(orderCol, 'hour_start');
-                              assert.equal(opts?.ascending, true);
-                              return { data: rows, error: null };
-                            }
-                          };
-                        }
-                      };
-                    }
-                  };
-                }
-              })
-            };
+          rpc: async (fnName, params) => {
+            assert.equal(fnName, 'vibescore_usage_summary_agg');
+            assert.deepEqual(params, {
+              p_from: '2025-12-21T00:00:00.000Z',
+              p_to: '2025-12-22T00:00:00.000Z',
+              p_source: null,
+              p_model: null
+            });
+            return { data: rows, error: null };
           }
         }
       };
@@ -1403,12 +1414,14 @@ test('vibescore-usage-summary emits debug payload when requested', async () => {
 
   const rows = [
     {
-      hour_start: '2025-12-21T01:00:00.000Z',
+      source: 'codex',
+      model: 'gpt-5.2-codex',
       total_tokens: '10',
       input_tokens: '6',
       cached_input_tokens: '2',
       output_tokens: '4',
-      reasoning_output_tokens: '1'
+      reasoning_output_tokens: '1',
+      rows_scanned_total: 1
     }
   ];
 
@@ -1422,21 +1435,11 @@ test('vibescore-usage-summary emits debug payload when requested', async () => {
             getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
           },
           database: {
-            from: (table) => {
-              if (table !== 'vibescore_tracker_hourly') {
-                throw new Error(`Unexpected table: ${table}`);
+            rpc: async (fnName) => {
+              if (fnName !== 'vibescore_usage_summary_agg') {
+                throw new Error(`Unexpected RPC: ${fnName}`);
               }
-              return {
-                select: () => ({
-                  eq: () => ({
-                    gte: () => ({
-                      lt: () => ({
-                        order: async () => ({ data: rows, error: null })
-                      })
-                    })
-                  })
-                })
-              };
+              return { data: rows, error: null };
             }
           }
         };
@@ -1489,12 +1492,14 @@ test('vibescore-usage-summary uses auth lookup even with jwt payload', async () 
 
   const rows = [
     {
-      hour_start: '2025-12-21T01:00:00.000Z',
+      source: 'codex',
+      model: 'gpt-5.2-codex',
       total_tokens: '10',
       input_tokens: '6',
       cached_input_tokens: '2',
       output_tokens: '4',
-      reasoning_output_tokens: '1'
+      reasoning_output_tokens: '1',
+      rows_scanned_total: 1
     }
   ];
 
@@ -1511,23 +1516,9 @@ test('vibescore-usage-summary uses auth lookup even with jwt payload', async () 
           }
         },
         database: {
-          from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
-            return {
-              select: () => ({
-                eq: (col, value) => {
-                  assert.equal(col, 'user_id');
-                  assert.equal(value, userId);
-                  return {
-                    gte: () => ({
-                      lt: () => ({
-                        order: async () => ({ data: rows, error: null })
-                      })
-                    })
-                  };
-                }
-              })
-            };
+          rpc: async (fnName) => {
+            assert.equal(fnName, 'vibescore_usage_summary_agg');
+            return { data: rows, error: null };
           }
         }
       };
@@ -1565,7 +1556,7 @@ test('vibescore-usage-summary rejects oversized ranges', { concurrency: 1 }, asy
             getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
           },
           database: {
-            from: () => {
+            rpc: () => {
               dbTouched = true;
               throw new Error('database should not be queried for oversized ranges');
             }
@@ -1592,6 +1583,43 @@ test('vibescore-usage-summary rejects oversized ranges', { concurrency: 1 }, asy
     if (prevMaxDays === undefined) delete process.env.VIBESCORE_USAGE_MAX_DAYS;
     else process.env.VIBESCORE_USAGE_MAX_DAYS = prevMaxDays;
   }
+});
+
+test('vibescore-usage-summary returns 500 when RPC fails', async () => {
+  const fn = require('../insforge-functions/vibescore-usage-summary');
+
+  const userId = '88888888-8888-8888-8888-888888888888';
+  const userJwt = 'user_jwt_test';
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          rpc: async () => ({ data: null, error: { message: 'rpc down' } }),
+          from: () => {
+            throw new Error('unexpected fallback to from()');
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request(
+    'http://localhost/functions/vibescore-usage-summary?from=2025-12-21&to=2025-12-21',
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${userJwt}` }
+    }
+  );
+
+  const res = await fn(req);
+  assert.equal(res.status, 500);
+  const body = await res.json();
+  assert.match(String(body.error || ''), /rpc/i);
 });
 
 test('getUsageMaxDays defaults to 800 days', { concurrency: 1 }, () => {

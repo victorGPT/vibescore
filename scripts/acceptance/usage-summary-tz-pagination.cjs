@@ -3,11 +3,28 @@
 
 const assert = require('node:assert/strict');
 
+const RPC_ROWS = [
+  {
+    source: 'codex',
+    model: 'gpt-5.2-codex',
+    total_tokens: '1007',
+    input_tokens: '1001',
+    cached_input_tokens: '0',
+    output_tokens: '0',
+    reasoning_output_tokens: '0'
+  }
+];
+
 class DatabaseStub {
   constructor({ calls }) {
     this.calls = calls;
     this._table = null;
     this._select = null;
+  }
+
+  async rpc(fnName, params) {
+    this.calls.rpc = { fnName, params };
+    return { data: RPC_ROWS, error: null };
   }
 
   from(table) {
@@ -54,21 +71,6 @@ class DatabaseStub {
     }
     return { data: [], error: null };
   }
-
-  range(from, to) {
-    this.calls.ranges.push([from, to]);
-    if (this._table !== 'vibescore_tracker_hourly') {
-      return { data: [], error: null };
-    }
-
-    if (from === 0 && to === 999) {
-      return { data: buildRows(1000, '2025-12-01T18:00:00.000Z', '1', '1'), error: null };
-    }
-    if (from === 1000 && to === 1999) {
-      return { data: buildRows(1, '2025-12-02T18:00:00.000Z', '7', '1'), error: null };
-    }
-    return { data: [], error: null };
-  }
 }
 
 function createClientStub(database) {
@@ -80,17 +82,6 @@ function createClientStub(database) {
     },
     database
   };
-}
-
-function buildRows(count, tokenTimestamp, totalTokens, inputTokens) {
-  return Array.from({ length: count }, () => ({
-    hour_start: tokenTimestamp,
-    total_tokens: totalTokens,
-    input_tokens: inputTokens,
-    cached_input_tokens: '0',
-    output_tokens: '0',
-    reasoning_output_tokens: '0'
-  }));
 }
 
 function buildPricingRow() {
@@ -119,7 +110,7 @@ async function main() {
     }
   };
 
-  const calls = { ranges: [] };
+  const calls = { rpc: null };
   global.createClient = () => createClientStub(new DatabaseStub({ calls }));
 
   const usageSummary = require('../../insforge-src/functions/vibescore-usage-summary.js');
@@ -135,9 +126,14 @@ async function main() {
   const body = await res.json();
 
   assert.equal(res.status, 200);
-  assert.equal(calls.ranges.length, 2, 'expected 2 pagination calls');
-  assert.deepEqual(calls.ranges[0], [0, 999]);
-  assert.deepEqual(calls.ranges[1], [1000, 1999]);
+  assert.ok(calls.rpc, 'expected rpc call');
+  assert.equal(calls.rpc.fnName, 'vibescore_usage_summary_agg');
+  assert.deepEqual(calls.rpc.params, {
+    p_from: '2025-12-01T08:00:00.000Z',
+    p_to: '2025-12-03T08:00:00.000Z',
+    p_source: null,
+    p_model: null
+  });
   assert.equal(body.days, 2);
   assert.equal(body.totals.total_tokens, '1007');
   assert.equal(body.totals.input_tokens, '1001');
@@ -149,7 +145,7 @@ async function main() {
     JSON.stringify(
       {
         ok: true,
-        ranges: calls.ranges,
+        rpc: calls.rpc,
         totals: body.totals,
         days: body.days
       },

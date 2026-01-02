@@ -3,9 +3,8 @@
 
 const assert = require('node:assert/strict');
 
-const HOURLY_ROWS = [
+const RPC_ROWS = [
   {
-    hour_start: '2025-12-01T08:00:00.000Z',
     source: 'codex',
     model: 'gpt-5.2-codex',
     total_tokens: '20',
@@ -17,6 +16,22 @@ const HOURLY_ROWS = [
 ];
 
 class DatabaseStub {
+  constructor({ rpcRows }) {
+    this.rpcRows = rpcRows;
+    this._table = null;
+  }
+
+  async rpc(fnName, params) {
+    assert.equal(fnName, 'vibescore_usage_summary_agg');
+    assert.deepEqual(params, {
+      p_from: '2025-12-01T00:00:00.000Z',
+      p_to: '2025-12-03T00:00:00.000Z',
+      p_source: null,
+      p_model: null
+    });
+    return { data: this.rpcRows, error: null };
+  }
+
   from(table) {
     this._table = table;
     return this;
@@ -28,25 +43,13 @@ class DatabaseStub {
   lt() { return this; }
   or() { return this; }
   order() { return this; }
-  range() {
-    if (this._table === 'vibescore_tracker_hourly') {
-      return { data: HOURLY_ROWS, error: null };
-    }
-    return { data: [], error: null };
-  }
   limit() { return { data: [], error: null }; }
-  then(resolve, reject) {
-    if (this._table === 'vibescore_tracker_daily_rollup') {
-      return Promise.resolve({ data: null, error: { message: 'rollup down' } }).then(resolve, reject);
-    }
-    return Promise.resolve({ data: [], error: null }).then(resolve, reject);
-  }
 }
 
 function createClientStub() {
   return {
     auth: { async getCurrentUser() { return { data: { user: { id: 'user-id' } }, error: null }; } },
-    database: new DatabaseStub()
+    database: new DatabaseStub({ rpcRows: RPC_ROWS })
   };
 }
 

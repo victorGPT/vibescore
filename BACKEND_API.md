@@ -381,6 +381,11 @@ Response (bigints as strings):
 }
 ```
 
+Implementation notes:
+- Aggregation is computed in Postgres via RPC `vibescore_usage_summary_agg` (no cache, no lag).
+- RPC params: `{ p_from: timestamptz, p_to: timestamptz, p_source?: text, p_model?: text }`.
+- RPC returns grouped rows by `source` + `model` (Edge combines totals + pricing).
+
 Notes:
 - Pricing metadata is resolved from `vibescore_pricing_profiles` using the configured default model/source and the latest `effective_from` not in the future (`active=true`).
 - If no pricing rows exist, the endpoint falls back to the built-in default profile.

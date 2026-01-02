@@ -9,7 +9,7 @@ const {
   getDefaultPricingProfile
 } = require('../../insforge-src/shared/pricing');
 
-const ROWS = [
+const HOURLY_ROWS = [
   {
     hour_start: '2025-12-01T18:00:00.000Z',
     source: 'alpha',
@@ -32,10 +32,31 @@ const ROWS = [
   }
 ];
 
+const RPC_ROWS = HOURLY_ROWS.map((row) => ({
+  source: row.source,
+  model: row.model,
+  total_tokens: row.total_tokens,
+  input_tokens: row.input_tokens,
+  cached_input_tokens: row.cached_input_tokens,
+  output_tokens: row.output_tokens,
+  reasoning_output_tokens: row.reasoning_output_tokens
+}));
+
 class DatabaseStub {
-  constructor() {
+  constructor({ rpcRows }) {
+    this.rpcRows = rpcRows;
     this._table = null;
-    this._select = null;
+  }
+
+  async rpc(fnName, params) {
+    assert.equal(fnName, 'vibescore_usage_summary_agg');
+    assert.deepEqual(params, {
+      p_from: '2025-12-01T00:00:00.000Z',
+      p_to: '2025-12-03T00:00:00.000Z',
+      p_source: null,
+      p_model: null
+    });
+    return { data: this.rpcRows, error: null };
   }
 
   from(table) {
@@ -43,8 +64,7 @@ class DatabaseStub {
     return this;
   }
 
-  select(columns) {
-    this._select = columns;
+  select() {
     return this;
   }
 
@@ -60,14 +80,6 @@ class DatabaseStub {
     return this;
   }
 
-  gte() {
-    return this;
-  }
-
-  lt() {
-    return this;
-  }
-
   order() {
     return this;
   }
@@ -80,17 +92,6 @@ class DatabaseStub {
       return { data: [buildPricingRow()], error: null };
     }
     return { data: [], error: null };
-  }
-
-  range(from, to) {
-    if (this._table !== 'vibescore_tracker_hourly') {
-      return { data: [], error: null };
-    }
-    if (from > 0) return { data: [], error: null };
-    return {
-      data: ROWS,
-      error: null
-    };
   }
 }
 
@@ -114,7 +115,7 @@ function createClientStub() {
         return { data: { user: { id: 'user-id' } }, error: null };
       }
     },
-    database: new DatabaseStub()
+    database: new DatabaseStub({ rpcRows: RPC_ROWS })
   };
 }
 
@@ -157,21 +158,21 @@ async function main() {
   const expectedCost = formatUsdFromMicros(
     computeUsageCost(
       {
-        total_tokens: ROWS[0].total_tokens,
-        input_tokens: ROWS[0].input_tokens,
-        cached_input_tokens: ROWS[0].cached_input_tokens,
-        output_tokens: ROWS[0].output_tokens,
-        reasoning_output_tokens: ROWS[0].reasoning_output_tokens
+        total_tokens: HOURLY_ROWS[0].total_tokens,
+        input_tokens: HOURLY_ROWS[0].input_tokens,
+        cached_input_tokens: HOURLY_ROWS[0].cached_input_tokens,
+        output_tokens: HOURLY_ROWS[0].output_tokens,
+        reasoning_output_tokens: HOURLY_ROWS[0].reasoning_output_tokens
       },
       getDefaultPricingProfile()
     ).cost_micros +
       computeUsageCost(
         {
-          total_tokens: ROWS[1].total_tokens,
-          input_tokens: ROWS[1].input_tokens,
-          cached_input_tokens: ROWS[1].cached_input_tokens,
-          output_tokens: ROWS[1].output_tokens,
-          reasoning_output_tokens: ROWS[1].reasoning_output_tokens
+          total_tokens: HOURLY_ROWS[1].total_tokens,
+          input_tokens: HOURLY_ROWS[1].input_tokens,
+          cached_input_tokens: HOURLY_ROWS[1].cached_input_tokens,
+          output_tokens: HOURLY_ROWS[1].output_tokens,
+          reasoning_output_tokens: HOURLY_ROWS[1].reasoning_output_tokens
         },
         getDefaultPricingProfile()
       ).cost_micros

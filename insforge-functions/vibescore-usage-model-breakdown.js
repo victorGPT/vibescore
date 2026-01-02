@@ -1084,7 +1084,7 @@ module.exports = withRequestLogging("vibescore-usage-model-breakdown", async fun
       ).eq("user_id", auth.userId);
       if (sourceFilter) query = query.eq("source", sourceFilter);
       query = applyCanaryFilter(query, { source: sourceFilter, model: null });
-      return query.gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true });
+      return query.gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
     },
     onPage: (rows) => {
       const pageRows = Array.isArray(rows) ? rows : [];
