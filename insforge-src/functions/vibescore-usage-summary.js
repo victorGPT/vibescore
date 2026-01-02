@@ -8,11 +8,8 @@ const { getBearerToken, getEdgeClientAndUserIdFast } = require('../shared/auth')
 const { getBaseUrl } = require('../shared/env');
 const { getSourceParam, normalizeSource } = require('../shared/source');
 const { getModelParam, normalizeModel } = require('../shared/model');
-const { applyCanaryFilter } = require('../shared/canary');
 const {
   addDatePartsDays,
-  addUtcDays,
-  formatDateUTC,
   getUsageMaxDays,
   getUsageTimeZoneContext,
   listDateStrings,
@@ -20,11 +17,9 @@ const {
   normalizeDateRangeLocal,
   parseDateParts
 } = require('../shared/date');
-const { forEachPage } = require('../shared/pagination');
 const {
   addRowTotals,
-  createTotals,
-  fetchRollupRows
+  createTotals
 } = require('../shared/usage-rollup');
 const {
   buildPricingMetadata,
@@ -90,18 +85,23 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
   let distinctModels = new Set();
 
   const queryStartMs = Date.now();
-  let rowCount = 0;
-  let rollupHit = false;
+  const rpcResult = await auth.edgeClient.database.rpc('vibescore_usage_summary_agg', {
+    p_from: startIso,
+    p_to: endIso,
+    p_source: source,
+    p_model: model
+  });
+  const queryDurationMs = Date.now() - queryStartMs;
 
-  const resetAggregation = () => {
-    totals = createTotals();
-    sourcesMap = new Map();
-    distinctModels = new Set();
-    rowCount = 0;
-    rollupHit = false;
-  };
+  if (rpcResult.error) {
+    return respond({ error: rpcResult.error.message }, 500, queryDurationMs);
+  }
 
-  const ingestRow = (row) => {
+  const rows = Array.isArray(rpcResult.data) ? rpcResult.data : [];
+  const groupCount = rows.length;
+  const rowCount = getRowsScannedTotal(rows);
+
+  for (const row of rows) {
     addRowTotals(totals, row);
     const sourceKey = normalizeSource(row?.source) || DEFAULT_SOURCE;
     const sourceEntry = getSourceEntry(sourcesMap, sourceKey);
@@ -110,148 +110,18 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
     if (normalizedModel && normalizedModel.toLowerCase() !== 'unknown') {
       distinctModels.add(normalizedModel);
     }
-  };
-
-  const sumHourlyRange = async (rangeStartIso, rangeEndIso) => {
-    const { error } = await forEachPage({
-      createQuery: () => {
-        let query = auth.edgeClient.database
-          .from('vibescore_tracker_hourly')
-          .select(
-            'hour_start,source,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens'
-          )
-          .eq('user_id', auth.userId);
-        if (source) query = query.eq('source', source);
-        if (model) query = query.eq('model', model);
-        query = applyCanaryFilter(query, { source, model });
-        return query
-          .gte('hour_start', rangeStartIso)
-          .lt('hour_start', rangeEndIso)
-          .order('hour_start', { ascending: true })
-          .order('device_id', { ascending: true })
-          .order('source', { ascending: true })
-          .order('model', { ascending: true });
-      },
-      onPage: (rows) => {
-        const pageRows = Array.isArray(rows) ? rows : [];
-        rowCount += pageRows.length;
-        for (const row of pageRows) ingestRow(row);
-      }
-    });
-    if (error) return { ok: false, error };
-    return { ok: true };
-  };
-
-  const hasHourlyData = async (rangeStartIso, rangeEndIso) => {
-    let query = auth.edgeClient.database
-      .from('vibescore_tracker_hourly')
-      .select('hour_start')
-      .eq('user_id', auth.userId);
-    if (source) query = query.eq('source', source);
-    if (model) query = query.eq('model', model);
-    query = applyCanaryFilter(query, { source, model });
-    const { data, error } = await query
-      .gte('hour_start', rangeStartIso)
-      .lt('hour_start', rangeEndIso)
-      .order('hour_start', { ascending: true })
-      .limit(1);
-    if (error) return { ok: false, error };
-    return { ok: true, hasRows: Array.isArray(data) && data.length > 0 };
-  };
-
-  const sumRollupRange = async (fromDay, toDay) => {
-    const rollupRes = await fetchRollupRows({
-      edgeClient: auth.edgeClient,
-      userId: auth.userId,
-      fromDay,
-      toDay,
-      source,
-      model
-    });
-    if (!rollupRes.ok) return { ok: false, error: rollupRes.error };
-    const rows = Array.isArray(rollupRes.rows) ? rollupRes.rows : [];
-    rowCount += rows.length;
-    rollupHit = true;
-    for (const row of rows) ingestRow(row);
-    return { ok: true, rowsCount: rows.length };
-  };
-
-  const startDayUtc = new Date(Date.UTC(
-    startUtc.getUTCFullYear(),
-    startUtc.getUTCMonth(),
-    startUtc.getUTCDate()
-  ));
-  const endDayUtc = new Date(Date.UTC(
-    endUtc.getUTCFullYear(),
-    endUtc.getUTCMonth(),
-    endUtc.getUTCDate()
-  ));
-
-  const sameUtcDay = startDayUtc.getTime() === endDayUtc.getTime();
-  const startIsBoundary = startUtc.getTime() === startDayUtc.getTime();
-  const endIsBoundary = endUtc.getTime() === endDayUtc.getTime();
-
-  let hourlyError = null;
-  let rollupEmptyWithHourly = false;
-  if (sameUtcDay) {
-    const hourlyRes = await sumHourlyRange(startIso, endIso);
-    if (!hourlyRes.ok) hourlyError = hourlyRes.error;
-  } else {
-    const rollupStartDate = startIsBoundary
-      ? startDayUtc
-      : addUtcDays(startDayUtc, 1);
-    const rollupEndDate = addUtcDays(endDayUtc, -1);
-
-    if (!startIsBoundary) {
-      const hourlyRes = await sumHourlyRange(startIso, rollupStartDate.toISOString());
-      if (!hourlyRes.ok) hourlyError = hourlyRes.error;
-    }
-
-    if (!endIsBoundary && !hourlyError) {
-      const hourlyRes = await sumHourlyRange(endDayUtc.toISOString(), endIso);
-      if (!hourlyRes.ok) hourlyError = hourlyRes.error;
-    }
-
-    if (!hourlyError) {
-      if (rollupStartDate.getTime() <= rollupEndDate.getTime()) {
-        const rollupRes = await sumRollupRange(
-          formatDateUTC(rollupStartDate),
-          formatDateUTC(rollupEndDate)
-        );
-        if (!rollupRes.ok) {
-          hourlyError = rollupRes.error;
-        } else if (rollupRes.rowsCount === 0) {
-          const hourlyCheck = await hasHourlyData(startIso, endIso);
-          if (!hourlyCheck.ok) {
-            hourlyError = hourlyCheck.error;
-          } else if (hourlyCheck.hasRows) {
-            rollupEmptyWithHourly = true;
-          }
-        }
-      }
-    }
   }
-
-  if (hourlyError || rollupEmptyWithHourly) {
-    resetAggregation();
-    const fallbackRes = await sumHourlyRange(startIso, endIso);
-    if (!fallbackRes.ok) {
-      const queryDurationMs = Date.now() - queryStartMs;
-      return respond({ error: fallbackRes.error.message }, 500, queryDurationMs);
-    }
-  }
-
-  const queryDurationMs = Date.now() - queryStartMs;
   logSlowQuery(logger, {
     query_label: 'usage_summary',
     duration_ms: queryDurationMs,
     row_count: rowCount,
+    rows_out: groupCount,
+    group_count: groupCount,
     range_days: dayKeys.length,
     source: source || null,
     model: model || null,
     tz: tzContext?.timeZone || null,
-    tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null,
-    rollup_hit: rollupHit
+    tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
   });
 
   const impliedModel =
@@ -311,6 +181,13 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
     queryDurationMs
   );
 });
+
+function getRowsScannedTotal(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return 0;
+  const raw = rows[0]?.rows_scanned_total ?? rows[0]?.rows_scanned;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : 0;
+}
 
 function getSourceEntry(map, source) {
   if (map.has(source)) return map.get(source);

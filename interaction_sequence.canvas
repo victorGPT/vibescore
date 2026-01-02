@@ -362,7 +362,7 @@
       "y": 2132,
       "width": 180,
       "height": 90,
-      "text": "**InsForge DB**\n`vibescore_tracker_hourly`\n\nServes aggregate rows.",
+      "text": "**InsForge DB**\n`vibescore_usage_summary_agg()`\n\nAggregates hourly usage in DB.",
       "color": "4"
     },
     {
@@ -390,7 +390,7 @@
       "y": 2408,
       "width": 340,
       "height": 50,
-      "text": "3. select aggregates\nAI: Load totals for range."
+      "text": "3. rpc vibescore_usage_summary_agg\nAI: Aggregate totals for range."
     },
     {
       "id": "message_usage-summary-query_4",

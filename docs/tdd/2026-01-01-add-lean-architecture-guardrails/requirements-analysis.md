@@ -23,6 +23,7 @@
 
 ## Inputs
 - `architecture.canvas` module map.
+- `interaction_sequence.canvas` interaction sequence map.
 - `openspec/specs/vibescore-tracker/spec.md` requirements.
 - Current Edge Functions, CLI, and Dashboard behavior.
 

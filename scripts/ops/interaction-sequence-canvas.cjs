@@ -296,8 +296,8 @@ const SCENARIO_CATALOG = [
       {
         id: "db",
         name: "InsForge DB",
-        subtitle: "vibescore_tracker_hourly",
-        notes: "Serves aggregate rows.",
+        subtitle: "vibescore_usage_summary_agg()",
+        notes: "Aggregates hourly usage in DB.",
         color: "4",
       },
     ],
@@ -318,8 +318,8 @@ const SCENARIO_CATALOG = [
       {
         from: "edge",
         to: "db",
-        action: "select aggregates",
-        summary: "Load totals for range.",
+        action: "rpc vibescore_usage_summary_agg",
+        summary: "Aggregate totals for range.",
       },
       {
         from: "db",

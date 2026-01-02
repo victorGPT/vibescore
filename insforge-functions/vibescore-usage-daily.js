@@ -175,7 +175,7 @@ var require_source = __commonJS({
   "insforge-src/shared/source.js"(exports2, module2) {
     "use strict";
     var MAX_SOURCE_LENGTH = 64;
-    function normalizeSource(value) {
+    function normalizeSource2(value) {
       if (typeof value !== "string") return null;
       const normalized = value.trim().toLowerCase();
       if (!normalized) return null;
@@ -189,13 +189,13 @@ var require_source = __commonJS({
       const raw = url.searchParams.get("source");
       if (raw == null) return { ok: true, source: null };
       if (raw.trim() === "") return { ok: true, source: null };
-      const normalized = normalizeSource(raw);
+      const normalized = normalizeSource2(raw);
       if (!normalized) return { ok: false, error: "Invalid source" };
       return { ok: true, source: normalized };
     }
     module2.exports = {
       MAX_SOURCE_LENGTH,
-      normalizeSource,
+      normalizeSource: normalizeSource2,
       getSourceParam: getSourceParam2
     };
   }
@@ -205,7 +205,7 @@ var require_source = __commonJS({
 var require_model = __commonJS({
   "insforge-src/shared/model.js"(exports2, module2) {
     "use strict";
-    function normalizeModel(value) {
+    function normalizeModel2(value) {
       if (typeof value !== "string") return null;
       const trimmed = value.trim();
       return trimmed.length > 0 ? trimmed : null;
@@ -217,12 +217,12 @@ var require_model = __commonJS({
       const raw = url.searchParams.get("model");
       if (raw == null) return { ok: true, model: null };
       if (raw.trim() === "") return { ok: true, model: null };
-      const normalized = normalizeModel(raw);
+      const normalized = normalizeModel2(raw);
       if (!normalized) return { ok: false, error: "Invalid model" };
       return { ok: true, model: normalized };
     }
     module2.exports = {
-      normalizeModel,
+      normalizeModel: normalizeModel2,
       getModelParam: getModelParam2
     };
   }
@@ -391,7 +391,7 @@ var require_date = __commonJS({
       const offset = url.searchParams.get("tz_offset_minutes");
       return normalizeTimeZone(tz, offset);
     }
-    function isUtcTimeZone(tzContext) {
+    function isUtcTimeZone2(tzContext) {
       if (!tzContext) return true;
       const tz = tzContext.timeZone;
       if (tz) {
@@ -533,7 +533,7 @@ var require_date = __commonJS({
       addDatePartsMonths,
       normalizeTimeZone,
       getUsageTimeZoneContext: getUsageTimeZoneContext2,
-      isUtcTimeZone,
+      isUtcTimeZone: isUtcTimeZone2,
       getTimeZoneOffsetMinutes,
       getLocalParts,
       formatLocalDateKey: formatLocalDateKey2,
@@ -631,6 +631,264 @@ var require_pagination = __commonJS({
       return { error: null };
     }
     module2.exports = { forEachPage: forEachPage2 };
+  }
+});
+
+// insforge-src/shared/pricing.js
+var require_pricing = __commonJS({
+  "insforge-src/shared/pricing.js"(exports2, module2) {
+    "use strict";
+    var { toBigInt: toBigInt2 } = require_numbers();
+    var { normalizeModel: normalizeModel2 } = require_model();
+    var TOKENS_PER_MILLION = 1000000n;
+    var MICROS_PER_DOLLAR = 1000000n;
+    var DEFAULT_PROFILE = {
+      model: "gpt-5.2-codex",
+      source: "openrouter",
+      effective_from: "2025-12-23",
+      rates_micro_per_million: {
+        input: 175e4,
+        cached_input: 175e3,
+        output: 14e6,
+        reasoning_output: 14e6
+      }
+    };
+    function getDefaultPricingProfile() {
+      return {
+        model: DEFAULT_PROFILE.model,
+        source: DEFAULT_PROFILE.source,
+        effective_from: DEFAULT_PROFILE.effective_from,
+        rates_micro_per_million: { ...DEFAULT_PROFILE.rates_micro_per_million }
+      };
+    }
+    function getEnvValue(key) {
+      try {
+        if (typeof Deno !== "undefined" && Deno?.env?.get) {
+          return Deno.env.get(key);
+        }
+      } catch (_) {
+      }
+      if (typeof process !== "undefined" && process?.env) {
+        return process.env[key];
+      }
+      return null;
+    }
+    function normalizeSource2(value) {
+      if (typeof value !== "string") return null;
+      const trimmed = value.trim().toLowerCase();
+      return trimmed.length > 0 ? trimmed : null;
+    }
+    function normalizeModelValue(value) {
+      const normalized = normalizeModel2(value);
+      if (!normalized || normalized.toLowerCase() === "unknown") return null;
+      return normalized;
+    }
+    function getPricingDefaults() {
+      return {
+        model: normalizeModelValue(getEnvValue("VIBESCORE_PRICING_MODEL")) || DEFAULT_PROFILE.model,
+        source: normalizeSource2(getEnvValue("VIBESCORE_PRICING_SOURCE")) || DEFAULT_PROFILE.source
+      };
+    }
+    async function resolvePricingProfile2({ edgeClient, effectiveDate, model, source } = {}) {
+      const fallback = getDefaultPricingProfile();
+      if (!edgeClient || !edgeClient.database) return fallback;
+      const defaults = getPricingDefaults();
+      const requestedModel = normalizeModelValue(model) || defaults.model;
+      const requestedModelLower = requestedModel ? requestedModel.toLowerCase() : null;
+      const requestedSource = normalizeSource2(source) || defaults.source;
+      const dateKey = typeof effectiveDate === "string" && effectiveDate.trim() ? effectiveDate.trim() : (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+      try {
+        let resolvedModel = requestedModel;
+        if (requestedModelLower) {
+          const { data: aliasRows, error: aliasError } = await edgeClient.database.from("vibescore_pricing_model_aliases").select("pricing_model,effective_from").eq("active", true).eq("pricing_source", requestedSource).eq("usage_model", requestedModelLower).lte("effective_from", dateKey).order("effective_from", { ascending: false }).limit(1);
+          if (!aliasError && Array.isArray(aliasRows) && aliasRows.length > 0) {
+            const aliasModel = normalizeModelValue(aliasRows[0]?.pricing_model);
+            if (aliasModel) resolvedModel = aliasModel;
+          }
+        }
+        let query = edgeClient.database.from("vibescore_pricing_profiles").select(
+          [
+            "model",
+            "source",
+            "effective_from",
+            "input_rate_micro_per_million",
+            "cached_input_rate_micro_per_million",
+            "output_rate_micro_per_million",
+            "reasoning_output_rate_micro_per_million"
+          ].join(",")
+        ).eq("active", true).eq("source", requestedSource).lte("effective_from", dateKey);
+        if (resolvedModel) {
+          if (resolvedModel.includes("/")) {
+            query = query.eq("model", resolvedModel);
+          } else {
+            query = query.or(`model.eq.${resolvedModel},model.like.%/${resolvedModel}`);
+          }
+        }
+        const { data, error } = await query.order("effective_from", { ascending: false }).limit(1);
+        if (error || !Array.isArray(data) || data.length === 0) return fallback;
+        const row = data[0];
+        return normalizeProfile({
+          model: row?.model,
+          source: row?.source,
+          effective_from: row?.effective_from,
+          rates_micro_per_million: {
+            input: row?.input_rate_micro_per_million,
+            cached_input: row?.cached_input_rate_micro_per_million,
+            output: row?.output_rate_micro_per_million,
+            reasoning_output: row?.reasoning_output_rate_micro_per_million
+          }
+        });
+      } catch (_err) {
+        return fallback;
+      }
+    }
+    function computeUsageCost2(totals, profile) {
+      const pricing = normalizeProfile(profile || DEFAULT_PROFILE);
+      const input = toBigInt2(totals?.input_tokens);
+      const cached = toBigInt2(totals?.cached_input_tokens);
+      const output = toBigInt2(totals?.output_tokens);
+      const reasoning = toBigInt2(totals?.reasoning_output_tokens);
+      const total = toBigInt2(totals?.total_tokens);
+      const sumAdd = input + cached + output + reasoning;
+      const sumOverlap = input + output;
+      const canOverlap = cached <= input && reasoning <= output;
+      let pricingMode = "add";
+      if (total > 0n && canOverlap) {
+        const diffOverlap = absBigInt(total - sumOverlap);
+        const diffAdd = absBigInt(total - sumAdd);
+        if (diffOverlap <= diffAdd) pricingMode = "overlap";
+      }
+      let costMicros = 0n;
+      if (pricingMode === "overlap") {
+        const billableInput = input > cached ? input - cached : 0n;
+        costMicros += mulRate(billableInput, pricing.rates_micro_per_million.input);
+        costMicros += mulRate(cached, pricing.rates_micro_per_million.cached_input);
+        costMicros += mulRate(output, pricing.rates_micro_per_million.output);
+      } else {
+        costMicros += mulRate(input, pricing.rates_micro_per_million.input);
+        costMicros += mulRate(cached, pricing.rates_micro_per_million.cached_input);
+        costMicros += mulRate(output, pricing.rates_micro_per_million.output);
+        costMicros += mulRate(reasoning, pricing.rates_micro_per_million.reasoning_output);
+      }
+      return { cost_micros: costMicros, pricing_mode: pricingMode, profile: pricing };
+    }
+    function buildPricingMetadata2({ profile, pricingMode }) {
+      return {
+        model: profile.model,
+        pricing_mode: pricingMode,
+        source: profile.source,
+        effective_from: profile.effective_from,
+        rates_per_million_usd: {
+          input: formatUsdFromMicros2(profile.rates_micro_per_million.input),
+          cached_input: formatUsdFromMicros2(profile.rates_micro_per_million.cached_input),
+          output: formatUsdFromMicros2(profile.rates_micro_per_million.output),
+          reasoning_output: formatUsdFromMicros2(profile.rates_micro_per_million.reasoning_output)
+        }
+      };
+    }
+    function formatUsdFromMicros2(micros) {
+      const value = normalizeBigInt(micros);
+      const dollars = value / MICROS_PER_DOLLAR;
+      const remainder = value % MICROS_PER_DOLLAR;
+      return `${dollars.toString()}.${remainder.toString().padStart(6, "0")}`;
+    }
+    function mulRate(tokens, rateMicrosPerMillion) {
+      const rate = BigInt(rateMicrosPerMillion || 0);
+      if (tokens <= 0n || rate <= 0n) return 0n;
+      return tokens * rate / TOKENS_PER_MILLION;
+    }
+    function absBigInt(value) {
+      return value < 0n ? -value : value;
+    }
+    function normalizeProfile(profile) {
+      if (!profile || typeof profile !== "object") return getDefaultPricingProfile();
+      return {
+        model: typeof profile.model === "string" ? profile.model : DEFAULT_PROFILE.model,
+        source: typeof profile.source === "string" ? profile.source : DEFAULT_PROFILE.source,
+        effective_from: typeof profile.effective_from === "string" ? profile.effective_from : DEFAULT_PROFILE.effective_from,
+        rates_micro_per_million: {
+          input: toPositiveInt(profile?.rates_micro_per_million?.input),
+          cached_input: toPositiveInt(profile?.rates_micro_per_million?.cached_input),
+          output: toPositiveInt(profile?.rates_micro_per_million?.output),
+          reasoning_output: toPositiveInt(profile?.rates_micro_per_million?.reasoning_output)
+        }
+      };
+    }
+    function toPositiveInt(value) {
+      const n = Number(value);
+      return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+    }
+    function normalizeBigInt(value) {
+      if (typeof value === "bigint") return value >= 0n ? value : 0n;
+      const n = Number(value);
+      if (Number.isFinite(n) && n >= 0) return BigInt(Math.floor(n));
+      return 0n;
+    }
+    module2.exports = {
+      buildPricingMetadata: buildPricingMetadata2,
+      computeUsageCost: computeUsageCost2,
+      formatUsdFromMicros: formatUsdFromMicros2,
+      getDefaultPricingProfile,
+      resolvePricingProfile: resolvePricingProfile2
+    };
+  }
+});
+
+// insforge-src/shared/usage-rollup.js
+var require_usage_rollup = __commonJS({
+  "insforge-src/shared/usage-rollup.js"(exports2, module2) {
+    "use strict";
+    var { applyCanaryFilter: applyCanaryFilter2 } = require_canary();
+    var { toBigInt: toBigInt2 } = require_numbers();
+    var { forEachPage: forEachPage2 } = require_pagination();
+    function createTotals2() {
+      return {
+        total_tokens: 0n,
+        input_tokens: 0n,
+        cached_input_tokens: 0n,
+        output_tokens: 0n,
+        reasoning_output_tokens: 0n
+      };
+    }
+    function addRowTotals2(target, row) {
+      if (!target || !row) return;
+      target.total_tokens += toBigInt2(row?.total_tokens);
+      target.input_tokens += toBigInt2(row?.input_tokens);
+      target.cached_input_tokens += toBigInt2(row?.cached_input_tokens);
+      target.output_tokens += toBigInt2(row?.output_tokens);
+      target.reasoning_output_tokens += toBigInt2(row?.reasoning_output_tokens);
+    }
+    async function fetchRollupRows2({ edgeClient, userId, fromDay, toDay, source, model }) {
+      const rows = [];
+      const { error } = await forEachPage2({
+        createQuery: () => {
+          let query = edgeClient.database.from("vibescore_tracker_daily_rollup").select("day,source,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", userId).gte("day", fromDay).lte("day", toDay);
+          if (source) query = query.eq("source", source);
+          if (model) query = query.eq("model", model);
+          query = applyCanaryFilter2(query, { source, model });
+          return query.order("day", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
+        },
+        onPage: (pageRows) => {
+          if (!Array.isArray(pageRows) || pageRows.length === 0) return;
+          rows.push(...pageRows);
+        }
+      });
+      if (error) return { ok: false, error };
+      return { ok: true, rows };
+    }
+    function sumRollupRows(rows) {
+      const totals = createTotals2();
+      for (const row of Array.isArray(rows) ? rows : []) {
+        addRowTotals2(totals, row);
+      }
+      return totals;
+    }
+    module2.exports = {
+      createTotals: createTotals2,
+      addRowTotals: addRowTotals2,
+      fetchRollupRows: fetchRollupRows2,
+      sumRollupRows
+    };
   }
 });
 
@@ -813,14 +1071,15 @@ var require_debug = __commonJS({
 var { handleOptions, json } = require_http();
 var { getBearerToken, getEdgeClientAndUserIdFast } = require_auth();
 var { getBaseUrl } = require_env();
-var { getSourceParam } = require_source();
-var { getModelParam } = require_model();
+var { getSourceParam, normalizeSource } = require_source();
+var { getModelParam, normalizeModel } = require_model();
 var { applyCanaryFilter } = require_canary();
 var {
   addDatePartsDays,
   formatLocalDateKey,
   getUsageMaxDays,
   getUsageTimeZoneContext,
+  isUtcTimeZone,
   listDateStrings,
   localDatePartsToUtc,
   normalizeDateRangeLocal,
@@ -828,6 +1087,17 @@ var {
 } = require_date();
 var { toBigInt } = require_numbers();
 var { forEachPage } = require_pagination();
+var {
+  buildPricingMetadata,
+  computeUsageCost,
+  formatUsdFromMicros,
+  resolvePricingProfile
+} = require_pricing();
+var {
+  addRowTotals,
+  createTotals,
+  fetchRollupRows
+} = require_usage_rollup();
 var { logSlowQuery, withRequestLogging } = require_logging();
 var { isDebugEnabled, withSlowQueryDebugPayload } = require_debug();
 module.exports = withRequestLogging("vibescore-usage-daily", async function(request, logger) {
@@ -881,25 +1151,86 @@ module.exports = withRequestLogging("vibescore-usage-daily", async function(requ
       }
     ])
   );
+  let totals = createTotals();
+  let sourcesMap = /* @__PURE__ */ new Map();
+  let distinctModels = /* @__PURE__ */ new Set();
+  const resetAggregation = () => {
+    totals = createTotals();
+    sourcesMap = /* @__PURE__ */ new Map();
+    distinctModels = /* @__PURE__ */ new Set();
+    rowCount = 0;
+    rollupHit = false;
+  };
+  const ingestRow = (row) => {
+    addRowTotals(totals, row);
+    const sourceKey = normalizeSource(row?.source) || "codex";
+    const sourceEntry = getSourceEntry(sourcesMap, sourceKey);
+    addRowTotals(sourceEntry.totals, row);
+    const normalizedModel = normalizeModel(row?.model);
+    if (normalizedModel && normalizedModel.toLowerCase() !== "unknown") {
+      distinctModels.add(normalizedModel);
+    }
+  };
   const queryStartMs = Date.now();
   let rowCount = 0;
-  const { error } = await forEachPage({
-    createQuery: () => {
-      let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
-      if (source) query = query.eq("source", source);
-      if (model) query = query.eq("model", model);
-      query = applyCanaryFilter(query, { source, model });
-      return query.gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true });
-    },
-    onPage: (rows2) => {
-      const pageRows = Array.isArray(rows2) ? rows2 : [];
-      rowCount += pageRows.length;
-      for (const row of pageRows) {
-        const ts = row?.hour_start;
-        if (!ts) continue;
-        const dt = new Date(ts);
-        if (!Number.isFinite(dt.getTime())) continue;
-        const day = formatLocalDateKey(dt, tzContext);
+  let rollupHit = false;
+  let hourlyError = null;
+  const sumHourlyRange = async () => {
+    const { error } = await forEachPage({
+      createQuery: () => {
+        let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,source,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
+        if (source) query = query.eq("source", source);
+        if (model) query = query.eq("model", model);
+        query = applyCanaryFilter(query, { source, model });
+        return query.gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
+      },
+      onPage: (rows2) => {
+        const pageRows = Array.isArray(rows2) ? rows2 : [];
+        rowCount += pageRows.length;
+        for (const row of pageRows) {
+          const ts = row?.hour_start;
+          if (!ts) continue;
+          const dt = new Date(ts);
+          if (!Number.isFinite(dt.getTime())) continue;
+          const day = formatLocalDateKey(dt, tzContext);
+          const bucket = buckets.get(day);
+          if (!bucket) continue;
+          bucket.total += toBigInt(row?.total_tokens);
+          bucket.input += toBigInt(row?.input_tokens);
+          bucket.cached += toBigInt(row?.cached_input_tokens);
+          bucket.output += toBigInt(row?.output_tokens);
+          bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
+          ingestRow(row);
+        }
+      }
+    });
+    if (error) return { ok: false, error };
+    return { ok: true };
+  };
+  const hasHourlyData = async (rangeStartIso, rangeEndIso) => {
+    let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start").eq("user_id", auth.userId);
+    if (source) query = query.eq("source", source);
+    if (model) query = query.eq("model", model);
+    query = applyCanaryFilter(query, { source, model });
+    const { data, error } = await query.gte("hour_start", rangeStartIso).lt("hour_start", rangeEndIso).order("hour_start", { ascending: true }).limit(1);
+    if (error) return { ok: false, error };
+    return { ok: true, hasRows: Array.isArray(data) && data.length > 0 };
+  };
+  if (isUtcTimeZone(tzContext)) {
+    const rollupRes = await fetchRollupRows({
+      edgeClient: auth.edgeClient,
+      userId: auth.userId,
+      fromDay: from,
+      toDay: to,
+      source,
+      model
+    });
+    if (rollupRes.ok) {
+      const rows2 = Array.isArray(rollupRes.rows) ? rollupRes.rows : [];
+      rowCount += rows2.length;
+      rollupHit = true;
+      for (const row of rows2) {
+        const day = row?.day;
         const bucket = buckets.get(day);
         if (!bucket) continue;
         bucket.total += toBigInt(row?.total_tokens);
@@ -907,9 +1238,27 @@ module.exports = withRequestLogging("vibescore-usage-daily", async function(requ
         bucket.cached += toBigInt(row?.cached_input_tokens);
         bucket.output += toBigInt(row?.output_tokens);
         bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
+        ingestRow(row);
       }
+      if (rows2.length === 0) {
+        const hourlyCheck = await hasHourlyData(startIso, endIso);
+        if (!hourlyCheck.ok) {
+          hourlyError = hourlyCheck.error;
+        } else if (hourlyCheck.hasRows) {
+          resetAggregation();
+          const hourlyRes = await sumHourlyRange();
+          if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+        }
+      }
+    } else {
+      resetAggregation();
+      const hourlyRes = await sumHourlyRange();
+      if (!hourlyRes.ok) hourlyError = hourlyRes.error;
     }
-  });
+  } else {
+    const hourlyRes = await sumHourlyRange();
+    if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+  }
   const queryDurationMs = Date.now() - queryStartMs;
   logSlowQuery(logger, {
     query_label: "usage_daily",
@@ -919,9 +1268,10 @@ module.exports = withRequestLogging("vibescore-usage-daily", async function(requ
     source: source || null,
     model: model || null,
     tz: tzContext?.timeZone || null,
-    tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
+    tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null,
+    rollup_hit: rollupHit
   });
-  if (error) return respond({ error: error.message }, 500, queryDurationMs);
+  if (hourlyError) return respond({ error: hourlyError.message }, 500, queryDurationMs);
   const rows = dayKeys.map((day) => {
     const bucket = buckets.get(day);
     return {
@@ -933,5 +1283,48 @@ module.exports = withRequestLogging("vibescore-usage-daily", async function(requ
       reasoning_output_tokens: bucket.reasoning.toString()
     };
   });
-  return respond({ from, to, data: rows }, 200, queryDurationMs);
+  const impliedModel = model || (distinctModels.size === 1 ? Array.from(distinctModels)[0] : null);
+  const pricingProfile = await resolvePricingProfile({
+    edgeClient: auth.edgeClient,
+    model: impliedModel,
+    effectiveDate: to
+  });
+  let totalCostMicros = 0n;
+  const pricingModes = /* @__PURE__ */ new Set();
+  for (const entry of sourcesMap.values()) {
+    const sourceCost = computeUsageCost(entry.totals, pricingProfile);
+    totalCostMicros += sourceCost.cost_micros;
+    pricingModes.add(sourceCost.pricing_mode);
+  }
+  const overallCost = computeUsageCost(totals, pricingProfile);
+  let summaryPricingMode = overallCost.pricing_mode;
+  if (pricingModes.size === 1) {
+    summaryPricingMode = Array.from(pricingModes)[0];
+  } else if (pricingModes.size > 1) {
+    summaryPricingMode = "mixed";
+  }
+  const summary = {
+    totals: {
+      total_tokens: totals.total_tokens.toString(),
+      input_tokens: totals.input_tokens.toString(),
+      cached_input_tokens: totals.cached_input_tokens.toString(),
+      output_tokens: totals.output_tokens.toString(),
+      reasoning_output_tokens: totals.reasoning_output_tokens.toString(),
+      total_cost_usd: formatUsdFromMicros(totalCostMicros)
+    },
+    pricing: buildPricingMetadata({
+      profile: overallCost.profile,
+      pricingMode: summaryPricingMode
+    })
+  };
+  return respond({ from, to, data: rows, summary }, 200, queryDurationMs);
 });
+function getSourceEntry(map, source) {
+  if (map.has(source)) return map.get(source);
+  const entry = {
+    source,
+    totals: createTotals()
+  };
+  map.set(source, entry);
+  return entry;
+}
