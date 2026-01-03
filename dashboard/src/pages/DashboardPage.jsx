@@ -69,11 +69,7 @@ function hasUsageValue(value, level) {
 
 function isProductionHost(hostname) {
   if (!hostname) return false;
-  return (
-    hostname === "vibescore.space" ||
-    hostname === "www.vibescore.space" ||
-    hostname === "vibescore.vercel.app"
-  );
+  return hostname === "www.vibeusage.cc";
 }
 
 function isScreenshotModeEnabled() {
