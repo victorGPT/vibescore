@@ -72,4 +72,8 @@ test("DashboardPage lets TrendMonitor auto-size", () => {
     !src.includes('className="min-h-[240px]"'),
     "expected TrendMonitor min height removed"
   );
+  assert.ok(
+    src.includes('className="h-auto"'),
+    "expected TrendMonitor to override h-full with h-auto"
+  );
 });
