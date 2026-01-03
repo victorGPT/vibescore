@@ -335,10 +335,8 @@ export function DashboardPage({
   });
 
   const {
-    range: heatmapRange,
     daily: heatmapDaily,
     heatmap,
-    source: heatmapSource,
     loading: heatmapLoading,
     refresh: refreshHeatmap,
   } = useActivityHeatmap({
@@ -514,14 +512,6 @@ export function DashboardPage({
       }),
     [usageSource]
   );
-  const heatmapSourceLabel = useMemo(
-    () =>
-      copy("shared.data_source", {
-        source: String(heatmapSource || "edge").toUpperCase(),
-      }),
-    [heatmapSource]
-  );
-
   const identityLabel = useMemo(() => {
     const raw = auth?.name?.trim();
     if (!raw || raw.includes("@")) return copy("dashboard.identity.fallback");
@@ -561,8 +551,6 @@ export function DashboardPage({
     return earliest;
   }, [heatmap?.weeks, heatmapDaily]);
 
-  const heatmapFrom = heatmap?.from || heatmapRange.from;
-  const heatmapTo = heatmap?.to || heatmapRange.to;
   const activityHeatmapBlock = (
     <AsciiBox
       title={copy("dashboard.activity.title")}
@@ -576,18 +564,6 @@ export function DashboardPage({
         hideLegend={screenshotMode}
         defaultToLatestMonth={screenshotMode}
       />
-      {!screenshotMode ? (
-        <div className="mt-3 text-[8px] opacity-30 uppercase tracking-widest font-black">
-          {copy("dashboard.activity.range", {
-            from: heatmapFrom,
-            to: heatmapTo,
-          })}{" "}
-          {timeZoneRangeLabel}
-        </div>
-      ) : null}
-      <div className="mt-1 text-[8px] opacity-30 uppercase tracking-widest font-black">
-        {heatmapSourceLabel}
-      </div>
     </AsciiBox>
   );
 
@@ -873,6 +849,8 @@ export function DashboardPage({
     }
   }, [installEntryKey, installFromLanding]);
   const shouldAnimateInstall = installFromLanding;
+  const shouldShowInstall =
+    !screenshotMode && accessEnabled && !heatmapLoading && activeDays === 0;
   const installHeadline = copy("dashboard.install.headline");
   const installHeadlineDelayMs = 240;
   const installHeadlineSpeedMs = 45;
@@ -1094,7 +1072,7 @@ export function DashboardPage({
                 </AsciiBox>
               ) : null}
 
-              {!screenshotMode ? (
+              {shouldShowInstall ? (
                 <AsciiBox
                   title={copy("dashboard.install.title")}
                   subtitle={copy("dashboard.install.subtitle")}
@@ -1135,6 +1113,18 @@ export function DashboardPage({
                     </div>
                   </div>
                 </AsciiBox>
+              ) : null}
+
+              {!screenshotMode ? (
+                <TrendMonitor
+                  rows={trendRowsForDisplay}
+                  from={trendFromForDisplay}
+                  to={trendToForDisplay}
+                  period={period}
+                  timeZoneLabel={trendTimeZoneLabel}
+                  showTimeZoneLabel={false}
+                  className="min-h-[240px]"
+                />
               ) : null}
 
               {activityHeatmapBlock}
@@ -1210,18 +1200,6 @@ export function DashboardPage({
                 className="min-w-0"
                 footer={null}
               />
-
-              {!screenshotMode ? (
-                <TrendMonitor
-                  rows={trendRowsForDisplay}
-                  from={trendFromForDisplay}
-                  to={trendToForDisplay}
-                  period={period}
-                  timeZoneLabel={trendTimeZoneLabel}
-                  showTimeZoneLabel={false}
-                  className="min-h-[240px]"
-                />
-              ) : null}
 
               {!screenshotMode ? (
                 <AsciiBox
