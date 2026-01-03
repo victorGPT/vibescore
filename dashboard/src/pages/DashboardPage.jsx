@@ -35,7 +35,6 @@ import { ActivityHeatmap } from "../ui/matrix-a/components/ActivityHeatmap.jsx";
 import { BootScreen } from "../ui/matrix-a/components/BootScreen.jsx";
 import { IdentityCard } from "../ui/matrix-a/components/IdentityCard.jsx";
 import { MatrixButton } from "../ui/matrix-a/components/MatrixButton.jsx";
-import { TypewriterText } from "../ui/matrix-a/components/TypewriterText.jsx";
 import { TrendMonitor } from "../ui/matrix-a/components/TrendMonitor.jsx";
 import { UsagePanel } from "../ui/matrix-a/components/UsagePanel.jsx";
 import { NeuralDivergenceMap } from "../ui/matrix-a/components/NeuralDivergenceMap.jsx";
@@ -831,7 +830,7 @@ export function DashboardPage({
         link_code: resolvedLinkCode,
       })
     : installInitCmdBase;
-  const installInitCmdDisplay = installInitCmdCopy;
+  const installInitCmdDisplay = installInitCmdBase;
   const installSyncCmd = copy("dashboard.install.cmd.sync");
   const installCopyLabel = resolvedLinkCode
     ? copy("dashboard.install.copy")
@@ -839,47 +838,10 @@ export function DashboardPage({
   const installCopiedLabel = copy("dashboard.install.copied");
   const sessionExpiredCopyLabel = copy("dashboard.session_expired.copy_label");
   const sessionExpiredCopiedLabel = copy("dashboard.session_expired.copied");
-  const installEntryKey = "vibescore.dashboard.from_landing.v1";
-  const [installFromLanding] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      return window.sessionStorage.getItem(installEntryKey) === "1";
-    } catch (_e) {
-      return false;
-    }
-  });
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (!installFromLanding) return;
-    try {
-      window.sessionStorage.removeItem(installEntryKey);
-    } catch (_e) {
-      // ignore write errors (quota/private mode)
-    }
-  }, [installEntryKey, installFromLanding]);
-  const shouldAnimateInstall = installFromLanding;
   const shouldShowInstall =
     !screenshotMode &&
     (forceInstall || (accessEnabled && !heatmapLoading && activeDays === 0));
-  const installHeadline = copy("dashboard.install.headline");
-  const installHeadlineDelayMs = 240;
-  const installHeadlineSpeedMs = 45;
-  const installBodySpeedMs = 48;
-  const installBodyDelayMs =
-    installHeadlineDelayMs +
-    installHeadline.length * installHeadlineSpeedMs +
-    240;
-  const installSegments = useMemo(
-    () => [
-      { text: `${copy("dashboard.install.step1")}\n` },
-      {
-        text: `${copy("dashboard.install.step2")}\n${copy(
-          "dashboard.install.step3"
-        )}`,
-      },
-    ],
-    []
-  );
+  const installPrompt = copy("dashboard.install.prompt");
 
   const handleCopyInstall = useCallback(async () => {
     if (!installInitCmdCopy) return;
@@ -1088,39 +1050,51 @@ export function DashboardPage({
                   subtitle={copy("dashboard.install.subtitle")}
                   className="relative"
                 >
-                  <div className="text-[12px] uppercase tracking-[0.25em] font-black text-[#00FF41]">
-                    <TypewriterText
-                      text={installHeadline}
-                      startDelayMs={installHeadlineDelayMs}
-                      speedMs={installHeadlineSpeedMs}
-                      cursor={false}
-                      active={shouldAnimateInstall}
-                    />
+                  <div className="text-[12px] tracking-[0.16em] font-semibold text-[#00FF41]/90">
+                    {installPrompt}
                   </div>
-                  <TypewriterText
-                    className="text-[12px] opacity-50 mt-2"
-                    segments={installSegments}
-                    startDelayMs={installBodyDelayMs}
-                    speedMs={installBodySpeedMs}
-                    cursor={false}
-                    wrap
-                    active={shouldAnimateInstall}
-                  />
-                  <div className="mt-4 flex flex-col gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <MatrixButton onClick={handleCopyInstall}>
-                        {installCopied ? installCopiedLabel : installCopyLabel}
-                      </MatrixButton>
-                      {linkCodeLoading ? (
-                        <span className="text-[12px] opacity-40">
-                          {copy("dashboard.install.link_code.loading")}
-                        </span>
-                      ) : linkCodeError ? (
-                        <span className="text-[12px] opacity-40">
-                          {copy("dashboard.install.link_code.failed")}
-                        </span>
-                      ) : null}
-                    </div>
+                  <div className="mt-3 flex flex-col gap-2">
+                    <MatrixButton
+                      onClick={handleCopyInstall}
+                      aria-label={installCopied ? installCopiedLabel : installCopyLabel}
+                      title={installCopied ? installCopiedLabel : installCopyLabel}
+                      className="w-full justify-between gap-3 normal-case px-3"
+                    >
+                      <span className="font-mono text-[11px] md:text-[12px] tracking-[0.02em] normal-case text-left">
+                        {installInitCmdDisplay}
+                      </span>
+                      <span className="inline-flex items-center justify-center w-7 h-7 border border-[#00FF41]/30 bg-black/30">
+                        {installCopied ? (
+                          <svg
+                            viewBox="0 0 16 16"
+                            className="w-4 h-4 text-[#00FF41]"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path d="M6.4 11.2 3.2 8l1.1-1.1 2.1 2.1 5-5L12.5 5z" />
+                          </svg>
+                        ) : (
+                          <svg
+                            viewBox="0 0 16 16"
+                            className="w-4 h-4 text-[#00FF41]"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path d="M11 1H4a1 1 0 0 0-1 1v9h1V2h7V1z" />
+                            <path d="M5 4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4zm1 0v9h6V4H6z" />
+                          </svg>
+                        )}
+                      </span>
+                    </MatrixButton>
+                    {linkCodeLoading ? (
+                      <span className="text-[12px] opacity-40">
+                        {copy("dashboard.install.link_code.loading")}
+                      </span>
+                    ) : linkCodeError ? (
+                      <span className="text-[12px] opacity-40">
+                        {copy("dashboard.install.link_code.failed")}
+                      </span>
+                    ) : null}
                   </div>
                 </AsciiBox>
               ) : null}

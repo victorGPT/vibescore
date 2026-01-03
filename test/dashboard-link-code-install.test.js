@@ -20,6 +20,7 @@ function readFile(filePath) {
 test("copy registry includes link code install keys", () => {
   const csv = readFile(copyPath);
   const required = [
+    "dashboard.install.prompt",
     "dashboard.install.cmd.init_link_code",
     "dashboard.install.copy",
     "dashboard.install.copy_base",
@@ -43,8 +44,8 @@ test("DashboardPage wires link code install copy flow", () => {
     "expected link code install command usage for copy"
   );
   assert.ok(
-    src.includes("const installInitCmdDisplay = installInitCmdCopy;"),
-    "expected install display to use link code command"
+    src.includes("const installInitCmdDisplay = installInitCmdBase;"),
+    "expected install display to use base command"
   );
   assert.ok(
     src.includes("safeWriteClipboard"),

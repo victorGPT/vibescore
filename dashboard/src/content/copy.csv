@@ -252,6 +252,7 @@ dashboard.auth_optional.body,dashboard,DashboardPage,AsciiBox,body,"Sign in / si
 dashboard.install.title,dashboard,DashboardPage,AsciiBox,title,"Install",,active
 dashboard.install.subtitle,dashboard,DashboardPage,AsciiBox,subtitle,"CLI",,active
 dashboard.install.headline,dashboard,DashboardPage,AsciiBox,headline,">> START_HERE: INSTALL_CLI",,active
+dashboard.install.prompt,dashboard,DashboardPage,AsciiBox,install_prompt,"Install Node.js 18+ then run:",,active
 dashboard.install.step1,dashboard,DashboardPage,AsciiBox,install_step,"1) run the copied install command in your CLI",,active
 dashboard.install.cmd.init,dashboard,DashboardPage,AsciiBox,install_cmd,"npx --yes @vibescore/tracker init",,active
 dashboard.install.cmd.init_link_code,dashboard,DashboardPage,AsciiBox,install_cmd,"npx --yes @vibescore/tracker init --link-code {{link_code}}",,active
