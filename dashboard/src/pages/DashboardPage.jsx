@@ -84,6 +84,14 @@ function isScreenshotModeEnabled() {
   return raw === "1" || raw === "true";
 }
 
+function isForceInstallEnabled() {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  const raw = String(params.get("force_install") || "").toLowerCase();
+  if (raw !== "1" && raw !== "true") return false;
+  return !isProductionHost(window.location.hostname);
+}
+
 export function DashboardPage({
   baseUrl,
   auth,
@@ -104,6 +112,7 @@ export function DashboardPage({
     return window.matchMedia("(max-width: 640px)").matches;
   });
   const screenshotMode = useMemo(() => isScreenshotModeEnabled(), []);
+  const forceInstall = useMemo(() => isForceInstallEnabled(), []);
   const [isCapturing, setIsCapturing] = useState(false);
   const wrappedEntryLabel = copy("dashboard.wrapped.entry");
   const wrappedEntryEnabled = useMemo(() => {
@@ -850,7 +859,8 @@ export function DashboardPage({
   }, [installEntryKey, installFromLanding]);
   const shouldAnimateInstall = installFromLanding;
   const shouldShowInstall =
-    !screenshotMode && accessEnabled && !heatmapLoading && activeDays === 0;
+    !screenshotMode &&
+    (forceInstall || (accessEnabled && !heatmapLoading && activeDays === 0));
   const installHeadline = copy("dashboard.install.headline");
   const installHeadlineDelayMs = 240;
   const installHeadlineSpeedMs = 45;
