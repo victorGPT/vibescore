@@ -1,6 +1,6 @@
 {
   "name": "vibeusage",
-  "version": "0.2.7",
+  "version": "0.2.8",
   "description": "Codex CLI token usage tracker (macOS-first, notify-driven).",
   "license": "MIT",
   "publishConfig": {
