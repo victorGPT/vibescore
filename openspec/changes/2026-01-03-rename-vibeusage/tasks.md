@@ -1,5 +1,5 @@
 ## 1. Implementation
-- [ ] 1.1 Create mapping list for all public identifiers (domains, CLI, env vars, API paths, package names).
+- [x] 1.1 Create mapping list for all public identifiers (domains, CLI, env vars, API paths, package names).
 - [x] 1.2 Implement CLI alias + rename flow with 90-day compatibility (no warnings).
 - [x] 1.3 Implement local storage migration: `~/.vibescore` -> `~/.vibeusage` with idempotent fallback.
 - [x] 1.4 Implement API path rename: `/functions/vibeusage-*` with proxy from `/functions/vibescore-*`.
