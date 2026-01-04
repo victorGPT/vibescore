@@ -5,7 +5,7 @@ import {
   getHeatmapRangeLocal,
 } from "./activity-heatmap.js";
 
-const DEFAULT_MOCK_SEED = "vibescore";
+const DEFAULT_MOCK_SEED = "vibeusage";
 
 export function isMockEnabled() {
   if (typeof import.meta !== "undefined" && import.meta.env) {

@@ -1,6 +1,8 @@
-const STORAGE_KEY = "vibescore.dashboard.auth.v1";
-const SESSION_EXPIRED_KEY = "vibescore.dashboard.session_expired.v1";
-const AUTH_EVENT_NAME = "vibescore:auth-storage";
+const STORAGE_KEY = "vibeusage.dashboard.auth.v1";
+const LEGACY_STORAGE_KEY = "vibescore.dashboard.auth.v1";
+const SESSION_EXPIRED_KEY = "vibeusage.dashboard.session_expired.v1";
+const LEGACY_SESSION_EXPIRED_KEY = "vibescore.dashboard.session_expired.v1";
+const AUTH_EVENT_NAME = "vibeusage:auth-storage";
 
 function emitAuthStorageChange() {
   if (typeof window === "undefined" || !window.dispatchEvent) return;
@@ -16,7 +18,8 @@ export function loadAuthFromStorage() {
   try {
     const storage = getStorage();
     if (!storage || typeof storage.getItem !== "function") return null;
-    const raw = storage.getItem(STORAGE_KEY);
+    let raw = storage.getItem(STORAGE_KEY);
+    if (!raw) raw = storage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (
@@ -24,6 +27,10 @@ export function loadAuthFromStorage() {
       parsed.accessToken.length === 0
     )
       return null;
+    if (!storage.getItem(STORAGE_KEY)) {
+      storage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      storage.removeItem(LEGACY_STORAGE_KEY);
+    }
     return parsed;
   } catch (_e) {
     return null;
@@ -41,6 +48,7 @@ export function clearAuthStorage() {
   const storage = getStorage();
   if (!storage || typeof storage.removeItem !== "function") return;
   storage.removeItem(STORAGE_KEY);
+  storage.removeItem(LEGACY_STORAGE_KEY);
   emitAuthStorageChange();
 }
 
@@ -48,13 +56,31 @@ export function loadSessionExpired() {
   try {
     const storage = getStorage();
     if (!storage || typeof storage.getItem !== "function") return false;
-    const raw = storage.getItem(SESSION_EXPIRED_KEY);
+    let raw = storage.getItem(SESSION_EXPIRED_KEY);
+    if (!raw) raw = storage.getItem(LEGACY_SESSION_EXPIRED_KEY);
     if (!raw) return false;
     try {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed.expiredAt === "string") return true;
+      if (parsed && typeof parsed.expiredAt === "string") {
+        if (!storage.getItem(SESSION_EXPIRED_KEY)) {
+          storage.setItem(
+            SESSION_EXPIRED_KEY,
+            JSON.stringify({ expiredAt: parsed.expiredAt })
+          );
+          storage.removeItem(LEGACY_SESSION_EXPIRED_KEY);
+        }
+        return true;
+      }
     } catch (_e) {
+      if (!storage.getItem(SESSION_EXPIRED_KEY)) {
+        storage.setItem(SESSION_EXPIRED_KEY, JSON.stringify({ expiredAt: new Date().toISOString() }));
+        storage.removeItem(LEGACY_SESSION_EXPIRED_KEY);
+      }
       return raw === "true";
+    }
+    if (!storage.getItem(SESSION_EXPIRED_KEY)) {
+      storage.setItem(SESSION_EXPIRED_KEY, JSON.stringify({ expiredAt: new Date().toISOString() }));
+      storage.removeItem(LEGACY_SESSION_EXPIRED_KEY);
     }
     return raw === "true";
   } catch (_e) {
@@ -82,6 +108,7 @@ export function clearSessionExpired() {
     const storage = getStorage();
     if (!storage || typeof storage.removeItem !== "function") return;
     storage.removeItem(SESSION_EXPIRED_KEY);
+    storage.removeItem(LEGACY_SESSION_EXPIRED_KEY);
   } catch (_e) {
     // ignore storage errors
   } finally {

@@ -23,11 +23,11 @@ landing.hero.title_primary,landing,LandingPage,LandingPage,hero_title_primary,"M
 landing.hero.title_secondary,landing,LandingPage,LandingPage,hero_title_secondary,"MORE_VIBE.",,active
 landing.hero.tagline,landing,LandingPage,LandingPage,hero_tagline,"CODEX / CLAUDE CODE / GEMINI CLI TRACKER",,active
 landing.hero.subtagline,landing,LandingPage,LandingPage,hero_subtagline,"Track Codex, Claude Code & Gemini CLI usage in real time.",,active
-landing.screenshot.alt,landing,LandingPage,LandingPage,screenshot_alt,"VibeScore dashboard screenshot",,active
+landing.screenshot.alt,landing,LandingPage,LandingPage,screenshot_alt,"VibeUsage dashboard screenshot",,active
 landing.nav.login,landing,LandingPage,LandingPage,nav_login,"LOGIN",,active
 landing.nav.signup,landing,LandingPage,LandingPage,nav_signup,"SIGN UP",,active
 landing.seo.title,landing,LandingPage,LandingPage,seo_title,"Quantify Codex, Claude Code & Gemini CLI Usage",,active
-landing.seo.summary,landing,LandingPage,LandingPage,seo_summary,"VibeScore is a token usage tracker built for AI CLI users (Codex, Claude, Gemini) who want a fast, reliable view of token spend.",,active
+landing.seo.summary,landing,LandingPage,LandingPage,seo_summary,"VibeUsage is a token usage tracker built for AI CLI users (Codex, Claude, Gemini) who want a fast, reliable view of token spend.",,active
 landing.seo.point1,landing,LandingPage,LandingPage,seo_point_1,"Auto-track AI CLI token usage with zero manual steps.",,active
 landing.seo.point2,landing,LandingPage,LandingPage,seo_point_2,"Matrix-style interface that highlights the signals you care about.",,active
 landing.seo.point3,landing,LandingPage,LandingPage,seo_point_3,"Universal AI CLI leaderboard to compare usage and rank.",,active
@@ -44,10 +44,10 @@ landing.cta.subtext,landing,LandingPage,LandingPage,cta_subtext,"Connect with Gi
 landing.footer.link.manifesto,landing,LandingPage,LandingPage,footer_link_manifesto,"Manifesto",,active
 landing.footer.link.docs,landing,LandingPage,LandingPage,footer_link_docs,"Docs",,active
 landing.footer.link.security,landing,LandingPage,LandingPage,footer_link_security,"Security",,active
-landing.footer.system_ready,landing,LandingPage,LandingPage,footer_system_ready,"System_Ready // 2024 VibeScore OS",,active
+landing.footer.system_ready,landing,LandingPage,LandingPage,footer_system_ready,"System_Ready // 2024 VibeUsage OS",,active
 
 
-shell.header.title,ui,MatrixShell,MatrixShell,header_title,"VIBE SCORE",,active
+shell.header.title,ui,MatrixShell,MatrixShell,header_title,"VIBE USAGE",,active
 shell.header.link_active,ui,MatrixShell,MatrixShell,header_link_active,"LINK_ACTIVE",,active
 shell.footer.help,ui,MatrixShell,MatrixShell,footer_help,"[F1] Help",,active
 shell.footer.neural_index,ui,MatrixShell,MatrixShell,footer_neural_index,"CORE_INDEX: 0.942.A1",,active
@@ -84,7 +84,7 @@ identity_card.streak_label,ui,IdentityCard,IdentityCard,streak_label,"ACTIVE",,a
 identity_card.rank_placeholder,ui,IdentityCard,IdentityCard,rank_placeholder,"—",,active
 identity_card.streak_value,ui,IdentityCard,IdentityCard,streak_value,"{{days}} DAY",,active
 
-identity_panel.badge,ui,IdentityPanel,IdentityPanel,badge,"VS",,active
+identity_panel.badge,ui,IdentityPanel,IdentityPanel,badge,"VU",,active
 identity_panel.level,ui,IdentityPanel,IdentityPanel,level,"Lvl_05",,active
 identity_panel.rank_label,ui,IdentityPanel,IdentityPanel,rank_label,"START",,active
 identity_panel.streak_label,ui,IdentityPanel,IdentityPanel,streak_label,"ACTIVE",,active
@@ -116,11 +116,11 @@ dashboard.model_breakdown.title,ui,NeuralDivergenceMap,NeuralDivergenceMap,title
 dashboard.model_breakdown.footer,ui,NeuralDivergenceMap,NeuralDivergenceMap,footer,"Multi-Engine Load Balancing // Active Session",,active
 dashboard.model_breakdown.usage_label,ui,NeuralAdaptiveFleet,NeuralAdaptiveFleet,usage_label,"USAGE: {{value}}",,active
 dashboard.upgrade_alert.title,ui,UpgradeAlertModal,UpgradeAlertModal,title,"Update available",,active
-dashboard.upgrade_alert.subtitle,ui,UpgradeAlertModal,UpgradeAlertModal,subtitle,"VibeScore Tracker v{{required}} is now available.",,active
-dashboard.upgrade_alert.subtitle_generic,ui,UpgradeAlertModal,UpgradeAlertModal,subtitle_generic,"A new version of VibeScore Tracker is available.",,active
+dashboard.upgrade_alert.subtitle,ui,UpgradeAlertModal,UpgradeAlertModal,subtitle,"VibeUsage Tracker v{{required}} is now available.",,active
+dashboard.upgrade_alert.subtitle_generic,ui,UpgradeAlertModal,UpgradeAlertModal,subtitle_generic,"A new version of VibeUsage Tracker is available.",,active
 dashboard.upgrade_alert.prompt,ui,UpgradeAlertModal,UpgradeAlertModal,prompt,"$",,active
 dashboard.upgrade_alert.sparkle,ui,UpgradeAlertModal,UpgradeAlertModal,sparkle,"✨",,active
-dashboard.upgrade_alert.install_command,ui,UpgradeAlertModal,UpgradeAlertModal,install_command,"npx --yes @vibescore/tracker init",,active
+dashboard.upgrade_alert.install_command,ui,UpgradeAlertModal,UpgradeAlertModal,install_command,"npx --yes vibeusage init",,active
 dashboard.upgrade_alert.copy,ui,UpgradeAlertModal,UpgradeAlertModal,copy,"[ COPY ]",,active
 dashboard.upgrade_alert.copied,ui,UpgradeAlertModal,UpgradeAlertModal,copied,"[ COPIED ]",,active
 dashboard.upgrade_alert.ignore,ui,UpgradeAlertModal,UpgradeAlertModal,ignore,"Dismiss",,active
@@ -233,7 +233,7 @@ dashboard.not_signed_in,dashboard,DashboardPage,Header,not_signed_in,"Not signed
 
 dashboard.footer.active,dashboard,DashboardPage,Footer,footer_active,"{{range}} • click Refresh to reload",,active
 dashboard.footer.auth,dashboard,DashboardPage,Footer,footer_auth,"Sign in to view usage",,active
-dashboard.footer.right,dashboard,DashboardPage,Footer,footer_right,"VibeScore_Dashboard",,active
+dashboard.footer.right,dashboard,DashboardPage,Footer,footer_right,"VibeUsage_Dashboard",,active
 
 dashboard.auth_required.title,dashboard,DashboardPage,AsciiBox,title,"Auth_Required",,active
 dashboard.auth_required.subtitle,dashboard,DashboardPage,AsciiBox,subtitle,"LINK_UI_A",,active
@@ -243,7 +243,7 @@ dashboard.session_expired.title,dashboard,DashboardPage,AsciiBox,title,"Session_
 dashboard.session_expired.subtitle,dashboard,DashboardPage,AsciiBox,subtitle,"REAUTH_REQUIRED",,active
 dashboard.session_expired.body,dashboard,DashboardPage,AsciiBox,body,"Your session expired.",,active
 dashboard.session_expired.body_tail,dashboard,DashboardPage,AsciiBox,body,"Sign in again to refresh private usage data.",,active
-dashboard.session_expired.copy_label,dashboard,DashboardPage,AsciiBox,body,"run npx --yes @vibescore/tracker init",,active
+dashboard.session_expired.copy_label,dashboard,DashboardPage,AsciiBox,body,"run npx --yes vibeusage init",,active
 dashboard.session_expired.copied,dashboard,DashboardPage,AsciiBox,body,"copied",,active
 
 dashboard.auth_optional.title,dashboard,DashboardPage,AsciiBox,title,"Auth_Optional",,active
@@ -253,14 +253,14 @@ dashboard.auth_optional.body,dashboard,DashboardPage,AsciiBox,body,"Sign in / si
 dashboard.install.title,dashboard,DashboardPage,AsciiBox,title,"Install",,active
 dashboard.install.subtitle,dashboard,DashboardPage,AsciiBox,subtitle,"CLI",,active
 dashboard.install.prompt,dashboard,DashboardPage,AsciiBox,install_prompt,"Install Node.js 18+ then run:",,active
-dashboard.install.cmd.init,dashboard,DashboardPage,AsciiBox,install_cmd,"npx --yes @vibescore/tracker init",,active
-dashboard.install.cmd.init_link_code,dashboard,DashboardPage,AsciiBox,install_cmd,"npx --yes @vibescore/tracker init --link-code {{link_code}}",,active
+dashboard.install.cmd.init,dashboard,DashboardPage,AsciiBox,install_cmd,"npx --yes vibeusage init",,active
+dashboard.install.cmd.init_link_code,dashboard,DashboardPage,AsciiBox,install_cmd,"npx --yes vibeusage init --link-code {{link_code}}",,active
 dashboard.install.copy,dashboard,DashboardPage,AsciiBox,install_copy,"Copy install command",,active
 dashboard.install.copy_base,dashboard,DashboardPage,AsciiBox,install_copy,"Copy init command",,active
 dashboard.install.copied,dashboard,DashboardPage,AsciiBox,install_copy,"Copied to clipboard",,active
 dashboard.install.link_code.loading,dashboard,DashboardPage,AsciiBox,install_status,"Generating private code...",,active
 dashboard.install.link_code.failed,dashboard,DashboardPage,AsciiBox,install_status,"Private code unavailable",,active
-dashboard.install.cmd.sync,dashboard,DashboardPage,AsciiBox,install_cmd,"npx --yes @vibescore/tracker sync",,active
+dashboard.install.cmd.sync,dashboard,DashboardPage,AsciiBox,install_cmd,"npx --yes vibeusage sync",,active
 
 dashboard.activity.title,dashboard,DashboardPage,AsciiBox,title,"Activity_Grid",,active
 dashboard.activity.subtitle,dashboard,DashboardPage,AsciiBox,subtitle,"52W_LOCAL",,active
@@ -278,7 +278,7 @@ dashboard.screenshot.title_line2,dashboard,DashboardPage,ScreenshotTitle,title_l
 dashboard.screenshot.twitter_button,dashboard,DashboardPage,ScreenshotShare,button_label,"Share on X",,active
 dashboard.screenshot.twitter_label,dashboard,DashboardPage,ScreenshotShare,aria_label,"Share on X",,active
 dashboard.screenshot.twitter_hint,dashboard,DashboardPage,ScreenshotShare,helper_text,"Auto-copies image to clipboard",,active
-dashboard.screenshot.twitter_text,dashboard,DashboardPage,ScreenshotShare,share_text,"This year\nI handed {{total_tokens}} tokens to Coding Agent\n\nThe one that stayed with me until the end\nwas {{agent_name}}\n\n{{model_name}} usage: {{model_percent}}%\n\nData: VibeScore @victor_wu_eth\n\nRun in your terminal:\nnpx --yes @vibescore/tracker init\n(Paste Image Stats with CMD / CTRL + V)",,active
+dashboard.screenshot.twitter_text,dashboard,DashboardPage,ScreenshotShare,share_text,"This year\nI handed {{total_tokens}} tokens to Coding Agent\n\nThe one that stayed with me until the end\nwas {{agent_name}}\n\n{{model_name}} usage: {{model_percent}}%\n\nData: VibeUsage @victor_wu_eth\n\nRun in your terminal:\nnpx --yes vibeusage init\n(Paste Image Stats with CMD / CTRL + V)",,active
 dashboard.wrapped.entry,dashboard,DashboardPage,Header,button_label,"Wrapped 2025",,active
 dashboard.poster.title,dashboard,AnnualPosterPage,Poster,title,"我的2025总结",,active
 dashboard.poster.aria_label,dashboard,AnnualPosterPage,Poster,aria_label,"Annual poster 2025",,active

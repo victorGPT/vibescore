@@ -29,7 +29,7 @@ export function useUsageData({
     const host = safeHost(baseUrl) || "default";
     const dailyKey = includeDaily ? "daily" : "summary";
     const tzKey = getTimeZoneCacheKey({ timeZone, offsetMinutes: tzOffsetMinutes });
-    return `vibescore.usage.${cacheKey}.${host}.${from}.${to}.${dailyKey}.${tzKey}`;
+    return `vibeusage.usage.${cacheKey}.${host}.${from}.${to}.${dailyKey}.${tzKey}`;
   })();
 
   const readCache = useCallback(() => {

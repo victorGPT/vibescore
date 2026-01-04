@@ -1,9 +1,9 @@
 import { safeGetItem, safeSetItem } from "./safe-browser.js";
 
-const VERSION_CACHE_KEY = "vibescore.latest_tracker_version";
-const VERSION_CACHE_AT_KEY = "vibescore.latest_tracker_version_at";
+const VERSION_CACHE_KEY = "vibeusage.latest_tracker_version";
+const VERSION_CACHE_AT_KEY = "vibeusage.latest_tracker_version_at";
 const VERSION_TTL_MS = 6 * 60 * 60 * 1000;
-const REGISTRY_URL = "https://registry.npmjs.org/@vibescore/tracker/latest";
+const REGISTRY_URL = "https://registry.npmjs.org/vibeusage/latest";
 
 function isValidVersion(value) {
   return typeof value === "string" && /^\d+\.\d+\.\d+/.test(value);

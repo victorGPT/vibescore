@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
  * Matrix-themed GitHub Star Component
  */
 export const GithubStar = ({
-  repo = "victorGPT/vibescore",
+  repo = "victorGPT/vibeusage",
   isFixed = true,
   size = "default",
 }) => {

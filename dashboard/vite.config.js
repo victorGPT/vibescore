@@ -89,7 +89,7 @@ function loadCopyRegistry() {
   try {
     raw = fs.readFileSync(COPY_PATH, 'utf8');
   } catch (error) {
-    console.warn('[vibescore] Failed to read copy registry:', error.message);
+    console.warn('[vibeusage] Failed to read copy registry:', error.message);
     return new Map();
   }
 
@@ -100,7 +100,7 @@ function loadCopyRegistry() {
   const keyIndex = header.indexOf('key');
   const textIndex = header.indexOf('text');
   if (keyIndex === -1 || textIndex === -1) {
-    console.warn('[vibescore] Copy registry missing key/text columns.');
+    console.warn('[vibeusage] Copy registry missing key/text columns.');
     return new Map();
   }
 
@@ -129,7 +129,7 @@ function buildMeta(prefix = 'landing') {
 
   const missing = COPY_REQUIRED_KEYS.filter((key) => !map.has(key));
   if (missing.length) {
-    console.warn('[vibescore] Copy registry missing keys:', missing.join(', '));
+    console.warn('[vibeusage] Copy registry missing keys:', missing.join(', '));
   }
 
   return {
@@ -155,18 +155,18 @@ function resolveMetaPrefix(ctx) {
 function injectRichMeta(html, prefix) {
   const meta = buildMeta(prefix);
   const replacements = {
-    '__VIBESCORE_TITLE__': meta.title,
-    '__VIBESCORE_DESCRIPTION__': meta.description,
-    '__VIBESCORE_OG_SITE_NAME__': meta.ogSiteName,
-    '__VIBESCORE_OG_TITLE__': meta.title,
-    '__VIBESCORE_OG_DESCRIPTION__': meta.description,
-    '__VIBESCORE_OG_IMAGE__': meta.ogImage,
-    '__VIBESCORE_OG_TYPE__': meta.ogType,
-    '__VIBESCORE_OG_URL__': meta.ogUrl,
-    '__VIBESCORE_TWITTER_CARD__': meta.twitterCard,
-    '__VIBESCORE_TWITTER_TITLE__': meta.title,
-    '__VIBESCORE_TWITTER_DESCRIPTION__': meta.description,
-    '__VIBESCORE_TWITTER_IMAGE__': meta.ogImage
+    '__VIBEUSAGE_TITLE__': meta.title,
+    '__VIBEUSAGE_DESCRIPTION__': meta.description,
+    '__VIBEUSAGE_OG_SITE_NAME__': meta.ogSiteName,
+    '__VIBEUSAGE_OG_TITLE__': meta.title,
+    '__VIBEUSAGE_OG_DESCRIPTION__': meta.description,
+    '__VIBEUSAGE_OG_IMAGE__': meta.ogImage,
+    '__VIBEUSAGE_OG_TYPE__': meta.ogType,
+    '__VIBEUSAGE_OG_URL__': meta.ogUrl,
+    '__VIBEUSAGE_TWITTER_CARD__': meta.twitterCard,
+    '__VIBEUSAGE_TWITTER_TITLE__': meta.title,
+    '__VIBEUSAGE_TWITTER_DESCRIPTION__': meta.description,
+    '__VIBEUSAGE_TWITTER_IMAGE__': meta.ogImage
   };
 
   let output = html;
@@ -178,7 +178,7 @@ function injectRichMeta(html, prefix) {
 
 function richLinkMetaPlugin() {
   return {
-    name: 'vibescore-rich-link-meta',
+    name: 'vibeusage-rich-link-meta',
     transformIndexHtml(html, ctx) {
       return injectRichMeta(html, resolveMetaPrefix(ctx));
     }

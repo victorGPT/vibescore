@@ -11,7 +11,7 @@ export function UpgradeAlertModal({ requiredVersion, installCommand, onClose }) 
   const normalizedRequired =
     typeof requiredVersion === "string" ? requiredVersion.trim() : "";
   const hasVersion = normalizedRequired.length > 0;
-  const unknownDismissKey = "vibescore_upgrade_dismissed_unknown";
+  const unknownDismissKey = "vibeusage_upgrade_dismissed_unknown";
   const resolvedInstallCommand =
     installCommand ?? copy("dashboard.upgrade_alert.install_command");
   const sparkleLabel = copy("dashboard.upgrade_alert.sparkle");
@@ -29,7 +29,7 @@ export function UpgradeAlertModal({ requiredVersion, installCommand, onClose }) 
   const storageKey = useMemo(
     () =>
       hasVersion
-        ? `vibescore_upgrade_dismissed_${normalizedRequired}`
+        ? `vibeusage_upgrade_dismissed_${normalizedRequired}`
         : unknownDismissKey,
     [hasVersion, normalizedRequired, unknownDismissKey]
   );

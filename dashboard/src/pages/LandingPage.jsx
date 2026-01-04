@@ -48,7 +48,7 @@ export function LandingPage({ signInUrl, signUpUrl }) {
   const signupLabel = copy("landing.nav.signup");
   const [handle, setHandle] = useState(defaultHandle);
   const effectsReady = useDeferredMount(250);
-  const installEntryKey = "vibescore.dashboard.from_landing.v1";
+  const installEntryKey = "vibeusage.dashboard.from_landing.v1";
 
   useEffect(() => {
     if (typeof window === "undefined") return;

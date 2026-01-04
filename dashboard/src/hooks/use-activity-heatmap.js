@@ -32,7 +32,7 @@ export function useActivityHeatmap({
   const storageKey = useMemo(() => {
     if (!cacheKey) return null;
     const tzKey = getTimeZoneCacheKey({ timeZone, offsetMinutes: tzOffsetMinutes });
-    return `vibescore.heatmap.${cacheKey}.${weeks}.${weekStartsOn}.${tzKey}`;
+    return `vibeusage.heatmap.${cacheKey}.${weeks}.${weekStartsOn}.${tzKey}`;
   }, [cacheKey, timeZone, tzOffsetMinutes, weeks, weekStartsOn]);
 
   const readCache = useCallback(() => {
