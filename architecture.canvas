@@ -406,7 +406,7 @@
     {
       "id": "test_http-timeout_test_d4be419d",
       "type": "text",
-      "text": "**http-timeout.test**\n`test/http-timeout.test.js`\n\nTest module.\n\n包含：\n- http-timeout.test (148 行)\n- loadModule (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**http-timeout.test**\n`test/http-timeout.test.js`\n\nTest module.\n\n包含：\n- http-timeout.test (166 行)\n- loadModule (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1900,
       "y": 10132,
       "width": 280,
