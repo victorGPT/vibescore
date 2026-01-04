@@ -8,7 +8,7 @@
 
 ## 2. Verification
 - [x] 2.1 Run unit tests covering mapping and migration.
-- [ ] 2.2 Verify old CLI commands execute new logic.
-- [ ] 2.3 Verify old and new API paths return identical responses.
-- [ ] 2.4 Verify local migration is idempotent and non-destructive.
+- [x] 2.2 Verify old CLI commands execute new logic.
+- [x] 2.3 Verify old and new API paths return identical responses.
+- [x] 2.4 Verify local migration is idempotent and non-destructive.
 - [x] 2.5 Record commands and results in `verification-report.md`.
