@@ -1000,6 +1000,43 @@ test('vibeusage-usage-daily uses hourly when rollup disabled', () =>
     );
   }));
 
+test('vibeusage-usage-daily ignores rollup flag', () =>
+  withRollupEnabled(async () => {
+    const fn = require('../insforge-functions/vibeusage-usage-daily');
+
+    const userId = '66666666-6666-6666-6666-666666666666';
+    const userJwt = 'user_jwt_test';
+
+    globalThis.createClient = (args) => {
+      if (args && args.edgeFunctionToken === userJwt) {
+        return {
+          auth: {
+            getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+          },
+          database: {
+            from: (table) => {
+              assert.equal(table, 'vibescore_tracker_hourly');
+              const query = createQueryMock({ rows: [] });
+              return { select: () => query };
+            }
+          }
+        };
+      }
+      throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+    };
+
+    const req = new Request(
+      'http://localhost/functions/vibeusage-usage-daily?from=2025-12-20&to=2025-12-21',
+      {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${userJwt}` }
+      }
+    );
+
+    const res = await fn(req);
+    assert.equal(res.status, 200);
+  }));
+
 test('vibeusage-usage-daily applies optional source filter', () =>
   withRollupEnabled(async () => {
   const fn = require('../insforge-functions/vibeusage-usage-daily');
@@ -1008,16 +1045,7 @@ test('vibeusage-usage-daily applies optional source filter', () =>
   const userJwt = 'user_jwt_test';
   const filters = [];
   const orders = [];
-  const rows = [
-    {
-      day: '2025-12-20',
-      total_tokens: '1',
-      input_tokens: '1',
-      cached_input_tokens: '0',
-      output_tokens: '0',
-      reasoning_output_tokens: '0'
-    }
-  ];
+  const rows = [];
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
       return {
@@ -1026,7 +1054,7 @@ test('vibeusage-usage-daily applies optional source filter', () =>
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_daily_rollup');
+            assert.equal(table, 'vibescore_tracker_hourly');
             const query = createQueryMock({
               rows,
               onFilter: (entry) => {
@@ -1054,9 +1082,9 @@ test('vibeusage-usage-daily applies optional source filter', () =>
   assert.equal(res.status, 200);
   assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
   assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'source' && f.value === 'every-code'));
-  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'day' && f.value === '2025-12-20'));
-  assert.ok(filters.some((f) => f.op === 'lte' && f.col === 'day' && f.value === '2025-12-21'));
-  assert.ok(orders.some((o) => o.col === 'day'));
+  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'hour_start' && f.value === '2025-12-20T00:00:00.000Z'));
+  assert.ok(filters.some((f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-22T00:00:00.000Z'));
+  assert.ok(orders.some((o) => o.col === 'hour_start'));
   }));
 
 test('vibeusage-usage-daily applies optional model filter', () =>
@@ -1067,16 +1095,7 @@ test('vibeusage-usage-daily applies optional model filter', () =>
   const userJwt = 'user_jwt_test';
   const filters = [];
   const orders = [];
-  const rows = [
-    {
-      day: '2025-12-20',
-      total_tokens: '1',
-      input_tokens: '1',
-      cached_input_tokens: '0',
-      output_tokens: '0',
-      reasoning_output_tokens: '0'
-    }
-  ];
+  const rows = [];
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
       return {
@@ -1085,7 +1104,7 @@ test('vibeusage-usage-daily applies optional model filter', () =>
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_daily_rollup');
+            assert.equal(table, 'vibescore_tracker_hourly');
             const query = createQueryMock({
               rows,
               onFilter: (entry) => {
@@ -1113,9 +1132,9 @@ test('vibeusage-usage-daily applies optional model filter', () =>
   assert.equal(res.status, 200);
   assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
   assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'model' && f.value === 'claude-3-5-sonnet'));
-  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'day' && f.value === '2025-12-20'));
-  assert.ok(filters.some((f) => f.op === 'lte' && f.col === 'day' && f.value === '2025-12-21'));
-  assert.ok(orders.some((o) => o.col === 'day'));
+  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'hour_start' && f.value === '2025-12-20T00:00:00.000Z'));
+  assert.ok(filters.some((f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-22T00:00:00.000Z'));
+  assert.ok(orders.some((o) => o.col === 'hour_start'));
   }));
 
 test('vibeusage-usage-daily treats empty source as missing', () =>
@@ -1126,16 +1145,7 @@ test('vibeusage-usage-daily treats empty source as missing', () =>
   const userJwt = 'user_jwt_test';
   const filters = [];
   const orders = [];
-  const rows = [
-    {
-      day: '2025-12-20',
-      total_tokens: '1',
-      input_tokens: '1',
-      cached_input_tokens: '0',
-      output_tokens: '0',
-      reasoning_output_tokens: '0'
-    }
-  ];
+  const rows = [];
 
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
@@ -1145,7 +1155,7 @@ test('vibeusage-usage-daily treats empty source as missing', () =>
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_daily_rollup');
+            assert.equal(table, 'vibescore_tracker_hourly');
             const query = createQueryMock({
               rows,
               onFilter: (entry) => {
@@ -1173,9 +1183,9 @@ test('vibeusage-usage-daily treats empty source as missing', () =>
   assert.equal(res.status, 200);
   assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
   assert.ok(!filters.some((f) => f.op === 'eq' && f.col === 'source'));
-  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'day' && f.value === '2025-12-20'));
-  assert.ok(filters.some((f) => f.op === 'lte' && f.col === 'day' && f.value === '2025-12-21'));
-  assert.ok(orders.some((o) => o.col === 'day'));
+  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'hour_start' && f.value === '2025-12-20T00:00:00.000Z'));
+  assert.ok(filters.some((f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-22T00:00:00.000Z'));
+  assert.ok(orders.some((o) => o.col === 'hour_start'));
   }));
 
 test('vibeusage-usage-daily excludes canary buckets by default', () =>
@@ -1186,16 +1196,7 @@ test('vibeusage-usage-daily excludes canary buckets by default', () =>
   const userJwt = 'user_jwt_test';
   const filters = [];
   const orders = [];
-  const rows = [
-    {
-      day: '2025-12-20',
-      total_tokens: '1',
-      input_tokens: '1',
-      cached_input_tokens: '0',
-      output_tokens: '0',
-      reasoning_output_tokens: '0'
-    }
-  ];
+  const rows = [];
 
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
@@ -1205,7 +1206,7 @@ test('vibeusage-usage-daily excludes canary buckets by default', () =>
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_daily_rollup');
+            assert.equal(table, 'vibescore_tracker_hourly');
             const query = createQueryMock({
               rows,
               onFilter: (entry) => {
@@ -1233,9 +1234,9 @@ test('vibeusage-usage-daily excludes canary buckets by default', () =>
   assert.equal(res.status, 200);
   assert.ok(filters.some((f) => f.op === 'neq' && f.col === 'source' && f.value === 'canary'));
   assert.ok(filters.some((f) => f.op === 'neq' && f.col === 'model' && f.value === 'canary'));
-  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'day' && f.value === '2025-12-20'));
-  assert.ok(filters.some((f) => f.op === 'lte' && f.col === 'day' && f.value === '2025-12-21'));
-  assert.ok(orders.some((o) => o.col === 'day'));
+  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'hour_start' && f.value === '2025-12-20T00:00:00.000Z'));
+  assert.ok(filters.some((f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-22T00:00:00.000Z'));
+  assert.ok(orders.some((o) => o.col === 'hour_start'));
   }));
 
 test('vibeusage-usage-hourly aggregates half-hour buckets into half-hour totals', async () => {
@@ -1488,7 +1489,7 @@ test('vibeusage-usage-summary returns total_cost_usd and pricing metadata', () =
 
     const rows = [
       {
-        day: '2025-12-21',
+        hour_start: '2025-12-21T00:00:00.000Z',
         total_tokens: '1500000',
         input_tokens: '1000000',
         cached_input_tokens: '200000',
@@ -1506,7 +1507,7 @@ test('vibeusage-usage-summary returns total_cost_usd and pricing metadata', () =
           },
           database: {
             from: (table) => {
-              assert.equal(table, 'vibescore_tracker_daily_rollup');
+              assert.equal(table, 'vibescore_tracker_hourly');
               const query = createQueryMock({
                 rows,
                 onFilter: (entry) => {
@@ -1537,9 +1538,9 @@ test('vibeusage-usage-summary returns total_cost_usd and pricing metadata', () =
 
     const body = await res.json();
     assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
-    assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'day' && f.value === '2025-12-21'));
-    assert.ok(filters.some((f) => f.op === 'lte' && f.col === 'day' && f.value === '2025-12-21'));
-    assert.ok(orders.some((o) => o.col === 'day'));
+    assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'hour_start' && f.value === '2025-12-21T00:00:00.000Z'));
+    assert.ok(filters.some((f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-22T00:00:00.000Z'));
+    assert.ok(orders.some((o) => o.col === 'hour_start'));
     assert.equal(body.from, '2025-12-21');
     assert.equal(body.to, '2025-12-21');
     assert.equal(body.totals.total_tokens, '1500000');
@@ -1561,7 +1562,7 @@ test('vibeusage-usage-summary emits debug payload when requested', () =>
 
   const rows = [
     {
-      day: '2025-12-21',
+      hour_start: '2025-12-21T00:00:00.000Z',
       total_tokens: '10',
       input_tokens: '6',
       cached_input_tokens: '2',
@@ -1581,7 +1582,7 @@ test('vibeusage-usage-summary emits debug payload when requested', () =>
           },
           database: {
             from: (table) => {
-              if (table !== 'vibescore_tracker_daily_rollup') {
+              if (table !== 'vibescore_tracker_hourly') {
                 throw new Error(`Unexpected table: ${table}`);
               }
               const query = createQueryMock({
@@ -1614,9 +1615,9 @@ test('vibeusage-usage-summary emits debug payload when requested', () =>
 
     const payload = await res.json();
     assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
-    assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'day' && f.value === '2025-12-21'));
-    assert.ok(filters.some((f) => f.op === 'lte' && f.col === 'day' && f.value === '2025-12-21'));
-    assert.ok(orders.some((o) => o.col === 'day'));
+    assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'hour_start' && f.value === '2025-12-21T00:00:00.000Z'));
+    assert.ok(filters.some((f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-22T00:00:00.000Z'));
+    assert.ok(orders.some((o) => o.col === 'hour_start'));
     assert.ok(payload.debug);
     assert.ok(payload.debug.request_id && payload.debug.request_id.length > 0);
     assert.equal(payload.debug.status, 200);
@@ -1649,7 +1650,7 @@ test('vibeusage-usage-summary logs vibeusage function name', () =>
   const userJwt = 'user_jwt_test';
   const rows = [
     {
-      day: '2025-12-21',
+      hour_start: '2025-12-21T00:00:00.000Z',
       total_tokens: '10',
       input_tokens: '6',
       cached_input_tokens: '2',
@@ -1671,7 +1672,7 @@ test('vibeusage-usage-summary logs vibeusage function name', () =>
           },
           database: {
             from: (table) => {
-              assert.equal(table, 'vibescore_tracker_daily_rollup');
+              assert.equal(table, 'vibescore_tracker_hourly');
               const query = createQueryMock({ rows });
               return { select: () => query };
             }
@@ -1721,7 +1722,7 @@ test('vibeusage-usage-summary uses auth lookup even with jwt payload', () =>
 
   const rows = [
     {
-      day: '2025-12-21',
+      hour_start: '2025-12-21T00:00:00.000Z',
       total_tokens: '10',
       input_tokens: '6',
       cached_input_tokens: '2',
@@ -1744,7 +1745,7 @@ test('vibeusage-usage-summary uses auth lookup even with jwt payload', () =>
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_daily_rollup');
+            assert.equal(table, 'vibescore_tracker_hourly');
             const query = createQueryMock({
               rows,
               onFilter: (entry) => {
@@ -1774,9 +1775,9 @@ test('vibeusage-usage-summary uses auth lookup even with jwt payload', () =>
   assert.equal(res.status, 200);
 
   assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
-  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'day' && f.value === '2025-12-21'));
-  assert.ok(filters.some((f) => f.op === 'lte' && f.col === 'day' && f.value === '2025-12-21'));
-  assert.ok(orders.some((o) => o.col === 'day'));
+  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'hour_start' && f.value === '2025-12-21T00:00:00.000Z'));
+  assert.ok(filters.some((f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-22T00:00:00.000Z'));
+  assert.ok(orders.some((o) => o.col === 'hour_start'));
   assert.equal(authCalls, 1, 'expected auth.getCurrentUser to validate jwt payload');
   }));
 

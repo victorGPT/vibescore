@@ -74,12 +74,8 @@ function readEnvValue(key) {
 }
 
 function isRollupEnabled() {
-  const raw =
-    readEnvValue('VIBEUSAGE_ROLLUP_ENABLED') ??
-    readEnvValue('VIBESCORE_ROLLUP_ENABLED');
-  if (raw == null || raw === '') return false;
-  const normalized = String(raw).trim().toLowerCase();
-  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+  // Rollup queries are disabled until the daily rollup table is deployed.
+  return false;
 }
 
 module.exports = {

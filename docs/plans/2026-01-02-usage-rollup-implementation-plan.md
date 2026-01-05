@@ -13,7 +13,7 @@
 ### Task 1: Add failing acceptance tests
 
 **Files:**
-- Create: `scripts/acceptance/usage-summary-rollup.cjs`
+- Create: `scripts/acceptance/usage-summary-hourly.cjs`
 - Create: `scripts/acceptance/usage-daily-summary.cjs`
 
 **Step 1: Write failing test (summary uses rollup when hourly empty)**
@@ -96,7 +96,7 @@ main().catch((err) => {
 
 **Step 2: Run test to verify it fails**
 
-Run: `node scripts/acceptance/usage-summary-rollup.cjs`
+Run: `node scripts/acceptance/usage-summary-hourly.cjs`
 
 Expected: FAIL because summary ignores rollup table (totals are `0`).
 
@@ -408,7 +408,7 @@ Implement:
 
 **Step 2: Run test to verify it passes**
 
-Run: `node scripts/acceptance/usage-summary-rollup.cjs`
+Run: `node scripts/acceptance/usage-summary-hourly.cjs`
 
 Expected: PASS.
 

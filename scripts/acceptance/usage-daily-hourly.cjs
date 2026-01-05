@@ -3,16 +3,16 @@
 
 const assert = require('node:assert/strict');
 
-const ROLLUP_ROWS = [
+const HOURLY_ROWS = [
   {
-    day: '2025-12-01',
+    hour_start: '2025-12-01T12:00:00.000Z',
     source: 'codex',
     model: 'gpt-5.2-codex',
-    total_tokens: '500',
-    input_tokens: '200',
-    cached_input_tokens: '50',
-    output_tokens: '300',
-    reasoning_output_tokens: '30'
+    total_tokens: '10',
+    input_tokens: '4',
+    cached_input_tokens: '1',
+    output_tokens: '5',
+    reasoning_output_tokens: '0'
   }
 ];
 
@@ -28,20 +28,16 @@ class DatabaseStub {
   lt() { return this; }
   order() { return this; }
   range() {
-    if (this._table === 'vibescore_tracker_daily_rollup') {
-      return { data: ROLLUP_ROWS, error: null };
-    }
     if (this._table === 'vibescore_tracker_hourly') {
-      return { data: [], error: null };
+      return { data: HOURLY_ROWS, error: null };
     }
     return { data: [], error: null };
   }
-  limit() { return { data: [], error: null }; }
-  then(resolve, reject) {
-    if (this._table === 'vibescore_tracker_daily_rollup') {
-      return Promise.resolve({ data: ROLLUP_ROWS, error: null }).then(resolve, reject);
+  limit() {
+    if (this._table === 'vibescore_tracker_hourly') {
+      return { data: HOURLY_ROWS.slice(0, 1), error: null };
     }
-    return Promise.resolve({ data: [], error: null }).then(resolve, reject);
+    return { data: [], error: null };
   }
 }
 
@@ -55,23 +51,23 @@ function createClientStub() {
 async function main() {
   process.env.INSFORGE_INTERNAL_URL = 'http://insforge:7130';
   process.env.INSFORGE_ANON_KEY = 'anon';
-  process.env.VIBESCORE_ROLLUP_ENABLED = '1';
   global.Deno = { env: { get: (k) => process.env[k] || null } };
   global.createClient = createClientStub;
 
-  const usageSummary = require('../../insforge-src/functions/vibeusage-usage-summary.js');
-  const res = await usageSummary(new Request(
-    'http://local/functions/vibeusage-usage-summary?from=2025-12-01&to=2025-12-01',
+  const usageDaily = require('../../insforge-src/functions/vibeusage-usage-daily.js');
+  const res = await usageDaily(new Request(
+    'http://local/functions/vibeusage-usage-daily?from=2025-12-01&to=2025-12-01&tz=UTC',
     { method: 'GET', headers: { Authorization: 'Bearer user-jwt' } }
   ));
   const body = await res.json();
 
   assert.equal(res.status, 200);
-  assert.equal(body.totals.total_tokens, '500');
-  assert.equal(body.totals.input_tokens, '200');
-  assert.equal(body.totals.cached_input_tokens, '50');
-  assert.equal(body.totals.output_tokens, '300');
-  assert.equal(body.totals.reasoning_output_tokens, '30');
+  assert.ok(body.summary, 'summary missing');
+  assert.equal(body.summary.totals.total_tokens, '10');
+  assert.equal(body.summary.totals.input_tokens, '4');
+  assert.equal(body.summary.totals.cached_input_tokens, '1');
+  assert.equal(body.summary.totals.output_tokens, '5');
+  assert.equal(body.summary.totals.reasoning_output_tokens, '0');
   process.stdout.write(JSON.stringify({ ok: true }) + '\n');
 }
 

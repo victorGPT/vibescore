@@ -792,21 +792,27 @@ The system SHALL attempt database-side monthly aggregation for `GET /functions/v
 - **WHEN** the database aggregation attempt fails
 - **THEN** the endpoint SHALL fall back to the legacy aggregation path without changing response fields
 
-### Requirement: UTC daily rollup is maintained from hourly buckets
-The system SHALL maintain a UTC daily rollup keyed by `user_id + day + source + model`, derived from `vibescore_tracker_hourly`. Rollup updates MUST be idempotent and replayable.
+### Requirement: UTC daily rollup is maintained from hourly buckets when enabled
+When rollup aggregation is enabled and the rollup table is deployed, the system SHALL maintain a UTC daily rollup keyed by `user_id + day + source + model`, derived from `vibescore_tracker_hourly`. Rollup updates MUST be idempotent and replayable.
 
 #### Scenario: Hourly upsert updates rollup totals
-- **GIVEN** an hourly bucket upsert for a user
+- **GIVEN** rollup aggregation is enabled
+- **AND** an hourly bucket upsert for a user
 - **WHEN** the row is inserted or updated
 - **THEN** the daily rollup for the corresponding UTC day SHALL reflect the delta
 
-### Requirement: Usage summary prefers rollup aggregation
-The system MUST prefer rollup aggregation for `usage-summary` and MUST fall back to hourly aggregation if rollup data is unavailable.
+### Requirement: Usage summary prefers rollup aggregation when enabled
+The system MUST prefer rollup aggregation for `usage-summary` when rollup aggregation is enabled and MUST fall back to hourly aggregation if rollup data is unavailable or rollup is disabled.
 
 #### Scenario: Rollup unavailable
 - **GIVEN** rollup data is missing or unavailable
 - **WHEN** a user requests usage summary
 - **THEN** the endpoint SHALL fall back to hourly aggregation without changing response fields
+
+#### Scenario: Rollup disabled
+- **GIVEN** rollup aggregation is disabled
+- **WHEN** a user requests usage summary
+- **THEN** the endpoint SHALL use hourly aggregation without changing response fields
 
 ### Requirement: Usage day-range endpoints enforce maximum range
 The system SHALL reject usage requests that exceed a maximum day range for `GET /functions/vibeusage-usage-summary`, `GET /functions/vibeusage-usage-daily`, and `GET /functions/vibeusage-usage-model-breakdown`. The maximum day range SHALL default to 800 days and be configurable via `VIBESCORE_USAGE_MAX_DAYS`.

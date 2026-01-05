@@ -888,27 +888,8 @@ var require_usage_rollup = __commonJS({
       }
       return totals;
     }
-    function readEnvValue(key) {
-      try {
-        if (typeof Deno !== "undefined" && Deno?.env?.get) {
-          const value = Deno.env.get(key);
-          if (value !== void 0) return value;
-        }
-      } catch (_e) {
-      }
-      try {
-        if (typeof process !== "undefined" && process?.env) {
-          return process.env[key];
-        }
-      } catch (_e) {
-      }
-      return null;
-    }
     function isRollupEnabled() {
-      const raw = readEnvValue("VIBEUSAGE_ROLLUP_ENABLED") ?? readEnvValue("VIBESCORE_ROLLUP_ENABLED");
-      if (raw == null || raw === "") return false;
-      const normalized = String(raw).trim().toLowerCase();
-      return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+      return false;
     }
     module2.exports = {
       createTotals,

@@ -23,5 +23,5 @@
 - [x] Run regression commands and record results
 
 Notes:
-- 2026-01-02: `node scripts/acceptance/usage-summary-rollup.cjs` (pass)
+- 2026-01-02: `node scripts/acceptance/usage-summary-hourly.cjs` (pass)
 - 2026-01-02: `node scripts/acceptance/usage-daily-summary.cjs` (pass)
