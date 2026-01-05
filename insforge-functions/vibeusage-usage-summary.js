@@ -683,11 +683,34 @@ var require_usage_rollup = __commonJS({
       }
       return totals;
     }
+    function readEnvValue(key) {
+      try {
+        if (typeof Deno !== "undefined" && Deno?.env?.get) {
+          const value = Deno.env.get(key);
+          if (value !== void 0) return value;
+        }
+      } catch (_e) {
+      }
+      try {
+        if (typeof process !== "undefined" && process?.env) {
+          return process.env[key];
+        }
+      } catch (_e) {
+      }
+      return null;
+    }
+    function isRollupEnabled() {
+      const raw = readEnvValue("VIBEUSAGE_ROLLUP_ENABLED") ?? readEnvValue("VIBESCORE_ROLLUP_ENABLED");
+      if (raw == null || raw === "") return false;
+      const normalized = String(raw).trim().toLowerCase();
+      return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+    }
     module2.exports = {
       createTotals,
       addRowTotals,
       fetchRollupRows,
-      sumRollupRows
+      sumRollupRows,
+      isRollupEnabled
     };
   }
 });
@@ -1109,7 +1132,8 @@ var require_vibescore_usage_summary = __commonJS({
     var {
       addRowTotals,
       createTotals,
-      fetchRollupRows
+      fetchRollupRows,
+      isRollupEnabled
     } = require_usage_rollup();
     var {
       buildPricingMetadata,
@@ -1165,6 +1189,7 @@ var require_vibescore_usage_summary = __commonJS({
       const queryStartMs = Date.now();
       let rowCount = 0;
       let rollupHit = false;
+      const rollupEnabled = isRollupEnabled();
       const resetAggregation = () => {
         totals = createTotals();
         sourcesMap = /* @__PURE__ */ new Map();
@@ -1240,47 +1265,55 @@ var require_vibescore_usage_summary = __commonJS({
       const sameUtcDay = startDayUtc.getTime() === endDayUtc.getTime();
       const startIsBoundary = startUtc.getTime() === startDayUtc.getTime();
       const endIsBoundary = endUtc.getTime() === endDayUtc.getTime();
-      let hourlyError = null;
-      let rollupEmptyWithHourly = false;
-      if (sameUtcDay) {
+      if (!rollupEnabled) {
         const hourlyRes = await sumHourlyRange(startIso, endIso);
-        if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+        if (!hourlyRes.ok) {
+          const queryDurationMs2 = Date.now() - queryStartMs;
+          return respond({ error: hourlyRes.error.message }, 500, queryDurationMs2);
+        }
       } else {
-        const rollupStartDate = startIsBoundary ? startDayUtc : addUtcDays(startDayUtc, 1);
-        const rollupEndDate = addUtcDays(endDayUtc, -1);
-        if (!startIsBoundary) {
-          const hourlyRes = await sumHourlyRange(startIso, rollupStartDate.toISOString());
+        let hourlyError = null;
+        let rollupEmptyWithHourly = false;
+        if (sameUtcDay) {
+          const hourlyRes = await sumHourlyRange(startIso, endIso);
           if (!hourlyRes.ok) hourlyError = hourlyRes.error;
-        }
-        if (!endIsBoundary && !hourlyError) {
-          const hourlyRes = await sumHourlyRange(endDayUtc.toISOString(), endIso);
-          if (!hourlyRes.ok) hourlyError = hourlyRes.error;
-        }
-        if (!hourlyError) {
-          if (rollupStartDate.getTime() <= rollupEndDate.getTime()) {
-            const rollupRes = await sumRollupRange(
-              formatDateUTC(rollupStartDate),
-              formatDateUTC(rollupEndDate)
-            );
-            if (!rollupRes.ok) {
-              hourlyError = rollupRes.error;
-            } else if (rollupRes.rowsCount === 0) {
-              const hourlyCheck = await hasHourlyData(startIso, endIso);
-              if (!hourlyCheck.ok) {
-                hourlyError = hourlyCheck.error;
-              } else if (hourlyCheck.hasRows) {
-                rollupEmptyWithHourly = true;
+        } else {
+          const rollupStartDate = startIsBoundary ? startDayUtc : addUtcDays(startDayUtc, 1);
+          const rollupEndDate = addUtcDays(endDayUtc, -1);
+          if (!startIsBoundary) {
+            const hourlyRes = await sumHourlyRange(startIso, rollupStartDate.toISOString());
+            if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+          }
+          if (!endIsBoundary && !hourlyError) {
+            const hourlyRes = await sumHourlyRange(endDayUtc.toISOString(), endIso);
+            if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+          }
+          if (!hourlyError) {
+            if (rollupStartDate.getTime() <= rollupEndDate.getTime()) {
+              const rollupRes = await sumRollupRange(
+                formatDateUTC(rollupStartDate),
+                formatDateUTC(rollupEndDate)
+              );
+              if (!rollupRes.ok) {
+                hourlyError = rollupRes.error;
+              } else if (rollupRes.rowsCount === 0) {
+                const hourlyCheck = await hasHourlyData(startIso, endIso);
+                if (!hourlyCheck.ok) {
+                  hourlyError = hourlyCheck.error;
+                } else if (hourlyCheck.hasRows) {
+                  rollupEmptyWithHourly = true;
+                }
               }
             }
           }
         }
-      }
-      if (hourlyError || rollupEmptyWithHourly) {
-        resetAggregation();
-        const fallbackRes = await sumHourlyRange(startIso, endIso);
-        if (!fallbackRes.ok) {
-          const queryDurationMs2 = Date.now() - queryStartMs;
-          return respond({ error: fallbackRes.error.message }, 500, queryDurationMs2);
+        if (hourlyError || rollupEmptyWithHourly) {
+          resetAggregation();
+          const fallbackRes = await sumHourlyRange(startIso, endIso);
+          if (!fallbackRes.ok) {
+            const queryDurationMs2 = Date.now() - queryStartMs;
+            return respond({ error: fallbackRes.error.message }, 500, queryDurationMs2);
+          }
         }
       }
       const queryDurationMs = Date.now() - queryStartMs;

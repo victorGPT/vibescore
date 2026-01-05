@@ -58,9 +58,34 @@ function sumRollupRows(rows) {
   return totals;
 }
 
+function readEnvValue(key) {
+  try {
+    if (typeof Deno !== 'undefined' && Deno?.env?.get) {
+      const value = Deno.env.get(key);
+      if (value !== undefined) return value;
+    }
+  } catch (_e) {}
+  try {
+    if (typeof process !== 'undefined' && process?.env) {
+      return process.env[key];
+    }
+  } catch (_e) {}
+  return null;
+}
+
+function isRollupEnabled() {
+  const raw =
+    readEnvValue('VIBEUSAGE_ROLLUP_ENABLED') ??
+    readEnvValue('VIBESCORE_ROLLUP_ENABLED');
+  if (raw == null || raw === '') return false;
+  const normalized = String(raw).trim().toLowerCase();
+  return normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on';
+}
+
 module.exports = {
   createTotals,
   addRowTotals,
   fetchRollupRows,
-  sumRollupRows
+  sumRollupRows,
+  isRollupEnabled
 };

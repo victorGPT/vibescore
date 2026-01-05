@@ -888,11 +888,34 @@ var require_usage_rollup = __commonJS({
       }
       return totals;
     }
+    function readEnvValue(key) {
+      try {
+        if (typeof Deno !== "undefined" && Deno?.env?.get) {
+          const value = Deno.env.get(key);
+          if (value !== void 0) return value;
+        }
+      } catch (_e) {
+      }
+      try {
+        if (typeof process !== "undefined" && process?.env) {
+          return process.env[key];
+        }
+      } catch (_e) {
+      }
+      return null;
+    }
+    function isRollupEnabled2() {
+      const raw = readEnvValue("VIBEUSAGE_ROLLUP_ENABLED") ?? readEnvValue("VIBESCORE_ROLLUP_ENABLED");
+      if (raw == null || raw === "") return false;
+      const normalized = String(raw).trim().toLowerCase();
+      return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+    }
     module2.exports = {
       createTotals: createTotals2,
       addRowTotals: addRowTotals2,
       fetchRollupRows: fetchRollupRows2,
-      sumRollupRows
+      sumRollupRows,
+      isRollupEnabled: isRollupEnabled2
     };
   }
 });
@@ -1113,7 +1136,8 @@ var {
 var {
   addRowTotals,
   createTotals,
-  fetchRollupRows
+  fetchRollupRows,
+  isRollupEnabled
 } = require_usage_rollup();
 var { logSlowQuery, withRequestLogging } = require_logging();
 var { isDebugEnabled, withSlowQueryDebugPayload } = require_debug();
@@ -1192,6 +1216,7 @@ module.exports = withRequestLogging("vibescore-usage-daily", async function(requ
   let rowCount = 0;
   let rollupHit = false;
   let hourlyError = null;
+  const rollupEnabled = isRollupEnabled();
   const sumHourlyRange = async () => {
     const { error } = await forEachPage({
       createQuery: () => {
@@ -1233,7 +1258,7 @@ module.exports = withRequestLogging("vibescore-usage-daily", async function(requ
     if (error) return { ok: false, error };
     return { ok: true, hasRows: Array.isArray(data) && data.length > 0 };
   };
-  if (isUtcTimeZone(tzContext)) {
+  if (rollupEnabled && isUtcTimeZone(tzContext)) {
     const rollupRes = await fetchRollupRows({
       edgeClient: auth.edgeClient,
       userId: auth.userId,

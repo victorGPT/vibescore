@@ -91,6 +91,8 @@ npx --yes vibeusage status
 
 - `VIBESCORE_HTTP_TIMEOUT_MS`：CLI 请求超时（毫秒，默认 `20000`，`0` 表示关闭，范围 `1000..120000`）。
 - `VITE_VIBESCORE_HTTP_TIMEOUT_MS`：Dashboard 请求超时（毫秒，默认 `15000`，`0` 表示关闭，范围 `1000..30000`）。
+- `VIBEUSAGE_ROLLUP_ENABLED`：开启后端 usage rollup 聚合（支持 `1|true|yes|on`），默认关闭。
+- `VIBESCORE_ROLLUP_ENABLED`：`VIBEUSAGE_ROLLUP_ENABLED` 的兼容别名。
 - `GEMINI_HOME`：覆盖 Gemini CLI 的 home（默认 `~/.gemini`）。
 
 ## 🧰 常见问题

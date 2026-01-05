@@ -29,6 +29,9 @@ class DatabaseStub {
   or() { return this; }
   order() { return this; }
   range() {
+    if (this._table === 'vibescore_tracker_daily_rollup') {
+      return { data: null, error: { message: 'rollup down' } };
+    }
     if (this._table === 'vibescore_tracker_hourly') {
       return { data: HOURLY_ROWS, error: null };
     }
@@ -53,6 +56,7 @@ function createClientStub() {
 async function main() {
   process.env.INSFORGE_INTERNAL_URL = 'http://insforge:7130';
   process.env.INSFORGE_ANON_KEY = 'anon';
+  process.env.VIBESCORE_ROLLUP_ENABLED = '1';
   global.Deno = { env: { get: (k) => process.env[k] || null } };
   global.createClient = createClientStub;
 

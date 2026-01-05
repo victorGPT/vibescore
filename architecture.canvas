@@ -440,7 +440,7 @@
     {
       "id": "test_edge-functions_test_deffefcc",
       "type": "text",
-      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- edge-functions.test (2877 行)\n- toBase64Url (1 个参数)\n\n依赖：2 个模块\n被依赖：0 次",
+      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- edge-functions.test (3025 行)\n- toBase64Url (1 个参数)\n\n依赖：2 个模块\n被依赖：0 次",
       "x": 100,
       "y": 10852,
       "width": 280,
@@ -1556,7 +1556,7 @@
     {
       "id": "utils_usage-rollup_63cc83a9",
       "type": "text",
-      "text": "**usage-rollup**\n`insforge-src/shared/usage-rollup.js`\n\nShared utilities.\n\n包含：\n- usage-rollup (67 行)\n- createTotals (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**usage-rollup**\n`insforge-src/shared/usage-rollup.js`\n\nShared utilities.\n\n包含：\n- usage-rollup (92 行)\n- createTotals (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2620,
       "y": 6736,
       "width": 280,
@@ -1794,7 +1794,7 @@
     {
       "id": "edge-function_vibescore-usage-daily_13bc8f2d",
       "type": "text",
-      "text": "**vibescore-usage-daily**\n`insforge-src/functions/vibescore-usage-daily.js`\n\nEdge function handler.\n\n包含：\n- vibescore-usage-daily (310 行)\n- getSourceEntry (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibescore-usage-daily**\n`insforge-src/functions/vibescore-usage-daily.js`\n\nEdge function handler.\n\n包含：\n- vibescore-usage-daily (312 行)\n- getSourceEntry (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1900,
       "y": 4936,
       "width": 280,
@@ -1879,7 +1879,7 @@
     {
       "id": "edge-function_vibescore-usage-summary_57a00ab8",
       "type": "text",
-      "text": "**vibescore-usage-summary**\n`insforge-src/functions/vibescore-usage-summary.js`\n\nEdge function handler.\n\n包含：\n- vibescore-usage-summary (324 行)\n- getSourceEntry (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibescore-usage-summary**\n`insforge-src/functions/vibescore-usage-summary.js`\n\nEdge function handler.\n\n包含：\n- vibescore-usage-summary (334 行)\n- getSourceEntry (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 820,
       "y": 5296,
       "width": 280,

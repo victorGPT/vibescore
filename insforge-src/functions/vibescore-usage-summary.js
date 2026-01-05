@@ -24,7 +24,8 @@ const { forEachPage } = require('../shared/pagination');
 const {
   addRowTotals,
   createTotals,
-  fetchRollupRows
+  fetchRollupRows,
+  isRollupEnabled
 } = require('../shared/usage-rollup');
 const {
   buildPricingMetadata,
@@ -92,6 +93,7 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
   const queryStartMs = Date.now();
   let rowCount = 0;
   let rollupHit = false;
+  const rollupEnabled = isRollupEnabled();
 
   const resetAggregation = () => {
     totals = createTotals();
@@ -191,53 +193,61 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
   const startIsBoundary = startUtc.getTime() === startDayUtc.getTime();
   const endIsBoundary = endUtc.getTime() === endDayUtc.getTime();
 
-  let hourlyError = null;
-  let rollupEmptyWithHourly = false;
-  if (sameUtcDay) {
+  if (!rollupEnabled) {
     const hourlyRes = await sumHourlyRange(startIso, endIso);
-    if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+    if (!hourlyRes.ok) {
+      const queryDurationMs = Date.now() - queryStartMs;
+      return respond({ error: hourlyRes.error.message }, 500, queryDurationMs);
+    }
   } else {
-    const rollupStartDate = startIsBoundary
-      ? startDayUtc
-      : addUtcDays(startDayUtc, 1);
-    const rollupEndDate = addUtcDays(endDayUtc, -1);
-
-    if (!startIsBoundary) {
-      const hourlyRes = await sumHourlyRange(startIso, rollupStartDate.toISOString());
+    let hourlyError = null;
+    let rollupEmptyWithHourly = false;
+    if (sameUtcDay) {
+      const hourlyRes = await sumHourlyRange(startIso, endIso);
       if (!hourlyRes.ok) hourlyError = hourlyRes.error;
-    }
+    } else {
+      const rollupStartDate = startIsBoundary
+        ? startDayUtc
+        : addUtcDays(startDayUtc, 1);
+      const rollupEndDate = addUtcDays(endDayUtc, -1);
 
-    if (!endIsBoundary && !hourlyError) {
-      const hourlyRes = await sumHourlyRange(endDayUtc.toISOString(), endIso);
-      if (!hourlyRes.ok) hourlyError = hourlyRes.error;
-    }
+      if (!startIsBoundary) {
+        const hourlyRes = await sumHourlyRange(startIso, rollupStartDate.toISOString());
+        if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+      }
 
-    if (!hourlyError) {
-      if (rollupStartDate.getTime() <= rollupEndDate.getTime()) {
-        const rollupRes = await sumRollupRange(
-          formatDateUTC(rollupStartDate),
-          formatDateUTC(rollupEndDate)
-        );
-        if (!rollupRes.ok) {
-          hourlyError = rollupRes.error;
-        } else if (rollupRes.rowsCount === 0) {
-          const hourlyCheck = await hasHourlyData(startIso, endIso);
-          if (!hourlyCheck.ok) {
-            hourlyError = hourlyCheck.error;
-          } else if (hourlyCheck.hasRows) {
-            rollupEmptyWithHourly = true;
+      if (!endIsBoundary && !hourlyError) {
+        const hourlyRes = await sumHourlyRange(endDayUtc.toISOString(), endIso);
+        if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+      }
+
+      if (!hourlyError) {
+        if (rollupStartDate.getTime() <= rollupEndDate.getTime()) {
+          const rollupRes = await sumRollupRange(
+            formatDateUTC(rollupStartDate),
+            formatDateUTC(rollupEndDate)
+          );
+          if (!rollupRes.ok) {
+            hourlyError = rollupRes.error;
+          } else if (rollupRes.rowsCount === 0) {
+            const hourlyCheck = await hasHourlyData(startIso, endIso);
+            if (!hourlyCheck.ok) {
+              hourlyError = hourlyCheck.error;
+            } else if (hourlyCheck.hasRows) {
+              rollupEmptyWithHourly = true;
+            }
           }
         }
       }
     }
-  }
 
-  if (hourlyError || rollupEmptyWithHourly) {
-    resetAggregation();
-    const fallbackRes = await sumHourlyRange(startIso, endIso);
-    if (!fallbackRes.ok) {
-      const queryDurationMs = Date.now() - queryStartMs;
-      return respond({ error: fallbackRes.error.message }, 500, queryDurationMs);
+    if (hourlyError || rollupEmptyWithHourly) {
+      resetAggregation();
+      const fallbackRes = await sumHourlyRange(startIso, endIso);
+      if (!fallbackRes.ok) {
+        const queryDurationMs = Date.now() - queryStartMs;
+        return respond({ error: fallbackRes.error.message }, 500, queryDurationMs);
+      }
     }
   }
 

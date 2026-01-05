@@ -31,7 +31,8 @@ const {
 const {
   addRowTotals,
   createTotals,
-  fetchRollupRows
+  fetchRollupRows,
+  isRollupEnabled
 } = require('../shared/usage-rollup');
 const { logSlowQuery, withRequestLogging } = require('../shared/logging');
 const { isDebugEnabled, withSlowQueryDebugPayload } = require('../shared/debug');
@@ -124,6 +125,7 @@ module.exports = withRequestLogging('vibescore-usage-daily', async function(requ
   let rowCount = 0;
   let rollupHit = false;
   let hourlyError = null;
+  const rollupEnabled = isRollupEnabled();
 
   const sumHourlyRange = async () => {
     const { error } = await forEachPage({
@@ -184,7 +186,7 @@ module.exports = withRequestLogging('vibescore-usage-daily', async function(requ
     return { ok: true, hasRows: Array.isArray(data) && data.length > 0 };
   };
 
-  if (isUtcTimeZone(tzContext)) {
+  if (rollupEnabled && isUtcTimeZone(tzContext)) {
     const rollupRes = await fetchRollupRows({
       edgeClient: auth.edgeClient,
       userId: auth.userId,
