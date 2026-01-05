@@ -61,3 +61,23 @@ test("buildCanvasModel returns canvas data", async () => {
   assert.ok(Array.isArray(result.edges));
   assert.ok(result.nodes.length > 0);
 });
+
+test("buildCanvasModel supports focus module filtering", async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "vibescore-canvas-focus-"));
+  await fs.mkdir(path.join(dir, "src"), { recursive: true });
+  await fs.mkdir(path.join(dir, "dashboard"), { recursive: true });
+  await fs.writeFile(
+    path.join(dir, "src", "index.js"),
+    "import OpenAI from 'openai';\nimport './util.js';\nexport function main() {}\n"
+  );
+  await fs.writeFile(path.join(dir, "src", "util.js"), "export function helper() {}\n");
+  await fs.writeFile(path.join(dir, "dashboard", "app.jsx"), "export const App = () => null;\n");
+
+  const result = await buildCanvasModel({ rootDir: dir, focusModule: "src" });
+  const fileNodes = result.nodes.filter((node) => node.meta && node.meta.relPath && node.type === "text");
+  const relPaths = fileNodes.map((node) => node.meta.relPath);
+
+  assert.ok(relPaths.some((p) => p.startsWith("src/")));
+  assert.ok(relPaths.includes("external"));
+  assert.ok(!relPaths.some((p) => p.startsWith("dashboard/")));
+});

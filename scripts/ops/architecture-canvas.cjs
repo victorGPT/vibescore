@@ -228,11 +228,13 @@ function printHelp() {
       "Obsidian Canvas architecture generator",
       "",
       "Usage:",
-      "  node scripts/ops/architecture-canvas.cjs [--root <path>] [--out <path>]",
+      "  node scripts/ops/architecture-canvas.cjs [--root <path>] [--out <path>] [--focus <module>]",
       "",
       "Options:",
       "  --root <path>   Project root (default: cwd)",
       "  --out <path>    Output path (default: <root>/architecture.canvas)",
+      "  --focus <module>  Only include target module and its direct neighbors",
+      "  --module <module> Alias for --focus",
       "  --help          Show help",
       "",
     ].join("\n")
@@ -240,7 +242,7 @@ function printHelp() {
 }
 
 function parseArgs(argv) {
-  const opts = { root: null, out: null, help: false };
+  const opts = { root: null, out: null, focus: null, help: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--help" || arg === "-h") {
@@ -253,6 +255,10 @@ function parseArgs(argv) {
     }
     if (arg === "--out") {
       opts.out = argv[++i] || null;
+      continue;
+    }
+    if (arg === "--focus" || arg === "--module") {
+      opts.focus = argv[++i] || null;
       continue;
     }
     throw new Error(`Unknown option: ${arg}`);
@@ -1078,6 +1084,51 @@ function getModuleKeyFromRelPath(relPath) {
   return parts[0] || "root";
 }
 
+function normalizeFocusModules(value) {
+  if (!value) return [];
+  const normalized = toPosixPath(String(value)).replace(/^\.\//, "").trim();
+  return normalized
+    .split(",")
+    .map((part) => part.trim().replace(/\/+$/, ""))
+    .filter(Boolean)
+    .map((part) => part.toLowerCase());
+}
+
+function filterNodesByFocus(nodes, edges, focusModule) {
+  const focusKeys = normalizeFocusModules(focusModule);
+  if (focusKeys.length === 0) return { nodes, edges };
+
+  const focusSet = new Set(focusKeys);
+  const available = new Set();
+  const focusIds = new Set();
+
+  for (const node of nodes) {
+    const relPath = node.meta?.relPath;
+    if (!relPath) continue;
+    const moduleKey = getModuleKeyFromRelPath(relPath).toLowerCase();
+    available.add(moduleKey);
+    if (focusSet.has(moduleKey)) focusIds.add(node.id);
+  }
+
+  if (focusIds.size === 0) {
+    const availableList = Array.from(available).sort().join(", ") || "n/a";
+    throw new Error(`Unknown focus module: ${focusKeys.join(", ")}. Available modules: ${availableList}`);
+  }
+
+  const included = new Set(focusIds);
+  for (const edge of edges) {
+    if (focusIds.has(edge.from) || focusIds.has(edge.to)) {
+      included.add(edge.from);
+      included.add(edge.to);
+    }
+  }
+
+  const filteredNodes = nodes.filter((node) => included.has(node.id));
+  const filteredEdges = edges.filter((edge) => included.has(edge.from) && included.has(edge.to));
+
+  return { nodes: filteredNodes, edges: filteredEdges };
+}
+
 function computeBounds(nodes) {
   let minX = Infinity;
   let minY = Infinity;
@@ -1331,7 +1382,7 @@ function buildCanvasEdges(edges, nodeIndex) {
   return output;
 }
 
-async function buildCanvasModel({ rootDir }) {
+async function buildCanvasModel({ rootDir, focusModule }) {
   const warnings = [];
   const files = await scanSourceFiles(rootDir, warnings);
   if (files.length === 0) {
@@ -1409,6 +1460,10 @@ async function buildCanvasModel({ rootDir }) {
   let allNodes = fileNodes.concat(externalNodes);
 
   let edges = buildEdges(fileInfos, nodeByPath, nodeByService, fileIndex);
+
+  if (focusModule) {
+    ({ nodes: allNodes, edges } = filterNodesByFocus(allNodes, edges, focusModule));
+  }
 
   if (ENABLE_AGGREGATION) {
     ({ nodes: allNodes, edges } = aggregateNodesIfNeeded(allNodes, edges, SOFT_NODE_LIMIT));
@@ -1496,7 +1551,7 @@ async function main() {
 
   let canvas;
   try {
-    canvas = await buildCanvasModel({ rootDir });
+    canvas = await buildCanvasModel({ rootDir, focusModule: opts.focus });
     try {
       await writeCanvasFile(outputPath, canvas);
     } catch (err) {
