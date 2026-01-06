@@ -277,3 +277,4 @@ git commit -m "chore: sync insforge bundle and canvas"
 - `node --test test/architecture-canvas.test.js` (PASS, 2026-01-06)
 - `node --test test/billable-total-tokens-migration.test.js` (PASS, 2026-01-06)
 - `node --test test/edge-functions.test.js` (FAIL, 2026-01-06) — expected until insforge-functions rebuild + hourly/monthly billable fixes.
+- `node --test test/billable-total-tokens-backfill.test.js` (PASS, 2026-01-06)
