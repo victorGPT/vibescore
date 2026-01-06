@@ -329,6 +329,7 @@ async function parseOpencodeIncremental({ messageFiles, cursors, queuePath, onPr
     const result = await parseOpencodeMessageFile({
       filePath,
       messageIndex,
+      legacyCursor: prev,
       hourlyState,
       touchedBuckets,
       source: fileSource
@@ -561,7 +562,14 @@ async function parseGeminiFile({
   };
 }
 
-async function parseOpencodeMessageFile({ filePath, messageIndex, hourlyState, touchedBuckets, source }) {
+async function parseOpencodeMessageFile({
+  filePath,
+  messageIndex,
+  legacyCursor,
+  hourlyState,
+  touchedBuckets,
+  source
+}) {
   const raw = await fs.readFile(filePath, 'utf8').catch(() => '');
   if (!raw.trim()) return { messageKey: null, lastTotals: null, eventsAggregated: 0, shouldUpdate: false };
 
@@ -574,7 +582,12 @@ async function parseOpencodeMessageFile({ filePath, messageIndex, hourlyState, t
 
   const messageKey = deriveOpencodeMessageKey(msg, filePath);
   const prev = messageIndex && messageKey ? messageIndex[messageKey] : null;
-  const lastTotals = prev && typeof prev.lastTotals === 'object' ? prev.lastTotals : null;
+  const indexTotals = prev && typeof prev.lastTotals === 'object' ? prev.lastTotals : null;
+  const legacyTotals =
+    legacyCursor && typeof legacyCursor.lastTotals === 'object' ? legacyCursor.lastTotals : null;
+  const legacyKey = legacyCursor && typeof legacyCursor.messageKey === 'string' ? legacyCursor.messageKey : null;
+  const legacyMatch = legacyKey ? legacyKey === messageKey : true;
+  const lastTotals = indexTotals || (legacyMatch ? legacyTotals : null);
 
   const currentTotals = normalizeOpencodeTokens(msg?.tokens);
   if (!currentTotals) {
