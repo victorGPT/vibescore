@@ -938,7 +938,7 @@ var require_vibescore_usage_monthly = __commonJS({
       let rowCount = 0;
       const { error } = await forEachPage({
         createQuery: () => {
-          let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,source,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
+          let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
           if (source) query = query.eq("source", source);
           if (model) query = query.eq("model", model);
           query = applyCanaryFilter(query, { source, model });
@@ -957,7 +957,8 @@ var require_vibescore_usage_monthly = __commonJS({
             const bucket = buckets.get(key);
             if (!bucket) continue;
             bucket.total += toBigInt(row?.total_tokens);
-            const billable = computeBillableTotalTokens({
+            const hasStoredBillable = row && Object.prototype.hasOwnProperty.call(row, "billable_total_tokens") && row.billable_total_tokens != null;
+            const billable = hasStoredBillable ? toBigInt(row.billable_total_tokens) : computeBillableTotalTokens({
               source: row?.source || source,
               totals: row
             });

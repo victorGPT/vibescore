@@ -1218,12 +1218,13 @@ module.exports = withRequestLogging("vibescore-usage-daily", async function(requ
   };
   const ingestRow = (row) => {
     const sourceKey = normalizeSource(row?.source) || "codex";
-    const billable = computeBillableTotalTokens({ source: sourceKey, totals: row });
+    const hasStoredBillable = row && Object.prototype.hasOwnProperty.call(row, "billable_total_tokens") && row.billable_total_tokens != null;
+    const billable = hasStoredBillable ? toBigInt(row.billable_total_tokens) : computeBillableTotalTokens({ source: sourceKey, totals: row });
     addRowTotals(totals, row);
-    totals.billable_total_tokens += billable;
+    if (!hasStoredBillable) totals.billable_total_tokens += billable;
     const sourceEntry = getSourceEntry(sourcesMap, sourceKey);
     addRowTotals(sourceEntry.totals, row);
-    sourceEntry.totals.billable_total_tokens += billable;
+    if (!hasStoredBillable) sourceEntry.totals.billable_total_tokens += billable;
     const normalizedModel = normalizeModel(row?.model);
     if (normalizedModel && normalizedModel.toLowerCase() !== "unknown") {
       distinctModels.add(normalizedModel);
@@ -1238,7 +1239,7 @@ module.exports = withRequestLogging("vibescore-usage-daily", async function(requ
   const sumHourlyRange = async () => {
     const { error } = await forEachPage({
       createQuery: () => {
-        let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,source,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
+        let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,source,model,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
         if (source) query = query.eq("source", source);
         if (model) query = query.eq("model", model);
         query = applyCanaryFilter(query, { source, model });

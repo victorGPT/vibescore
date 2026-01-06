@@ -545,6 +545,54 @@ var require_date = __commonJS({
   }
 });
 
+// insforge-src/shared/numbers.js
+var require_numbers = __commonJS({
+  "insforge-src/shared/numbers.js"(exports2, module2) {
+    "use strict";
+    function toBigInt2(v) {
+      if (typeof v === "bigint") return v >= 0n ? v : 0n;
+      if (typeof v === "number") {
+        if (!Number.isFinite(v) || v <= 0) return 0n;
+        return BigInt(Math.floor(v));
+      }
+      if (typeof v === "string") {
+        const s = v.trim();
+        if (!/^[0-9]+$/.test(s)) return 0n;
+        try {
+          return BigInt(s);
+        } catch (_e) {
+          return 0n;
+        }
+      }
+      return 0n;
+    }
+    function toPositiveIntOrNull(v) {
+      if (typeof v === "number" && Number.isInteger(v) && v > 0) return v;
+      if (typeof v === "string") {
+        const s = v.trim();
+        if (!/^[0-9]+$/.test(s)) return null;
+        const n = Number.parseInt(s, 10);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      }
+      if (typeof v === "bigint") {
+        if (v <= 0n) return null;
+        const n = Number(v);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      }
+      return null;
+    }
+    function toPositiveInt(v) {
+      const n = toPositiveIntOrNull(v);
+      return n == null ? 0 : n;
+    }
+    module2.exports = {
+      toBigInt: toBigInt2,
+      toPositiveInt,
+      toPositiveIntOrNull
+    };
+  }
+});
+
 // insforge-src/shared/pagination.js
 var require_pagination = __commonJS({
   "insforge-src/shared/pagination.js"(exports2, module2) {
@@ -773,70 +821,22 @@ var require_debug = __commonJS({
   }
 });
 
-// insforge-src/shared/numbers.js
-var require_numbers = __commonJS({
-  "insforge-src/shared/numbers.js"(exports2, module2) {
-    "use strict";
-    function toBigInt(v) {
-      if (typeof v === "bigint") return v >= 0n ? v : 0n;
-      if (typeof v === "number") {
-        if (!Number.isFinite(v) || v <= 0) return 0n;
-        return BigInt(Math.floor(v));
-      }
-      if (typeof v === "string") {
-        const s = v.trim();
-        if (!/^[0-9]+$/.test(s)) return 0n;
-        try {
-          return BigInt(s);
-        } catch (_e) {
-          return 0n;
-        }
-      }
-      return 0n;
-    }
-    function toPositiveIntOrNull(v) {
-      if (typeof v === "number" && Number.isInteger(v) && v > 0) return v;
-      if (typeof v === "string") {
-        const s = v.trim();
-        if (!/^[0-9]+$/.test(s)) return null;
-        const n = Number.parseInt(s, 10);
-        return Number.isFinite(n) && n > 0 ? n : null;
-      }
-      if (typeof v === "bigint") {
-        if (v <= 0n) return null;
-        const n = Number(v);
-        return Number.isFinite(n) && n > 0 ? n : null;
-      }
-      return null;
-    }
-    function toPositiveInt(v) {
-      const n = toPositiveIntOrNull(v);
-      return n == null ? 0 : n;
-    }
-    module2.exports = {
-      toBigInt,
-      toPositiveInt,
-      toPositiveIntOrNull
-    };
-  }
-});
-
 // insforge-src/shared/usage-billable.js
 var require_usage_billable = __commonJS({
   "insforge-src/shared/usage-billable.js"(exports2, module2) {
     "use strict";
-    var { toBigInt } = require_numbers();
+    var { toBigInt: toBigInt2 } = require_numbers();
     var { normalizeSource } = require_source();
     var BILLABLE_INPUT_OUTPUT_REASONING = /* @__PURE__ */ new Set(["codex", "every-code"]);
     var BILLABLE_ADD_ALL = /* @__PURE__ */ new Set(["claude", "opencode"]);
     var BILLABLE_TOTAL = /* @__PURE__ */ new Set(["gemini"]);
     function computeBillableTotalTokens2({ source, totals } = {}) {
       const normalizedSource = normalizeSource(source) || "unknown";
-      const input = toBigInt(totals?.input_tokens);
-      const cached = toBigInt(totals?.cached_input_tokens);
-      const output = toBigInt(totals?.output_tokens);
-      const reasoning = toBigInt(totals?.reasoning_output_tokens);
-      const total = toBigInt(totals?.total_tokens);
+      const input = toBigInt2(totals?.input_tokens);
+      const cached = toBigInt2(totals?.cached_input_tokens);
+      const output = toBigInt2(totals?.output_tokens);
+      const reasoning = toBigInt2(totals?.reasoning_output_tokens);
+      const total = toBigInt2(totals?.total_tokens);
       const hasTotal = Boolean(totals && Object.prototype.hasOwnProperty.call(totals, "total_tokens"));
       if (BILLABLE_TOTAL.has(normalizedSource)) return total;
       if (BILLABLE_ADD_ALL.has(normalizedSource)) return input + cached + output + reasoning;
@@ -872,6 +872,7 @@ var {
   parseDateParts,
   parseUtcDateString
 } = require_date();
+var { toBigInt } = require_numbers();
 var { forEachPage } = require_pagination();
 var { logSlowQuery, withRequestLogging } = require_logging();
 var { isDebugEnabled, withSlowQueryDebugPayload } = require_debug();
@@ -921,7 +922,7 @@ module.exports = withRequestLogging("vibescore-usage-heatmap", async function(re
     let rowCount2 = 0;
     const { error: error2 } = await forEachPage({
       createQuery: () => {
-        let query = auth2.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,source,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth2.userId);
+        let query = auth2.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth2.userId);
         if (source) query = query.eq("source", source);
         if (model) query = query.eq("model", model);
         query = applyCanaryFilter(query, { source, model });
@@ -937,7 +938,8 @@ module.exports = withRequestLogging("vibescore-usage-heatmap", async function(re
           if (!Number.isFinite(dt.getTime())) continue;
           const day = formatDateUTC(dt);
           const prev = valuesByDay2.get(day) || 0n;
-          const billable = computeBillableTotalTokens({
+          const hasStoredBillable = row && Object.prototype.hasOwnProperty.call(row, "billable_total_tokens") && row.billable_total_tokens != null;
+          const billable = hasStoredBillable ? toBigInt(row.billable_total_tokens) : computeBillableTotalTokens({
             source: row?.source || source,
             totals: row
           });
@@ -1042,7 +1044,7 @@ module.exports = withRequestLogging("vibescore-usage-heatmap", async function(re
   let rowCount = 0;
   const { error } = await forEachPage({
     createQuery: () => {
-      let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,source,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
+      let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
       if (source) query = query.eq("source", source);
       if (model) query = query.eq("model", model);
       query = applyCanaryFilter(query, { source, model });
@@ -1058,7 +1060,8 @@ module.exports = withRequestLogging("vibescore-usage-heatmap", async function(re
         if (!Number.isFinite(dt.getTime())) continue;
         const key = formatLocalDateKey(dt, tzContext);
         const prev = valuesByDay.get(key) || 0n;
-        const billable = computeBillableTotalTokens({
+        const hasStoredBillable = row && Object.prototype.hasOwnProperty.call(row, "billable_total_tokens") && row.billable_total_tokens != null;
+        const billable = hasStoredBillable ? toBigInt(row.billable_total_tokens) : computeBillableTotalTokens({
           source: row?.source || source,
           totals: row
         });

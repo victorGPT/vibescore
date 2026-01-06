@@ -105,6 +105,7 @@ function createQueryMock({ rows = [], onFilter } = {}) {
       record({ op: 'order', col, opts });
       return query;
     },
+    then: (resolve, reject) => Promise.resolve({ data: rows, error: null }).then(resolve, reject),
     range: async () => ({ data: rows, error: null }),
     limit: async () => ({ data: rows.slice(0, 1), error: null })
   };

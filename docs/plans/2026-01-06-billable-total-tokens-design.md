@@ -75,3 +75,5 @@ create index concurrently if not exists vibescore_tracker_hourly_billable_null_i
 - `node --test test/architecture-canvas.test.js` (PASS, 2026-01-06, rerun)
 - `node --test test/edge-functions.test.js` (FAIL, 2026-01-06) — expected until hourly aggregate + monthly billable paths are updated.
 - `node --test test/architecture-canvas.test.js` (PASS, 2026-01-06)
+- `node --test test/edge-functions.test.js` (PASS, 2026-01-06)
+- `node --test test/architecture-canvas.test.js` (PASS, 2026-01-06, rerun)
