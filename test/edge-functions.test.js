@@ -2688,6 +2688,81 @@ test('resolveIdentityAtDate uses date portion of effective_from timestamps', () 
   assert.equal(identity.model_id, 'alpha');
 });
 
+test('fetchAliasRows includes same-day alias timestamps', { concurrency: 1 }, async () => {
+  const { fetchAliasRows } = require('../insforge-src/shared/model-alias-timeline');
+  const aliasRows = [
+    {
+      usage_model: 'gpt-foo',
+      canonical_model: 'alpha',
+      display_name: 'Alpha',
+      effective_from: '2025-01-01T12:00:00Z',
+      active: true
+    }
+  ];
+  const edgeClient = {
+    database: {
+      from: () => {
+        const state = {
+          filters: {},
+          select() {
+            return this;
+          },
+          eq(col, value) {
+            this.filters.eq = this.filters.eq || {};
+            this.filters.eq[col] = value;
+            return this;
+          },
+          in(col, values) {
+            this.filters.in = this.filters.in || {};
+            this.filters.in[col] = Array.isArray(values) ? values : [values];
+            return this;
+          },
+          lte(col, value) {
+            this.filters.lte = { col, value };
+            return this;
+          },
+          lt(col, value) {
+            this.filters.lt = { col, value };
+            return this;
+          },
+          order() {
+            const data = aliasRows.filter((row) => {
+              if (this.filters.eq) {
+                for (const [col, value] of Object.entries(this.filters.eq)) {
+                  if (row[col] !== value) return false;
+                }
+              }
+              if (this.filters.in) {
+                for (const [col, values] of Object.entries(this.filters.in)) {
+                  if (!values.includes(row[col])) return false;
+                }
+              }
+              if (this.filters.lt) {
+                return String(row[this.filters.lt.col]) < this.filters.lt.value;
+              }
+              if (this.filters.lte) {
+                return String(row[this.filters.lte.col]) <= this.filters.lte.value;
+              }
+              return true;
+            });
+            return { data, error: null };
+          }
+        };
+        return state;
+      }
+    }
+  };
+
+  const rows = await fetchAliasRows({
+    edgeClient,
+    usageModels: ['gpt-foo'],
+    effectiveDate: '2025-01-01'
+  });
+
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].usage_model, 'gpt-foo');
+});
+
 test('vibeusage-usage-daily rejects oversized ranges', { concurrency: 1 }, async () => {
   const fn = require('../insforge-functions/vibeusage-usage-daily');
   const prevMaxDays = process.env.VIBEUSAGE_USAGE_MAX_DAYS;

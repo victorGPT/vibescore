@@ -11,6 +11,14 @@ function extractDateKey(value) {
   return null;
 }
 
+function nextDateKey(dateKey) {
+  if (!dateKey) return null;
+  const date = new Date(`${dateKey}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
 function resolveIdentityAtDate({ rawModel, usageKey, dateKey, timeline } = {}) {
   const normalized = usageKey || normalizeUsageModelKey(rawModel) || DEFAULT_MODEL;
   const normalizedDateKey = extractDateKey(dateKey) || dateKey || null;
@@ -72,17 +80,15 @@ async function fetchAliasRows({ edgeClient, usageModels, effectiveDate } = {}) {
     : [];
   if (!models.length || !edgeClient || !edgeClient.database) return [];
 
-  const dateKey =
-    typeof effectiveDate === 'string' && effectiveDate.trim()
-      ? effectiveDate.trim()
-      : new Date().toISOString().slice(0, 10);
+  const dateKey = extractDateKey(effectiveDate) || new Date().toISOString().slice(0, 10);
+  const dateKeyNext = nextDateKey(dateKey) || dateKey;
 
   const query = edgeClient.database
     .from('vibescore_model_aliases')
     .select('usage_model,canonical_model,display_name,effective_from')
     .eq('active', true)
     .in('usage_model', models)
-    .lte('effective_from', dateKey)
+    .lt('effective_from', dateKeyNext)
     .order('effective_from', { ascending: true });
 
   const result = await query;

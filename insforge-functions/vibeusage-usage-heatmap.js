@@ -961,6 +961,13 @@ var require_model_alias_timeline = __commonJS({
       if (typeof value === "string" && value.length >= 10) return value.slice(0, 10);
       return null;
     }
+    function nextDateKey(dateKey) {
+      if (!dateKey) return null;
+      const date = /* @__PURE__ */ new Date(`${dateKey}T00:00:00Z`);
+      if (Number.isNaN(date.getTime())) return null;
+      date.setUTCDate(date.getUTCDate() + 1);
+      return date.toISOString().slice(0, 10);
+    }
     function resolveIdentityAtDate({ rawModel, usageKey, dateKey, timeline } = {}) {
       const normalized = usageKey || normalizeUsageModelKey(rawModel) || DEFAULT_MODEL;
       const normalizedDateKey = extractDateKey(dateKey) || dateKey || null;
@@ -1015,8 +1022,9 @@ var require_model_alias_timeline = __commonJS({
     async function fetchAliasRows({ edgeClient, usageModels, effectiveDate } = {}) {
       const models = Array.isArray(usageModels) ? usageModels.map((model) => normalizeUsageModelKey(model)).filter(Boolean) : [];
       if (!models.length || !edgeClient || !edgeClient.database) return [];
-      const dateKey = typeof effectiveDate === "string" && effectiveDate.trim() ? effectiveDate.trim() : (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-      const query = edgeClient.database.from("vibescore_model_aliases").select("usage_model,canonical_model,display_name,effective_from").eq("active", true).in("usage_model", models).lte("effective_from", dateKey).order("effective_from", { ascending: true });
+      const dateKey = extractDateKey(effectiveDate) || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+      const dateKeyNext = nextDateKey(dateKey) || dateKey;
+      const query = edgeClient.database.from("vibescore_model_aliases").select("usage_model,canonical_model,display_name,effective_from").eq("active", true).in("usage_model", models).lt("effective_from", dateKeyNext).order("effective_from", { ascending: true });
       const result = await query;
       const data = Array.isArray(result?.data) ? result.data : Array.isArray(query?.data) ? query.data : null;
       if (!Array.isArray(data) || result?.error || query?.error) return [];
