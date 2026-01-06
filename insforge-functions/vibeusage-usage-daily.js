@@ -1317,6 +1317,7 @@ var require_vibescore_usage_daily = __commonJS({
     var { getModelParam, normalizeModel } = require_model();
     var {
       applyModelIdentity,
+      normalizeUsageModelKey,
       resolveModelIdentity,
       resolveUsageModelsForCanonical
     } = require_model_identity();
@@ -1355,6 +1356,7 @@ var require_vibescore_usage_daily = __commonJS({
       resolveIdentityAtDate
     } = require_model_alias_timeline();
     var DEFAULT_MODEL = "unknown";
+    var PRICING_BUCKET_SEP = "::";
     module2.exports = withRequestLogging("vibescore-usage-daily", async function(request, logger) {
       const opt = handleOptions(request);
       if (opt) return opt;
@@ -1377,6 +1379,7 @@ var require_vibescore_usage_daily = __commonJS({
       const modelResult = getModelParam(url);
       if (!modelResult.ok) return respond({ error: modelResult.error }, 400, 0);
       const model = modelResult.model;
+      const hasModelParam = model != null;
       const { from, to } = normalizeDateRangeLocal(
         url.searchParams.get("from"),
         url.searchParams.get("to"),
@@ -1426,6 +1429,8 @@ var require_vibescore_usage_daily = __commonJS({
       let totals = createTotals();
       let sourcesMap = /* @__PURE__ */ new Map();
       let distinctModels = /* @__PURE__ */ new Set();
+      const distinctUsageModels = /* @__PURE__ */ new Set();
+      const pricingBuckets = hasModelParam ? null : /* @__PURE__ */ new Map();
       const resetAggregation = () => {
         totals = createTotals();
         sourcesMap = /* @__PURE__ */ new Map();
@@ -1447,6 +1452,15 @@ var require_vibescore_usage_daily = __commonJS({
         const normalizedModel = normalizeModel(row?.model);
         if (normalizedModel && normalizedModel.toLowerCase() !== "unknown") {
           distinctModels.add(normalizedModel);
+        }
+        if (!hasModelParam && pricingBuckets) {
+          const usageKey = normalizeUsageModelKey(normalizedModel) || DEFAULT_MODEL;
+          const dateKey = extractDateKey(row?.hour_start || row?.day) || to;
+          const bucketKey = `${usageKey}${PRICING_BUCKET_SEP}${dateKey}`;
+          const bucket = pricingBuckets.get(bucketKey) || createTotals();
+          addRowTotals(bucket, row);
+          pricingBuckets.set(bucketKey, bucket);
+          distinctUsageModels.add(usageKey);
         }
       };
       const queryStartMs = Date.now();
@@ -1562,11 +1576,56 @@ var require_vibescore_usage_daily = __commonJS({
         usageModels: Array.from(distinctModels.values()),
         effectiveDate: to
       });
-      const canonicalModels = /* @__PURE__ */ new Set();
+      let canonicalModels = /* @__PURE__ */ new Set();
       for (const modelValue of distinctModels.values()) {
         const identity = applyModelIdentity({ rawModel: modelValue, identityMap });
         if (identity.model_id && identity.model_id !== DEFAULT_MODEL) {
           canonicalModels.add(identity.model_id);
+        }
+      }
+      let totalCostMicros = 0n;
+      const pricingModes = /* @__PURE__ */ new Set();
+      let pricingProfile = null;
+      if (!hasModelParam && pricingBuckets && pricingBuckets.size > 0) {
+        const usageModelList = Array.from(distinctUsageModels.values());
+        if (usageModelList.length > 0) {
+          const aliasRows = await fetchAliasRows({
+            edgeClient: auth.edgeClient,
+            usageModels: usageModelList,
+            effectiveDate: to
+          });
+          const timeline = buildAliasTimeline({ usageModels: usageModelList, aliasRows });
+          const rangeCanonicalModels = /* @__PURE__ */ new Set();
+          const profileCache = /* @__PURE__ */ new Map();
+          const getProfile = async (modelId, dateKey) => {
+            const key = `${modelId || ""}${PRICING_BUCKET_SEP}${dateKey || ""}`;
+            if (profileCache.has(key)) return profileCache.get(key);
+            const profile = await resolvePricingProfile({
+              edgeClient: auth.edgeClient,
+              model: modelId,
+              effectiveDate: dateKey
+            });
+            profileCache.set(key, profile);
+            return profile;
+          };
+          for (const [bucketKey, bucketTotals] of pricingBuckets.entries()) {
+            const sepIndex = bucketKey.indexOf(PRICING_BUCKET_SEP);
+            const usageKey = sepIndex === -1 ? bucketKey : bucketKey.slice(0, sepIndex);
+            const dateKey = sepIndex === -1 ? to : bucketKey.slice(sepIndex + PRICING_BUCKET_SEP.length);
+            const identity = resolveIdentityAtDate({
+              usageKey,
+              dateKey,
+              timeline
+            });
+            if (identity.model_id && identity.model_id !== DEFAULT_MODEL) {
+              rangeCanonicalModels.add(identity.model_id);
+            }
+            const profile = await getProfile(identity.model_id, dateKey);
+            const cost = computeUsageCost(bucketTotals, profile);
+            totalCostMicros += cost.cost_micros;
+            pricingModes.add(cost.pricing_mode);
+          }
+          canonicalModels = rangeCanonicalModels;
         }
       }
       const rows = dayKeys.map((day) => {
@@ -1582,18 +1641,19 @@ var require_vibescore_usage_daily = __commonJS({
       });
       const impliedModelId = canonicalModel || (canonicalModels.size === 1 ? Array.from(canonicalModels)[0] : null);
       const impliedModelDisplay = resolveDisplayName(identityMap, impliedModelId);
-      const hasModelParam = model != null;
-      const pricingProfile = await resolvePricingProfile({
-        edgeClient: auth.edgeClient,
-        model: impliedModelId,
-        effectiveDate: to
-      });
-      let totalCostMicros = 0n;
-      const pricingModes = /* @__PURE__ */ new Set();
-      for (const entry of sourcesMap.values()) {
-        const sourceCost = computeUsageCost(entry.totals, pricingProfile);
-        totalCostMicros += sourceCost.cost_micros;
-        pricingModes.add(sourceCost.pricing_mode);
+      if (!pricingProfile) {
+        pricingProfile = await resolvePricingProfile({
+          edgeClient: auth.edgeClient,
+          model: impliedModelId,
+          effectiveDate: to
+        });
+      }
+      if (pricingModes.size === 0) {
+        for (const entry of sourcesMap.values()) {
+          const sourceCost = computeUsageCost(entry.totals, pricingProfile);
+          totalCostMicros += sourceCost.cost_micros;
+          pricingModes.add(sourceCost.pricing_mode);
+        }
       }
       const overallCost = computeUsageCost(totals, pricingProfile);
       let summaryPricingMode = overallCost.pricing_mode;

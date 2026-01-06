@@ -2275,7 +2275,6 @@ test('vibeusage-usage-summary prices per-alias effective_from when unfiltered', 
         reasoning_output_rate_micro_per_million: 0
       }
     };
-
     globalThis.createClient = (args) => {
       if (args && args.edgeFunctionToken === userJwt) {
         return {
@@ -2335,6 +2334,7 @@ test('vibeusage-usage-summary prices per-alias effective_from when unfiltered', 
     const res = await fn(req);
     assert.equal(res.status, 200);
     const body = await res.json();
+    // TEMP DEBUG
     assert.equal(body.model_id, null);
     assert.equal(body.model, null);
     assert.equal(body.totals.total_cost_usd, '3.000000');
@@ -3195,6 +3195,138 @@ test('vibeusage-usage-daily honors alias effective_from across range', async () 
   const body = await res.json();
   assert.equal(body.summary?.totals?.total_tokens, '100');
 });
+
+test('vibeusage-usage-daily prices per-alias effective_from when unfiltered', { concurrency: 1 }, () =>
+  withRollupDisabled(async () => {
+    const fn = require('../insforge-functions/vibeusage-usage-daily');
+
+    const userId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    const userJwt = 'user_jwt_test';
+
+    const hourlyRows = [
+      {
+        hour_start: '2025-01-15T00:00:00.000Z',
+        source: 'codex',
+        model: 'gpt-foo',
+        total_tokens: 1000000,
+        input_tokens: 1000000,
+        cached_input_tokens: 0,
+        output_tokens: 0,
+        reasoning_output_tokens: 0
+      },
+      {
+        hour_start: '2025-02-15T00:00:00.000Z',
+        source: 'codex',
+        model: 'gpt-foo',
+        total_tokens: 1000000,
+        input_tokens: 1000000,
+        cached_input_tokens: 0,
+        output_tokens: 0,
+        reasoning_output_tokens: 0
+      }
+    ];
+
+    const aliasRows = [
+      {
+        usage_model: 'gpt-foo',
+        canonical_model: 'alpha',
+        display_name: 'Alpha',
+        effective_from: '2025-01-01',
+        active: true
+      },
+      {
+        usage_model: 'gpt-foo',
+        canonical_model: 'beta',
+        display_name: 'Beta',
+        effective_from: '2025-02-01',
+        active: true
+      }
+    ];
+
+    const pricingProfiles = {
+      alpha: {
+        model: 'alpha',
+        source: 'openrouter',
+        effective_from: '2025-01-01',
+        input_rate_micro_per_million: 1000000,
+        cached_input_rate_micro_per_million: 0,
+        output_rate_micro_per_million: 0,
+        reasoning_output_rate_micro_per_million: 0
+      },
+      beta: {
+        model: 'beta',
+        source: 'openrouter',
+        effective_from: '2025-02-01',
+        input_rate_micro_per_million: 2000000,
+        cached_input_rate_micro_per_million: 0,
+        output_rate_micro_per_million: 0,
+        reasoning_output_rate_micro_per_million: 0
+      }
+    };
+    const dailyPricingRequests = [];
+    globalThis.createClient = (args) => {
+      if (args && args.edgeFunctionToken === userJwt) {
+        return {
+          auth: {
+            getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+          },
+          database: {
+            from: (table) => {
+              if (table === 'vibescore_tracker_hourly') {
+                const query = createQueryMock({ rows: hourlyRows });
+                return { select: () => query };
+              }
+              if (table === 'vibescore_model_aliases') {
+                return createQueryMock({ rows: aliasRows });
+              }
+              if (table === 'vibescore_pricing_profiles') {
+                const state = { model: null };
+                const query = {
+                  select: () => query,
+                  eq: (col, value) => {
+                    if (col === 'model') state.model = value;
+                    return query;
+                  },
+                  lte: () => query,
+                  order: () => query,
+                  or: (expr) => {
+                    const match = String(expr).match(/model\.eq\.([^,]+)/);
+                    if (match) state.model = match[1];
+                    return query;
+                  },
+                  limit: async () => {
+                    const row = pricingProfiles[state.model];
+                    return { data: row ? [row] : [], error: null };
+                  }
+                };
+                return query;
+              }
+              if (table === 'vibescore_pricing_model_aliases') {
+                return createQueryMock({ rows: [] });
+              }
+              throw new Error(`Unexpected table ${table}`);
+            }
+          }
+        };
+      }
+      throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+    };
+
+    const req = new Request(
+      'http://localhost/functions/vibeusage-usage-daily?from=2025-01-01&to=2025-02-15',
+      {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${userJwt}` }
+      }
+    );
+
+    const res = await fn(req);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.model_id, null);
+    assert.equal(body.model, null);
+    assert.equal(body.summary?.totals?.total_cost_usd, '3.000000');
+  }));
 
 test('vibeusage-leaderboard returns a week window and slices entries to limit', async () => {
   setDenoEnv({

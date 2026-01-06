@@ -246,7 +246,7 @@ var require_model_identity = __commonJS({
       date.setUTCDate(date.getUTCDate() + 1);
       return date.toISOString().slice(0, 10);
     }
-    function normalizeUsageModelKey(value) {
+    function normalizeUsageModelKey2(value) {
       if (typeof value !== "string") return null;
       const trimmed = value.trim();
       if (!trimmed) return null;
@@ -260,15 +260,15 @@ var require_model_identity = __commonJS({
     function buildIdentityMap({ usageModels, aliasRows } = {}) {
       const normalized = /* @__PURE__ */ new Set();
       for (const model of Array.isArray(usageModels) ? usageModels : []) {
-        const key = normalizeUsageModelKey(model);
+        const key = normalizeUsageModelKey2(model);
         if (key) normalized.add(key);
       }
       const map = /* @__PURE__ */ new Map();
       const rows = Array.isArray(aliasRows) ? aliasRows : [];
       const limitToSet = normalized.size > 0;
       for (const row of rows) {
-        const usageKey = normalizeUsageModelKey(row?.usage_model);
-        const canonical = normalizeUsageModelKey(row?.canonical_model);
+        const usageKey = normalizeUsageModelKey2(row?.usage_model);
+        const canonical = normalizeUsageModelKey2(row?.canonical_model);
         if (!usageKey || !canonical) continue;
         if (limitToSet && !normalized.has(usageKey)) continue;
         const display = normalizeDisplayName(row?.display_name) || canonical;
@@ -294,14 +294,14 @@ var require_model_identity = __commonJS({
       return result;
     }
     function applyModelIdentity2({ rawModel, identityMap } = {}) {
-      const normalized = normalizeUsageModelKey(rawModel) || DEFAULT_MODEL2;
+      const normalized = normalizeUsageModelKey2(rawModel) || DEFAULT_MODEL2;
       const entry = identityMap && typeof identityMap.get === "function" ? identityMap.get(normalized) : null;
       if (entry) return { model_id: entry.model_id, model: entry.model };
       const display = normalizeDisplayName(rawModel) || DEFAULT_MODEL2;
       return { model_id: normalized, model: display };
     }
     async function resolveModelIdentity2({ edgeClient, usageModels, effectiveDate } = {}) {
-      const models = Array.isArray(usageModels) ? usageModels.map(normalizeUsageModelKey).filter(Boolean) : [];
+      const models = Array.isArray(usageModels) ? usageModels.map(normalizeUsageModelKey2).filter(Boolean) : [];
       if (!models.length) return /* @__PURE__ */ new Map();
       if (!edgeClient || !edgeClient.database) {
         return buildIdentityMap({ usageModels: models, aliasRows: [] });
@@ -318,7 +318,7 @@ var require_model_identity = __commonJS({
       return buildIdentityMap({ usageModels: models, aliasRows: data });
     }
     async function resolveUsageModelsForCanonical2({ edgeClient, canonicalModel, effectiveDate } = {}) {
-      const canonical = normalizeUsageModelKey(canonicalModel);
+      const canonical = normalizeUsageModelKey2(canonicalModel);
       if (!canonical) return { canonical: null, usageModels: [] };
       if (!edgeClient || !edgeClient.database) {
         return { canonical, usageModels: [canonical] };
@@ -334,7 +334,7 @@ var require_model_identity = __commonJS({
       }
       const usageMap = /* @__PURE__ */ new Map();
       for (const row of data) {
-        const usageKey = normalizeUsageModelKey(row?.usage_model);
+        const usageKey = normalizeUsageModelKey2(row?.usage_model);
         if (!usageKey) continue;
         const effective = String(row?.effective_from || "");
         const existing = usageMap.get(usageKey);
@@ -347,7 +347,7 @@ var require_model_identity = __commonJS({
       return { canonical, usageModels: Array.from(usageModels.values()) };
     }
     module2.exports = {
-      normalizeUsageModelKey,
+      normalizeUsageModelKey: normalizeUsageModelKey2,
       buildIdentityMap,
       applyModelIdentity: applyModelIdentity2,
       resolveModelIdentity: resolveModelIdentity2,
@@ -1221,7 +1221,7 @@ var require_model_alias_timeline = __commonJS({
   "insforge-src/shared/model-alias-timeline.js"(exports2, module2) {
     "use strict";
     var { normalizeModel: normalizeModel2 } = require_model();
-    var { normalizeUsageModelKey } = require_model_identity();
+    var { normalizeUsageModelKey: normalizeUsageModelKey2 } = require_model_identity();
     var DEFAULT_MODEL2 = "unknown";
     function extractDateKey2(value) {
       if (value instanceof Date) return value.toISOString().slice(0, 10);
@@ -1236,7 +1236,7 @@ var require_model_alias_timeline = __commonJS({
       return date.toISOString().slice(0, 10);
     }
     function resolveIdentityAtDate2({ rawModel, usageKey, dateKey, timeline } = {}) {
-      const normalized = usageKey || normalizeUsageModelKey(rawModel) || DEFAULT_MODEL2;
+      const normalized = usageKey || normalizeUsageModelKey2(rawModel) || DEFAULT_MODEL2;
       const normalizedDateKey = extractDateKey2(dateKey) || dateKey || null;
       const entries = timeline && typeof timeline.get === "function" ? timeline.get(normalized) : null;
       if (Array.isArray(entries)) {
@@ -1257,13 +1257,13 @@ var require_model_alias_timeline = __commonJS({
     }
     function buildAliasTimeline2({ usageModels, aliasRows } = {}) {
       const normalized = new Set(
-        Array.isArray(usageModels) ? usageModels.map((model) => normalizeUsageModelKey(model)).filter(Boolean) : []
+        Array.isArray(usageModels) ? usageModels.map((model) => normalizeUsageModelKey2(model)).filter(Boolean) : []
       );
       const timeline = /* @__PURE__ */ new Map();
       const rows = Array.isArray(aliasRows) ? aliasRows : [];
       for (const row of rows) {
-        const usageKey = normalizeUsageModelKey(row?.usage_model);
-        const canonical = normalizeUsageModelKey(row?.canonical_model);
+        const usageKey = normalizeUsageModelKey2(row?.usage_model);
+        const canonical = normalizeUsageModelKey2(row?.canonical_model);
         if (!usageKey || !canonical) continue;
         if (normalized.size && !normalized.has(usageKey)) continue;
         const display = normalizeModel2(row?.display_name) || canonical;
@@ -1287,7 +1287,7 @@ var require_model_alias_timeline = __commonJS({
       return timeline;
     }
     async function fetchAliasRows2({ edgeClient, usageModels, effectiveDate } = {}) {
-      const models = Array.isArray(usageModels) ? usageModels.map((model) => normalizeUsageModelKey(model)).filter(Boolean) : [];
+      const models = Array.isArray(usageModels) ? usageModels.map((model) => normalizeUsageModelKey2(model)).filter(Boolean) : [];
       if (!models.length || !edgeClient || !edgeClient.database) return [];
       const dateKey = extractDateKey2(effectiveDate) || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       const dateKeyNext = nextDateKey(dateKey) || dateKey;
@@ -1314,6 +1314,7 @@ var { getSourceParam, normalizeSource } = require_source();
 var { getModelParam, normalizeModel } = require_model();
 var {
   applyModelIdentity,
+  normalizeUsageModelKey,
   resolveModelIdentity,
   resolveUsageModelsForCanonical
 } = require_model_identity();
@@ -1352,6 +1353,7 @@ var {
   resolveIdentityAtDate
 } = require_model_alias_timeline();
 var DEFAULT_MODEL = "unknown";
+var PRICING_BUCKET_SEP = "::";
 module.exports = withRequestLogging("vibescore-usage-daily", async function(request, logger) {
   const opt = handleOptions(request);
   if (opt) return opt;
@@ -1374,6 +1376,7 @@ module.exports = withRequestLogging("vibescore-usage-daily", async function(requ
   const modelResult = getModelParam(url);
   if (!modelResult.ok) return respond({ error: modelResult.error }, 400, 0);
   const model = modelResult.model;
+  const hasModelParam = model != null;
   const { from, to } = normalizeDateRangeLocal(
     url.searchParams.get("from"),
     url.searchParams.get("to"),
@@ -1423,6 +1426,8 @@ module.exports = withRequestLogging("vibescore-usage-daily", async function(requ
   let totals = createTotals();
   let sourcesMap = /* @__PURE__ */ new Map();
   let distinctModels = /* @__PURE__ */ new Set();
+  const distinctUsageModels = /* @__PURE__ */ new Set();
+  const pricingBuckets = hasModelParam ? null : /* @__PURE__ */ new Map();
   const resetAggregation = () => {
     totals = createTotals();
     sourcesMap = /* @__PURE__ */ new Map();
@@ -1444,6 +1449,15 @@ module.exports = withRequestLogging("vibescore-usage-daily", async function(requ
     const normalizedModel = normalizeModel(row?.model);
     if (normalizedModel && normalizedModel.toLowerCase() !== "unknown") {
       distinctModels.add(normalizedModel);
+    }
+    if (!hasModelParam && pricingBuckets) {
+      const usageKey = normalizeUsageModelKey(normalizedModel) || DEFAULT_MODEL;
+      const dateKey = extractDateKey(row?.hour_start || row?.day) || to;
+      const bucketKey = `${usageKey}${PRICING_BUCKET_SEP}${dateKey}`;
+      const bucket = pricingBuckets.get(bucketKey) || createTotals();
+      addRowTotals(bucket, row);
+      pricingBuckets.set(bucketKey, bucket);
+      distinctUsageModels.add(usageKey);
     }
   };
   const queryStartMs = Date.now();
@@ -1559,11 +1573,56 @@ module.exports = withRequestLogging("vibescore-usage-daily", async function(requ
     usageModels: Array.from(distinctModels.values()),
     effectiveDate: to
   });
-  const canonicalModels = /* @__PURE__ */ new Set();
+  let canonicalModels = /* @__PURE__ */ new Set();
   for (const modelValue of distinctModels.values()) {
     const identity = applyModelIdentity({ rawModel: modelValue, identityMap });
     if (identity.model_id && identity.model_id !== DEFAULT_MODEL) {
       canonicalModels.add(identity.model_id);
+    }
+  }
+  let totalCostMicros = 0n;
+  const pricingModes = /* @__PURE__ */ new Set();
+  let pricingProfile = null;
+  if (!hasModelParam && pricingBuckets && pricingBuckets.size > 0) {
+    const usageModelList = Array.from(distinctUsageModels.values());
+    if (usageModelList.length > 0) {
+      const aliasRows = await fetchAliasRows({
+        edgeClient: auth.edgeClient,
+        usageModels: usageModelList,
+        effectiveDate: to
+      });
+      const timeline = buildAliasTimeline({ usageModels: usageModelList, aliasRows });
+      const rangeCanonicalModels = /* @__PURE__ */ new Set();
+      const profileCache = /* @__PURE__ */ new Map();
+      const getProfile = async (modelId, dateKey) => {
+        const key = `${modelId || ""}${PRICING_BUCKET_SEP}${dateKey || ""}`;
+        if (profileCache.has(key)) return profileCache.get(key);
+        const profile = await resolvePricingProfile({
+          edgeClient: auth.edgeClient,
+          model: modelId,
+          effectiveDate: dateKey
+        });
+        profileCache.set(key, profile);
+        return profile;
+      };
+      for (const [bucketKey, bucketTotals] of pricingBuckets.entries()) {
+        const sepIndex = bucketKey.indexOf(PRICING_BUCKET_SEP);
+        const usageKey = sepIndex === -1 ? bucketKey : bucketKey.slice(0, sepIndex);
+        const dateKey = sepIndex === -1 ? to : bucketKey.slice(sepIndex + PRICING_BUCKET_SEP.length);
+        const identity = resolveIdentityAtDate({
+          usageKey,
+          dateKey,
+          timeline
+        });
+        if (identity.model_id && identity.model_id !== DEFAULT_MODEL) {
+          rangeCanonicalModels.add(identity.model_id);
+        }
+        const profile = await getProfile(identity.model_id, dateKey);
+        const cost = computeUsageCost(bucketTotals, profile);
+        totalCostMicros += cost.cost_micros;
+        pricingModes.add(cost.pricing_mode);
+      }
+      canonicalModels = rangeCanonicalModels;
     }
   }
   const rows = dayKeys.map((day) => {
@@ -1579,18 +1638,19 @@ module.exports = withRequestLogging("vibescore-usage-daily", async function(requ
   });
   const impliedModelId = canonicalModel || (canonicalModels.size === 1 ? Array.from(canonicalModels)[0] : null);
   const impliedModelDisplay = resolveDisplayName(identityMap, impliedModelId);
-  const hasModelParam = model != null;
-  const pricingProfile = await resolvePricingProfile({
-    edgeClient: auth.edgeClient,
-    model: impliedModelId,
-    effectiveDate: to
-  });
-  let totalCostMicros = 0n;
-  const pricingModes = /* @__PURE__ */ new Set();
-  for (const entry of sourcesMap.values()) {
-    const sourceCost = computeUsageCost(entry.totals, pricingProfile);
-    totalCostMicros += sourceCost.cost_micros;
-    pricingModes.add(sourceCost.pricing_mode);
+  if (!pricingProfile) {
+    pricingProfile = await resolvePricingProfile({
+      edgeClient: auth.edgeClient,
+      model: impliedModelId,
+      effectiveDate: to
+    });
+  }
+  if (pricingModes.size === 0) {
+    for (const entry of sourcesMap.values()) {
+      const sourceCost = computeUsageCost(entry.totals, pricingProfile);
+      totalCostMicros += sourceCost.cost_micros;
+      pricingModes.add(sourceCost.pricing_mode);
+    }
   }
   const overallCost = computeUsageCost(totals, pricingProfile);
   let summaryPricingMode = overallCost.pricing_mode;
