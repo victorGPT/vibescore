@@ -26,6 +26,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 - 制定计划前必须先更新 Canvas：运行 `node scripts/ops/architecture-canvas.cjs`；若脚本不可用，手动更新并保持节点格式与已有节点一致。
 - 全流程结束后必须再次更新 Canvas，保证节点格式与现有节点保持同步。
 - 渐进式披露：阅读架构时先运行 `node scripts/ops/architecture-canvas.cjs --list-modules` 获取模块，再用 `--focus <module> --out architecture.focus.canvas` 生成聚焦画布；阅读时只打开 `architecture.focus.canvas`，需要全量时再查看 `architecture.canvas`。
+- 渐进式披露粒度：小改动聚焦单模块；中等改动在同模块内扩展相邻模块（必要时多次 `--focus`）；跨模块/数据流改动先逐步扩展，只有依赖仍不清楚时才打开全量 `architecture.canvas`。
 
 # OpenSpec 使用范围
 
