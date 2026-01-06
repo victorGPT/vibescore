@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.10] - 2026-01-06
+### Added
+- Local Opencode usage audit CLI for comparing local usage with server totals.
+
+### Changed
+- Opencode audit defaults to ignoring missing hourly slots (use `--include-missing` to enforce).
+
+### Fixed
+- Prevent Opencode message rewrites or re-saves from double counting tokens.
+- Fall back to legacy file totals when Opencode state metadata is missing.
+- Defer Opencode total usage updates until timestamps are present.
+- Preserve Opencode totals when message files are temporarily empty.
+- Rollup backfill uses timestamptz to avoid timezone ambiguity.
+
 ## [0.2.9] - 2026-01-04
 ### Changed
 - Opencode plugin now triggers on session.updated for auto sync.
