@@ -37,6 +37,8 @@ function resolveStorageDir(env) {
   const home = os.homedir();
   const explicit = typeof env.OPENCODE_STORAGE_DIR === 'string' ? env.OPENCODE_STORAGE_DIR.trim() : '';
   if (explicit) return path.resolve(explicit);
+  const opencodeHome = typeof env.OPENCODE_HOME === 'string' ? env.OPENCODE_HOME.trim() : '';
+  if (opencodeHome) return path.resolve(opencodeHome, 'storage');
   const xdg = typeof env.XDG_DATA_HOME === 'string' ? env.XDG_DATA_HOME.trim() : '';
   const base = xdg || path.join(home, '.local', 'share');
   return path.join(base, 'opencode', 'storage');
