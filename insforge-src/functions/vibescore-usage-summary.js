@@ -11,7 +11,8 @@ const { getModelParam, normalizeModel } = require('../shared/model');
 const {
   applyModelIdentity,
   resolveModelIdentity,
-  resolveUsageModelsForCanonical
+  resolveUsageModelsForCanonical,
+  normalizeUsageModelKey
 } = require('../shared/model-identity');
 const { applyCanaryFilter } = require('../shared/canary');
 const {
@@ -99,6 +100,15 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
   const canonicalModel = modelFilter.canonical;
   const usageModels = modelFilter.usageModels;
   const hasModelFilter = Array.isArray(usageModels) && usageModels.length > 0;
+  let aliasTimeline = null;
+  if (hasModelFilter) {
+    const aliasRows = await fetchAliasRows({
+      edgeClient: auth.edgeClient,
+      usageModels,
+      effectiveDate: to
+    });
+    aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
+  }
 
   let totals = createTotals();
   let sourcesMap = new Map();
@@ -117,7 +127,22 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
     rollupHit = false;
   };
 
+  const shouldIncludeRow = (row) => {
+    if (!hasModelFilter) return true;
+    const rawModel = normalizeModel(row?.model);
+    const usageKey = normalizeUsageModelKey(rawModel);
+    const dateKey = extractDateKey(row?.hour_start || row?.day) || to;
+    const identity = resolveIdentityAtDate({
+      rawModel,
+      usageKey,
+      dateKey,
+      timeline: aliasTimeline
+    });
+    return identity.model_id === canonicalModel;
+  };
+
   const ingestRow = (row) => {
+    if (!shouldIncludeRow(row)) return;
     addRowTotals(totals, row);
     const sourceKey = normalizeSource(row?.source) || DEFAULT_SOURCE;
     const sourceEntry = getSourceEntry(sourcesMap, sourceKey);
@@ -176,16 +201,32 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
   };
 
   const sumRollupRange = async (fromDay, toDay) => {
-    const rollupRes = await fetchRollupRows({
-      edgeClient: auth.edgeClient,
-      userId: auth.userId,
-      fromDay,
-      toDay,
-      source,
-      model: canonicalModel || null
-    });
-    if (!rollupRes.ok) return { ok: false, error: rollupRes.error };
-    const rows = Array.isArray(rollupRes.rows) ? rollupRes.rows : [];
+    let rows = [];
+    if (hasModelFilter && Array.isArray(usageModels) && usageModels.length > 0) {
+      for (const usageModel of usageModels) {
+        const rollupRes = await fetchRollupRows({
+          edgeClient: auth.edgeClient,
+          userId: auth.userId,
+          fromDay,
+          toDay,
+          source,
+          model: usageModel
+        });
+        if (!rollupRes.ok) return { ok: false, error: rollupRes.error };
+        rows = rows.concat(Array.isArray(rollupRes.rows) ? rollupRes.rows : []);
+      }
+    } else {
+      const rollupRes = await fetchRollupRows({
+        edgeClient: auth.edgeClient,
+        userId: auth.userId,
+        fromDay,
+        toDay,
+        source,
+        model: canonicalModel || null
+      });
+      if (!rollupRes.ok) return { ok: false, error: rollupRes.error };
+      rows = Array.isArray(rollupRes.rows) ? rollupRes.rows : [];
+    }
     rowCount += rows.length;
     rollupHit = true;
     for (const row of rows) ingestRow(row);
@@ -368,4 +409,93 @@ function resolveDisplayName(identityMap, modelId) {
     if (entry?.model_id === modelId && entry?.model) return entry.model;
   }
   return modelId;
+}
+
+function extractDateKey(value) {
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  if (typeof value === 'string' && value.length >= 10) return value.slice(0, 10);
+  return null;
+}
+
+function resolveIdentityAtDate({ rawModel, usageKey, dateKey, timeline } = {}) {
+  const normalized = usageKey || normalizeUsageModelKey(rawModel) || DEFAULT_MODEL;
+  const entries = timeline && typeof timeline.get === 'function' ? timeline.get(normalized) : null;
+  if (Array.isArray(entries)) {
+    let match = null;
+    for (const entry of entries) {
+      if (entry.effective_from && entry.effective_from <= dateKey) {
+        match = entry;
+      } else if (entry.effective_from && entry.effective_from > dateKey) {
+        break;
+      }
+    }
+    if (match) {
+      return { model_id: match.model_id, model: match.model };
+    }
+  }
+  const display = normalizeModel(rawModel) || DEFAULT_MODEL;
+  return { model_id: normalized, model: display };
+}
+
+function buildAliasTimeline({ usageModels, aliasRows } = {}) {
+  const normalized = new Set(
+    Array.isArray(usageModels)
+      ? usageModels.map((model) => normalizeUsageModelKey(model)).filter(Boolean)
+      : []
+  );
+  const timeline = new Map();
+  const rows = Array.isArray(aliasRows) ? aliasRows : [];
+  for (const row of rows) {
+    const usageKey = normalizeUsageModelKey(row?.usage_model);
+    const canonical = normalizeUsageModelKey(row?.canonical_model);
+    if (!usageKey || !canonical) continue;
+    if (normalized.size && !normalized.has(usageKey)) continue;
+    const display = normalizeModel(row?.display_name) || canonical;
+    const effective = String(row?.effective_from || '');
+    if (!effective) continue;
+    const entry = {
+      model_id: canonical,
+      model: display,
+      effective_from: effective
+    };
+    const list = timeline.get(usageKey);
+    if (list) {
+      list.push(entry);
+    } else {
+      timeline.set(usageKey, [entry]);
+    }
+  }
+  for (const list of timeline.values()) {
+    list.sort((a, b) => String(a.effective_from).localeCompare(String(b.effective_from)));
+  }
+  return timeline;
+}
+
+async function fetchAliasRows({ edgeClient, usageModels, effectiveDate } = {}) {
+  const models = Array.isArray(usageModels)
+    ? usageModels.map((model) => normalizeUsageModelKey(model)).filter(Boolean)
+    : [];
+  if (!models.length || !edgeClient || !edgeClient.database) return [];
+
+  const dateKey =
+    typeof effectiveDate === 'string' && effectiveDate.trim()
+      ? effectiveDate.trim()
+      : new Date().toISOString().slice(0, 10);
+
+  const query = edgeClient.database
+    .from('vibescore_model_aliases')
+    .select('usage_model,canonical_model,display_name,effective_from')
+    .eq('active', true)
+    .in('usage_model', models)
+    .lte('effective_from', dateKey)
+    .order('effective_from', { ascending: true });
+
+  const result = await query;
+  const data = Array.isArray(result?.data)
+    ? result.data
+    : Array.isArray(query?.data)
+      ? query.data
+      : null;
+  if (!Array.isArray(data) || result?.error || query?.error) return [];
+  return data;
 }

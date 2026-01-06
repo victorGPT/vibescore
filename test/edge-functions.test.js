@@ -1859,6 +1859,90 @@ test('vibeusage-usage-summary canonical model filter includes alias rows', () =>
     assert.equal(body.model, 'GPT-4o');
   }));
 
+test('vibeusage-usage-summary honors alias effective_from across range', () =>
+  withRollupEnabled(async () => {
+    const fn = require('../insforge-functions/vibeusage-usage-summary');
+
+    const userId = '11111111-1111-1111-1111-111111111111';
+    const userJwt = 'user_jwt_test';
+
+    const hourlyRows = [
+      {
+        hour_start: '2025-01-15T00:00:00.000Z',
+        source: 'codex',
+        model: 'gpt-foo',
+        total_tokens: 100,
+        input_tokens: 60,
+        cached_input_tokens: 0,
+        output_tokens: 40,
+        reasoning_output_tokens: 0
+      },
+      {
+        hour_start: '2025-02-15T00:00:00.000Z',
+        source: 'codex',
+        model: 'gpt-foo',
+        total_tokens: 200,
+        input_tokens: 120,
+        cached_input_tokens: 0,
+        output_tokens: 80,
+        reasoning_output_tokens: 0
+      }
+    ];
+
+    const aliasRows = [
+      {
+        usage_model: 'gpt-foo',
+        canonical_model: 'alpha',
+        display_name: 'Alpha',
+        effective_from: '2025-01-01',
+        active: true
+      },
+      {
+        usage_model: 'gpt-foo',
+        canonical_model: 'beta',
+        display_name: 'Beta',
+        effective_from: '2025-02-01',
+        active: true
+      }
+    ];
+
+    globalThis.createClient = (args) => {
+      if (args && args.edgeFunctionToken === userJwt) {
+        return {
+          auth: {
+            getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+          },
+          database: {
+            from: (table) => {
+              if (table === 'vibescore_tracker_hourly') {
+                const query = createQueryMock({ rows: hourlyRows });
+                return { select: () => query };
+              }
+              if (table === 'vibescore_model_aliases') {
+                return createQueryMock({ rows: aliasRows });
+              }
+              throw new Error(`Unexpected table ${table}`);
+            }
+          }
+        };
+      }
+      throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+    };
+
+    const req = new Request(
+      'http://localhost/functions/vibeusage-usage-summary?from=2025-01-01&to=2025-02-15&model=alpha',
+      {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${userJwt}` }
+      }
+    );
+
+    const res = await fn(req);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.totals.total_tokens, '100');
+  }));
+
 test('vibeusage-usage-summary emits debug payload when requested', () =>
   withRollupEnabled(async () => {
   const fn = require('../insforge-functions/vibeusage-usage-summary');
