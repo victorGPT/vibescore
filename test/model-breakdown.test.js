@@ -14,6 +14,7 @@ test("buildFleetData keeps usage tokens for fleet rows", async () => {
         models: [
           {
             model: "gpt-4o",
+            model_id: "gpt-4o",
             totals: { total_tokens: 1200 }
           }
         ]
@@ -94,4 +95,32 @@ test("buildTopModels aggregates by model_id across sources", async () => {
   assert.equal(topModels[0].percent, "80.0");
   assert.equal(topModels[1].id, "gpt-4o-mini");
   assert.equal(topModels[1].percent, "20.0");
+});
+
+test("buildTopModels ignores entries without model_id", async () => {
+  const mod = await import("../dashboard/src/lib/model-breakdown.js");
+  const buildTopModels = mod.buildTopModels;
+
+  const modelBreakdown = {
+    sources: [
+      {
+        source: "cli",
+        models: [
+          { model: "legacy-model", totals: { total_tokens: 50 } }
+        ]
+      },
+      {
+        source: "api",
+        models: [
+          { model: "GPT-4o", model_id: "gpt-4o", totals: { total_tokens: 50 } }
+        ]
+      }
+    ]
+  };
+
+  const topModels = buildTopModels(modelBreakdown, { limit: 3 });
+
+  assert.equal(topModels.length, 1);
+  assert.equal(topModels[0].id, "gpt-4o");
+  assert.equal(topModels[0].percent, "100.0");
 });

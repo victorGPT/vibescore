@@ -10,7 +10,7 @@ function normalizeModelId(value) {
 function resolveModelId(model) {
   const id = normalizeModelId(model?.model_id);
   if (id) return id;
-  return normalizeModelId(model?.model);
+  return null;
 }
 
 function resolveModelName(model, fallback) {
