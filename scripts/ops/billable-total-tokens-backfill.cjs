@@ -94,6 +94,16 @@ function buildUpdates(rows) {
   return updates;
 }
 
+function findLastCursorRow(rows) {
+  if (!Array.isArray(rows)) return null;
+  for (let i = rows.length - 1; i >= 0; i -= 1) {
+    const row = rows[i];
+    if (!row) continue;
+    if (CURSOR_FIELDS.every((field) => row[field] != null)) return row;
+  }
+  return null;
+}
+
 function buildCursorFilter(cursor) {
   if (!cursor) return null;
   const clauses = [];
@@ -193,6 +203,7 @@ async function runBackfill({
   let cursor = null;
   let totalSeen = 0;
   let totalUpdated = 0;
+  let totalSkippedCursor = 0;
 
   while (true) {
     const rows = await fetchBatchImpl({
@@ -207,6 +218,9 @@ async function runBackfill({
     totalSeen += rows.length;
     const updates = buildUpdates(rows);
     totalUpdated += updates.length;
+    const cursorRow = findLastCursorRow(rows);
+    const missingCursorRows = cursorRow ? rows.length - rows.indexOf(cursorRow) - 1 : rows.length;
+    totalSkippedCursor += Math.max(0, missingCursorRows);
 
     if (!dryRun) {
       await upsertBatchImpl({ updates });
@@ -216,16 +230,18 @@ async function runBackfill({
       `batch cursor=${cursor ? 'set' : 'start'} rows=${rows.length} updates=${updates.length} total_updated=${totalUpdated}`
     );
 
-    cursor = buildCursorFromRow(rows[rows.length - 1]);
-    if (!cursor || CURSOR_FIELDS.some((field) => cursor[field] == null)) {
-      throw new Error('Invalid cursor from batch rows');
+    if (!cursorRow) {
+      throw new Error('Unable to find cursor row with all key fields present');
     }
+    cursor = buildCursorFromRow(cursorRow);
 
     if (sleepMs) await sleep(sleepMs);
   }
 
-  logLine(`${dryRun ? 'dry-run' : 'apply'} complete: rows=${totalSeen} updates=${totalUpdated}`);
-  return { totalSeen, totalUpdated };
+  logLine(
+    `${dryRun ? 'dry-run' : 'apply'} complete: rows=${totalSeen} updates=${totalUpdated} skipped_cursor=${totalSkippedCursor}`
+  );
+  return { totalSeen, totalUpdated, totalSkippedCursor };
 }
 
 async function main() {

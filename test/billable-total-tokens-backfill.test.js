@@ -129,6 +129,7 @@ test('runBackfill paginates with cursor without skipping rows', async () => {
 
   assert.equal(result.totalUpdated, orderedRows.length);
   assert.equal(updates.length, orderedRows.length);
+  assert.equal(result.totalSkippedCursor, 0);
   const uniqueKeys = new Set(
     updates.map(
       (row) => `${row.hour_start}|${row.user_id}|${row.device_id}|${row.source}|${row.model}`
