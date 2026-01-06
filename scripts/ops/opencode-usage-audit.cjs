@@ -10,7 +10,15 @@ const { auditOpencodeUsage } = require('../../src/lib/opencode-usage-audit');
 const DEFAULT_BASE_URL = 'https://5tmappuk.us-east.insforge.app';
 
 function parseArgs(argv) {
-  const out = { from: null, to: null, storageDir: null, baseUrl: null, noOpen: false, limit: 10 };
+  const out = {
+    from: null,
+    to: null,
+    storageDir: null,
+    baseUrl: null,
+    noOpen: false,
+    includeMissing: false,
+    limit: 10
+  };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--from') out.from = argv[++i];
@@ -18,6 +26,7 @@ function parseArgs(argv) {
     else if (arg === '--storage-dir') out.storageDir = argv[++i];
     else if (arg === '--base-url') out.baseUrl = argv[++i];
     else if (arg === '--no-open') out.noOpen = true;
+    else if (arg === '--include-missing') out.includeMissing = true;
     else if (arg === '--limit') out.limit = Number(argv[++i] || 10);
   }
   if (!Number.isFinite(out.limit) || out.limit <= 0) out.limit = 10;
@@ -72,11 +81,18 @@ async function runAuditCli(argv, deps = {}) {
   const accessToken = await resolveAccessToken({ env, baseUrl, noOpen: args.noOpen, log });
 
   const fetchHourly = (day) => fetchUsageHourly({ baseUrl, accessToken, day });
-  const result = await audit({ storageDir, from: args.from, to: args.to, fetchHourly });
+  const result = await audit({
+    storageDir,
+    from: args.from,
+    to: args.to,
+    fetchHourly,
+    includeMissing: args.includeMissing
+  });
 
   log(
     `days=${result.summary.days} slots=${result.summary.slots} matched=${result.summary.matched} ` +
-      `mismatched=${result.summary.mismatched} max_delta=${result.summary.maxDelta}`
+      `mismatched=${result.summary.mismatched} incomplete=${result.summary.incomplete} ` +
+      `max_delta=${result.summary.maxDelta}`
   );
 
   if (result.diffs.length) {

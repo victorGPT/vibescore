@@ -72,11 +72,14 @@ function normalizeServerRows(rows) {
   for (const row of rows || []) {
     if (!row || !row.hour) continue;
     map.set(row.hour, {
-      input_tokens: toBig(row.input_tokens),
-      cached_input_tokens: toBig(row.cached_input_tokens),
-      output_tokens: toBig(row.output_tokens),
-      reasoning_output_tokens: toBig(row.reasoning_output_tokens),
-      total_tokens: toBig(row.total_tokens)
+      missing: Boolean(row.missing),
+      totals: {
+        input_tokens: toBig(row.input_tokens),
+        cached_input_tokens: toBig(row.cached_input_tokens),
+        output_tokens: toBig(row.output_tokens),
+        reasoning_output_tokens: toBig(row.reasoning_output_tokens),
+        total_tokens: toBig(row.total_tokens)
+      }
     });
   }
   return map;
@@ -126,7 +129,7 @@ function listDays(from, to) {
   return out;
 }
 
-async function auditOpencodeUsage({ storageDir, from, to, fetchHourly }) {
+async function auditOpencodeUsage({ storageDir, from, to, fetchHourly, includeMissing = false }) {
   const local = await buildLocalHourlyTotals({ storageDir, source: 'opencode' });
   if (!local.minDay || !local.maxDay) {
     throw new Error('No local opencode data found');
@@ -142,6 +145,7 @@ async function auditOpencodeUsage({ storageDir, from, to, fetchHourly }) {
   const diffs = [];
   let matched = 0;
   let mismatched = 0;
+  let incomplete = 0;
   let maxDelta = 0n;
 
   for (const day of days) {
@@ -157,7 +161,12 @@ async function auditOpencodeUsage({ storageDir, from, to, fetchHourly }) {
           reasoning_output_tokens: 0n,
           total_tokens: 0n
         };
-        const serverTotals = serverByHour.get(hourKey) || {
+        const serverEntry = serverByHour.get(hourKey) || null;
+        if (serverEntry?.missing && !includeMissing) {
+          incomplete += 1;
+          continue;
+        }
+        const serverTotals = serverEntry?.totals || {
           input_tokens: 0n,
           cached_input_tokens: 0n,
           output_tokens: 0n,
@@ -183,6 +192,7 @@ async function auditOpencodeUsage({ storageDir, from, to, fetchHourly }) {
       slots: days.length * 48,
       matched,
       mismatched,
+      incomplete,
       maxDelta
     },
     diffs

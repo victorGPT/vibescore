@@ -121,3 +121,46 @@ test('runAuditCli returns 2 when diffs exist', async () => {
   });
   assert.equal(code, 2);
 });
+
+test('auditOpencodeUsage ignores missing hourly slots by default', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-audit-'));
+  try {
+    const messageDir = path.join(tmp, 'message', 'ses_1');
+    await fs.mkdir(messageDir, { recursive: true });
+    const messagePath = path.join(messageDir, 'msg_1.json');
+
+    const message = buildMessage({
+      createdMs: Date.parse('2025-12-29T10:14:00.000Z'),
+      completedMs: Date.parse('2025-12-29T10:15:00.000Z'),
+      tokens: { input: 4, output: 1, reasoning: 0, cached: 0 }
+    });
+    await fs.writeFile(messagePath, JSON.stringify(message), 'utf8');
+
+    const fetchHourly = async () => ({
+      day: '2025-12-29',
+      data: [
+        {
+          hour: '2025-12-29T10:00:00',
+          total_tokens: '0',
+          input_tokens: '0',
+          cached_input_tokens: '0',
+          output_tokens: '0',
+          reasoning_output_tokens: '0',
+          missing: true
+        }
+      ]
+    });
+
+    const result = await auditOpencodeUsage({
+      storageDir: tmp,
+      from: '2025-12-29',
+      to: '2025-12-29',
+      fetchHourly
+    });
+
+    assert.equal(result.summary.mismatched, 0);
+    assert.equal(result.summary.incomplete, 1);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});

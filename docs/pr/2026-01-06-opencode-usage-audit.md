@@ -6,6 +6,7 @@ Add a local-to-server audit script for Opencode token usage.
 ## Commit Narrative
 - feat: add opencode usage audit core
 - feat: add opencode usage audit cli
+- fix: ignore missing hourly slots by default (allow --include-missing)
 - docs: record opencode audit regression
 
 ## Regression Test Gate
