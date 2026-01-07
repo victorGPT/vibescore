@@ -491,7 +491,7 @@
     {
       "id": "test_edge-functions_test_deffefcc",
       "type": "text",
-      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- edge-functions.test (5131 行)\n- toBase64Url (1 个参数)\n\n依赖：2 个模块\n被依赖：0 次",
+      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- edge-functions.test (5197 行)\n- toBase64Url (1 个参数)\n\n依赖：3 个模块\n被依赖：0 次",
       "x": 100,
       "y": 11212,
       "width": 280,
@@ -644,7 +644,7 @@
     {
       "id": "test_insforge-src-shared_test_110fa035",
       "type": "text",
-      "text": "**insforge-src-shared.test**\n`test/insforge-src-shared.test.js`\n\nTest module.\n\n包含：\n- insforge-src-shared.test (131 行)\n- exports (0 个参数)\n\n依赖：3 个模块\n被依赖：0 次",
+      "text": "**insforge-src-shared.test**\n`test/insforge-src-shared.test.js`\n\nTest module.\n\n包含：\n- insforge-src-shared.test (131 行)\n- exports (0 个参数)\n\n依赖：2 个模块\n被依赖：0 次",
       "x": 460,
       "y": 11572,
       "width": 280,
@@ -3640,7 +3640,7 @@
     {
       "id": "external_OpenAI_ac6e26d9",
       "type": "text",
-      "text": "**OpenAI**\n`external`\n\nThird-party service.\n\n包含：\n- OpenAI (integration)\n- api (0 个参数)\n\n依赖：0 个模块\n被依赖：3 次",
+      "text": "**OpenAI**\n`external`\n\nThird-party service.\n\n包含：\n- OpenAI (integration)\n- api (0 个参数)\n\n依赖：0 个模块\n被依赖：4 次",
       "x": 100,
       "y": 3684,
       "width": 280,
@@ -3658,7 +3658,7 @@
     {
       "id": "external_InsForge_f6643588",
       "type": "text",
-      "text": "**InsForge**\n`external`\n\nThird-party service.\n\n包含：\n- InsForge (integration)\n- api (0 个参数)\n\n依赖：0 个模块\n被依赖：5 次",
+      "text": "**InsForge**\n`external`\n\nThird-party service.\n\n包含：\n- InsForge (integration)\n- api (0 个参数)\n\n依赖：0 个模块\n被依赖：4 次",
       "x": 460,
       "y": 3684,
       "width": 280,
@@ -3722,6 +3722,13 @@
       "toSide": "bottom"
     },
     {
+      "id": "edge_test_edge-functions_test_deffefcc_external_OpenAI_ac6e26d9",
+      "fromNode": "test_edge-functions_test_deffefcc",
+      "fromSide": "top",
+      "toNode": "external_OpenAI_ac6e26d9",
+      "toSide": "bottom"
+    },
+    {
       "id": "edge_test_edge-functions_test_deffefcc_external_Anthropic_fbd19171",
       "fromNode": "test_edge-functions_test_deffefcc",
       "fromSide": "top",
@@ -3768,13 +3775,6 @@
       "fromNode": "test_insforge-src-shared_test_110fa035",
       "fromSide": "top",
       "toNode": "external_Anthropic_fbd19171",
-      "toSide": "bottom"
-    },
-    {
-      "id": "edge_test_insforge-src-shared_test_110fa035_external_InsForge_f6643588",
-      "fromNode": "test_insforge-src-shared_test_110fa035",
-      "fromSide": "top",
-      "toNode": "external_InsForge_f6643588",
       "toSide": "bottom"
     },
     {

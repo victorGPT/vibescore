@@ -1029,6 +1029,72 @@ test('vibeusage-usage-heatmap canonical model filter includes alias rows', async
   assert.ok(filterCalls.some((entry) => entry.value?.includes?.('model.ilike.gpt-4o-mini')));
 });
 
+test('vibeusage-usage-heatmap normalizes model for non-UTC alias filtering', async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-heatmap');
+
+  const userId = '33333333-3333-3333-3333-333333333333';
+  const userJwt = 'user_jwt_test';
+
+  const rows = [
+    {
+      hour_start: '2025-01-07T10:00:00.000Z',
+      model: 'openai/gpt-4o-mini',
+      billable_total_tokens: '10',
+      total_tokens: '10'
+    }
+  ];
+
+  const aliasRows = [
+    {
+      usage_model: 'gpt-4o-mini',
+      canonical_model: 'gpt-4o',
+      display_name: 'GPT-4o',
+      effective_from: '2025-01-01',
+      active: true
+    }
+  ];
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      assert.equal(args.anonKey, ANON_KEY);
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            if (table === 'vibescore_tracker_hourly') {
+              const query = createQueryMock({ rows });
+              return { select: () => query };
+            }
+            if (table === 'vibescore_model_aliases') {
+              return createQueryMock({ rows: aliasRows });
+            }
+            throw new Error(`Unexpected table ${table}`);
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request(
+    'http://localhost/functions/vibeusage-usage-heatmap?weeks=1&to=2025-01-07&week_starts_on=sun&model=gpt-4o&tz=America/Los_Angeles',
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${userJwt}` }
+    }
+  );
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  const flat = body.weeks.flat().filter(Boolean);
+  const dayCell = flat.find((cell) => cell.day === '2025-01-07');
+  assert.ok(dayCell);
+  assert.equal(dayCell.value, '10');
+});
+
 test('vibeusage-usage-heatmap honors alias effective_from across range', async () => {
   const fn = require('../insforge-functions/vibeusage-usage-heatmap');
 

@@ -310,7 +310,7 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
         const dt = new Date(ts);
         if (!Number.isFinite(dt.getTime())) continue;
         if (hasModelFilter) {
-          const rawModel = row?.model;
+          const rawModel = normalizeUsageModel(row?.model);
           const dateKey = extractDateKey(ts) || to;
           const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
           if (identity.model_id !== canonicalModel) continue;
