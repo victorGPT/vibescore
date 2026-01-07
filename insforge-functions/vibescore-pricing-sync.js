@@ -559,35 +559,10 @@ var require_model = __commonJS({
       const normalized = normalizeModel2(value);
       if (!normalized) return null;
       const lowered = normalized.toLowerCase();
-      return lowered || null;
-    }
-    function escapeLike(value) {
-      return String(value).replace(/[\\%_]/g, "\\$&");
-    }
-    function applyUsageModelFilter(query, usageModels) {
-      if (!query || typeof query.or !== "function") return query;
-      const models = Array.isArray(usageModels) ? usageModels : [];
-      const terms = [];
-      const seen = /* @__PURE__ */ new Set();
-      for (const model of models) {
-        const normalized = normalizeUsageModel2(model);
-        if (!normalized) continue;
-        const safe = escapeLike(normalized);
-        const exact = `model.ilike.${safe}`;
-        if (!seen.has(exact)) {
-          seen.add(exact);
-          terms.push(exact);
-        }
-        if (!normalized.includes("/")) {
-          const suffixed = `model.ilike.%/${safe}`;
-          if (!seen.has(suffixed)) {
-            seen.add(suffixed);
-            terms.push(suffixed);
-          }
-        }
-      }
-      if (terms.length === 0) return query;
-      return query.or(terms.join(","));
+      if (!lowered) return null;
+      const slashIndex = lowered.lastIndexOf("/");
+      const candidate = slashIndex >= 0 ? lowered.slice(slashIndex + 1) : lowered;
+      return candidate ? candidate : null;
     }
     function getModelParam(url) {
       if (!url || typeof url.searchParams?.get !== "function") {
@@ -603,7 +578,6 @@ var require_model = __commonJS({
     module2.exports = {
       normalizeModel: normalizeModel2,
       normalizeUsageModel: normalizeUsageModel2,
-      applyUsageModelFilter,
       getModelParam
     };
   }

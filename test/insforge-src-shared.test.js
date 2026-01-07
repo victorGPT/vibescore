@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { logSlowQuery } = require('../insforge-src/shared/logging');
 const { getUsageMaxDays } = require('../insforge-src/shared/date');
-const { normalizeUsageModel, applyUsageModelFilter } = require('../insforge-src/shared/model');
+const { normalizeUsageModel } = require('../insforge-src/shared/model');
 const pricing = require('../insforge-src/shared/pricing');
 
 test('insforge shared logging module exists', () => {
@@ -121,37 +121,10 @@ test('pricing defaults read VIBEUSAGE env with VIBESCORE fallback', () => {
   }
 });
 
-test('normalizeUsageModel preserves provider prefixes', () => {
+test('normalizeUsageModel canonicalizes usage model ids', () => {
   assert.equal(normalizeUsageModel(' GPT-4o '), 'gpt-4o');
-  assert.equal(normalizeUsageModel('openai/GPT-4o'), 'openai/gpt-4o');
-  assert.equal(normalizeUsageModel('Anthropic/Claude-3.5'), 'anthropic/claude-3.5');
+  assert.equal(normalizeUsageModel('openai/GPT-4o'), 'gpt-4o');
+  assert.equal(normalizeUsageModel('Anthropic/Claude-3.5'), 'claude-3.5');
   assert.equal(normalizeUsageModel('unknown'), 'unknown');
   assert.equal(normalizeUsageModel(''), null);
-});
-
-test('applyUsageModelFilter preserves provider prefixes', () => {
-  let orExpr = null;
-  const query = {
-    or: (expr) => {
-      orExpr = expr;
-      return query;
-    }
-  };
-
-  applyUsageModelFilter(query, ['openai/GPT-4o']);
-  assert.equal(orExpr, 'model.ilike.openai/gpt-4o');
-  assert.ok(!orExpr.includes('%/gpt-4o'));
-});
-
-test('applyUsageModelFilter expands unqualified models', () => {
-  let orExpr = null;
-  const query = {
-    or: (expr) => {
-      orExpr = expr;
-      return query;
-    }
-  };
-
-  applyUsageModelFilter(query, [' GPT-4o ']);
-  assert.equal(orExpr, 'model.ilike.gpt-4o,model.ilike.%/gpt-4o');
 });

@@ -441,44 +441,19 @@ var require_source = __commonJS({
 var require_model = __commonJS({
   "insforge-src/shared/model.js"(exports2, module2) {
     "use strict";
-    function normalizeModel2(value) {
+    function normalizeModel(value) {
       if (typeof value !== "string") return null;
       const trimmed = value.trim();
       return trimmed.length > 0 ? trimmed : null;
     }
-    function normalizeUsageModel(value) {
-      const normalized = normalizeModel2(value);
+    function normalizeUsageModel2(value) {
+      const normalized = normalizeModel(value);
       if (!normalized) return null;
       const lowered = normalized.toLowerCase();
-      return lowered || null;
-    }
-    function escapeLike(value) {
-      return String(value).replace(/[\\%_]/g, "\\$&");
-    }
-    function applyUsageModelFilter(query, usageModels) {
-      if (!query || typeof query.or !== "function") return query;
-      const models = Array.isArray(usageModels) ? usageModels : [];
-      const terms = [];
-      const seen = /* @__PURE__ */ new Set();
-      for (const model of models) {
-        const normalized = normalizeUsageModel(model);
-        if (!normalized) continue;
-        const safe = escapeLike(normalized);
-        const exact = `model.ilike.${safe}`;
-        if (!seen.has(exact)) {
-          seen.add(exact);
-          terms.push(exact);
-        }
-        if (!normalized.includes("/")) {
-          const suffixed = `model.ilike.%/${safe}`;
-          if (!seen.has(suffixed)) {
-            seen.add(suffixed);
-            terms.push(suffixed);
-          }
-        }
-      }
-      if (terms.length === 0) return query;
-      return query.or(terms.join(","));
+      if (!lowered) return null;
+      const slashIndex = lowered.lastIndexOf("/");
+      const candidate = slashIndex >= 0 ? lowered.slice(slashIndex + 1) : lowered;
+      return candidate ? candidate : null;
     }
     function getModelParam(url) {
       if (!url || typeof url.searchParams?.get !== "function") {
@@ -487,14 +462,13 @@ var require_model = __commonJS({
       const raw = url.searchParams.get("model");
       if (raw == null) return { ok: true, model: null };
       if (raw.trim() === "") return { ok: true, model: null };
-      const normalized = normalizeUsageModel(raw);
+      const normalized = normalizeUsageModel2(raw);
       if (!normalized) return { ok: false, error: "Invalid model" };
       return { ok: true, model: normalized };
     }
     module2.exports = {
-      normalizeModel: normalizeModel2,
-      normalizeUsageModel,
-      applyUsageModelFilter,
+      normalizeModel,
+      normalizeUsageModel: normalizeUsageModel2,
       getModelParam
     };
   }
@@ -585,7 +559,7 @@ var { getBearerToken } = require_auth();
 var { getAnonKey, getBaseUrl, getServiceRoleKey } = require_env();
 var { sha256Hex } = require_crypto();
 var { normalizeSource } = require_source();
-var { normalizeModel } = require_model();
+var { normalizeUsageModel } = require_model();
 var { computeBillableTotalTokens } = require_usage_billable();
 var MAX_BUCKETS = 500;
 var DEFAULT_MODEL = "unknown";
@@ -970,7 +944,7 @@ function parseHourlyBucket(raw) {
     return { ok: false, error: "hour_start must be an ISO timestamp at UTC half-hour boundary" };
   }
   const source = normalizeSource(raw.source);
-  const model = normalizeModel(raw.model) || DEFAULT_MODEL;
+  const model = normalizeUsageModel(raw.model) || DEFAULT_MODEL;
   const input = toNonNegativeInt(raw.input_tokens);
   const cached = toNonNegativeInt(raw.cached_input_tokens);
   const output = toNonNegativeInt(raw.output_tokens);

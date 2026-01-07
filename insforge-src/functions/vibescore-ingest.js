@@ -13,7 +13,7 @@ const { getBearerToken } = require('../shared/auth');
 const { getAnonKey, getBaseUrl, getServiceRoleKey } = require('../shared/env');
 const { sha256Hex } = require('../shared/crypto');
 const { normalizeSource } = require('../shared/source');
-const { normalizeModel } = require('../shared/model');
+const { normalizeUsageModel } = require('../shared/model');
 const { computeBillableTotalTokens } = require('../shared/usage-billable');
 
 const MAX_BUCKETS = 500;
@@ -470,7 +470,7 @@ function parseHourlyBucket(raw) {
   }
 
   const source = normalizeSource(raw.source);
-  const model = normalizeModel(raw.model) || DEFAULT_MODEL;
+  const model = normalizeUsageModel(raw.model) || DEFAULT_MODEL;
   const input = toNonNegativeInt(raw.input_tokens);
   const cached = toNonNegativeInt(raw.cached_input_tokens);
   const output = toNonNegativeInt(raw.output_tokens);

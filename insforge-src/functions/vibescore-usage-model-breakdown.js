@@ -8,13 +8,6 @@ const { getBearerToken, getEdgeClientAndUserIdFast } = require('../shared/auth')
 const { getBaseUrl } = require('../shared/env');
 const { getSourceParam, normalizeSource } = require('../shared/source');
 const { normalizeUsageModel } = require('../shared/model');
-const { normalizeUsageModelKey } = require('../shared/model-identity');
-const {
-  buildAliasTimeline,
-  extractDateKey,
-  fetchAliasRows,
-  resolveIdentityAtDate
-} = require('../shared/model-alias-timeline');
 const { applyCanaryFilter } = require('../shared/canary');
 const {
   addDatePartsDays,
@@ -85,7 +78,7 @@ module.exports = withRequestLogging('vibescore-usage-model-breakdown', async fun
   const startIso = startUtc.toISOString();
   const endIso = endUtc.toISOString();
 
-  const rowsBuffer = [];
+  const sourcesMap = new Map();
   const distinctModels = new Set();
 
   const queryStartMs = Date.now();
@@ -95,7 +88,7 @@ module.exports = withRequestLogging('vibescore-usage-model-breakdown', async fun
       let query = auth.edgeClient.database
         .from('vibescore_tracker_hourly')
         .select(
-          'hour_start,source,model,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens'
+          'source,model,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens'
         )
         .eq('user_id', auth.userId);
       if (sourceFilter) query = query.eq('source', sourceFilter);
@@ -114,7 +107,6 @@ module.exports = withRequestLogging('vibescore-usage-model-breakdown', async fun
       for (const row of pageRows) {
         const source = normalizeSource(row?.source) || DEFAULT_SOURCE;
         const model = normalizeUsageModel(row?.model) || DEFAULT_MODEL;
-        const usageKey = normalizeUsageModelKey(model);
         const hasStoredBillable =
           row &&
           Object.prototype.hasOwnProperty.call(row, 'billable_total_tokens') &&
@@ -122,20 +114,13 @@ module.exports = withRequestLogging('vibescore-usage-model-breakdown', async fun
         const billable = hasStoredBillable
           ? toBigInt(row.billable_total_tokens)
           : computeBillableTotalTokens({ source, totals: row });
-        rowsBuffer.push({
-          source,
-          model,
-          usageKey,
-          hour_start: row?.hour_start,
-          total_tokens: row?.total_tokens,
-          billable_total_tokens: hasStoredBillable ? row.billable_total_tokens : billable.toString(),
-          input_tokens: row?.input_tokens,
-          cached_input_tokens: row?.cached_input_tokens,
-          output_tokens: row?.output_tokens,
-          reasoning_output_tokens: row?.reasoning_output_tokens
-        });
-        if (usageKey && usageKey !== DEFAULT_MODEL) {
-          distinctModels.add(usageKey);
+        if (!hasStoredBillable) row.billable_total_tokens = billable.toString();
+        const entry = getSourceEntry(sourcesMap, source);
+        const modelEntry = getModelEntry(entry.models, model);
+        addTotals(entry.totals, row);
+        addTotals(modelEntry.totals, row);
+        if (model !== DEFAULT_MODEL) {
+          distinctModels.add(model);
         }
       }
     }
@@ -153,45 +138,17 @@ module.exports = withRequestLogging('vibescore-usage-model-breakdown', async fun
 
   if (error) return respond({ error: error.message }, 500, queryDurationMs);
 
-  const usageModels = Array.from(distinctModels.values());
-  const aliasRows = await fetchAliasRows({
-    edgeClient: auth.edgeClient,
-    usageModels,
-    effectiveDate: to
-  });
-  const aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
-
-  const sourcesMap = new Map();
-  const canonicalModels = new Set();
-  const grandTotals = createTotals();
-
-  for (const row of rowsBuffer) {
-    const sourceEntry = getSourceEntry(sourcesMap, row.source);
-    addTotals(sourceEntry.totals, row);
-    addTotals(grandTotals, row);
-    const dateKey = extractDateKey(row.hour_start) || to;
-    const identity = resolveIdentityAtDate({
-      rawModel: row.model,
-      usageKey: row.usageKey,
-      dateKey,
-      timeline: aliasTimeline
-    });
-    if (identity.model_id && identity.model_id !== DEFAULT_MODEL) {
-      canonicalModels.add(identity.model_id);
-    }
-    const canonicalEntry = getCanonicalEntry(sourceEntry.models, identity);
-    addTotals(canonicalEntry.totals, row);
-  }
-
-  const pricingModel = canonicalModels.size === 1 ? Array.from(canonicalModels)[0] : null;
+  const pricingModel = distinctModels.size === 1 ? Array.from(distinctModels)[0] : null;
   const pricingProfile = await resolvePricingProfile({
     edgeClient: auth.edgeClient,
     model: pricingModel,
     effectiveDate: to
   });
+  const grandTotals = createTotals();
 
   const sources = Array.from(sourcesMap.values())
     .map((entry) => {
+      addTotals(grandTotals, entry.totals);
       const models = Array.from(entry.models.values())
         .map((modelEntry) => formatTotals(modelEntry, pricingProfile))
         .sort(compareTotals);
@@ -256,18 +213,15 @@ function getSourceEntry(map, source) {
   return entry;
 }
 
-function getCanonicalEntry(map, identity) {
-  const key = identity?.model_id || DEFAULT_MODEL;
-  if (map.has(key)) return map.get(key);
+function getModelEntry(map, model) {
+  if (map.has(model)) return map.get(model);
   const entry = {
-    model_id: key,
-    model: identity?.model || key,
+    model,
     totals: createTotals()
   };
-  map.set(key, entry);
+  map.set(model, entry);
   return entry;
 }
-
 
 function formatTotals(entry, pricingProfile) {
   const totals = entry.totals;
