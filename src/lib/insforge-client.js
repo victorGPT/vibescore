@@ -1,6 +1,14 @@
 'use strict';
 
-const { createClient } = require('@insforge/sdk');
+function loadInsforgeSdk() {
+  try {
+    return require('@insforge/sdk');
+  } catch (err) {
+    const wrapped = new Error('Missing dependency @insforge/sdk. Please reinstall vibeusage.');
+    wrapped.cause = err;
+    throw wrapped;
+  }
+}
 
 function getAnonKey({ env = process.env } = {}) {
   return (
@@ -44,6 +52,7 @@ function createTimeoutFetch(baseFetch) {
 
 function createInsforgeClient({ baseUrl, accessToken } = {}) {
   if (!baseUrl) throw new Error('Missing baseUrl');
+  const { createClient } = loadInsforgeSdk();
   const anonKey = getAnonKey();
   return createClient({
     baseUrl,

@@ -63,7 +63,7 @@ test("buildFleetData returns model ids for stable keys", async () => {
   assert.equal(fleetData[0].models[0].id, "gpt-4o");
 });
 
-test("buildTopModels aggregates by model_id across sources", async () => {
+test("buildTopModels aggregates by model name across sources", async () => {
   const mod = await import("../dashboard/src/lib/model-breakdown.js");
   const buildTopModels = mod.buildTopModels;
 
@@ -72,14 +72,14 @@ test("buildTopModels aggregates by model_id across sources", async () => {
       {
         source: "cli",
         models: [
-          { model: "GPT-4o", model_id: "gpt-4o", totals: { total_tokens: 70 } }
+          { model: "GPT-4o", totals: { billable_total_tokens: 70 } }
         ]
       },
       {
         source: "api",
         models: [
-          { model: "GPT-4o", model_id: "gpt-4o", totals: { total_tokens: 50 } },
-          { model: "GPT-4o-mini", model_id: "gpt-4o-mini", totals: { total_tokens: 30 } }
+          { model: "gpt-4o", totals: { billable_total_tokens: 50 } },
+          { model: "GPT-4o-mini", totals: { billable_total_tokens: 30 } }
         ]
       }
     ]
@@ -97,7 +97,7 @@ test("buildTopModels aggregates by model_id across sources", async () => {
   assert.equal(topModels[1].percent, "20.0");
 });
 
-test("buildTopModels computes percent using total tokens across all models", async () => {
+test("buildTopModels computes percent using billable tokens across all models", async () => {
   const mod = await import("../dashboard/src/lib/model-breakdown.js");
   const buildTopModels = mod.buildTopModels;
 
@@ -106,21 +106,21 @@ test("buildTopModels computes percent using total tokens across all models", asy
       {
         source: "cli",
         models: [
-          { model: "legacy-model", totals: { total_tokens: 50 } }
+          { model: "legacy-model", totals: { billable_total_tokens: 20, total_tokens: 999 } }
         ]
       },
       {
         source: "api",
         models: [
-          { model: "GPT-4o", model_id: "gpt-4o", totals: { total_tokens: 50 } }
+          { model: "GPT-4o", totals: { billable_total_tokens: 80, total_tokens: 999 } }
         ]
       }
     ]
   };
 
-  const topModels = buildTopModels(modelBreakdown, { limit: 3 });
+  const topModels = buildTopModels(modelBreakdown, { limit: 1 });
 
   assert.equal(topModels.length, 1);
   assert.equal(topModels[0].id, "gpt-4o");
-  assert.equal(topModels[0].percent, "50.0");
+  assert.equal(topModels[0].percent, "80.0");
 });

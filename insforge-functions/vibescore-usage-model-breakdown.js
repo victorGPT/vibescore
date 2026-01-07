@@ -412,10 +412,17 @@ var require_model_alias_timeline = __commonJS({
       return date.toISOString().slice(0, 10);
     }
     function resolveIdentityAtDate2({ rawModel, usageKey, dateKey, timeline } = {}) {
-      const normalized = usageKey || normalizeUsageModelKey2(rawModel) || DEFAULT_MODEL2;
+      const normalizedKey = usageKey || normalizeUsageModelKey2(rawModel) || DEFAULT_MODEL2;
       const normalizedDateKey = extractDateKey2(dateKey) || dateKey || null;
-      const entries = timeline && typeof timeline.get === "function" ? timeline.get(normalized) : null;
-      if (Array.isArray(entries)) {
+      const candidates = [];
+      if (normalizedKey) candidates.push(normalizedKey);
+      if (!usageKey && normalizedKey && normalizedKey.includes("/")) {
+        const suffix = normalizedKey.split("/").pop();
+        if (suffix && suffix !== normalizedKey) candidates.push(suffix);
+      }
+      for (const key of candidates) {
+        const entries = timeline && typeof timeline.get === "function" ? timeline.get(key) : null;
+        if (!Array.isArray(entries)) continue;
         let match = null;
         for (const entry of entries) {
           if (entry.effective_from && normalizedDateKey && entry.effective_from <= normalizedDateKey) {
@@ -429,7 +436,7 @@ var require_model_alias_timeline = __commonJS({
         }
       }
       const display = normalizeModel(rawModel) || DEFAULT_MODEL2;
-      return { model_id: normalized, model: display };
+      return { model_id: normalizedKey, model: display };
     }
     function buildAliasTimeline2({ usageModels, aliasRows } = {}) {
       const normalized = new Set(

@@ -93,45 +93,45 @@ export function buildTopModels(modelBreakdown, { limit = 3, copyFn } = {}) {
     : [];
   if (!sources.length) return [];
 
-  const totalsById = new Map();
-  const nameById = new Map();
+  const totalsByKey = new Map();
+  const nameByKey = new Map();
   const nameWeight = new Map();
   let totalTokensAll = 0;
 
   for (const source of sources) {
     const models = Array.isArray(source?.models) ? source.models : [];
     for (const model of models) {
-      const tokens = toFiniteNumber(model?.totals?.total_tokens);
+      const tokens = toFiniteNumber(model?.totals?.billable_total_tokens);
       if (!Number.isFinite(tokens) || tokens <= 0) continue;
       totalTokensAll += tokens;
-      const id = resolveModelId(model);
-      if (!id) continue;
       const name = resolveModelName(model, safeCopy("shared.placeholder.short"));
-      totalsById.set(id, (totalsById.get(id) || 0) + tokens);
-      const currentWeight = nameWeight.get(id) || 0;
+      const key = normalizeModelId(name);
+      if (!key) continue;
+      totalsByKey.set(key, (totalsByKey.get(key) || 0) + tokens);
+      const currentWeight = nameWeight.get(key) || 0;
       if (tokens >= currentWeight) {
-        nameWeight.set(id, tokens);
-        nameById.set(id, name);
+        nameWeight.set(key, tokens);
+        nameByKey.set(key, name);
       }
     }
   }
 
-  if (!totalsById.size) return [];
+  if (!totalsByKey.size) return [];
 
-  const knownTotal = Array.from(totalsById.values()).reduce(
+  const knownTotal = Array.from(totalsByKey.values()).reduce(
     (acc, value) => acc + value,
     0
   );
   const totalTokens = totalTokensAll > 0 ? totalTokensAll : knownTotal;
 
   const normalizedLimit = Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 3;
-  return Array.from(totalsById.entries())
-    .map(([id, tokens]) => {
+  return Array.from(totalsByKey.entries())
+    .map(([key, tokens]) => {
       const percent =
         totalTokens > 0 ? ((tokens / totalTokens) * 100).toFixed(1) : "0.0";
       return {
-        id,
-        name: nameById.get(id) || safeCopy("shared.placeholder.short"),
+        id: key,
+        name: nameByKey.get(key) || safeCopy("shared.placeholder.short"),
         tokens,
         percent: String(percent),
       };

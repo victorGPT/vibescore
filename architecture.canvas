@@ -1221,7 +1221,7 @@
     {
       "id": "utils_insforge-client_62a68f4e",
       "type": "text",
-      "text": "**insforge-client**\n`src/lib/insforge-client.js`\n\nShared utilities.\n\n包含：\n- insforge-client (76 行)\n- getAnonKey (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**insforge-client**\n`src/lib/insforge-client.js`\n\nShared utilities.\n\n包含：\n- insforge-client (85 行)\n- loadInsforgeSdk (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1180,
       "y": 8880,
       "width": 280,
@@ -1641,7 +1641,7 @@
     {
       "id": "utils_model-alias-timeline_1d6c1d5b",
       "type": "text",
-      "text": "**model-alias-timeline**\n`insforge-src/shared/model-alias-timeline.js`\n\nShared utilities.\n\n包含：\n- model-alias-timeline (110 行)\n- extractDateKey (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**model-alias-timeline**\n`insforge-src/shared/model-alias-timeline.js`\n\nShared utilities.\n\n包含：\n- model-alias-timeline (119 行)\n- extractDateKey (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 460,
       "y": 6736,
       "width": 280,
