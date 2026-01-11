@@ -25,6 +25,12 @@ test("useAuth tracks sessionExpired and gates signedIn", () => {
   assert.match(src, /!sessionExpired/);
 });
 
+test("useAuth accepts auth callback on root path", () => {
+  const src = read("dashboard/src/hooks/use-auth.js");
+  assert.match(src, /path\s*===\s*""/);
+  assert.match(src, /\/auth\/callback/);
+});
+
 test("App routes LandingPage when signed out", () => {
   const src = read("dashboard/src/App.jsx");
   assert.match(src, /!signedIn\s*&&\s*!mockEnabled/);

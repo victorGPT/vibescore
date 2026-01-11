@@ -27,7 +27,8 @@ export function useAuth() {
 
   useEffect(() => {
     const path = window.location.pathname.replace(/\/+$/, "");
-    if (path !== "/auth/callback") return;
+    const isCallbackPath = path === "/auth/callback" || path === "";
+    if (!isCallbackPath) return;
 
     const params = new URLSearchParams(window.location.search);
     const accessToken = params.get("access_token") || "";

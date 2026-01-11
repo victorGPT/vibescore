@@ -406,7 +406,7 @@
     {
       "id": "test_dashboard-session-expired-banner_test_12598be7",
       "type": "text",
-      "text": "**dashboard-session-expired-banner.test**\n`test/dashboard-session-expired-banner.test.js`\n\nTest module.\n\n包含：\n- dashboard-session-expired-banner.test (97 行)\n- read (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**dashboard-session-expired-banner.test**\n`test/dashboard-session-expired-banner.test.js`\n\nTest module.\n\n包含：\n- dashboard-session-expired-banner.test (103 行)\n- read (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1180,
       "y": 10852,
       "width": 280,
@@ -3595,7 +3595,7 @@
     {
       "id": "undefined_use-auth_94cf338d",
       "type": "text",
-      "text": "**use-auth**\n`dashboard/src/hooks/use-auth.js`\n\nGeneral module.\n\n包含：\n- use-auth (68 行)\n- useAuth (0 个参数)\n\n依赖：0 个模块\n被依赖：1 次",
+      "text": "**use-auth**\n`dashboard/src/hooks/use-auth.js`\n\nGeneral module.\n\n包含：\n- use-auth (69 行)\n- useAuth (0 个参数)\n\n依赖：0 个模块\n被依赖：1 次",
       "x": 1900,
       "y": 632,
       "width": 280,
