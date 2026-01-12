@@ -31,7 +31,7 @@ var require_http = __commonJS({
         }
       });
     }
-    function requireMethod2(request, method) {
+    function requireMethod(request, method) {
       if (request.method !== method) return json2({ error: "Method not allowed" }, 405);
       return null;
     }
@@ -50,7 +50,7 @@ var require_http = __commonJS({
       corsHeaders,
       handleOptions: handleOptions2,
       json: json2,
-      requireMethod: requireMethod2,
+      requireMethod,
       readJson
     };
   }
@@ -66,13 +66,13 @@ var require_env = __commonJS({
     function getServiceRoleKey() {
       return Deno.env.get("INSFORGE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("INSFORGE_API_KEY") || Deno.env.get("API_KEY") || null;
     }
-    function getAnonKey2() {
+    function getAnonKey() {
       return Deno.env.get("ANON_KEY") || Deno.env.get("INSFORGE_ANON_KEY") || null;
     }
     module2.exports = {
       getBaseUrl: getBaseUrl2,
       getServiceRoleKey,
-      getAnonKey: getAnonKey2
+      getAnonKey
     };
   }
 });
@@ -96,14 +96,14 @@ var require_crypto = __commonJS({
 var require_public_view = __commonJS({
   "insforge-src/shared/public-view.js"(exports2, module2) {
     "use strict";
-    var { getAnonKey: getAnonKey2, getServiceRoleKey } = require_env();
+    var { getAnonKey, getServiceRoleKey } = require_env();
     var { sha256Hex } = require_crypto();
     async function resolvePublicView({ baseUrl, shareToken }) {
       const token = normalizeToken(shareToken);
       if (!token) return { ok: false, edgeClient: null, userId: null };
       const serviceRoleKey = getServiceRoleKey();
       if (!serviceRoleKey) return { ok: false, edgeClient: null, userId: null };
-      const anonKey = getAnonKey2();
+      const anonKey = getAnonKey();
       const dbClient = createClient({
         baseUrl,
         anonKey: anonKey || serviceRoleKey,
@@ -133,7 +133,7 @@ var require_public_view = __commonJS({
 var require_auth = __commonJS({
   "insforge-src/shared/auth.js"(exports2, module2) {
     "use strict";
-    var { getAnonKey: getAnonKey2 } = require_env();
+    var { getAnonKey } = require_env();
     var { resolvePublicView } = require_public_view();
     function getBearerToken2(headerValue) {
       if (!headerValue) return null;
@@ -194,8 +194,8 @@ var require_auth = __commonJS({
       if (!Number.isFinite(exp)) return false;
       return exp * 1e3 <= Date.now();
     }
-    async function getEdgeClientAndUserId({ baseUrl, bearer }) {
-      const anonKey = getAnonKey2();
+    async function getEdgeClientAndUserId2({ baseUrl, bearer }) {
+      const anonKey = getAnonKey();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const { data: userData, error: userErr } = await edgeClient.auth.getCurrentUser();
       const userId = userData?.user?.id;
@@ -203,7 +203,7 @@ var require_auth = __commonJS({
       return { ok: true, edgeClient, userId };
     }
     async function getEdgeClientAndUserIdFast({ baseUrl, bearer }) {
-      const anonKey = getAnonKey2();
+      const anonKey = getAnonKey();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const payload = decodeJwtPayload(bearer);
       if (payload && isJwtExpired(payload)) {
@@ -245,75 +245,163 @@ var require_auth = __commonJS({
     module2.exports = {
       getBearerToken: getBearerToken2,
       getAccessContext,
-      getEdgeClientAndUserId,
+      getEdgeClientAndUserId: getEdgeClientAndUserId2,
       getEdgeClientAndUserIdFast,
       isProjectAdminBearer
     };
   }
 });
 
-// insforge-src/functions/vibescore-debug-auth.js
-var { handleOptions, json, requireMethod } = require_http();
-var { getBearerToken } = require_auth();
-var { getAnonKey, getBaseUrl } = require_env();
-module.exports = async function(request) {
+// insforge-src/shared/logging.js
+var require_logging = __commonJS({
+  "insforge-src/shared/logging.js"(exports2, module2) {
+    "use strict";
+    function createRequestId() {
+      if (globalThis?.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+      return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    }
+    function errorCodeFromStatus(status) {
+      if (typeof status !== "number") return "UNKNOWN_ERROR";
+      if (status >= 500) return "SERVER_ERROR";
+      if (status >= 400) return "CLIENT_ERROR";
+      return null;
+    }
+    function createLogger({ functionName }) {
+      const requestId = createRequestId();
+      const startMs = Date.now();
+      let upstreamStatus = null;
+      let upstreamLatencyMs = null;
+      function recordUpstream(status, latencyMs) {
+        upstreamStatus = typeof status === "number" ? status : null;
+        upstreamLatencyMs = typeof latencyMs === "number" ? latencyMs : null;
+      }
+      async function fetchWithUpstream(url, init) {
+        const upstreamStart = Date.now();
+        try {
+          const res = await fetch(url, init);
+          recordUpstream(res.status, Date.now() - upstreamStart);
+          return res;
+        } catch (err) {
+          recordUpstream(null, Date.now() - upstreamStart);
+          throw err;
+        }
+      }
+      function log({ stage, status, errorCode, ...extra }) {
+        const payload = {
+          ...extra || {},
+          request_id: requestId,
+          function: functionName,
+          stage: stage || "response",
+          status: typeof status === "number" ? status : null,
+          latency_ms: Date.now() - startMs,
+          error_code: errorCode ?? errorCodeFromStatus(status),
+          upstream_status: upstreamStatus ?? null,
+          upstream_latency_ms: upstreamLatencyMs ?? null
+        };
+        console.log(JSON.stringify(payload));
+      }
+      return {
+        requestId,
+        log,
+        fetch: fetchWithUpstream
+      };
+    }
+    function getResponseStatus(response) {
+      if (response && typeof response.status === "number") return response.status;
+      return null;
+    }
+    function resolveFunctionName(functionName, request) {
+      if (request && typeof request.url === "string") {
+        try {
+          const url = new URL(request.url);
+          const match = url.pathname.match(/\/functions\/([^/?#]+)/);
+          if (match && match[1]) return match[1];
+        } catch (_e) {
+        }
+      }
+      return functionName;
+    }
+    function withRequestLogging2(functionName, handler) {
+      return async function(request) {
+        const resolvedName = resolveFunctionName(functionName, request);
+        const logger = createLogger({ functionName: resolvedName });
+        try {
+          const response = await handler(request, logger);
+          const status = getResponseStatus(response);
+          logger.log({ stage: "response", status });
+          return response;
+        } catch (err) {
+          logger.log({ stage: "exception", status: 500, errorCode: "UNHANDLED_EXCEPTION" });
+          throw err;
+        }
+      };
+    }
+    module2.exports = {
+      withRequestLogging: withRequestLogging2,
+      logSlowQuery,
+      getSlowQueryThresholdMs
+    };
+    function logSlowQuery(logger, fields) {
+      if (!logger || typeof logger.log !== "function") return;
+      const durationMs = Number(fields?.duration_ms ?? fields?.durationMs);
+      if (!Number.isFinite(durationMs)) return;
+      const thresholdMs = getSlowQueryThresholdMs();
+      if (durationMs < thresholdMs) return;
+      logger.log({
+        stage: "slow_query",
+        status: 200,
+        ...fields || {},
+        duration_ms: Math.round(durationMs)
+      });
+    }
+    function getSlowQueryThresholdMs() {
+      const raw = readEnvValue("VIBEUSAGE_SLOW_QUERY_MS") ?? readEnvValue("VIBESCORE_SLOW_QUERY_MS");
+      if (raw == null || raw === "") return 2e3;
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return 2e3;
+      if (n <= 0) return 0;
+      return clampInt(n, 1, 6e4);
+    }
+    function readEnvValue(key) {
+      try {
+        if (typeof Deno !== "undefined" && Deno?.env?.get) {
+          const value = Deno.env.get(key);
+          if (value !== void 0) return value;
+        }
+      } catch (_e) {
+      }
+      try {
+        if (typeof process !== "undefined" && process?.env) {
+          return process.env[key];
+        }
+      } catch (_e) {
+      }
+      return null;
+    }
+    function clampInt(value, min, max) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return min;
+      return Math.min(max, Math.max(min, Math.floor(n)));
+    }
+  }
+});
+
+// insforge-src/functions/vibescore-public-view-status.js
+var { handleOptions, json } = require_http();
+var { getBearerToken, getEdgeClientAndUserId } = require_auth();
+var { getBaseUrl } = require_env();
+var { withRequestLogging } = require_logging();
+module.exports = withRequestLogging("vibescore-public-view-status", async function(request) {
   const opt = handleOptions(request);
   if (opt) return opt;
-  const methodErr = requireMethod(request, "GET");
-  if (methodErr) return methodErr;
-  const anonKey = getAnonKey();
+  if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
   const bearer = getBearerToken(request.headers.get("Authorization"));
-  if (!anonKey) {
-    return json(
-      {
-        hasAnonKey: false,
-        hasBearer: Boolean(bearer),
-        authOk: false,
-        userId: null,
-        error: "Missing anon key"
-      },
-      200
-    );
-  }
-  if (!bearer) {
-    return json(
-      {
-        hasAnonKey: true,
-        hasBearer: false,
-        authOk: false,
-        userId: null,
-        error: "Missing bearer token"
-      },
-      200
-    );
-  }
+  if (!bearer) return json({ error: "Missing bearer token" }, 401);
   const baseUrl = getBaseUrl();
-  let authOk = false;
-  let userId = null;
-  let error = null;
-  try {
-    const edgeClient = createClient({
-      baseUrl,
-      anonKey,
-      edgeFunctionToken: bearer
-    });
-    const { data, error: authError } = await edgeClient.auth.getCurrentUser();
-    userId = data?.user?.id || null;
-    authOk = Boolean(userId) && !authError;
-    if (!authOk) {
-      error = authError?.message || "Unauthorized";
-    }
-  } catch (e) {
-    error = e?.message || String(e);
-  }
-  return json(
-    {
-      hasAnonKey: true,
-      hasBearer: true,
-      authOk,
-      userId,
-      error
-    },
-    200
-  );
-};
+  const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
+  if (!auth.ok) return json({ error: "Unauthorized" }, 401);
+  const { data, error } = await auth.edgeClient.database.from("vibescore_public_views").select("revoked_at").eq("user_id", auth.userId).maybeSingle();
+  if (error) return json({ error: "Failed to fetch public view status" }, 500);
+  const enabled = Boolean(data && !data.revoked_at);
+  return json({ enabled }, 200);
+});
