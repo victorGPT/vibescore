@@ -2,7 +2,7 @@
 -- Change: 2026-01-12-add-public-dashboard-view
 
 create table if not exists public.vibescore_public_views (
-  user_id uuid primary key references public.users (id) on delete cascade,
+  user_id uuid primary key references auth.users (id) on delete cascade,
   token_hash text not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),

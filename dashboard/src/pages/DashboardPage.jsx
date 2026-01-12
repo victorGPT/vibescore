@@ -132,19 +132,6 @@ export function DashboardPage({
   const screenshotMode = useMemo(() => isScreenshotModeEnabled(), []);
   const forceInstall = useMemo(() => isForceInstallEnabled(), []);
   const [isCapturing, setIsCapturing] = useState(false);
-  const wrappedEntryLabel = copy("dashboard.wrapped.entry");
-  const wrappedEntryEnabled = useMemo(() => {
-    if (typeof window === "undefined") return false;
-    return true;
-  }, []);
-  const wrappedEntryUrl = useMemo(() => {
-    if (!wrappedEntryEnabled || typeof window === "undefined") return "";
-    const url = new URL("/", window.location.origin);
-    url.searchParams.set("screenshot", "1");
-    return url.toString();
-  }, [wrappedEntryEnabled]);
-  const showWrappedEntry =
-    wrappedEntryEnabled && !screenshotMode && Boolean(wrappedEntryUrl);
   const identityScrambleDurationMs = 2200;
   const [coreIndexCollapsed, setCoreIndexCollapsed] = useState(true);
   const [installCopied, setInstallCopied] = useState(false);
@@ -927,13 +914,12 @@ export function DashboardPage({
     (forceInstall || (accessEnabled && !heatmapLoading && activeDays === 0));
   const installPrompt = copy("dashboard.install.prompt");
   const publicViewTitle = copy("dashboard.public_view.title");
-  const publicViewSubtitle = copy("dashboard.public_view.subtitle");
   const publicViewStatusEnabledLabel = copy("dashboard.public_view.status.enabled");
   const publicViewStatusDisabledLabel = copy("dashboard.public_view.status.disabled");
   const publicViewCopyLabel = copy("dashboard.public_view.action.copy");
   const publicViewCopiedLabel = copy("dashboard.public_view.action.copied");
-  const publicViewRotateLabel = copy("dashboard.public_view.action.rotate");
-  const publicViewRevokeLabel = copy("dashboard.public_view.action.revoke");
+  const publicViewEnableLabel = copy("dashboard.public_view.action.enable");
+  const publicViewDisableLabel = copy("dashboard.public_view.action.disable");
   const publicViewInvalidTitle = copy("dashboard.public_view.invalid.title");
   const publicViewInvalidBody = copy("dashboard.public_view.invalid.body");
   const publicViewBusy = publicViewLoading || publicViewActionLoading;
@@ -948,6 +934,9 @@ export function DashboardPage({
   const publicViewCopyButtonLabel = publicViewCopied
     ? publicViewCopiedLabel
     : publicViewCopyLabel;
+  const publicViewToggleLabel = publicViewEnabled
+    ? publicViewDisableLabel
+    : publicViewEnableLabel;
 
   const handleCopyInstall = useCallback(async () => {
     if (!installInitCmdCopy) return;
@@ -965,50 +954,69 @@ export function DashboardPage({
     window.setTimeout(() => setSessionExpiredCopied(false), 2000);
   }, [installInitCmdBase]);
 
-  useEffect(() => {
-    setPublicViewCopied(false);
-  }, [publicViewToken]);
-
   const handleCopyPublicView = useCallback(async () => {
-    if (!publicViewUrl) return;
-    const didCopy = await safeWriteClipboard(publicViewUrl);
+    if (publicViewActionLoading || !publicViewEnabled) return;
+    let nextUrl = publicViewUrl;
+    if (!nextUrl) {
+      setPublicViewActionLoading(true);
+      try {
+        const data = await issuePublicViewToken({
+          baseUrl,
+          accessToken: auth?.accessToken || null,
+        });
+        const token =
+          typeof data?.share_token === "string" ? data.share_token : null;
+        const enabled = Boolean(data?.enabled ?? token);
+        setPublicViewEnabled(enabled);
+        setPublicViewToken(token);
+        if (token && typeof window !== "undefined") {
+          const url = new URL(`/share/${token}`, window.location.origin);
+          nextUrl = url.toString();
+        }
+      } catch (_err) {
+        // ignore issue errors
+      } finally {
+        setPublicViewActionLoading(false);
+      }
+    }
+    if (!nextUrl) return;
+    const didCopy = await safeWriteClipboard(nextUrl);
     if (!didCopy) return;
     setPublicViewCopied(true);
     window.setTimeout(() => setPublicViewCopied(false), 2000);
-  }, [publicViewUrl]);
+  }, [
+    auth?.accessToken,
+    baseUrl,
+    publicViewActionLoading,
+    publicViewEnabled,
+    publicViewUrl,
+  ]);
 
-  const handleRotatePublicView = useCallback(async () => {
+  const handleTogglePublicView = useCallback(async () => {
     if (publicViewActionLoading) return;
+    setPublicViewCopied(false);
     setPublicViewActionLoading(true);
     try {
-      const data = await issuePublicViewToken({
-        baseUrl,
-        accessToken: auth?.accessToken || null,
-      });
-      const token =
-        typeof data?.share_token === "string" ? data.share_token : null;
-      const enabled = Boolean(data?.enabled ?? token);
-      setPublicViewEnabled(enabled);
-      setPublicViewToken(token);
+      if (publicViewEnabled) {
+        await revokePublicViewToken({
+          baseUrl,
+          accessToken: auth?.accessToken || null,
+        });
+        setPublicViewEnabled(false);
+        setPublicViewToken(null);
+      } else {
+        const data = await issuePublicViewToken({
+          baseUrl,
+          accessToken: auth?.accessToken || null,
+        });
+        const token =
+          typeof data?.share_token === "string" ? data.share_token : null;
+        const enabled = Boolean(data?.enabled ?? token);
+        setPublicViewEnabled(enabled);
+        setPublicViewToken(token);
+      }
     } catch (_err) {
-      // ignore issue errors
-    } finally {
-      setPublicViewActionLoading(false);
-    }
-  }, [auth?.accessToken, baseUrl, publicViewActionLoading]);
-
-  const handleRevokePublicView = useCallback(async () => {
-    if (!publicViewEnabled || publicViewActionLoading) return;
-    setPublicViewActionLoading(true);
-    try {
-      await revokePublicViewToken({
-        baseUrl,
-        accessToken: auth?.accessToken || null,
-      });
-      setPublicViewEnabled(false);
-      setPublicViewToken(null);
-    } catch (_err) {
-      // ignore revoke errors
+      // ignore toggle errors
     } finally {
       setPublicViewActionLoading(false);
     }
@@ -1039,23 +1047,6 @@ export function DashboardPage({
 
   const headerRight = (
     <div className="flex items-center gap-4">
-      {showWrappedEntry ? (
-        <MatrixButton
-          as="a"
-          href={wrappedEntryUrl}
-          size="header"
-          aria-label={wrappedEntryLabel}
-          title={wrappedEntryLabel}
-          className="matrix-header-action--ghost bg-transparent text-gold border-gold hover:border-gold hover:text-gold"
-          style={{
-            "--matrix-header-corner": "#FFD700",
-            borderColor: "#FFD700",
-            color: "#FFD700",
-          }}
-        >
-          {wrappedEntryLabel}
-        </MatrixButton>
-      ) : null}
       <GithubStar isFixed={false} size="header" />
 
       {publicMode ? (
@@ -1105,7 +1096,6 @@ export function DashboardPage({
           <div className="mb-6">
             <AsciiBox
               title={publicViewInvalidTitle}
-              subtitle={publicViewSubtitle}
               className="border-[#00FF41]/40"
             >
               <p className="text-[10px] opacity-50 mt-0">
@@ -1275,37 +1265,43 @@ export function DashboardPage({
               {!screenshotMode && signedIn && !publicMode ? (
                 <AsciiBox
                   title={publicViewTitle}
-                  subtitle={publicViewSubtitle}
                   className="relative"
                 >
                   <div className="flex flex-col gap-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] uppercase tracking-[0.2em] text-[#00FF41]/80">
-                      <span>{publicViewStatusLabel}</span>
-                      <span className="font-mono normal-case tracking-[0.02em] text-[10px] text-white/80 break-all">
-                        {publicViewUrl || copy("shared.placeholder.short")}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={handleTogglePublicView}
+                          disabled={publicViewBusy}
+                          aria-pressed={publicViewEnabled}
+                          aria-label={publicViewToggleLabel}
+                          title={publicViewToggleLabel}
+                          className={`relative inline-flex h-6 w-11 items-center border px-[3px] transition-colors ${
+                            publicViewEnabled
+                              ? "border-[#00FF41] bg-[#00FF41]/10"
+                              : "border-[#00FF41]/40 bg-black/40"
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`inline-block h-3.5 w-3.5 bg-[#00FF41] transition-transform ${
+                              publicViewEnabled
+                                ? "translate-x-[18px]"
+                                : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                        <span className="text-[10px] uppercase tracking-[0.2em] text-[#00FF41]/80">
+                          {publicViewStatusLabel}
+                        </span>
+                      </div>
                       <MatrixButton
                         onClick={handleCopyPublicView}
-                        disabled={!publicViewUrl || publicViewBusy}
-                        className="px-3 py-2 text-[9px] normal-case"
-                      >
-                        {publicViewCopyButtonLabel}
-                      </MatrixButton>
-                      <MatrixButton
-                        onClick={handleRotatePublicView}
-                        disabled={publicViewBusy}
-                        className="px-3 py-2 text-[9px] normal-case"
-                      >
-                        {publicViewRotateLabel}
-                      </MatrixButton>
-                      <MatrixButton
-                        onClick={handleRevokePublicView}
                         disabled={!publicViewEnabled || publicViewBusy}
                         className="px-3 py-2 text-[9px] normal-case"
                       >
-                        {publicViewRevokeLabel}
+                        {publicViewCopyButtonLabel}
                       </MatrixButton>
                     </div>
                   </div>

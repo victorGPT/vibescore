@@ -7,6 +7,14 @@ function read(rel) {
   return fs.readFileSync(path.join(__dirname, "..", rel), "utf8");
 }
 
+function sliceBetween(source, startToken, endToken) {
+  const start = source.indexOf(startToken);
+  if (start === -1) return "";
+  const end = source.indexOf(endToken, start + startToken.length);
+  if (end === -1) return source.slice(start);
+  return source.slice(start, end);
+}
+
 test("App routes /share/:token to DashboardPage public mode", () => {
   const src = read("dashboard/src/App.jsx");
   assert.match(src, /share/i);
@@ -23,14 +31,15 @@ test("DashboardPage disables auth gate in public mode", () => {
 test("copy registry includes public view copy keys", () => {
   const src = read("dashboard/src/content/copy.csv");
   assert.ok(src.includes("dashboard.public_view.title"));
-  assert.ok(src.includes("dashboard.public_view.subtitle"));
   assert.ok(src.includes("dashboard.public_view.status.enabled"));
   assert.ok(src.includes("dashboard.public_view.status.disabled"));
   assert.ok(src.includes("dashboard.public_view.action.copy"));
-  assert.ok(src.includes("dashboard.public_view.action.rotate"));
-  assert.ok(src.includes("dashboard.public_view.action.revoke"));
+  assert.ok(src.includes("dashboard.public_view.action.enable"));
+  assert.ok(src.includes("dashboard.public_view.action.disable"));
   assert.ok(src.includes("dashboard.public_view.invalid.title"));
   assert.ok(src.includes("dashboard.public_view.invalid.body"));
+  assert.doesNotMatch(src, /Shareable dashboard link/);
+  assert.ok(!src.includes("dashboard.public_view.subtitle"));
 });
 
 test("share routes rewrite to share.html", () => {
@@ -48,4 +57,32 @@ test("public view edge functions are defined", () => {
   const revokeSrc = read("insforge-src/functions/vibescore-public-view-revoke.js");
   assert.match(issueSrc, /public view/i);
   assert.match(revokeSrc, /public view/i);
+});
+
+test("public view panel does not render share link text", () => {
+  const src = read("dashboard/src/pages/DashboardPage.jsx");
+  assert.doesNotMatch(
+    src,
+    /publicViewUrl\s*\|\|\s*copy\("shared\.placeholder\.short"\)/
+  );
+  assert.doesNotMatch(src, /publicViewSubtitle/);
+});
+
+test("public view copy issues a token when missing", () => {
+  const src = read("dashboard/src/pages/DashboardPage.jsx");
+  const block = sliceBetween(
+    src,
+    "const handleCopyPublicView",
+    "const handleTogglePublicView"
+  );
+  assert.ok(block, "handleCopyPublicView block not found");
+  assert.match(block, /issuePublicViewToken/);
+});
+
+test("public view copy is not gated on existing url", () => {
+  const src = read("dashboard/src/pages/DashboardPage.jsx");
+  assert.doesNotMatch(
+    src,
+    /onClick=\{handleCopyPublicView\}[\s\S]*disabled=\{[^}]*publicViewUrl/
+  );
 });
