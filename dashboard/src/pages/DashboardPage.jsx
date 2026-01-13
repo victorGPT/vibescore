@@ -15,7 +15,12 @@ import {
   toDisplayNumber,
   toFiniteNumber,
 } from "../lib/format.js";
-import { requestInstallLinkCode } from "../lib/vibescore-api.js";
+import {
+  getPublicViewStatus,
+  issuePublicViewToken,
+  requestInstallLinkCode,
+  revokePublicViewToken,
+} from "../lib/vibescore-api.js";
 import { buildFleetData, buildTopModels } from "../lib/model-breakdown.js";
 import { safeWriteClipboard, safeWriteClipboardImage } from "../lib/safe-browser.js";
 import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
@@ -104,6 +109,8 @@ export function DashboardPage({
   signedIn,
   sessionExpired,
   signOut,
+  publicMode = false,
+  publicToken = null,
 }) {
   const [booted, setBooted] = useState(false);
   const [costModalOpen, setCostModalOpen] = useState(false);
@@ -113,6 +120,11 @@ export function DashboardPage({
   const [linkCodeError, setLinkCodeError] = useState(null);
   const [linkCodeExpiryTick, setLinkCodeExpiryTick] = useState(0);
   const [linkCodeRefreshToken, setLinkCodeRefreshToken] = useState(0);
+  const [publicViewEnabled, setPublicViewEnabled] = useState(false);
+  const [publicViewToken, setPublicViewToken] = useState(null);
+  const [publicViewLoading, setPublicViewLoading] = useState(false);
+  const [publicViewActionLoading, setPublicViewActionLoading] = useState(false);
+  const [publicViewCopied, setPublicViewCopied] = useState(false);
   const [compactSummary, setCompactSummary] = useState(() => {
     if (typeof window === "undefined" || !window.matchMedia) return false;
     return window.matchMedia("(max-width: 640px)").matches;
@@ -120,25 +132,13 @@ export function DashboardPage({
   const screenshotMode = useMemo(() => isScreenshotModeEnabled(), []);
   const forceInstall = useMemo(() => isForceInstallEnabled(), []);
   const [isCapturing, setIsCapturing] = useState(false);
-  const wrappedEntryLabel = copy("dashboard.wrapped.entry");
-  const wrappedEntryEnabled = useMemo(() => {
-    if (typeof window === "undefined") return false;
-    return true;
-  }, []);
-  const wrappedEntryUrl = useMemo(() => {
-    if (!wrappedEntryEnabled || typeof window === "undefined") return "";
-    const url = new URL("/", window.location.origin);
-    url.searchParams.set("screenshot", "1");
-    return url.toString();
-  }, [wrappedEntryEnabled]);
-  const showWrappedEntry =
-    wrappedEntryEnabled && !screenshotMode && Boolean(wrappedEntryUrl);
   const identityScrambleDurationMs = 2200;
   const [coreIndexCollapsed, setCoreIndexCollapsed] = useState(true);
   const [installCopied, setInstallCopied] = useState(false);
   const [sessionExpiredCopied, setSessionExpiredCopied] = useState(false);
   const mockEnabled = isMockEnabled();
-  const accessEnabled = signedIn || mockEnabled;
+  const accessToken = publicMode ? publicToken : auth?.accessToken || null;
+  const accessEnabled = signedIn || mockEnabled || publicMode;
   useEffect(() => {
     const t = window.setTimeout(() => setBooted(true), 900);
     return () => window.clearTimeout(t);
@@ -152,6 +152,7 @@ export function DashboardPage({
       setLinkCodeError(null);
       return;
     }
+    if (publicMode) return;
     let active = true;
     setLinkCodeLoading(true);
     setLinkCodeError(null);
@@ -176,7 +177,48 @@ export function DashboardPage({
     return () => {
       active = false;
     };
-  }, [baseUrl, mockEnabled, signedIn, auth?.accessToken, linkCodeRefreshToken]);
+  }, [
+    baseUrl,
+    mockEnabled,
+    signedIn,
+    publicMode,
+    auth?.accessToken,
+    linkCodeRefreshToken,
+  ]);
+
+  useEffect(() => {
+    if (!signedIn || mockEnabled || publicMode) {
+      setPublicViewEnabled(false);
+      setPublicViewToken(null);
+      setPublicViewLoading(false);
+      setPublicViewActionLoading(false);
+      setPublicViewCopied(false);
+      return;
+    }
+    let active = true;
+    setPublicViewLoading(true);
+    getPublicViewStatus({ baseUrl, accessToken: auth?.accessToken || null })
+      .then((data) => {
+        if (!active) return;
+        const enabled = Boolean(data?.enabled);
+        const token =
+          typeof data?.share_token === "string" ? data.share_token : null;
+        setPublicViewEnabled(enabled);
+        setPublicViewToken(token);
+      })
+      .catch(() => {
+        if (!active) return;
+        setPublicViewEnabled(false);
+        setPublicViewToken(null);
+      })
+      .finally(() => {
+        if (!active) return;
+        setPublicViewLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [baseUrl, mockEnabled, signedIn, publicMode, auth?.accessToken]);
 
   const linkCodeExpired = useMemo(() => {
     if (!linkCodeExpiresAt) return false;
@@ -187,7 +229,7 @@ export function DashboardPage({
   }, [linkCodeExpiresAt, linkCodeExpiryTick]);
 
   useEffect(() => {
-    if (!signedIn || mockEnabled) return;
+    if (!signedIn || mockEnabled || publicMode) return;
     if (!linkCodeExpiresAt || !linkCodeExpired) return;
     if (linkCodeLoading) return;
     setLinkCode(null);
@@ -203,7 +245,7 @@ export function DashboardPage({
   ]);
 
   useEffect(() => {
-    if (!linkCodeExpiresAt) return;
+    if (!linkCodeExpiresAt || publicMode) return;
     const ts = Date.parse(linkCodeExpiresAt);
     if (!Number.isFinite(ts)) return;
     const now = Date.now();
@@ -247,6 +289,9 @@ export function DashboardPage({
   const timeZone = useMemo(() => getBrowserTimeZone(), []);
   const tzOffsetMinutes = useMemo(() => getBrowserTimeZoneOffsetMinutes(), []);
   const mockNow = useMemo(() => getMockNow(), []);
+  const cacheKey = publicMode
+    ? null
+    : auth?.userId || auth?.email || "default";
   const [selectedPeriod, setSelectedPeriod] = useState("week");
   const period = screenshotMode ? "total" : selectedPeriod;
   const range = useMemo(
@@ -295,11 +340,11 @@ export function DashboardPage({
     refresh: refreshUsage,
   } = useUsageData({
     baseUrl,
-    accessToken: auth?.accessToken || null,
+    accessToken,
     from,
     to,
     includeDaily: period !== "total",
-    cacheKey: auth?.userId || auth?.email || "default",
+    cacheKey,
     timeZone,
     tzOffsetMinutes,
     now: mockNow,
@@ -311,10 +356,10 @@ export function DashboardPage({
     refresh: refreshModelBreakdown,
   } = useUsageModelBreakdown({
     baseUrl,
-    accessToken: auth?.accessToken || null,
+    accessToken,
     from,
     to,
-    cacheKey: auth?.userId || auth?.email || "default",
+    cacheKey,
     timeZone,
     tzOffsetMinutes,
   });
@@ -336,12 +381,12 @@ export function DashboardPage({
     refresh: refreshTrend,
   } = useTrendData({
     baseUrl,
-    accessToken: auth?.accessToken || null,
+    accessToken,
     period,
     from,
     to,
     months: 24,
-    cacheKey: auth?.userId || auth?.email || "default",
+    cacheKey,
     timeZone: trendTimeZone,
     tzOffsetMinutes: trendTzOffsetMinutes,
     now: mockNow,
@@ -356,9 +401,9 @@ export function DashboardPage({
     refresh: refreshHeatmap,
   } = useActivityHeatmap({
     baseUrl,
-    accessToken: auth?.accessToken || null,
+    accessToken,
     weeks: 52,
-    cacheKey: auth?.userId || auth?.email || "default",
+    cacheKey,
     timeZone,
     tzOffsetMinutes,
     now: mockNow,
@@ -483,7 +528,7 @@ export function DashboardPage({
   }
 
   const activeDays = useMemo(() => {
-    if (!signedIn && !mockEnabled) return 0;
+    if (!signedIn && !mockEnabled && !publicMode) return 0;
     const serverActive = Number(heatmap?.active_days);
     if (Number.isFinite(serverActive)) return serverActive;
 
@@ -530,6 +575,19 @@ export function DashboardPage({
       }),
     [usageSource]
   );
+  const publicViewInvalid = useMemo(() => {
+    if (!publicMode || !usageError) return false;
+    const status =
+      typeof usageError === "object" && usageError
+        ? usageError?.status ?? usageError?.statusCode
+        : null;
+    if (status === 401) return true;
+    const message =
+      typeof usageError === "string"
+        ? usageError
+        : String(usageError?.message || usageError || "");
+    return /unauthorized|invalid|token|revoked|401/i.test(message);
+  }, [publicMode, usageError]);
   const identityLabel = useMemo(() => {
     const raw = auth?.name?.trim();
     if (!raw || raw.includes("@")) return copy("dashboard.identity.fallback");
@@ -858,9 +916,34 @@ export function DashboardPage({
   const sessionExpiredCopyLabel = copy("dashboard.session_expired.copy_label");
   const sessionExpiredCopiedLabel = copy("dashboard.session_expired.copied");
   const shouldShowInstall =
+    !publicMode &&
     !screenshotMode &&
     (forceInstall || (accessEnabled && !heatmapLoading && activeDays === 0));
   const installPrompt = copy("dashboard.install.prompt");
+  const publicViewTitle = copy("dashboard.public_view.title");
+  const publicViewStatusEnabledLabel = copy("dashboard.public_view.status.enabled");
+  const publicViewStatusDisabledLabel = copy("dashboard.public_view.status.disabled");
+  const publicViewCopyLabel = copy("dashboard.public_view.action.copy");
+  const publicViewCopiedLabel = copy("dashboard.public_view.action.copied");
+  const publicViewEnableLabel = copy("dashboard.public_view.action.enable");
+  const publicViewDisableLabel = copy("dashboard.public_view.action.disable");
+  const publicViewInvalidTitle = copy("dashboard.public_view.invalid.title");
+  const publicViewInvalidBody = copy("dashboard.public_view.invalid.body");
+  const publicViewBusy = publicViewLoading || publicViewActionLoading;
+  const publicViewStatusLabel = publicViewEnabled
+    ? publicViewStatusEnabledLabel
+    : publicViewStatusDisabledLabel;
+  const publicViewUrl = useMemo(() => {
+    if (!publicViewToken || typeof window === "undefined") return "";
+    const url = new URL(`/share/${publicViewToken}`, window.location.origin);
+    return url.toString();
+  }, [publicViewToken]);
+  const publicViewCopyButtonLabel = publicViewCopied
+    ? publicViewCopiedLabel
+    : publicViewCopyLabel;
+  const publicViewToggleLabel = publicViewEnabled
+    ? publicViewDisableLabel
+    : publicViewEnableLabel;
 
   const handleCopyInstall = useCallback(async () => {
     if (!installInitCmdCopy) return;
@@ -877,6 +960,74 @@ export function DashboardPage({
     setSessionExpiredCopied(true);
     window.setTimeout(() => setSessionExpiredCopied(false), 2000);
   }, [installInitCmdBase]);
+
+  const handleCopyPublicView = useCallback(async () => {
+    if (publicViewActionLoading || !publicViewEnabled) return;
+    let nextUrl = publicViewUrl;
+    if (!nextUrl) {
+      setPublicViewActionLoading(true);
+      try {
+        const data = await issuePublicViewToken({
+          baseUrl,
+          accessToken: auth?.accessToken || null,
+        });
+        const token =
+          typeof data?.share_token === "string" ? data.share_token : null;
+        const enabled = Boolean(data?.enabled ?? token);
+        setPublicViewEnabled(enabled);
+        setPublicViewToken(token);
+        if (token && typeof window !== "undefined") {
+          const url = new URL(`/share/${token}`, window.location.origin);
+          nextUrl = url.toString();
+        }
+      } catch (_err) {
+        // ignore issue errors
+      } finally {
+        setPublicViewActionLoading(false);
+      }
+    }
+    if (!nextUrl) return;
+    const didCopy = await safeWriteClipboard(nextUrl);
+    if (!didCopy) return;
+    setPublicViewCopied(true);
+    window.setTimeout(() => setPublicViewCopied(false), 2000);
+  }, [
+    auth?.accessToken,
+    baseUrl,
+    publicViewActionLoading,
+    publicViewEnabled,
+    publicViewUrl,
+  ]);
+
+  const handleTogglePublicView = useCallback(async () => {
+    if (publicViewActionLoading) return;
+    setPublicViewCopied(false);
+    setPublicViewActionLoading(true);
+    try {
+      if (publicViewEnabled) {
+        await revokePublicViewToken({
+          baseUrl,
+          accessToken: auth?.accessToken || null,
+        });
+        setPublicViewEnabled(false);
+        setPublicViewToken(null);
+      } else {
+        const data = await issuePublicViewToken({
+          baseUrl,
+          accessToken: auth?.accessToken || null,
+        });
+        const token =
+          typeof data?.share_token === "string" ? data.share_token : null;
+        const enabled = Boolean(data?.enabled ?? token);
+        setPublicViewEnabled(enabled);
+        setPublicViewToken(token);
+      }
+    } catch (_err) {
+      // ignore toggle errors
+    } finally {
+      setPublicViewActionLoading(false);
+    }
+  }, [auth?.accessToken, baseUrl, publicViewActionLoading, publicViewEnabled]);
 
   const redirectUrl = useMemo(
     () => `${window.location.origin}/auth/callback`,
@@ -903,26 +1054,11 @@ export function DashboardPage({
 
   const headerRight = (
     <div className="flex items-center gap-4">
-      {showWrappedEntry ? (
-        <MatrixButton
-          as="a"
-          href={wrappedEntryUrl}
-          size="header"
-          aria-label={wrappedEntryLabel}
-          title={wrappedEntryLabel}
-          className="matrix-header-action--ghost bg-transparent text-gold border-gold hover:border-gold hover:text-gold"
-          style={{
-            "--matrix-header-corner": "#FFD700",
-            borderColor: "#FFD700",
-            color: "#FFD700",
-          }}
-        >
-          {wrappedEntryLabel}
-        </MatrixButton>
-      ) : null}
       <GithubStar isFixed={false} size="header" />
 
-      {signedIn ? (
+      {publicMode ? (
+        <span className="text-[10px] opacity-60">{publicViewTitle}</span>
+      ) : signedIn ? (
         <>
           <MatrixButton onClick={signOut} size="header">
             {copy("dashboard.sign_out")}
@@ -941,6 +1077,7 @@ export function DashboardPage({
   }
 
   const requireAuthGate = !signedIn && !mockEnabled && !sessionExpired;
+  const showAuthGate = requireAuthGate && !publicMode;
 
   return (
     <>
@@ -949,7 +1086,7 @@ export function DashboardPage({
         headerStatus={
           <BackendStatus
             baseUrl={baseUrl}
-            accessToken={auth?.accessToken || null}
+            accessToken={accessToken}
           />
         }
         headerRight={headerRight}
@@ -962,7 +1099,19 @@ export function DashboardPage({
         contentClassName=""
         rootClassName={screenshotMode ? "screenshot-mode" : ""}
       >
-        {sessionExpired ? (
+        {publicViewInvalid ? (
+          <div className="mb-6">
+            <AsciiBox
+              title={publicViewInvalidTitle}
+              className="border-[#00FF41]/40"
+            >
+              <p className="text-[10px] opacity-50 mt-0">
+                {publicViewInvalidBody}
+              </p>
+            </AsciiBox>
+          </div>
+        ) : null}
+        {sessionExpired && !publicMode ? (
           <div className="mb-6">
             <AsciiBox
               title={copy("dashboard.session_expired.title")}
@@ -996,7 +1145,7 @@ export function DashboardPage({
             </AsciiBox>
           </div>
         ) : null}
-        {requireAuthGate ? (
+        {showAuthGate ? (
           <div className="flex items-center justify-center">
             <AsciiBox
               title={copy("dashboard.auth_required.title")}
@@ -1046,7 +1195,7 @@ export function DashboardPage({
 
               <TopModelsPanel rows={topModels} />
 
-              {!screenshotMode && !signedIn ? (
+              {!screenshotMode && !signedIn && !publicMode ? (
                 <AsciiBox
                   title={copy("dashboard.auth_optional.title")}
                   subtitle={copy("dashboard.auth_optional.subtitle")}
@@ -1116,6 +1265,52 @@ export function DashboardPage({
                         {copy("dashboard.install.link_code.failed")}
                       </span>
                     ) : null}
+                  </div>
+                </AsciiBox>
+              ) : null}
+
+              {!screenshotMode && signedIn && !publicMode ? (
+                <AsciiBox
+                  title={publicViewTitle}
+                  className="relative"
+                >
+                  <div className="flex flex-col gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={handleTogglePublicView}
+                          disabled={publicViewBusy}
+                          aria-pressed={publicViewEnabled}
+                          aria-label={publicViewToggleLabel}
+                          title={publicViewToggleLabel}
+                          className={`relative inline-flex h-6 w-11 items-center border px-[3px] transition-colors ${
+                            publicViewEnabled
+                              ? "border-[#00FF41] bg-[#00FF41]/10"
+                              : "border-[#00FF41]/40 bg-black/40"
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`inline-block h-3.5 w-3.5 bg-[#00FF41] transition-transform ${
+                              publicViewEnabled
+                                ? "translate-x-[18px]"
+                                : "translate-x-0"
+                            }`}
+                          />
+                        </button>
+                        <span className="text-[10px] uppercase tracking-[0.2em] text-[#00FF41]/80">
+                          {publicViewStatusLabel}
+                        </span>
+                      </div>
+                      <MatrixButton
+                        onClick={handleCopyPublicView}
+                        disabled={!publicViewEnabled || publicViewBusy}
+                        className="px-3 py-2 text-[9px] normal-case"
+                      >
+                        {publicViewCopyButtonLabel}
+                      </MatrixButton>
+                    </div>
                   </div>
                 </AsciiBox>
               ) : null}

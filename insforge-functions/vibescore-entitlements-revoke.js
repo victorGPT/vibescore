@@ -77,11 +77,64 @@ var require_env = __commonJS({
   }
 });
 
+// insforge-src/shared/crypto.js
+var require_crypto = __commonJS({
+  "insforge-src/shared/crypto.js"(exports2, module2) {
+    "use strict";
+    async function sha256Hex(input) {
+      const data = new TextEncoder().encode(input);
+      const hash = await crypto.subtle.digest("SHA-256", data);
+      return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    }
+    module2.exports = {
+      sha256Hex
+    };
+  }
+});
+
+// insforge-src/shared/public-view.js
+var require_public_view = __commonJS({
+  "insforge-src/shared/public-view.js"(exports2, module2) {
+    "use strict";
+    var { getAnonKey: getAnonKey2, getServiceRoleKey: getServiceRoleKey2 } = require_env();
+    var { sha256Hex } = require_crypto();
+    async function resolvePublicView({ baseUrl, shareToken }) {
+      const token = normalizeToken(shareToken);
+      if (!token) return { ok: false, edgeClient: null, userId: null };
+      const serviceRoleKey = getServiceRoleKey2();
+      if (!serviceRoleKey) return { ok: false, edgeClient: null, userId: null };
+      const anonKey = getAnonKey2();
+      const dbClient = createClient({
+        baseUrl,
+        anonKey: anonKey || serviceRoleKey,
+        edgeFunctionToken: serviceRoleKey
+      });
+      const tokenHash = await sha256Hex(token);
+      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      if (error || !data?.user_id) {
+        return { ok: false, edgeClient: null, userId: null };
+      }
+      return { ok: true, edgeClient: dbClient, userId: data.user_id };
+    }
+    function normalizeToken(value) {
+      if (typeof value !== "string") return null;
+      const token = value.trim();
+      if (!token) return null;
+      if (token.length > 256) return null;
+      return token;
+    }
+    module2.exports = {
+      resolvePublicView
+    };
+  }
+});
+
 // insforge-src/shared/auth.js
 var require_auth = __commonJS({
   "insforge-src/shared/auth.js"(exports2, module2) {
     "use strict";
     var { getAnonKey: getAnonKey2 } = require_env();
+    var { resolvePublicView } = require_public_view();
     function getBearerToken2(headerValue) {
       if (!headerValue) return null;
       const prefix = "Bearer ";
@@ -161,8 +214,29 @@ var require_auth = __commonJS({
       if (userErr || !resolvedUserId) return { ok: false, edgeClient: null, userId: null };
       return { ok: true, edgeClient, userId: resolvedUserId };
     }
+    async function getAccessContext({ baseUrl, bearer, allowPublic = false }) {
+      if (!bearer) return { ok: false, edgeClient: null, userId: null, accessType: null };
+      const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
+      if (auth.ok) {
+        return { ok: true, edgeClient: auth.edgeClient, userId: auth.userId, accessType: "user" };
+      }
+      if (!allowPublic) {
+        return { ok: false, edgeClient: null, userId: null, accessType: null };
+      }
+      const publicView = await resolvePublicView({ baseUrl, shareToken: bearer });
+      if (!publicView.ok) {
+        return { ok: false, edgeClient: null, userId: null, accessType: null };
+      }
+      return {
+        ok: true,
+        edgeClient: publicView.edgeClient,
+        userId: publicView.userId,
+        accessType: "public"
+      };
+    }
     module2.exports = {
       getBearerToken: getBearerToken2,
+      getAccessContext,
       getEdgeClientAndUserId,
       getEdgeClientAndUserIdFast,
       isProjectAdminBearer: isProjectAdminBearer2

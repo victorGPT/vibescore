@@ -4,7 +4,7 @@
 'use strict';
 
 const { handleOptions, json } = require('../shared/http');
-const { getBearerToken, getEdgeClientAndUserIdFast } = require('../shared/auth');
+const { getBearerToken, getAccessContext } = require('../shared/auth');
 const { getBaseUrl } = require('../shared/env');
 const { getSourceParam, normalizeSource } = require('../shared/source');
 const { getModelParam, normalizeUsageModel, applyUsageModelFilter } = require('../shared/model');
@@ -70,7 +70,7 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
   if (!bearer) return respond({ error: 'Missing bearer token' }, 401, 0);
 
   const baseUrl = getBaseUrl();
-  const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
+  const auth = await getAccessContext({ baseUrl, bearer, allowPublic: true });
   if (!auth.ok) return respond({ error: 'Unauthorized' }, 401, 0);
 
   const tzContext = getUsageTimeZoneContext(url);

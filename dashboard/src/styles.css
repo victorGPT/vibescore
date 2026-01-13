@@ -212,11 +212,6 @@ body {
     animation: matrix-sweep 4s ease-in-out infinite;
   }
 
-  .poster-mode,
-  .poster-mode * {
-    animation: none !important;
-    transition: none !important;
-  }
 }
 
 .screenshot-mode .matrix-rain {

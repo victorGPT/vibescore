@@ -1,6 +1,7 @@
 'use strict';
 
 const { getAnonKey } = require('./env');
+const { resolvePublicView } = require('./public-view');
 
 function getBearerToken(headerValue) {
   if (!headerValue) return null;
@@ -91,8 +92,32 @@ async function getEdgeClientAndUserIdFast({ baseUrl, bearer }) {
   return { ok: true, edgeClient, userId: resolvedUserId };
 }
 
+async function getAccessContext({ baseUrl, bearer, allowPublic = false }) {
+  if (!bearer) return { ok: false, edgeClient: null, userId: null, accessType: null };
+
+  const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
+  if (auth.ok) {
+    return { ok: true, edgeClient: auth.edgeClient, userId: auth.userId, accessType: 'user' };
+  }
+  if (!allowPublic) {
+    return { ok: false, edgeClient: null, userId: null, accessType: null };
+  }
+
+  const publicView = await resolvePublicView({ baseUrl, shareToken: bearer });
+  if (!publicView.ok) {
+    return { ok: false, edgeClient: null, userId: null, accessType: null };
+  }
+  return {
+    ok: true,
+    edgeClient: publicView.edgeClient,
+    userId: publicView.userId,
+    accessType: 'public'
+  };
+}
+
 module.exports = {
   getBearerToken,
+  getAccessContext,
   getEdgeClientAndUserId,
   getEdgeClientAndUserIdFast,
   isProjectAdminBearer

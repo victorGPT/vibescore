@@ -47,11 +47,15 @@ test("DashboardPage shows session expired banner and bypasses auth gate", () => 
   assert.match(src, /requireAuthGate\s*=\s*!signedIn\s*&&\s*!mockEnabled\s*&&\s*!sessionExpired/);
 });
 
-test("vibescore-api marks session expired on 401", () => {
+test("vibescore-api marks session expired only for jwt access tokens", () => {
   const src = read("dashboard/src/lib/vibescore-api.js");
   assert.match(src, /markSessionExpired/);
-  assert.match(src, /status\s*===\s*401\s*&&\s*hadAccessToken/);
-  assert.match(src, /hasAccessTokenValue/);
+  assert.match(src, /isJwtAccessToken/);
+  const match = src.match(/function shouldMarkSessionExpired[\s\S]*?\n}/);
+  assert.ok(match, "expected shouldMarkSessionExpired helper");
+  assert.match(match[0], /status\s*(?:===|!==)\s*401/);
+  assert.match(match[0], /hasAccessTokenValue/);
+  assert.match(match[0], /isJwtAccessToken\(/);
 });
 
 test("copy registry includes session expired strings", () => {
