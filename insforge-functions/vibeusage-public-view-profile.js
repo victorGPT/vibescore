@@ -397,7 +397,7 @@ var require_vibescore_public_view_profile = __commonJS({
       const baseUrl = getBaseUrl();
       const publicView = await resolvePublicView({ baseUrl, shareToken: bearer });
       if (!publicView.ok) return json({ error: "Unauthorized" }, 401);
-      const { data, error } = await publicView.edgeClient.database.from("users").select("raw_user_meta_data,user_metadata").eq("id", publicView.userId).maybeSingle();
+      const { data, error } = await publicView.edgeClient.database.from("users").select("raw_user_meta_data").eq("id", publicView.userId).maybeSingle();
       if (error) return json({ error: "Failed to fetch public profile" }, 500);
       const displayName = resolveDisplayName(data);
       const avatarUrl = resolveAvatarUrl(data);
@@ -405,13 +405,11 @@ var require_vibescore_public_view_profile = __commonJS({
     });
     function resolveDisplayName(row) {
       const rawMeta = isObject(row?.raw_user_meta_data) ? row.raw_user_meta_data : null;
-      const userMeta = isObject(row?.user_metadata) ? row.user_metadata : null;
-      return sanitizeName(rawMeta?.full_name) || sanitizeName(rawMeta?.name) || sanitizeName(userMeta?.full_name) || sanitizeName(userMeta?.name) || null;
+      return sanitizeName(rawMeta?.full_name) || sanitizeName(rawMeta?.name) || null;
     }
     function resolveAvatarUrl(row) {
       const rawMeta = isObject(row?.raw_user_meta_data) ? row.raw_user_meta_data : null;
-      const userMeta = isObject(row?.user_metadata) ? row.user_metadata : null;
-      return sanitizeAvatarUrl(rawMeta?.avatar_url) || sanitizeAvatarUrl(rawMeta?.picture) || sanitizeAvatarUrl(userMeta?.avatar_url) || sanitizeAvatarUrl(userMeta?.picture) || null;
+      return sanitizeAvatarUrl(rawMeta?.avatar_url) || sanitizeAvatarUrl(rawMeta?.picture) || null;
     }
     function sanitizeName(value) {
       if (typeof value !== "string") return null;

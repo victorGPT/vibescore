@@ -25,7 +25,7 @@ module.exports = withRequestLogging('vibescore-public-view-profile', async funct
 
   const { data, error } = await publicView.edgeClient.database
     .from('users')
-    .select('raw_user_meta_data,user_metadata')
+    .select('raw_user_meta_data')
     .eq('id', publicView.userId)
     .maybeSingle();
 
@@ -38,26 +38,20 @@ module.exports = withRequestLogging('vibescore-public-view-profile', async funct
 
 function resolveDisplayName(row) {
   const rawMeta = isObject(row?.raw_user_meta_data) ? row.raw_user_meta_data : null;
-  const userMeta = isObject(row?.user_metadata) ? row.user_metadata : null;
 
   return (
     sanitizeName(rawMeta?.full_name) ||
     sanitizeName(rawMeta?.name) ||
-    sanitizeName(userMeta?.full_name) ||
-    sanitizeName(userMeta?.name) ||
     null
   );
 }
 
 function resolveAvatarUrl(row) {
   const rawMeta = isObject(row?.raw_user_meta_data) ? row.raw_user_meta_data : null;
-  const userMeta = isObject(row?.user_metadata) ? row.user_metadata : null;
 
   return (
     sanitizeAvatarUrl(rawMeta?.avatar_url) ||
     sanitizeAvatarUrl(rawMeta?.picture) ||
-    sanitizeAvatarUrl(userMeta?.avatar_url) ||
-    sanitizeAvatarUrl(userMeta?.picture) ||
     null
   );
 }

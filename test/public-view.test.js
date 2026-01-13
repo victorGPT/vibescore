@@ -84,6 +84,13 @@ test("public view profile returns avatar url", () => {
   assert.match(profileSrc, /avatar_url/);
 });
 
+test("public view profile does not select user_metadata", () => {
+  const profileSrc = read(
+    "insforge-src/functions/vibescore-public-view-profile.js"
+  );
+  assert.doesNotMatch(profileSrc, /user_metadata/);
+});
+
 test("public view panel does not render share link text", () => {
   const src = read("dashboard/src/pages/DashboardPage.jsx");
   assert.doesNotMatch(

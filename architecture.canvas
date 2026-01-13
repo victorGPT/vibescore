@@ -899,7 +899,7 @@
     {
       "id": "test_public-view_test_b400e512",
       "type": "text",
-      "text": "**public-view.test**\n`test/public-view.test.js`\n\nTest module.\n\n包含：\n- public-view.test (167 行)\n- read (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**public-view.test**\n`test/public-view.test.js`\n\nTest module.\n\n包含：\n- public-view.test (174 行)\n- read (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 100,
       "y": 12292,
       "width": 280,
@@ -2185,7 +2185,7 @@
     {
       "id": "edge-function_vibescore-public-view-profile_6265cafb",
       "type": "text",
-      "text": "**vibescore-public-view-profile**\n`insforge-src/functions/vibescore-public-view-profile.js`\n\nEdge function handler.\n\n包含：\n- vibescore-public-view-profile (91 行)\n- resolveDisplayName (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibescore-public-view-profile**\n`insforge-src/functions/vibescore-public-view-profile.js`\n\nEdge function handler.\n\n包含：\n- vibescore-public-view-profile (85 行)\n- resolveDisplayName (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1540,
       "y": 4936,
       "width": 280,
