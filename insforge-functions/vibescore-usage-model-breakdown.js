@@ -1600,6 +1600,7 @@ module.exports = withRequestLogging("vibescore-usage-model-breakdown", async fun
   });
   const aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
   const sourcesMap = /* @__PURE__ */ new Map();
+  const costBuckets = /* @__PURE__ */ new Map();
   const canonicalModels = /* @__PURE__ */ new Set();
   const grandTotals = createTotals();
   for (const row of rowsBuffer) {
@@ -1618,11 +1619,50 @@ module.exports = withRequestLogging("vibescore-usage-model-breakdown", async fun
     }
     const canonicalEntry = getCanonicalEntry(sourceEntry.models, identity);
     addTotals(canonicalEntry.totals, row);
+    const bucketModelId = identity?.model_id || DEFAULT_MODEL;
+    const bucketModelName = identity?.model || bucketModelId;
+    const bucketKey = buildCostBucketKey(row.source, bucketModelId, dateKey);
+    const bucket = costBuckets.get(bucketKey) || {
+      source: row.source,
+      model_id: bucketModelId,
+      model: bucketModelName,
+      dateKey,
+      totals: createTotals()
+    };
+    addTotals(bucket.totals, row);
+    costBuckets.set(bucketKey, bucket);
   }
-  const pricingModel = canonicalModels.size === 1 ? Array.from(canonicalModels)[0] : null;
+  const pricingModes = /* @__PURE__ */ new Set();
+  const profileCache = /* @__PURE__ */ new Map();
+  const getProfile = async (modelId, dateKey) => {
+    const key = `${modelId || ""}::${dateKey || ""}`;
+    if (profileCache.has(key)) return profileCache.get(key);
+    const profile = await resolvePricingProfile({
+      edgeClient: auth.edgeClient,
+      model: modelId || null,
+      effectiveDate: dateKey || to
+    });
+    profileCache.set(key, profile);
+    return profile;
+  };
+  for (const bucket of costBuckets.values()) {
+    const profile = await getProfile(bucket.model_id, bucket.dateKey);
+    const cost = computeUsageCost(bucket.totals, profile);
+    pricingModes.add(cost.pricing_mode);
+    const sourceEntry = sourcesMap.get(bucket.source);
+    addCostMicros(sourceEntry, cost.cost_micros);
+    if (sourceEntry) {
+      const modelEntry = getCanonicalEntry(sourceEntry.models, {
+        model_id: bucket.model_id,
+        model: bucket.model
+      });
+      addCostMicros(modelEntry, cost.cost_micros);
+    }
+  }
+  const impliedModelId = canonicalModels.size === 1 ? Array.from(canonicalModels)[0] : null;
   const pricingProfile = await resolvePricingProfile({
     edgeClient: auth.edgeClient,
-    model: pricingModel,
+    model: impliedModelId,
     effectiveDate: to
   });
   const sources = Array.from(sourcesMap.values()).map((entry) => {
@@ -1635,6 +1675,12 @@ module.exports = withRequestLogging("vibescore-usage-model-breakdown", async fun
     };
   }).sort((a, b) => a.source.localeCompare(b.source));
   const overallCost = computeUsageCost(grandTotals, pricingProfile);
+  let summaryPricingMode = overallCost.pricing_mode;
+  if (pricingModes.size === 1) {
+    summaryPricingMode = Array.from(pricingModes)[0];
+  } else if (pricingModes.size > 1) {
+    summaryPricingMode = "mixed";
+  }
   return respond(
     {
       from,
@@ -1643,7 +1689,7 @@ module.exports = withRequestLogging("vibescore-usage-model-breakdown", async fun
       sources,
       pricing: buildPricingMetadata({
         profile: overallCost.profile,
-        pricingMode: overallCost.pricing_mode
+        pricingMode: summaryPricingMode
       })
     },
     200,
@@ -1692,9 +1738,10 @@ function getCanonicalEntry(map, identity) {
 }
 function formatTotals(entry, pricingProfile) {
   const totals = entry.totals;
-  const cost = computeUsageCost(totals, pricingProfile);
+  const costMicros = resolveCostMicros(entry, pricingProfile);
+  const { cost_micros: _ignored, ...rest } = entry;
   return {
-    ...entry,
+    ...rest,
     totals: {
       total_tokens: totals.total_tokens.toString(),
       billable_total_tokens: totals.billable_total_tokens.toString(),
@@ -1702,7 +1749,7 @@ function formatTotals(entry, pricingProfile) {
       cached_input_tokens: totals.cached_input_tokens.toString(),
       output_tokens: totals.output_tokens.toString(),
       reasoning_output_tokens: totals.reasoning_output_tokens.toString(),
-      total_cost_usd: formatUsdFromMicros(cost.cost_micros)
+      total_cost_usd: formatUsdFromMicros(costMicros)
     }
   };
 }
@@ -1711,4 +1758,17 @@ function compareTotals(a, b) {
   const bSort = toBigInt(b?.totals?.billable_total_tokens ?? b?.totals?.total_tokens);
   if (aSort === bSort) return String(a?.model || "").localeCompare(String(b?.model || ""));
   return aSort > bSort ? -1 : 1;
+}
+function buildCostBucketKey(source, modelId, dateKey) {
+  return `${source || ""}::${modelId || ""}::${dateKey || ""}`;
+}
+function addCostMicros(entry, costMicros) {
+  if (!entry) return;
+  entry.cost_micros = toBigInt(entry.cost_micros) + toBigInt(costMicros);
+}
+function resolveCostMicros(entry, pricingProfile) {
+  if (!entry) return 0n;
+  if (typeof entry.cost_micros === "bigint") return entry.cost_micros;
+  const cost = computeUsageCost(entry.totals, pricingProfile);
+  return cost.cost_micros;
 }
