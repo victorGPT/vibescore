@@ -53,7 +53,7 @@ export default function App() {
   const pathname = pageUrl.pathname.replace(/\/+$/, "");
   const shareMatch = pathname.match(/^\/share\/([^/]+)$/i);
   const publicToken = shareMatch ? shareMatch[1] : null;
-  const publicMode = Boolean(publicToken) || pathname.startsWith("/share");
+  const publicMode = Boolean(publicToken);
   const safeRedirect = getSafeRedirect(pageUrl.searchParams);
   const baseUrlOverride =
     safeRedirect && pageUrl.searchParams.get("base_url")
