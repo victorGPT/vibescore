@@ -624,14 +624,13 @@ export function DashboardPage({
     return /unauthorized|invalid|token|revoked|401/i.test(message);
   }, [publicMode, usageError]);
   const identityRawName = useMemo(() => {
-    if (publicMode) {
-      if (typeof publicProfileName === "string") return publicProfileName.trim();
-      if (typeof auth?.name === "string") return auth.name.trim();
-      return "";
-    }
     if (typeof auth?.name !== "string") return "";
     return auth.name.trim();
-  }, [auth?.name, publicMode, publicProfileName]);
+  }, [auth?.name]);
+  const publicIdentityName = useMemo(() => {
+    if (typeof publicProfileName !== "string") return "";
+    return publicProfileName.trim();
+  }, [publicProfileName]);
 
   const identityLabel = useMemo(() => {
     if (!identityRawName || identityRawName.includes("@")) {
@@ -645,9 +644,11 @@ export function DashboardPage({
   }, [identityLabel]);
 
   const identityDisplayName = useMemo(() => {
-    if (publicMode) return identityRawName || copy("dashboard.identity.fallback");
+    if (publicMode) {
+      return publicIdentityName || copy("dashboard.identity.fallback");
+    }
     return identityHandle;
-  }, [identityHandle, identityRawName, publicMode]);
+  }, [identityHandle, publicIdentityName, publicMode]);
   const identityStartDate = useMemo(() => {
     let earliest = null;
 
