@@ -1057,13 +1057,19 @@ export function DashboardPage({
       <GithubStar isFixed={false} size="header" />
 
       {publicMode ? (
-        <span className="text-[10px] opacity-60">{publicViewTitle}</span>
-      ) : signedIn ? (
-        <>
+        signedIn ? (
           <MatrixButton onClick={signOut} size="header">
             {copy("dashboard.sign_out")}
           </MatrixButton>
-        </>
+        ) : (
+          <MatrixButton as="a" size="header" href={signInUrl}>
+            {copy("landing.nav.login")}
+          </MatrixButton>
+        )
+      ) : signedIn ? (
+        <MatrixButton onClick={signOut} size="header">
+          {copy("dashboard.sign_out")}
+        </MatrixButton>
       ) : (
         <span className="text-[10px] opacity-60">
           {copy("dashboard.not_signed_in")}

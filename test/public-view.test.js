@@ -79,6 +79,11 @@ test("public view panel does not render share link text", () => {
   assert.doesNotMatch(src, /publicViewSubtitle/);
 });
 
+test("public share header shows login entry", () => {
+  const src = read("dashboard/src/pages/DashboardPage.jsx");
+  assert.match(src, /landing\.nav\.login/);
+});
+
 test("public view invalid check handles string errors", () => {
   const src = read("dashboard/src/pages/DashboardPage.jsx");
   assert.match(src, /usageError\?\.message\s*\|\|\s*usageError/);

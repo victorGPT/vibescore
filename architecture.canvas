@@ -899,7 +899,7 @@
     {
       "id": "test_public-view_test_b400e512",
       "type": "text",
-      "text": "**public-view.test**\n`test/public-view.test.js`\n\nTest module.\n\n包含：\n- public-view.test (105 行)\n- read (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**public-view.test**\n`test/public-view.test.js`\n\nTest module.\n\n包含：\n- public-view.test (110 行)\n- read (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 100,
       "y": 12292,
       "width": 280,
@@ -3324,7 +3324,7 @@
     {
       "id": "frontend_DashboardPage_9ebda834",
       "type": "text",
-      "text": "**DashboardPage**\n`dashboard/src/pages/DashboardPage.jsx`\n\nUI component layer.\n\n包含：\n- DashboardPage (1536 行)\n- hasUsageValue (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**DashboardPage**\n`dashboard/src/pages/DashboardPage.jsx`\n\nUI component layer.\n\n包含：\n- DashboardPage (1542 行)\n- hasUsageValue (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1540,
       "y": 1712,
       "width": 280,
