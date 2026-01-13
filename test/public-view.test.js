@@ -123,11 +123,11 @@ test("backend status does not expose refresh click", () => {
   assert.doesNotMatch(src, /backend\.meta\.click_refresh/);
 });
 
-test("connection status only uses action styling when clickable", () => {
+test("connection status renders bracket indicator only", () => {
   const src = read("dashboard/src/ui/matrix-a/components/ConnectionStatus.jsx");
-  assert.match(src, /onClick\s*\?\s*"button"\s*:\s*"div"/);
-  assert.match(src, /onClick\s*\?\s*"matrix-header-action/);
-  assert.doesNotMatch(src, /matrix-header-chip matrix-header-action/);
+  assert.doesNotMatch(src, /onClick/);
+  assert.doesNotMatch(src, /status\.link\./);
+  assert.doesNotMatch(src, /rounded-full/);
 });
 
 test("public view invalid check handles string errors", () => {
