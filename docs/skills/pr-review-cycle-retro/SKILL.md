@@ -1,40 +1,56 @@
 ---
 name: pr-review-cycle-retro
-description: Use when a repo shows repeated review cycles or post-merge fixes and you need a structured PR retrospective with root-cause analysis.
+description: Use when a team sees repeated @codex review cycles or Codex Cloud feedback churn and needs root-cause attribution by development stage.
 ---
 
-# PR Review Cycle Retrospective
+# Codex Review Churn Analysis (PR Retrospective)
 
 ## Overview
-Turn high review-cycle PRs into structured root-cause insights while separating low-signal automated reviews from actionable evidence.
+Explain why Codex Cloud review had to be re-run. Attribute causes to specific development stages, not just PR outcomes.
 
 ## When to Use
-- Closed PRs show repeated review cycles or follow-up fix PRs.
-- You need 5 Whys + Fishbone + stage attribution per PR.
-- You must separate frontend/backend root causes and avoid review-noise bias.
+- Multiple @codex review cycles on the same PR.
+- The same feedback appears across successive Codex reviews.
+- Follow-up fix PRs exist shortly after merge.
+- You need stage-level causes (design / implementation / testing / review packaging / release).
 
 When NOT to use:
-- One-off incidents with no repeated cycles.
-- Purely mechanical changes (formatting-only PRs).
+- Human-review-only churn.
+- Pure formatting or mechanical PRs.
 
 ## Core Pattern
-1) **Select**: Identify PRs with review cycles >= threshold.
-2) **Filter**: Flag automated review-only PRs as low signal.
-3) **Evidence**: Collect at least one evidence item per PR.
-4) **Analyze**: Produce 5 Whys + Fishbone + stage attribution.
-5) **Aggregate**: Summarize recurring causes by frontend/backend.
+1) **Select**: Find PRs with Codex review churn (comment -> code update -> Codex review).
+2) **Isolate**: Filter only Codex Cloud reviews and actionable feedback.
+3) **Evidence**: Collect a traceable chain (Codex feedback -> code change or follow-up fix).
+4) **Classify**: Assign primary + secondary stage causes.
+5) **Abstract**: Roll causes into a stable taxonomy.
+6) **Aggregate**: Summarize causes across frontend/backends.
 
 ## Quick Reference
 | Item | Rule |
 | --- | --- |
-| Review cycle | review event -> code update -> review event |
-| Evidence | review comment with actionable detail OR follow-up fix PR OR regression doc |
-| Stage attribution | design / implementation / review / testing / release |
-| Noise guard | if only automated review events, mark as low-signal |
+| Codex cycle | Codex review comment -> code update -> new Codex review |
+| Evidence | Codex comment + fix commit OR follow-up fix PR OR regression doc |
+| Stage attribution | design / implementation / testing / review packaging / release |
 | Mixed PR | record both frontend and backend impact |
+| Noise guard | if Codex comments are generic, mark low-signal |
+
+## Stage Taxonomy (Definition)
+- **Design**: missing requirements, unclear acceptance criteria, privacy/exposure gaps, cross-endpoint invariants not specified.
+- **Implementation**: logic errors, incomplete edge cases, inconsistent ordering/aggregation.
+- **Testing**: missing regression/E2E/contract tests, no reproduction script.
+- **Review Packaging**: PR lacks context, spec, evidence, or minimal repro for Codex to review well.
+- **Release/Integration**: environment constraints (gateway, permissions, paths), deploy-time mismatches.
+
+## Cause Taxonomy (Abstract)
+- **Spec Gap**: requirement or invariant not defined.
+- **Context Gap**: Codex lacked PR context (spec, expected behavior, tests).
+- **Implementation Drift**: code diverged from intent or was inconsistent across modules.
+- **Test Gap**: no automated proof for edge cases or invariants.
+- **Integration Constraint**: environment or platform limitations discovered late.
 
 ## Implementation (Repo-Specific)
-Use the repo script to build the candidate list and baseline artifacts:
+Baseline candidate list (optional):
 
 ```bash
 node scripts/ops/pr-retro.cjs \
@@ -45,43 +61,33 @@ node scripts/ops/pr-retro.cjs \
   --max-prs 80
 ```
 
-Then fill analysis fields in the generated CSV/MD.
+Then isolate Codex Cloud feedback per PR:
+
+```bash
+gh pr view <num> --json reviews,comments --jq '(.reviews + .comments) | map(select(.author.login == "chatgpt-codex-connector"))'
+```
 
 ## Evidence Rules
 - Each PR must cite at least 1 evidence item.
-- If evidence is weak (automated review only), mark **low-signal** and use follow-up fixes or PR gate docs.
+- If Codex feedback is generic, mark **low-signal** and rely on follow-up fixes or PR gate docs.
 - Do not infer root cause without a traceable artifact.
 
-## Automated Review Detection
-- Treat reviewers matching known automation (e.g., `chatgpt-codex-connector`, `*bot*`) as low-signal.
-- If all reviews are automated, rely on follow-up fixes, regression docs, or commit history for evidence.
-
-## Stage Attribution Guide
-- **Design**: contract mismatch, underspecified requirements, privacy/exposure gaps.
-- **Implementation**: logic errors, incorrect ordering/aggregation, missing edge cases.
-- **Review**: issues discovered late or missed until after merge.
-- **Testing**: missing regression coverage, no E2E/contract validation.
-- **Release**: environment mismatch, gateway constraints, deployment drift.
-
-## Fishbone Categories
-People, Process, Tools, Requirements, Code, Tests, Communication.
-
 ## Common Mistakes
-- Treating automated reviews as strong evidence.
-- Mixing symptoms (bugs) with causes (missing invariant).
-- Failing to separate frontend vs backend impact.
-- No stage attribution or evidence link.
+- Treating Codex review count as the root cause.
+- Ignoring PR context quality (tests, spec links, repro steps).
+- Mixing symptoms (bug) with stage cause (missing invariant).
+- Skipping frontend/backend split on mixed PRs.
 
 ## Rationalization Table
 | Excuse | Reality |
 | --- | --- |
-| \"No time to read PRs\" | Without evidence, the analysis is guesswork. |
-| \"Review cycles are enough\" | Cycles show churn, not root cause. |
-| \"Titles explain the bug\" | Titles are symptoms, not causal evidence. |
-| \"Mixed PRs are too hard\" | Record both sides to avoid blind spots. |
+| "Codex asked again, so it's Codex's fault" | Repeated reviews usually reflect missing context or gaps in our stages. |
+| "Review cycles are enough" | Cycles show churn, not cause. Evidence is required. |
+| "Titles explain the issue" | Titles are symptoms, not root causes. |
+| "We fixed it later, so root cause is obvious" | Fixes show symptom; stage attribution still required. |
 
 ## Red Flags - STOP
-- Fewer than 1 evidence item per PR.
-- All review cycles are automated with no follow-up fixes.
-- Root cause is stated without traceable artifacts.
+- No evidence chain from Codex feedback to code change.
+- All Codex comments are generic and no follow-up fixes exist.
+- Root cause stated without stage attribution.
 - Evidence relies only on PR title or description.
