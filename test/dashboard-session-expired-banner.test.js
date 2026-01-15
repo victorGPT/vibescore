@@ -44,8 +44,8 @@ test("insforge auth client wrapper uses base url and anon key", () => {
 
 test("App uses hosted auth routes for Landing login", () => {
   const src = read("dashboard/src/App.jsx");
-  assert.match(src, /hostedSignInUrl/);
-  assert.match(src, /hostedSignUpUrl/);
+  assert.match(src, /\"\/sign-in\"/);
+  assert.match(src, /\"\/sign-up\"/);
 });
 
 test("App passes hosted auth routes to DashboardPage", () => {
@@ -67,7 +67,10 @@ test("App uses InsForge auth hook for signed-in gating", () => {
 
 test("App derives signedIn from sessionExpired gate", () => {
   const src = read("dashboard/src/App.jsx");
-  assert.match(src, /const signedIn\s*=\s*useInsforge\s*&&\s*!sessionExpired/);
+  assert.match(
+    src,
+    /const signedIn\s*=\s*useInsforge\s*&&\s*hasInsforgeSession\s*&&\s*hasInsforgeIdentity\s*&&\s*!sessionExpired/
+  );
 });
 
 test("App disables auth when session expired", () => {
@@ -97,6 +100,20 @@ test("App declares getInsforgeAccessToken before revalidate effect", () => {
   assert.ok(tokenIndex !== -1, "expected getInsforgeAccessToken declaration");
   assert.ok(probeIndex !== -1, "expected probeBackend call");
   assert.ok(tokenIndex < probeIndex);
+});
+
+test("App requires InsForge identity before signedIn", () => {
+  const src = read("dashboard/src/App.jsx");
+  assert.match(src, /const hasInsforgeIdentity/);
+  assert.match(src, /insforgeSession\?\.user/);
+  assert.match(src, /const hasInsforgeSession/);
+});
+
+test("App does not use legacy safe redirects", () => {
+  const src = read("dashboard/src/App.jsx");
+  assert.doesNotMatch(src, /buildAuthUrl/);
+  assert.doesNotMatch(src, /getSafeRedirect/);
+  assert.doesNotMatch(src, /LOCAL_REDIRECT_HOSTS/);
 });
 
 test("App probes backend to revalidate expired sessions", () => {

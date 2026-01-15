@@ -3,7 +3,6 @@ import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } fr
 import { useAuth as useInsforgeAuth } from "@insforge/react-router";
 
 import { getInsforgeBaseUrl } from "./lib/config.js";
-import { buildAuthUrl } from "./lib/auth-url.js";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { LandingPage } from "./pages/LandingPage.jsx";
 import { isMockEnabled } from "./lib/mock-data.js";
@@ -24,22 +23,6 @@ const DashboardPage = React.lazy(() =>
     default: mod.DashboardPage,
   }))
 );
-
-const LOCAL_REDIRECT_HOSTS = new Set(["127.0.0.1", "localhost"]);
-
-function getSafeRedirect(searchParams) {
-  const redirect = searchParams.get("redirect") || "";
-  if (!redirect) return null;
-
-  try {
-    const redirectUrl = new URL(redirect);
-    if (redirectUrl.protocol !== "http:") return null;
-    if (!LOCAL_REDIRECT_HOSTS.has(redirectUrl.hostname)) return null;
-    return redirectUrl.toString();
-  } catch (_e) {
-    return null;
-  }
-}
 
 export default function App() {
   const baseUrl = useMemo(() => getInsforgeBaseUrl(), []);
@@ -134,20 +117,14 @@ export default function App() {
   }, [getInsforgeAccessToken, insforgeSession]);
 
   const useInsforge = insforgeLoaded && insforgeSignedIn;
-  const insforgeAuthFallback = useMemo(() => {
-    const user = insforgeSession?.user;
-    return {
-      getAccessToken: getInsforgeAccessToken,
-      userId: user?.id ?? null,
-      email: user?.email ?? null,
-      name: user?.name ?? null,
-    };
-  }, [getInsforgeAccessToken, insforgeSession]);
-  const signedIn = useInsforge && !sessionExpired;
+  const hasInsforgeSession = Boolean(insforgeSession);
+  const hasInsforgeIdentity = Boolean(insforgeSession?.user);
+  const signedIn =
+    useInsforge && hasInsforgeSession && hasInsforgeIdentity && !sessionExpired;
   const auth = useMemo(() => {
-    if (!useInsforge || sessionExpired) return null;
-    return insforgeAuth ?? insforgeAuthFallback;
-  }, [insforgeAuth, insforgeAuthFallback, sessionExpired, useInsforge]);
+    if (!useInsforge || sessionExpired || !hasInsforgeIdentity) return null;
+    return insforgeAuth;
+  }, [hasInsforgeIdentity, insforgeAuth, sessionExpired, useInsforge]);
   const signOut = useMemo(() => {
     return async () => {
       if (useInsforge) {
@@ -163,30 +140,8 @@ export default function App() {
   const shareMatch = pathname.match(/^\/share\/([^/]+)$/i);
   const publicToken = shareMatch ? shareMatch[1] : null;
   const publicMode = Boolean(publicToken);
-  const safeRedirect = getSafeRedirect(pageUrl.searchParams);
-  const baseUrlOverride =
-    safeRedirect && pageUrl.searchParams.get("base_url")
-      ? pageUrl.searchParams.get("base_url")
-      : "";
-  const authBaseUrl = baseUrlOverride || baseUrl;
-  const hostedSignInUrl = "/sign-in";
-  const hostedSignUpUrl = "/sign-up";
-  const signInUrl = useMemo(() => {
-    if (!safeRedirect) return hostedSignInUrl;
-    return buildAuthUrl({
-      baseUrl: authBaseUrl,
-      path: "/auth/sign-in",
-      redirectUrl: safeRedirect,
-    });
-  }, [authBaseUrl, hostedSignInUrl, safeRedirect]);
-  const signUpUrl = useMemo(() => {
-    if (!safeRedirect) return hostedSignUpUrl;
-    return buildAuthUrl({
-      baseUrl: authBaseUrl,
-      path: "/auth/sign-up",
-      redirectUrl: safeRedirect,
-    });
-  }, [authBaseUrl, hostedSignUpUrl, safeRedirect]);
+  const signInUrl = "/sign-in";
+  const signUpUrl = "/sign-up";
 
   const loadingShell = <div className="min-h-screen bg-[#050505]" />;
   let content = null;
