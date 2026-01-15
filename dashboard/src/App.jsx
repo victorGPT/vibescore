@@ -106,12 +106,14 @@ export default function App() {
   const insforgeAuth = useMemo(() => {
     if (!insforgeSession?.accessToken) return null;
     const user = insforgeSession.user;
+    const profileName = user?.profile?.name;
+    const displayName = profileName ?? user?.name ?? null;
     return {
       accessToken: insforgeSession.accessToken,
       getAccessToken: getInsforgeAccessToken,
       userId: user?.id ?? null,
       email: user?.email ?? null,
-      name: user?.name ?? null,
+      name: displayName,
       savedAt: new Date().toISOString(),
     };
   }, [getInsforgeAccessToken, insforgeSession]);

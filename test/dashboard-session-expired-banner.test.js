@@ -87,6 +87,12 @@ test("App provides InsForge access token resolver", () => {
   assert.match(src, /getAccessToken/);
 });
 
+test("App prefers InsForge profile name for identity", () => {
+  const src = read("dashboard/src/App.jsx");
+  assert.match(src, /profile\?\.name/);
+  assert.match(src, /user\?\.name/);
+});
+
 test("App subscribes to sessionExpired state", () => {
   const src = read("dashboard/src/App.jsx");
   assert.match(src, /loadSessionExpired/);
