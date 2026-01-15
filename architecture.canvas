@@ -2797,7 +2797,7 @@
     {
       "id": "entry_App_50b6270d",
       "type": "text",
-      "text": "**App**\n`dashboard/src/App.jsx`\n\nEntry module.\n\n包含：\n- App (201 行)\n- getSafeRedirect (1 个参数)\n\n依赖：5 个模块\n被依赖：1 次",
+      "text": "**App**\n`dashboard/src/App.jsx`\n\nEntry module.\n\n包含：\n- App (201 行)\n- getSafeRedirect (1 个参数)\n\n依赖：5 个模块\n被依赖：1 次\n\nRole: 认证状态机与过期恢复控制\nStatus: Proposed\nNotes: sessionExpired 清理由 JWT 成功决定；revalidate 使用最新 token。\n",
       "x": 100,
       "y": 632,
       "width": 280,
@@ -3358,7 +3358,7 @@
     {
       "id": "frontend_DashboardPage_9ebda834",
       "type": "text",
-      "text": "**DashboardPage**\n`dashboard/src/pages/DashboardPage.jsx`\n\nUI component layer.\n\n包含：\n- DashboardPage (1599 行)\n- hasUsageValue (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**DashboardPage**\n`dashboard/src/pages/DashboardPage.jsx`\n\nUI component layer.\n\n包含：\n- DashboardPage (1599 行)\n- hasUsageValue (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次\n\nRole: 私有视图渲染与过期态 gating\nStatus: Proposed\nNotes: sessionExpired 时隐藏私有数据并阻断私有请求。\n",
       "x": 1540,
       "y": 1712,
       "width": 280,
@@ -3426,7 +3426,7 @@
     {
       "id": "utils_auth-storage_f3bd6b20",
       "type": "text",
-      "text": "**auth-storage**\n`dashboard/src/lib/auth-storage.js`\n\nShared utilities.\n\n包含：\n- auth-storage (153 行)\n- emitAuthStorageChange (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**auth-storage**\n`dashboard/src/lib/auth-storage.js`\n\nShared utilities.\n\n包含：\n- auth-storage (153 行)\n- emitAuthStorageChange (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次\n\nRole: 认证持久化存储\nStatus: Proposed\nNotes: 仅在 JWT 成功后清除 sessionExpired。\n",
       "x": 460,
       "y": 992,
       "width": 280,
@@ -3749,7 +3749,7 @@
     {
       "id": "utils_vibescore-api_4e9bf839",
       "type": "text",
-      "text": "**vibescore-api**\n`dashboard/src/lib/vibescore-api.js`\n\nShared utilities.\n\n包含：\n- vibescore-api (596 行)\n- resolveAccessToken (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibescore-api**\n`dashboard/src/lib/vibescore-api.js`\n\nShared utilities.\n\n包含：\n- vibescore-api (596 行)\n- resolveAccessToken (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次\n\nRole: JWT 授权请求与过期信号源\nStatus: Proposed\nNotes: 401 设为过期，成功才清除。\n",
       "x": 820,
       "y": 1712,
       "width": 280,
@@ -3782,7 +3782,7 @@
     {
       "id": "undefined_use-backend-status_f6637b78",
       "type": "text",
-      "text": "**use-backend-status**\n`dashboard/src/hooks/use-backend-status.js`\n\nGeneral module.\n\n包含：\n- use-backend-status (242 行)\n- useBackendStatus (7 个参数)\n\n依赖：0 个模块\n被依赖：1 次",
+      "text": "**use-backend-status**\n`dashboard/src/hooks/use-backend-status.js`\n\nGeneral module.\n\n包含：\n- use-backend-status (242 行)\n- useBackendStatus (7 个参数)\n\n依赖：0 个模块\n被依赖：1 次\n\nRole: 后端探测调度（非过期态）\nStatus: Proposed\nNotes: 仅在 signed_in 且非 sessionExpired 时探测。\n",
       "x": 1900,
       "y": 632,
       "width": 280,
