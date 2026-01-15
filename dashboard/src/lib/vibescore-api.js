@@ -31,11 +31,26 @@ const PATHS = {
 const FUNCTION_PREFIX = "/functions";
 const LEGACY_FUNCTION_PREFIX = "/api/functions";
 
+async function resolveAccessToken(accessToken) {
+  if (!accessToken) return null;
+  if (typeof accessToken === "function") {
+    return await accessToken();
+  }
+  if (
+    typeof accessToken === "object" &&
+    typeof accessToken.getAccessToken === "function"
+  ) {
+    return await accessToken.getAccessToken();
+  }
+  return accessToken;
+}
+
 export async function probeBackend({ baseUrl, accessToken, signal } = {}) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
   const today = formatDateLocal(new Date());
   await requestJson({
     baseUrl,
-    accessToken,
+    accessToken: resolvedAccessToken,
     slug: PATHS.usageSummary,
     params: { from: today, to: today },
     fetchOptions: { cache: "no-store", signal },
@@ -54,14 +69,15 @@ export async function getUsageSummary({
   timeZone,
   tzOffsetMinutes,
 }) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
-    return getMockUsageSummary({ from, to, seed: accessToken });
+    return getMockUsageSummary({ from, to, seed: resolvedAccessToken });
   }
   const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
   const filterParams = buildFilterParams({ source, model });
   return requestJson({
     baseUrl,
-    accessToken,
+    accessToken: resolvedAccessToken,
     slug: PATHS.usageSummary,
     params: { from, to, ...filterParams, ...tzParams },
   });
@@ -76,14 +92,15 @@ export async function getUsageModelBreakdown({
   timeZone,
   tzOffsetMinutes,
 }) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
-    return getMockUsageModelBreakdown({ from, to, seed: accessToken });
+    return getMockUsageModelBreakdown({ from, to, seed: resolvedAccessToken });
   }
   const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
   const filterParams = buildFilterParams({ source });
   return requestJson({
     baseUrl,
-    accessToken,
+    accessToken: resolvedAccessToken,
     slug: PATHS.usageModelBreakdown,
     params: { from, to, ...filterParams, ...tzParams },
   });
@@ -99,14 +116,15 @@ export async function getUsageDaily({
   timeZone,
   tzOffsetMinutes,
 }) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
-    return getMockUsageDaily({ from, to, seed: accessToken });
+    return getMockUsageDaily({ from, to, seed: resolvedAccessToken });
   }
   const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
   const filterParams = buildFilterParams({ source, model });
   return requestJson({
     baseUrl,
-    accessToken,
+    accessToken: resolvedAccessToken,
     slug: PATHS.usageDaily,
     params: { from, to, ...filterParams, ...tzParams },
   });
@@ -121,14 +139,15 @@ export async function getUsageHourly({
   timeZone,
   tzOffsetMinutes,
 }) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
-    return getMockUsageHourly({ day, seed: accessToken });
+    return getMockUsageHourly({ day, seed: resolvedAccessToken });
   }
   const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
   const filterParams = buildFilterParams({ source, model });
   return requestJson({
     baseUrl,
-    accessToken,
+    accessToken: resolvedAccessToken,
     slug: PATHS.usageHourly,
     params: day ? { day, ...filterParams, ...tzParams } : { ...filterParams, ...tzParams },
   });
@@ -144,14 +163,15 @@ export async function getUsageMonthly({
   timeZone,
   tzOffsetMinutes,
 }) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
-    return getMockUsageMonthly({ months, to, seed: accessToken });
+    return getMockUsageMonthly({ months, to, seed: resolvedAccessToken });
   }
   const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
   const filterParams = buildFilterParams({ source, model });
   return requestJson({
     baseUrl,
-    accessToken,
+    accessToken: resolvedAccessToken,
     slug: PATHS.usageMonthly,
     params: {
       ...(months ? { months: String(months) } : {}),
@@ -173,19 +193,20 @@ export async function getUsageHeatmap({
   timeZone,
   tzOffsetMinutes,
 }) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
     return getMockUsageHeatmap({
       weeks,
       to,
       weekStartsOn,
-      seed: accessToken,
+      seed: resolvedAccessToken,
     });
   }
   const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
   const filterParams = buildFilterParams({ source, model });
   return requestJson({
     baseUrl,
-    accessToken,
+    accessToken: resolvedAccessToken,
     slug: PATHS.usageHeatmap,
     params: {
       weeks: String(weeks),
@@ -198,6 +219,7 @@ export async function getUsageHeatmap({
 }
 
 export async function requestInstallLinkCode({ baseUrl, accessToken } = {}) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
     return {
       link_code: "mock_link_code",
@@ -206,41 +228,45 @@ export async function requestInstallLinkCode({ baseUrl, accessToken } = {}) {
   }
   return requestPostJson({
     baseUrl,
-    accessToken,
+    accessToken: resolvedAccessToken,
     slug: PATHS.linkCodeInit,
     body: {},
   });
 }
 
 export async function getPublicViewStatus({ baseUrl, accessToken } = {}) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
   return requestJson({
     baseUrl,
-    accessToken,
+    accessToken: resolvedAccessToken,
     slug: PATHS.publicViewStatus,
   });
 }
 
 export async function getPublicViewProfile({ baseUrl, accessToken } = {}) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
   return requestJson({
     baseUrl,
-    accessToken,
+    accessToken: resolvedAccessToken,
     slug: PATHS.publicViewProfile,
   });
 }
 
 export async function issuePublicViewToken({ baseUrl, accessToken } = {}) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
   return requestPostJson({
     baseUrl,
-    accessToken,
+    accessToken: resolvedAccessToken,
     slug: PATHS.publicViewIssue,
     body: {},
   });
 }
 
 export async function revokePublicViewToken({ baseUrl, accessToken } = {}) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
   return requestPostJson({
     baseUrl,
-    accessToken,
+    accessToken: resolvedAccessToken,
     slug: PATHS.publicViewRevoke,
     body: {},
   });
@@ -274,10 +300,14 @@ async function requestJson({
   errorPrefix,
   retry,
 }) {
-  const client = createInsforgeClient({ baseUrl, accessToken });
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
+  const client = createInsforgeClient({
+    baseUrl,
+    accessToken: resolvedAccessToken,
+  });
   const http = client.getHttpClient();
   const retryOptions = normalizeRetryOptions(retry, "GET");
-  const hadAccessToken = hasAccessTokenValue(accessToken);
+  const hadAccessToken = hasAccessTokenValue(resolvedAccessToken);
   let attempt = 0;
   const { primaryPath, fallbackPath } = buildFunctionPaths(slug);
 
@@ -292,7 +322,11 @@ async function requestJson({
       });
     } catch (e) {
       if (e?.name === "AbortError") throw e;
-      const err = normalizeSdkError(e, { errorPrefix, hadAccessToken, accessToken });
+      const err = normalizeSdkError(e, {
+        errorPrefix,
+        hadAccessToken,
+        accessToken: resolvedAccessToken,
+      });
       if (!shouldRetry({ err, attempt, retryOptions })) throw err;
       const delayMs = computeRetryDelayMs({ retryOptions, attempt });
       await sleep(delayMs);
@@ -310,10 +344,14 @@ async function requestPostJson({
   errorPrefix,
   retry,
 }) {
-  const client = createInsforgeClient({ baseUrl, accessToken });
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
+  const client = createInsforgeClient({
+    baseUrl,
+    accessToken: resolvedAccessToken,
+  });
   const http = client.getHttpClient();
   const retryOptions = normalizeRetryOptions(retry, "POST");
-  const hadAccessToken = hasAccessTokenValue(accessToken);
+  const hadAccessToken = hasAccessTokenValue(resolvedAccessToken);
   let attempt = 0;
   const { primaryPath, fallbackPath } = buildFunctionPaths(slug);
 
@@ -328,7 +366,11 @@ async function requestPostJson({
       });
     } catch (e) {
       if (e?.name === "AbortError") throw e;
-      const err = normalizeSdkError(e, { errorPrefix, hadAccessToken, accessToken });
+      const err = normalizeSdkError(e, {
+        errorPrefix,
+        hadAccessToken,
+        accessToken: resolvedAccessToken,
+      });
       if (!shouldRetry({ err, attempt, retryOptions })) throw err;
       const delayMs = computeRetryDelayMs({ retryOptions, attempt });
       await sleep(delayMs);

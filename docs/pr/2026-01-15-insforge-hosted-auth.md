@@ -11,6 +11,7 @@ Adopt InsForge hosted auth routes and SDK-managed session gating for the dashboa
 - feat(auth): gate dashboard by insforge session
 - fix(auth): pass insforge baseUrl to hosted routes
 - fix(auth): refresh insforge session to catch token rotation
+- fix(auth): resolve insforge access token via provider
 
 ## Regression Test Gate
 ### Most likely regression surface
@@ -20,6 +21,7 @@ Adopt InsForge hosted auth routes and SDK-managed session gating for the dashboa
 - [x] Manual: hosted auth redirect flow (see below)
 - [x] `node --test test/dashboard-session-expired-banner.test.js` => PASS
   - Re-run 2026-01-15: `node --test test/dashboard-session-expired-banner.test.js` => PASS
+  - Re-run 2026-01-15: `node --test test/dashboard-session-expired-banner.test.js` => PASS (token provider)
 
 ### Manual hosted-auth flow (cold)
 1. Open `https://www.vibeusage.cc/` in an incognito window.

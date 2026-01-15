@@ -79,11 +79,16 @@ test("App uses InsForge auth hook for signed-in gating", () => {
   assert.match(src, /useInsforgeAuth/);
 });
 
-test("App refreshes InsForge session periodically", () => {
+test("App provides InsForge access token resolver", () => {
   const src = read("dashboard/src/App.jsx");
   assert.match(src, /getCurrentSession/);
-  assert.match(src, /setInterval/);
-  assert.match(src, /INSFORGE_SESSION_REFRESH_MS/);
+  assert.match(src, /getAccessToken/);
+});
+
+test("vibescore-api resolves access token providers", () => {
+  const src = read("dashboard/src/lib/vibescore-api.js");
+  assert.match(src, /resolveAccessToken/);
+  assert.match(src, /typeof\s+accessToken\s*===\s*\"function\"/);
 });
 
 test("DashboardPage shows session expired banner and bypasses auth gate", () => {

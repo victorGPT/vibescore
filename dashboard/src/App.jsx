@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth as useInsforgeAuth } from "@insforge/react-router";
 
@@ -21,7 +21,6 @@ const DashboardPage = React.lazy(() =>
 );
 
 const LOCAL_REDIRECT_HOSTS = new Set(["127.0.0.1", "localhost"]);
-const INSFORGE_SESSION_REFRESH_MS = 60 * 1000;
 
 function getSafeRedirect(searchParams) {
   const redirect = searchParams.get("redirect") || "";
@@ -68,7 +67,6 @@ export default function App() {
   useEffect(() => {
     if (!insforgeLoaded) return;
     let active = true;
-    let refreshTimer = null;
     const refreshSession = () => {
       return insforgeAuthClient.auth
         .getCurrentSession()
@@ -82,17 +80,8 @@ export default function App() {
         });
     };
     refreshSession();
-    if (insforgeSignedIn) {
-      refreshTimer = window.setInterval(
-        refreshSession,
-        INSFORGE_SESSION_REFRESH_MS
-      );
-    }
     return () => {
       active = false;
-      if (refreshTimer) {
-        window.clearInterval(refreshTimer);
-      }
     };
   }, [insforgeLoaded, insforgeSignedIn]);
 
@@ -102,17 +91,24 @@ export default function App() {
     }
   }, [insforgeSession]);
 
+  const getInsforgeAccessToken = useCallback(async () => {
+    if (!insforgeSignedIn) return null;
+    const { data } = await insforgeAuthClient.auth.getCurrentSession();
+    return data?.session?.accessToken ?? null;
+  }, [insforgeSignedIn]);
+
   const insforgeAuth = useMemo(() => {
     if (!insforgeSession?.accessToken) return null;
     const user = insforgeSession.user;
     return {
       accessToken: insforgeSession.accessToken,
+      getAccessToken: getInsforgeAccessToken,
       userId: user?.id ?? null,
       email: user?.email ?? null,
       name: user?.name ?? null,
       savedAt: new Date().toISOString(),
     };
-  }, [insforgeSession]);
+  }, [getInsforgeAccessToken, insforgeSession]);
 
   const useInsforge = Boolean(insforgeAuth?.accessToken);
   const auth = useInsforge ? insforgeAuth : legacyAuth;

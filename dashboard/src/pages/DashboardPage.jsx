@@ -140,7 +140,8 @@ export function DashboardPage({
   const [installCopied, setInstallCopied] = useState(false);
   const [sessionExpiredCopied, setSessionExpiredCopied] = useState(false);
   const mockEnabled = isMockEnabled();
-  const accessToken = publicMode ? publicToken : auth?.accessToken || null;
+  const authAccessToken = auth?.getAccessToken ?? auth?.accessToken ?? null;
+  const accessToken = publicMode ? publicToken : authAccessToken;
   const accessEnabled = signedIn || mockEnabled || publicMode;
   useEffect(() => {
     const t = window.setTimeout(() => setBooted(true), 900);
@@ -159,7 +160,7 @@ export function DashboardPage({
     let active = true;
     setLinkCodeLoading(true);
     setLinkCodeError(null);
-    requestInstallLinkCode({ baseUrl, accessToken: auth?.accessToken || null })
+    requestInstallLinkCode({ baseUrl, accessToken: authAccessToken })
       .then((data) => {
         if (!active) return;
         setLinkCode(typeof data?.link_code === "string" ? data.link_code : null);
@@ -185,7 +186,7 @@ export function DashboardPage({
     mockEnabled,
     signedIn,
     publicMode,
-    auth?.accessToken,
+    authAccessToken,
     linkCodeRefreshToken,
   ]);
 
@@ -200,7 +201,7 @@ export function DashboardPage({
     }
     let active = true;
     setPublicViewLoading(true);
-    getPublicViewStatus({ baseUrl, accessToken: auth?.accessToken || null })
+    getPublicViewStatus({ baseUrl, accessToken: authAccessToken })
       .then((data) => {
         if (!active) return;
         const enabled = Boolean(data?.enabled);
@@ -221,7 +222,7 @@ export function DashboardPage({
     return () => {
       active = false;
     };
-  }, [baseUrl, mockEnabled, signedIn, publicMode, auth?.accessToken]);
+  }, [baseUrl, mockEnabled, signedIn, publicMode, authAccessToken]);
 
   useEffect(() => {
     if (!publicMode) {
@@ -1023,7 +1024,7 @@ export function DashboardPage({
       try {
         const data = await issuePublicViewToken({
           baseUrl,
-          accessToken: auth?.accessToken || null,
+          accessToken: authAccessToken,
         });
         const token =
           typeof data?.share_token === "string" ? data.share_token : null;
@@ -1046,7 +1047,7 @@ export function DashboardPage({
     setPublicViewCopied(true);
     window.setTimeout(() => setPublicViewCopied(false), 2000);
   }, [
-    auth?.accessToken,
+    authAccessToken,
     baseUrl,
     publicViewActionLoading,
     publicViewEnabled,
@@ -1061,14 +1062,14 @@ export function DashboardPage({
       if (publicViewEnabled) {
         await revokePublicViewToken({
           baseUrl,
-          accessToken: auth?.accessToken || null,
+          accessToken: authAccessToken,
         });
         setPublicViewEnabled(false);
         setPublicViewToken(null);
       } else {
         const data = await issuePublicViewToken({
           baseUrl,
-          accessToken: auth?.accessToken || null,
+          accessToken: authAccessToken,
         });
         const token =
           typeof data?.share_token === "string" ? data.share_token : null;
@@ -1081,7 +1082,7 @@ export function DashboardPage({
     } finally {
       setPublicViewActionLoading(false);
     }
-  }, [auth?.accessToken, baseUrl, publicViewActionLoading, publicViewEnabled]);
+  }, [authAccessToken, baseUrl, publicViewActionLoading, publicViewEnabled]);
 
   const redirectUrl = useMemo(
     () => `${window.location.origin}/auth/callback`,
