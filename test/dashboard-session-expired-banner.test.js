@@ -44,8 +44,8 @@ test("main wires InsForge hosted auth routes", () => {
   const src = read("dashboard/src/main.jsx");
   assert.match(src, /@insforge\/react-router/);
   assert.match(src, /getInsforgeRoutes/);
+  assert.match(src, /getInsforgeBaseUrl/);
   assert.match(src, /afterSignInUrl/);
-  assert.match(src, /afterSignUpUrl/);
 });
 
 test("insforge auth client wrapper uses base url and anon key", () => {
