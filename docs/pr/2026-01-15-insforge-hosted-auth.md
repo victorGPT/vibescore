@@ -16,7 +16,7 @@ Adopt InsForge hosted auth routes and SDK-managed session gating for the dashboa
 - Hosted auth redirect routing and session gating.
 
 ### Verification method (choose at least one)
-- [ ] Manual: hosted auth redirect flow (see below)
+- [x] Manual: hosted auth redirect flow (see below)
 - [x] `node --test test/dashboard-session-expired-banner.test.js` => PASS
 
 ### Manual hosted-auth flow (cold)
