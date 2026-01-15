@@ -60,29 +60,24 @@ export default function App() {
       ? pageUrl.searchParams.get("base_url")
       : "";
   const authBaseUrl = baseUrlOverride || baseUrl;
-
-  const defaultRedirectUrl = useMemo(
-    () => `${window.location.origin}/auth/callback`,
-    []
-  );
-  const signInUrl = useMemo(
-    () =>
-      buildAuthUrl({
-        baseUrl: authBaseUrl,
-        path: "/auth/sign-in",
-        redirectUrl: safeRedirect || defaultRedirectUrl,
-      }),
-    [authBaseUrl, defaultRedirectUrl, safeRedirect]
-  );
-  const signUpUrl = useMemo(
-    () =>
-      buildAuthUrl({
-        baseUrl: authBaseUrl,
-        path: "/auth/sign-up",
-        redirectUrl: safeRedirect || defaultRedirectUrl,
-      }),
-    [authBaseUrl, defaultRedirectUrl, safeRedirect]
-  );
+  const hostedSignInUrl = "/sign-in";
+  const hostedSignUpUrl = "/sign-up";
+  const signInUrl = useMemo(() => {
+    if (!safeRedirect) return hostedSignInUrl;
+    return buildAuthUrl({
+      baseUrl: authBaseUrl,
+      path: "/auth/sign-in",
+      redirectUrl: safeRedirect,
+    });
+  }, [authBaseUrl, hostedSignInUrl, safeRedirect]);
+  const signUpUrl = useMemo(() => {
+    if (!safeRedirect) return hostedSignUpUrl;
+    return buildAuthUrl({
+      baseUrl: authBaseUrl,
+      path: "/auth/sign-up",
+      redirectUrl: safeRedirect,
+    });
+  }, [authBaseUrl, hostedSignUpUrl, safeRedirect]);
 
   const loadingShell = <div className="min-h-screen bg-[#050505]" />;
   let content = null;

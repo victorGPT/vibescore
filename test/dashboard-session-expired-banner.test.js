@@ -58,6 +58,12 @@ test("insforge auth client wrapper uses base url and anon key", () => {
   assert.match(src, /getInsforgeAnonKey/);
 });
 
+test("App uses hosted auth routes for Landing login", () => {
+  const src = read("dashboard/src/App.jsx");
+  assert.match(src, /hostedSignInUrl/);
+  assert.match(src, /hostedSignUpUrl/);
+});
+
 test("App routes LandingPage when signed out", () => {
   const src = read("dashboard/src/App.jsx");
   assert.match(src, /!signedIn\s*&&\s*!mockEnabled/);
