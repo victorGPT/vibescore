@@ -91,6 +91,11 @@ test("vibescore-api resolves access token providers", () => {
   assert.match(src, /typeof\s+accessToken\s*===\s*\"function\"/);
 });
 
+test("App avoids legacy auth fallback before InsForge is ready", () => {
+  const src = read("dashboard/src/App.jsx");
+  assert.match(src, /insforgeLoaded\s*&&\s*insforgeSignedIn/);
+});
+
 test("DashboardPage shows session expired banner and bypasses auth gate", () => {
   const src = read("dashboard/src/pages/DashboardPage.jsx");
   assert.match(src, /sessionExpired/);

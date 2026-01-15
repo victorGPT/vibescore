@@ -39,9 +39,6 @@ function getSafeRedirect(searchParams) {
 export default function App() {
   const baseUrl = useMemo(() => getInsforgeBaseUrl(), []);
   const {
-    auth: legacyAuth,
-    signedIn: legacySignedIn,
-    sessionExpired: legacySessionExpired,
     signOut: legacySignOut,
   } = useLegacyAuth();
   const {
@@ -110,10 +107,19 @@ export default function App() {
     };
   }, [getInsforgeAccessToken, insforgeSession]);
 
-  const useInsforge = Boolean(insforgeAuth?.accessToken);
-  const auth = useInsforge ? insforgeAuth : legacyAuth;
-  const signedIn = useInsforge ? true : legacySignedIn;
-  const sessionExpired = useInsforge ? false : legacySessionExpired;
+  const useInsforge = insforgeLoaded && insforgeSignedIn;
+  const insforgeAuthFallback = useMemo(() => {
+    const user = insforgeSession?.user;
+    return {
+      getAccessToken: getInsforgeAccessToken,
+      userId: user?.id ?? null,
+      email: user?.email ?? null,
+      name: user?.name ?? null,
+    };
+  }, [getInsforgeAccessToken, insforgeSession]);
+  const auth = insforgeLoaded ? insforgeAuth ?? insforgeAuthFallback : null;
+  const signedIn = useInsforge;
+  const sessionExpired = false;
   const signOut = useMemo(() => {
     return async () => {
       if (useInsforge) {
