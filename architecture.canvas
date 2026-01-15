@@ -2829,6 +2829,15 @@
       }
     },
     {
+      "id": "insforge-auth-router",
+      "type": "note",
+      "x": 1180,
+      "y": 1460,
+      "width": 320,
+      "height": 180,
+      "text": "**insforge-auth-router**\n`dashboard/src/main.jsx`\n\nRole: Hosted auth routes and provider for dashboard entry.\nStatus: Implemented\nNotes: Adds /sign-in and /sign-up hosted routes with SDK session handling."
+    },
+    {
       "id": "frontend_MatrixShell_33cf7a77",
       "type": "text",
       "text": "**MatrixShell**\n`dashboard/src/ui/matrix-a/layout/MatrixShell.jsx`\n\nUI component layer.\n\n包含：\n- MatrixShell (80 行)\n- MatrixShell (9 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
@@ -4271,6 +4280,13 @@
       "fromNode": "entry_main_8ec1de27",
       "fromSide": "right",
       "toNode": "entry_App_50b6270d",
+      "toSide": "left"
+    },
+    {
+      "id": "edge_entry_main_8ec1de27_insforge-auth-router",
+      "fromNode": "entry_main_8ec1de27",
+      "fromSide": "right",
+      "toNode": "insforge-auth-router",
       "toSide": "left"
     },
     {
