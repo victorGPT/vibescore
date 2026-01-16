@@ -63,12 +63,16 @@ jobs:
 
   npm-publish:
     runs-on: ubuntu-latest
-    needs: [preflight, vercel-gate, mcp-confirmation]
+    needs: [changes, preflight, vercel-gate, mcp-confirmation, mcp-skip]
     if: >-
+      always() &&
       github.ref == 'refs/heads/main' &&
       needs.preflight.result == 'success' &&
-      (needs.vercel-gate.result == 'success' || needs.vercel-gate.result == 'skipped') &&
-      (needs.mcp-confirmation.result == 'success' || needs.mcp-confirmation.result == 'skipped')
+      needs.vercel-gate.result == 'success' &&
+      (
+        (needs.changes.outputs.functions == 'true' && needs.mcp-confirmation.result == 'success') ||
+        (needs.changes.outputs.functions == 'false' && needs.mcp-skip.result == 'success')
+      )
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -108,7 +112,6 @@ jobs:
   vercel-gate:
     runs-on: ubuntu-latest
     needs: [changes, preflight]
-    if: needs.changes.outputs.dashboard == 'true'
     timeout-minutes: 25
     permissions:
       checks: read
@@ -118,7 +121,11 @@ jobs:
       VERCEL_TIMEOUT_MINUTES: "20"
       VERCEL_POLL_SECONDS: "20"
     steps:
+      - name: Skip Vercel gate (no dashboard changes)
+        if: needs.changes.outputs.dashboard != 'true'
+        run: echo "No dashboard changes detected; Vercel gate satisfied."
       - name: Wait for Vercel deployment check
+        if: needs.changes.outputs.dashboard == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -173,3 +180,11 @@ jobs:
       - name: MCP deploy confirmation
         run: |
           echo "Functions changed. Deploy via Insforge MCP, then approve this environment to continue."
+
+  mcp-skip:
+    runs-on: ubuntu-latest
+    needs: [changes, preflight]
+    if: needs.changes.outputs.functions == 'false'
+    steps:
+      - name: Skip MCP gate (no function changes)
+        run: echo "No function changes detected; MCP gate satisfied."
