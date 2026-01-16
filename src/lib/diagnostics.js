@@ -18,9 +18,10 @@ const { resolveTrackerPaths } = require('./tracker-paths');
 async function collectTrackerDiagnostics({
   home = os.homedir(),
   codexHome = process.env.CODEX_HOME || path.join(home, '.codex'),
-  codeHome = process.env.CODE_HOME || path.join(home, '.code')
+  codeHome = process.env.CODE_HOME || path.join(home, '.code'),
+  migrate = true
 } = {}) {
-  const { trackerDir, binDir } = await resolveTrackerPaths({ home, migrate: true });
+  const { trackerDir, binDir } = await resolveTrackerPaths({ home, migrate });
   const configPath = path.join(trackerDir, 'config.json');
   const queuePath = path.join(trackerDir, 'queue.jsonl');
   const queueStatePath = path.join(trackerDir, 'queue.state.json');
