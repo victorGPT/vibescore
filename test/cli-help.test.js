@@ -21,4 +21,5 @@ test('help output uses VibeUsage identifiers', async () => {
   assert.match(out, /vibeusage/);
   assert.ok(!out.includes('@vibescore/tracker'));
   assert.match(out, /VIBEUSAGE_DASHBOARD_URL/);
+  assert.match(out, /doctor/);
 });

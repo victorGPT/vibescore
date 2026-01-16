@@ -2,6 +2,7 @@ const { cmdInit } = require('./commands/init');
 const { cmdSync } = require('./commands/sync');
 const { cmdStatus } = require('./commands/status');
 const { cmdDiagnostics } = require('./commands/diagnostics');
+const { cmdDoctor } = require('./commands/doctor');
 const { cmdUninstall } = require('./commands/uninstall');
 
 async function run(argv) {
@@ -25,6 +26,9 @@ async function run(argv) {
     case 'diagnostics':
       await cmdDiagnostics(rest);
       return;
+    case 'doctor':
+      await cmdDoctor(rest);
+      return;
     case 'uninstall':
       await cmdUninstall(rest);
       return;
@@ -44,6 +48,7 @@ function printHelp() {
       '  npx vibeusage [--debug] sync [--auto] [--drain]',
       '  npx vibeusage [--debug] status',
       '  npx vibeusage [--debug] diagnostics [--out diagnostics.json]',
+      '  npx vibeusage [--debug] doctor [--json] [--out doctor.json]',
       '  npx vibeusage [--debug] uninstall [--purge]',
       '',
       'Notes:',
