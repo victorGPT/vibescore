@@ -10,7 +10,7 @@
 - For `every-code` buckets that remain unknown, align model to the nearest `codex` dominant model (past or future).
 
 ## Impact
-- Affected specs: vibescore-tracker
+- Affected specs: vibeusage-tracker
 - Affected code: src/lib/rollout.js (enqueue/aggregation path), tests in test/rollout-parser.test.js
 - **BREAKING**: none (behavior change in model attribution only)
 

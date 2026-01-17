@@ -11,7 +11,7 @@
 - 更新运维/接口说明文档，提供查询示例与解释 `created_at/updated_at`。
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: `insforge-src/functions/vibescore-ingest.js`, `insforge-src/functions/vibescore-events-retention.js` (or new retention path), DB schema
 - **BREAKING**: none
 

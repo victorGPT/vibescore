@@ -10,7 +10,7 @@
 - Update documentation to reflect the new default.
 
 ## Impact
-- Affected specs: `vibescore-tracker`.
+- Affected specs: `vibeusage-tracker`.
 - Affected code: `insforge-src/shared/date.js`, usage endpoints relying on the default, tests, `BACKEND_API.md`.
 - **BREAKING**: None (guardrail remains; default only increases).
 

@@ -11,7 +11,7 @@
 - 更新 copy registry 与部署 rewrite。
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code:
   - `insforge-src/functions/*usage*`
   - `insforge-src/functions/*public-view*`

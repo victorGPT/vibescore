@@ -15,13 +15,13 @@ var require_http = __commonJS({
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey"
     };
-    function handleOptions(request) {
+    function handleOptions2(request) {
       if (request.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: corsHeaders });
       }
       return null;
     }
-    function json(body, status = 200, extraHeaders = null) {
+    function json2(body, status = 200, extraHeaders = null) {
       return new Response(JSON.stringify(body), {
         status,
         headers: {
@@ -31,11 +31,11 @@ var require_http = __commonJS({
         }
       });
     }
-    function requireMethod(request, method) {
-      if (request.method !== method) return json({ error: "Method not allowed" }, 405);
+    function requireMethod2(request, method) {
+      if (request.method !== method) return json2({ error: "Method not allowed" }, 405);
       return null;
     }
-    async function readJson(request) {
+    async function readJson2(request) {
       if (!request.headers.get("Content-Type")?.includes("application/json")) {
         return { error: "Content-Type must be application/json", status: 415, data: null };
       }
@@ -48,10 +48,10 @@ var require_http = __commonJS({
     }
     module2.exports = {
       corsHeaders,
-      handleOptions,
-      json,
-      requireMethod,
-      readJson
+      handleOptions: handleOptions2,
+      json: json2,
+      requireMethod: requireMethod2,
+      readJson: readJson2
     };
   }
 });
@@ -60,19 +60,19 @@ var require_http = __commonJS({
 var require_env = __commonJS({
   "insforge-src/shared/env.js"(exports2, module2) {
     "use strict";
-    function getBaseUrl() {
+    function getBaseUrl2() {
       return Deno.env.get("INSFORGE_INTERNAL_URL") || "http://insforge:7130";
     }
-    function getServiceRoleKey() {
+    function getServiceRoleKey2() {
       return Deno.env.get("INSFORGE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("INSFORGE_API_KEY") || Deno.env.get("API_KEY") || null;
     }
-    function getAnonKey() {
+    function getAnonKey2() {
       return Deno.env.get("ANON_KEY") || Deno.env.get("INSFORGE_ANON_KEY") || null;
     }
     module2.exports = {
-      getBaseUrl,
-      getServiceRoleKey,
-      getAnonKey
+      getBaseUrl: getBaseUrl2,
+      getServiceRoleKey: getServiceRoleKey2,
+      getAnonKey: getAnonKey2
     };
   }
 });
@@ -96,21 +96,21 @@ var require_crypto = __commonJS({
 var require_public_view = __commonJS({
   "insforge-src/shared/public-view.js"(exports2, module2) {
     "use strict";
-    var { getAnonKey, getServiceRoleKey } = require_env();
+    var { getAnonKey: getAnonKey2, getServiceRoleKey: getServiceRoleKey2 } = require_env();
     var { sha256Hex } = require_crypto();
     async function resolvePublicView({ baseUrl, shareToken }) {
       const token = normalizeToken(shareToken);
       if (!token) return { ok: false, edgeClient: null, userId: null };
-      const serviceRoleKey = getServiceRoleKey();
+      const serviceRoleKey = getServiceRoleKey2();
       if (!serviceRoleKey) return { ok: false, edgeClient: null, userId: null };
-      const anonKey = getAnonKey();
+      const anonKey = getAnonKey2();
       const dbClient = createClient({
         baseUrl,
         anonKey: anonKey || serviceRoleKey,
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -133,9 +133,9 @@ var require_public_view = __commonJS({
 var require_auth = __commonJS({
   "insforge-src/shared/auth.js"(exports2, module2) {
     "use strict";
-    var { getAnonKey } = require_env();
+    var { getAnonKey: getAnonKey2 } = require_env();
     var { resolvePublicView } = require_public_view();
-    function getBearerToken(headerValue) {
+    function getBearerToken2(headerValue) {
       if (!headerValue) return null;
       const prefix = "Bearer ";
       if (!headerValue.startsWith(prefix)) return null;
@@ -195,7 +195,7 @@ var require_auth = __commonJS({
       return exp * 1e3 <= Date.now();
     }
     async function getEdgeClientAndUserId({ baseUrl, bearer }) {
-      const anonKey = getAnonKey();
+      const anonKey = getAnonKey2();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const { data: userData, error: userErr } = await edgeClient.auth.getCurrentUser();
       const userId = userData?.user?.id;
@@ -203,7 +203,7 @@ var require_auth = __commonJS({
       return { ok: true, edgeClient, userId };
     }
     async function getEdgeClientAndUserIdFast({ baseUrl, bearer }) {
-      const anonKey = getAnonKey();
+      const anonKey = getAnonKey2();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const payload = decodeJwtPayload(bearer);
       if (payload && isJwtExpired(payload)) {
@@ -235,7 +235,7 @@ var require_auth = __commonJS({
       };
     }
     module2.exports = {
-      getBearerToken,
+      getBearerToken: getBearerToken2,
       getAccessContext,
       getEdgeClientAndUserId,
       getEdgeClientAndUserIdFast,
@@ -248,31 +248,31 @@ var require_auth = __commonJS({
 var require_date = __commonJS({
   "insforge-src/shared/date.js"(exports2, module2) {
     "use strict";
-    function isDate(s) {
+    function isDate2(s) {
       return typeof s === "string" && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(s);
     }
     function toUtcDay(d) {
       return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
     }
-    function formatDateUTC(d) {
+    function formatDateUTC2(d) {
       return toUtcDay(d).toISOString().slice(0, 10);
     }
     function normalizeDateRange(fromRaw, toRaw) {
       const today = /* @__PURE__ */ new Date();
-      const toDefault = formatDateUTC(today);
-      const fromDefault = formatDateUTC(
+      const toDefault = formatDateUTC2(today);
+      const fromDefault = formatDateUTC2(
         new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 29))
       );
-      const from = isDate(fromRaw) ? fromRaw : fromDefault;
-      const to = isDate(toRaw) ? toRaw : toDefault;
+      const from = isDate2(fromRaw) ? fromRaw : fromDefault;
+      const to = isDate2(toRaw) ? toRaw : toDefault;
       return { from, to };
     }
     function parseUtcDateString(yyyyMmDd) {
-      if (!isDate(yyyyMmDd)) return null;
+      if (!isDate2(yyyyMmDd)) return null;
       const [y, m, d] = yyyyMmDd.split("-").map((n) => Number(n));
       const dt = new Date(Date.UTC(y, m - 1, d));
       if (!Number.isFinite(dt.getTime())) return null;
-      return formatDateUTC(dt) === yyyyMmDd ? dt : null;
+      return formatDateUTC2(dt) === yyyyMmDd ? dt : null;
     }
     function addUtcDays(date, days) {
       return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
@@ -283,7 +283,7 @@ var require_date = __commonJS({
       const endDow = end.getUTCDay();
       const endWeekStart = addUtcDays(end, -((endDow - desired + 7) % 7));
       const gridStart = addUtcDays(endWeekStart, -7 * (weeks - 1));
-      return { from: formatDateUTC(gridStart), gridStart, end };
+      return { from: formatDateUTC2(gridStart), gridStart, end };
     }
     var TIMEZONE_FORMATTERS = /* @__PURE__ */ new Map();
     function getTimeZoneFormatter(timeZone) {
@@ -302,7 +302,7 @@ var require_date = __commonJS({
       return formatter;
     }
     function parseDateParts(yyyyMmDd) {
-      if (!isDate(yyyyMmDd)) return null;
+      if (!isDate2(yyyyMmDd)) return null;
       const [y, m, d] = yyyyMmDd.split("-").map((n) => Number(n));
       if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
       return { year: y, month: m, day: d };
@@ -467,8 +467,8 @@ var require_date = __commonJS({
         -29
       );
       const fromDefault = formatDateParts(fromDefaultParts);
-      const from = isDate(fromRaw) ? fromRaw : fromDefault;
-      const to = isDate(toRaw) ? toRaw : toDefault;
+      const from = isDate2(fromRaw) ? fromRaw : fromDefault;
+      const to = isDate2(toRaw) ? toRaw : toDefault;
       return { from, to };
     }
     function listDateStrings(from, to) {
@@ -480,12 +480,12 @@ var require_date = __commonJS({
       if (!start || !end || end < start) return [];
       const days = [];
       for (let cursor = start; cursor <= end; cursor = addUtcDays(cursor, 1)) {
-        days.push(formatDateUTC(cursor));
+        days.push(formatDateUTC2(cursor));
       }
       return days;
     }
     function getUsageMaxDays() {
-      const raw = readEnvValue("VIBEUSAGE_USAGE_MAX_DAYS") ?? readEnvValue("VIBESCORE_USAGE_MAX_DAYS");
+      const raw = readEnvValue("VIBEUSAGE_USAGE_MAX_DAYS");
       if (raw == null || raw === "") return 800;
       const n = Number(raw);
       if (!Number.isFinite(n)) return 800;
@@ -514,9 +514,9 @@ var require_date = __commonJS({
       return Math.min(max, Math.max(min, Math.floor(n)));
     }
     module2.exports = {
-      isDate,
+      isDate: isDate2,
       toUtcDay,
-      formatDateUTC,
+      formatDateUTC: formatDateUTC2,
       normalizeDateRange,
       parseUtcDateString,
       addUtcDays,
@@ -562,7 +562,7 @@ var require_numbers = __commonJS({
       }
       return 0n;
     }
-    function toPositiveIntOrNull(v) {
+    function toPositiveIntOrNull2(v) {
       if (typeof v === "number" && Number.isInteger(v) && v > 0) return v;
       if (typeof v === "string") {
         const s = v.trim();
@@ -578,13 +578,13 @@ var require_numbers = __commonJS({
       return null;
     }
     function toPositiveInt(v) {
-      const n = toPositiveIntOrNull(v);
+      const n = toPositiveIntOrNull2(v);
       return n == null ? 0 : n;
     }
     module2.exports = {
       toBigInt,
       toPositiveInt,
-      toPositiveIntOrNull
+      toPositiveIntOrNull: toPositiveIntOrNull2
     };
   }
 });
@@ -594,7 +594,7 @@ var require_source = __commonJS({
   "insforge-src/shared/source.js"(exports2, module2) {
     "use strict";
     var MAX_SOURCE_LENGTH = 64;
-    function normalizeSource(value) {
+    function normalizeSource2(value) {
       if (typeof value !== "string") return null;
       const normalized = value.trim().toLowerCase();
       if (!normalized) return null;
@@ -608,13 +608,13 @@ var require_source = __commonJS({
       const raw = url.searchParams.get("source");
       if (raw == null) return { ok: true, source: null };
       if (raw.trim() === "") return { ok: true, source: null };
-      const normalized = normalizeSource(raw);
+      const normalized = normalizeSource2(raw);
       if (!normalized) return { ok: false, error: "Invalid source" };
       return { ok: true, source: normalized };
     }
     module2.exports = {
       MAX_SOURCE_LENGTH,
-      normalizeSource,
+      normalizeSource: normalizeSource2,
       getSourceParam
     };
   }
@@ -624,13 +624,13 @@ var require_source = __commonJS({
 var require_model = __commonJS({
   "insforge-src/shared/model.js"(exports2, module2) {
     "use strict";
-    function normalizeModel(value) {
+    function normalizeModel2(value) {
       if (typeof value !== "string") return null;
       const trimmed = value.trim();
       return trimmed.length > 0 ? trimmed : null;
     }
-    function normalizeUsageModel(value) {
-      const normalized = normalizeModel(value);
+    function normalizeUsageModel2(value) {
+      const normalized = normalizeModel2(value);
       if (!normalized) return null;
       const lowered = normalized.toLowerCase();
       return lowered ? lowered : null;
@@ -644,7 +644,7 @@ var require_model = __commonJS({
       const terms = [];
       const seen = /* @__PURE__ */ new Set();
       for (const model of models) {
-        const normalized = normalizeUsageModel(model);
+        const normalized = normalizeUsageModel2(model);
         if (!normalized) continue;
         const safe = escapeLike(normalized);
         const exact = `model.ilike.${safe}`;
@@ -663,13 +663,13 @@ var require_model = __commonJS({
       const raw = url.searchParams.get("model");
       if (raw == null) return { ok: true, model: null };
       if (raw.trim() === "") return { ok: true, model: null };
-      const normalized = normalizeUsageModel(raw);
+      const normalized = normalizeUsageModel2(raw);
       if (!normalized) return { ok: false, error: "Invalid model" };
       return { ok: true, model: normalized };
     }
     module2.exports = {
-      normalizeModel,
-      normalizeUsageModel,
+      normalizeModel: normalizeModel2,
+      normalizeUsageModel: normalizeUsageModel2,
       applyUsageModelFilter,
       getModelParam
     };
@@ -684,13 +684,13 @@ var require_canary = __commonJS({
       if (typeof value !== "string") return false;
       return value.trim().toLowerCase() === "canary";
     }
-    function applyCanaryFilter(query, { source, model } = {}) {
+    function applyCanaryFilter2(query, { source, model } = {}) {
       if (!query || typeof query.neq !== "function") return query;
       if (isCanaryTag(source) || isCanaryTag(model)) return query;
       return query.neq("source", "canary").neq("model", "canary");
     }
     module2.exports = {
-      applyCanaryFilter,
+      applyCanaryFilter: applyCanaryFilter2,
       isCanaryTag
     };
   }
@@ -706,7 +706,7 @@ var require_pagination = __commonJS({
       if (!Number.isFinite(size) || size <= 0) return MAX_PAGE_SIZE;
       return Math.min(MAX_PAGE_SIZE, Math.floor(size));
     }
-    async function forEachPage({ createQuery, pageSize, onPage }) {
+    async function forEachPage2({ createQuery, pageSize, onPage }) {
       if (typeof createQuery !== "function") {
         throw new Error("createQuery must be a function");
       }
@@ -733,7 +733,7 @@ var require_pagination = __commonJS({
       }
       return { error: null };
     }
-    module2.exports = { forEachPage };
+    module2.exports = { forEachPage: forEachPage2 };
   }
 });
 
@@ -806,7 +806,7 @@ var require_logging = __commonJS({
       }
       return functionName;
     }
-    function withRequestLogging(functionName, handler) {
+    function withRequestLogging2(functionName, handler) {
       return async function(request) {
         const resolvedName = resolveFunctionName(functionName, request);
         const logger = createLogger({ functionName: resolvedName });
@@ -822,7 +822,7 @@ var require_logging = __commonJS({
       };
     }
     module2.exports = {
-      withRequestLogging,
+      withRequestLogging: withRequestLogging2,
       logSlowQuery,
       getSlowQueryThresholdMs
     };
@@ -840,7 +840,7 @@ var require_logging = __commonJS({
       });
     }
     function getSlowQueryThresholdMs() {
-      const raw = readEnvValue("VIBEUSAGE_SLOW_QUERY_MS") ?? readEnvValue("VIBESCORE_SLOW_QUERY_MS");
+      const raw = readEnvValue("VIBEUSAGE_SLOW_QUERY_MS");
       if (raw == null || raw === "") return 2e3;
       const n = Number(raw);
       if (!Number.isFinite(n)) return 2e3;
@@ -871,324 +871,316 @@ var require_logging = __commonJS({
   }
 });
 
-// insforge-src/functions/vibescore-pricing-sync.js
-var require_vibescore_pricing_sync = __commonJS({
-  "insforge-src/functions/vibescore-pricing-sync.js"(exports2, module2) {
-    "use strict";
-    var { handleOptions, json, readJson, requireMethod } = require_http();
-    var { getBearerToken } = require_auth();
-    var { getAnonKey, getBaseUrl, getServiceRoleKey } = require_env();
-    var { formatDateUTC, isDate } = require_date();
-    var { toPositiveIntOrNull } = require_numbers();
-    var { normalizeSource } = require_source();
-    var { normalizeModel, normalizeUsageModel } = require_model();
-    var { applyCanaryFilter } = require_canary();
-    var { forEachPage } = require_pagination();
-    var { withRequestLogging } = require_logging();
-    var OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
-    var MAX_RATE_MICROS_PER_MILLION = 2147483647n;
-    var SCALE_MICROS_PER_MILLION = 12;
-    var UPSERT_BATCH_SIZE = 500;
-    var USAGE_MODEL_WINDOW_DAYS = 30;
-    module2.exports = withRequestLogging("vibescore-pricing-sync", async function(request, logger) {
-      const opt = handleOptions(request);
-      if (opt) return opt;
-      const methodErr = requireMethod(request, "POST");
-      if (methodErr) return methodErr;
-      const serviceRoleKey = getServiceRoleKey();
-      if (!serviceRoleKey) return json({ error: "Admin key missing" }, 500);
-      const bearer = getBearerToken(request.headers.get("Authorization"));
-      if (!bearer || bearer !== serviceRoleKey) return json({ error: "Unauthorized" }, 401);
-      const body = await readJson(request);
-      if (body.error) return json({ error: body.error }, body.status);
-      const payload = body.data && typeof body.data === "object" ? body.data : {};
-      const effectiveFrom = isDate(payload.effective_from) ? payload.effective_from : formatDateUTC(/* @__PURE__ */ new Date());
-      const retentionDays = toPositiveIntOrNull(payload.retention_days);
-      const allowModels = normalizeAllowList(payload.allow_models);
-      const pricingSource = normalizeSource(payload.source) || normalizeSource(getEnvValue("VIBESCORE_PRICING_SOURCE")) || "openrouter";
-      const openRouterKey = getEnvValue("OPENROUTER_API_KEY");
-      if (!openRouterKey) return json({ error: "OPENROUTER_API_KEY missing" }, 500);
-      const headers = {
-        Authorization: `Bearer ${openRouterKey}`
-      };
-      const referer = getEnvValue("OPENROUTER_HTTP_REFERER");
-      if (referer) headers["HTTP-Referer"] = referer;
-      const title = getEnvValue("OPENROUTER_APP_TITLE");
-      if (title) headers["X-Title"] = title;
-      const openrouterRes = await logger.fetch(OPENROUTER_MODELS_URL, { headers });
-      if (!openrouterRes.ok) {
-        return json({
-          error: "OpenRouter fetch failed",
-          status: openrouterRes.status
-        }, 502);
-      }
-      let openrouterJson = null;
-      try {
-        openrouterJson = await openrouterRes.json();
-      } catch (_err) {
-        return json({ error: "Invalid OpenRouter response" }, 502);
-      }
-      const models = Array.isArray(openrouterJson?.data) ? openrouterJson.data : [];
-      if (!Array.isArray(openrouterJson?.data)) {
-        return json({ error: "Unexpected OpenRouter response shape" }, 502);
-      }
-      const rows = [];
-      const pricingMeta = [];
-      const pricingModelIds = /* @__PURE__ */ new Set();
-      let skipped = 0;
-      for (const entry of models) {
-        const modelId = normalizeModel(entry?.id);
-        if (!modelId) {
-          skipped += 1;
-          continue;
-        }
-        if (!allowModel(modelId, allowModels)) continue;
-        const pricing = entry?.pricing;
-        if (!pricing || typeof pricing !== "object") {
-          skipped += 1;
-          continue;
-        }
-        const promptUsd = pricing.prompt;
-        const completionUsd = pricing.completion;
-        const cachedUsd = pricing.input_cache_read != null ? pricing.input_cache_read : promptUsd;
-        const reasoningUsd = pricing.internal_reasoning != null ? pricing.internal_reasoning : completionUsd;
-        const inputRate = toRateMicrosPerMillion(promptUsd);
-        const outputRate = toRateMicrosPerMillion(completionUsd);
-        const cachedRate = toRateMicrosPerMillion(cachedUsd);
-        const reasoningRate = toRateMicrosPerMillion(reasoningUsd);
-        if (inputRate == null || outputRate == null || cachedRate == null || reasoningRate == null) {
-          skipped += 1;
-          continue;
-        }
-        rows.push({
-          model: modelId,
-          source: pricingSource,
-          effective_from: effectiveFrom,
-          input_rate_micro_per_million: inputRate,
-          cached_input_rate_micro_per_million: cachedRate,
-          output_rate_micro_per_million: outputRate,
-          reasoning_output_rate_micro_per_million: reasoningRate,
-          active: true
-        });
-        pricingModelIds.add(modelId.toLowerCase());
-        pricingMeta.push({
-          id: modelId,
-          created: normalizeCreated(entry?.created),
-          context_length: normalizeContextLength(entry?.context_length)
-        });
-      }
-      const baseUrl = getBaseUrl();
-      const anonKey = getAnonKey();
-      const serviceClient = createClient({
-        baseUrl,
-        anonKey: anonKey || serviceRoleKey,
-        edgeFunctionToken: serviceRoleKey
-      });
-      let upserted = 0;
-      for (let i = 0; i < rows.length; i += UPSERT_BATCH_SIZE) {
-        const batch = rows.slice(i, i + UPSERT_BATCH_SIZE);
-        const { error } = await serviceClient.database.from("vibescore_pricing_profiles").upsert(batch, { onConflict: "model,source,effective_from" });
-        if (error) return json({ error: error.message }, 500);
-        upserted += batch.length;
-      }
-      const usageModels = await listUsageModels({
-        serviceClient,
-        windowDays: USAGE_MODEL_WINDOW_DAYS
-      });
-      const aliasRows = buildAliasRows({
-        usageModels,
-        pricingModelIds,
-        pricingMeta,
-        pricingSource,
-        effectiveFrom
-      });
-      let aliasesUpserted = 0;
-      for (let i = 0; i < aliasRows.length; i += UPSERT_BATCH_SIZE) {
-        const batch = aliasRows.slice(i, i + UPSERT_BATCH_SIZE);
-        const { error } = await serviceClient.database.from("vibescore_pricing_model_aliases").upsert(batch, { onConflict: "usage_model,pricing_source,effective_from" });
-        if (error) return json({ error: error.message }, 500);
-        aliasesUpserted += batch.length;
-      }
-      let retention = null;
-      if (retentionDays) {
-        const cutoff = /* @__PURE__ */ new Date();
-        cutoff.setUTCDate(cutoff.getUTCDate() - retentionDays);
-        const cutoffDate = formatDateUTC(cutoff);
-        const { error } = await serviceClient.database.from("vibescore_pricing_profiles").update({ active: false }).eq("source", pricingSource).lt("effective_from", cutoffDate);
-        if (error) return json({ error: error.message }, 500);
-        const { error: aliasError } = await serviceClient.database.from("vibescore_pricing_model_aliases").update({ active: false }).eq("pricing_source", pricingSource).lt("effective_from", cutoffDate);
-        if (aliasError) return json({ error: aliasError.message }, 500);
-        retention = { retention_days: retentionDays, cutoff_date: cutoffDate };
-      }
-      return json({
-        success: true,
-        source: pricingSource,
-        effective_from: effectiveFrom,
-        models_total: models.length,
-        models_processed: rows.length,
-        models_skipped: skipped,
-        rows_upserted: upserted,
-        usage_models_total: usageModels.length,
-        aliases_generated: aliasRows.length,
-        aliases_upserted: aliasesUpserted,
-        retention
-      }, 200);
-    });
-    function getEnvValue(key) {
-      try {
-        if (typeof Deno !== "undefined" && Deno?.env?.get) {
-          return Deno.env.get(key);
-        }
-      } catch (_) {
-      }
-      if (typeof process !== "undefined" && process?.env) {
-        return process.env[key];
-      }
-      return null;
-    }
-    function normalizeAllowList(raw) {
-      if (!Array.isArray(raw)) return null;
-      const list = raw.map((entry) => normalizeModel(entry)).filter((entry) => typeof entry === "string" && entry.length > 0);
-      return list.length > 0 ? list : null;
-    }
-    function allowModel(modelId, allowList) {
-      if (!allowList || allowList.length === 0) return true;
-      for (const entry of allowList) {
-        if (modelId === entry) return true;
-        if (!entry.includes("/") && modelId.endsWith(`/${entry}`)) return true;
-      }
-      return false;
-    }
-    function normalizeCreated(value) {
-      const n = Number(value);
-      return Number.isFinite(n) && n > 0 ? n : 0;
-    }
-    function normalizeContextLength(value) {
-      const n = Number(value);
-      return Number.isFinite(n) && n > 0 ? n : 0;
-    }
-    async function listUsageModels({ serviceClient, windowDays }) {
-      const models = /* @__PURE__ */ new Set();
-      const cutoff = /* @__PURE__ */ new Date();
-      cutoff.setUTCDate(cutoff.getUTCDate() - windowDays);
-      const since = cutoff.toISOString();
-      const { error } = await forEachPage({
-        createQuery: () => {
-          let query = serviceClient.database.from("vibescore_tracker_hourly").select("model").gte("hour_start", since);
-          query = applyCanaryFilter(query, { source: null, model: null });
-          return query.order("hour_start", { ascending: true }).order("user_id", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
-        },
-        onPage: (rows) => {
-          for (const row of rows || []) {
-            const normalized = normalizeUsageModel(row?.model);
-            if (normalized && normalized !== "unknown") models.add(normalized);
-          }
-        }
-      });
-      if (error) throw new Error(error.message || "Failed to list usage models");
-      return Array.from(models.values());
-    }
-    function buildAliasRows({ usageModels, pricingModelIds, pricingMeta, pricingSource, effectiveFrom }) {
-      const rows = [];
-      for (const usageModel of usageModels) {
-        if (matchesPricingModel(usageModel, pricingModelIds)) continue;
-        const rule = inferVendorRule(usageModel);
-        if (!rule) continue;
-        const candidate = selectLatestCandidate(pricingMeta, rule);
-        if (!candidate) continue;
-        rows.push({
-          usage_model: usageModel,
-          pricing_model: candidate.id,
-          pricing_source: pricingSource,
-          effective_from: effectiveFrom,
-          active: true
-        });
-      }
-      return rows;
-    }
-    function matchesPricingModel(usageModel, pricingModelIds) {
-      if (!usageModel) return false;
-      if (pricingModelIds.has(usageModel)) return true;
-      for (const id of pricingModelIds) {
-        if (id.endsWith(`/${usageModel}`)) return true;
-        if (usageModel.endsWith(`/${id}`)) return true;
-      }
-      return false;
-    }
-    function inferVendorRule(usageModel) {
-      if (usageModel.startsWith("claude-")) {
-        return {
-          vendor: "anthropic",
-          family: inferFamily(usageModel, ["opus", "sonnet", "haiku"])
-        };
-      }
-      if (usageModel.startsWith("gpt-")) {
-        return {
-          vendor: "openai",
-          family: inferFamily(usageModel, ["codex"])
-        };
-      }
-      return null;
-    }
-    function inferFamily(usageModel, families) {
-      for (const family of families) {
-        if (usageModel.includes(family)) return family;
-      }
-      return null;
-    }
-    function selectLatestCandidate(pricingMeta, rule) {
-      const candidates = pricingMeta.filter((entry) => {
-        const id = String(entry?.id || "").toLowerCase();
-        if (!id.startsWith(`${rule.vendor}/`)) return false;
-        if (rule.family && !id.includes(rule.family)) return false;
-        return true;
-      });
-      if (candidates.length === 0) return null;
-      return candidates.reduce((best, current) => {
-        if (!best) return current;
-        if (current.created !== best.created) return current.created > best.created ? current : best;
-        if (current.context_length !== best.context_length) {
-          return current.context_length > best.context_length ? current : best;
-        }
-        return String(current.id).localeCompare(String(best.id)) > 0 ? current : best;
-      }, null);
-    }
-    function toRateMicrosPerMillion(value) {
-      const scaled = scaleDecimal(value, SCALE_MICROS_PER_MILLION);
-      if (scaled == null) return null;
-      if (scaled < 0n || scaled > MAX_RATE_MICROS_PER_MILLION) return null;
-      return Number(scaled);
-    }
-    function scaleDecimal(value, scale) {
-      if (value == null) return null;
-      let str = typeof value === "string" ? value.trim() : String(value).trim();
-      if (!str) return null;
-      if (str.startsWith("-")) return null;
-      if (str.includes("e") || str.includes("E")) {
-        const n = Number(str);
-        if (!Number.isFinite(n) || n < 0) return null;
-        return BigInt(Math.round(n * Math.pow(10, scale)));
-      }
-      const parts = str.split(".");
-      const whole = parts[0] || "0";
-      const frac = parts[1] || "";
-      if (!/^[0-9]+$/.test(whole) || frac && !/^[0-9]+$/.test(frac)) return null;
-      const digits = (whole.replace(/^0+(?=\d)/, "") || "0") + frac;
-      const fracLen = frac.length;
-      if (scale >= fracLen) {
-        const zeros = "0".repeat(scale - fracLen);
-        return BigInt(digits + zeros);
-      }
-      const cut = fracLen - scale;
-      const keepLen = digits.length - cut;
-      const kept = digits.slice(0, keepLen) || "0";
-      const next = digits.slice(keepLen, keepLen + 1);
-      let rounded = BigInt(kept);
-      if (next && Number(next) >= 5) rounded += 1n;
-      return rounded;
-    }
-  }
-});
-
 // insforge-src/functions/vibeusage-pricing-sync.js
-module.exports = require_vibescore_pricing_sync();
+var { handleOptions, json, readJson, requireMethod } = require_http();
+var { getBearerToken } = require_auth();
+var { getAnonKey, getBaseUrl, getServiceRoleKey } = require_env();
+var { formatDateUTC, isDate } = require_date();
+var { toPositiveIntOrNull } = require_numbers();
+var { normalizeSource } = require_source();
+var { normalizeModel, normalizeUsageModel } = require_model();
+var { applyCanaryFilter } = require_canary();
+var { forEachPage } = require_pagination();
+var { withRequestLogging } = require_logging();
+var OPENROUTER_MODELS_URL = "https://openrouter.ai/api/v1/models";
+var MAX_RATE_MICROS_PER_MILLION = 2147483647n;
+var SCALE_MICROS_PER_MILLION = 12;
+var UPSERT_BATCH_SIZE = 500;
+var USAGE_MODEL_WINDOW_DAYS = 30;
+module.exports = withRequestLogging("vibeusage-pricing-sync", async function(request, logger) {
+  const opt = handleOptions(request);
+  if (opt) return opt;
+  const methodErr = requireMethod(request, "POST");
+  if (methodErr) return methodErr;
+  const serviceRoleKey = getServiceRoleKey();
+  if (!serviceRoleKey) return json({ error: "Admin key missing" }, 500);
+  const bearer = getBearerToken(request.headers.get("Authorization"));
+  if (!bearer || bearer !== serviceRoleKey) return json({ error: "Unauthorized" }, 401);
+  const body = await readJson(request);
+  if (body.error) return json({ error: body.error }, body.status);
+  const payload = body.data && typeof body.data === "object" ? body.data : {};
+  const effectiveFrom = isDate(payload.effective_from) ? payload.effective_from : formatDateUTC(/* @__PURE__ */ new Date());
+  const retentionDays = toPositiveIntOrNull(payload.retention_days);
+  const allowModels = normalizeAllowList(payload.allow_models);
+  const pricingSource = normalizeSource(payload.source) || normalizeSource(getEnvValue("VIBESCORE_PRICING_SOURCE")) || "openrouter";
+  const openRouterKey = getEnvValue("OPENROUTER_API_KEY");
+  if (!openRouterKey) return json({ error: "OPENROUTER_API_KEY missing" }, 500);
+  const headers = {
+    Authorization: `Bearer ${openRouterKey}`
+  };
+  const referer = getEnvValue("OPENROUTER_HTTP_REFERER");
+  if (referer) headers["HTTP-Referer"] = referer;
+  const title = getEnvValue("OPENROUTER_APP_TITLE");
+  if (title) headers["X-Title"] = title;
+  const openrouterRes = await logger.fetch(OPENROUTER_MODELS_URL, { headers });
+  if (!openrouterRes.ok) {
+    return json({
+      error: "OpenRouter fetch failed",
+      status: openrouterRes.status
+    }, 502);
+  }
+  let openrouterJson = null;
+  try {
+    openrouterJson = await openrouterRes.json();
+  } catch (_err) {
+    return json({ error: "Invalid OpenRouter response" }, 502);
+  }
+  const models = Array.isArray(openrouterJson?.data) ? openrouterJson.data : [];
+  if (!Array.isArray(openrouterJson?.data)) {
+    return json({ error: "Unexpected OpenRouter response shape" }, 502);
+  }
+  const rows = [];
+  const pricingMeta = [];
+  const pricingModelIds = /* @__PURE__ */ new Set();
+  let skipped = 0;
+  for (const entry of models) {
+    const modelId = normalizeModel(entry?.id);
+    if (!modelId) {
+      skipped += 1;
+      continue;
+    }
+    if (!allowModel(modelId, allowModels)) continue;
+    const pricing = entry?.pricing;
+    if (!pricing || typeof pricing !== "object") {
+      skipped += 1;
+      continue;
+    }
+    const promptUsd = pricing.prompt;
+    const completionUsd = pricing.completion;
+    const cachedUsd = pricing.input_cache_read != null ? pricing.input_cache_read : promptUsd;
+    const reasoningUsd = pricing.internal_reasoning != null ? pricing.internal_reasoning : completionUsd;
+    const inputRate = toRateMicrosPerMillion(promptUsd);
+    const outputRate = toRateMicrosPerMillion(completionUsd);
+    const cachedRate = toRateMicrosPerMillion(cachedUsd);
+    const reasoningRate = toRateMicrosPerMillion(reasoningUsd);
+    if (inputRate == null || outputRate == null || cachedRate == null || reasoningRate == null) {
+      skipped += 1;
+      continue;
+    }
+    rows.push({
+      model: modelId,
+      source: pricingSource,
+      effective_from: effectiveFrom,
+      input_rate_micro_per_million: inputRate,
+      cached_input_rate_micro_per_million: cachedRate,
+      output_rate_micro_per_million: outputRate,
+      reasoning_output_rate_micro_per_million: reasoningRate,
+      active: true
+    });
+    pricingModelIds.add(modelId.toLowerCase());
+    pricingMeta.push({
+      id: modelId,
+      created: normalizeCreated(entry?.created),
+      context_length: normalizeContextLength(entry?.context_length)
+    });
+  }
+  const baseUrl = getBaseUrl();
+  const anonKey = getAnonKey();
+  const serviceClient = createClient({
+    baseUrl,
+    anonKey: anonKey || serviceRoleKey,
+    edgeFunctionToken: serviceRoleKey
+  });
+  let upserted = 0;
+  for (let i = 0; i < rows.length; i += UPSERT_BATCH_SIZE) {
+    const batch = rows.slice(i, i + UPSERT_BATCH_SIZE);
+    const { error } = await serviceClient.database.from("vibeusage_pricing_profiles").upsert(batch, { onConflict: "model,source,effective_from" });
+    if (error) return json({ error: error.message }, 500);
+    upserted += batch.length;
+  }
+  const usageModels = await listUsageModels({
+    serviceClient,
+    windowDays: USAGE_MODEL_WINDOW_DAYS
+  });
+  const aliasRows = buildAliasRows({
+    usageModels,
+    pricingModelIds,
+    pricingMeta,
+    pricingSource,
+    effectiveFrom
+  });
+  let aliasesUpserted = 0;
+  for (let i = 0; i < aliasRows.length; i += UPSERT_BATCH_SIZE) {
+    const batch = aliasRows.slice(i, i + UPSERT_BATCH_SIZE);
+    const { error } = await serviceClient.database.from("vibeusage_pricing_model_aliases").upsert(batch, { onConflict: "usage_model,pricing_source,effective_from" });
+    if (error) return json({ error: error.message }, 500);
+    aliasesUpserted += batch.length;
+  }
+  let retention = null;
+  if (retentionDays) {
+    const cutoff = /* @__PURE__ */ new Date();
+    cutoff.setUTCDate(cutoff.getUTCDate() - retentionDays);
+    const cutoffDate = formatDateUTC(cutoff);
+    const { error } = await serviceClient.database.from("vibeusage_pricing_profiles").update({ active: false }).eq("source", pricingSource).lt("effective_from", cutoffDate);
+    if (error) return json({ error: error.message }, 500);
+    const { error: aliasError } = await serviceClient.database.from("vibeusage_pricing_model_aliases").update({ active: false }).eq("pricing_source", pricingSource).lt("effective_from", cutoffDate);
+    if (aliasError) return json({ error: aliasError.message }, 500);
+    retention = { retention_days: retentionDays, cutoff_date: cutoffDate };
+  }
+  return json({
+    success: true,
+    source: pricingSource,
+    effective_from: effectiveFrom,
+    models_total: models.length,
+    models_processed: rows.length,
+    models_skipped: skipped,
+    rows_upserted: upserted,
+    usage_models_total: usageModels.length,
+    aliases_generated: aliasRows.length,
+    aliases_upserted: aliasesUpserted,
+    retention
+  }, 200);
+});
+function getEnvValue(key) {
+  try {
+    if (typeof Deno !== "undefined" && Deno?.env?.get) {
+      return Deno.env.get(key);
+    }
+  } catch (_) {
+  }
+  if (typeof process !== "undefined" && process?.env) {
+    return process.env[key];
+  }
+  return null;
+}
+function normalizeAllowList(raw) {
+  if (!Array.isArray(raw)) return null;
+  const list = raw.map((entry) => normalizeModel(entry)).filter((entry) => typeof entry === "string" && entry.length > 0);
+  return list.length > 0 ? list : null;
+}
+function allowModel(modelId, allowList) {
+  if (!allowList || allowList.length === 0) return true;
+  for (const entry of allowList) {
+    if (modelId === entry) return true;
+    if (!entry.includes("/") && modelId.endsWith(`/${entry}`)) return true;
+  }
+  return false;
+}
+function normalizeCreated(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+function normalizeContextLength(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+async function listUsageModels({ serviceClient, windowDays }) {
+  const models = /* @__PURE__ */ new Set();
+  const cutoff = /* @__PURE__ */ new Date();
+  cutoff.setUTCDate(cutoff.getUTCDate() - windowDays);
+  const since = cutoff.toISOString();
+  const { error } = await forEachPage({
+    createQuery: () => {
+      let query = serviceClient.database.from("vibeusage_tracker_hourly").select("model").gte("hour_start", since);
+      query = applyCanaryFilter(query, { source: null, model: null });
+      return query.order("hour_start", { ascending: true }).order("user_id", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
+    },
+    onPage: (rows) => {
+      for (const row of rows || []) {
+        const normalized = normalizeUsageModel(row?.model);
+        if (normalized && normalized !== "unknown") models.add(normalized);
+      }
+    }
+  });
+  if (error) throw new Error(error.message || "Failed to list usage models");
+  return Array.from(models.values());
+}
+function buildAliasRows({ usageModels, pricingModelIds, pricingMeta, pricingSource, effectiveFrom }) {
+  const rows = [];
+  for (const usageModel of usageModels) {
+    if (matchesPricingModel(usageModel, pricingModelIds)) continue;
+    const rule = inferVendorRule(usageModel);
+    if (!rule) continue;
+    const candidate = selectLatestCandidate(pricingMeta, rule);
+    if (!candidate) continue;
+    rows.push({
+      usage_model: usageModel,
+      pricing_model: candidate.id,
+      pricing_source: pricingSource,
+      effective_from: effectiveFrom,
+      active: true
+    });
+  }
+  return rows;
+}
+function matchesPricingModel(usageModel, pricingModelIds) {
+  if (!usageModel) return false;
+  if (pricingModelIds.has(usageModel)) return true;
+  for (const id of pricingModelIds) {
+    if (id.endsWith(`/${usageModel}`)) return true;
+    if (usageModel.endsWith(`/${id}`)) return true;
+  }
+  return false;
+}
+function inferVendorRule(usageModel) {
+  if (usageModel.startsWith("claude-")) {
+    return {
+      vendor: "anthropic",
+      family: inferFamily(usageModel, ["opus", "sonnet", "haiku"])
+    };
+  }
+  if (usageModel.startsWith("gpt-")) {
+    return {
+      vendor: "openai",
+      family: inferFamily(usageModel, ["codex"])
+    };
+  }
+  return null;
+}
+function inferFamily(usageModel, families) {
+  for (const family of families) {
+    if (usageModel.includes(family)) return family;
+  }
+  return null;
+}
+function selectLatestCandidate(pricingMeta, rule) {
+  const candidates = pricingMeta.filter((entry) => {
+    const id = String(entry?.id || "").toLowerCase();
+    if (!id.startsWith(`${rule.vendor}/`)) return false;
+    if (rule.family && !id.includes(rule.family)) return false;
+    return true;
+  });
+  if (candidates.length === 0) return null;
+  return candidates.reduce((best, current) => {
+    if (!best) return current;
+    if (current.created !== best.created) return current.created > best.created ? current : best;
+    if (current.context_length !== best.context_length) {
+      return current.context_length > best.context_length ? current : best;
+    }
+    return String(current.id).localeCompare(String(best.id)) > 0 ? current : best;
+  }, null);
+}
+function toRateMicrosPerMillion(value) {
+  const scaled = scaleDecimal(value, SCALE_MICROS_PER_MILLION);
+  if (scaled == null) return null;
+  if (scaled < 0n || scaled > MAX_RATE_MICROS_PER_MILLION) return null;
+  return Number(scaled);
+}
+function scaleDecimal(value, scale) {
+  if (value == null) return null;
+  let str = typeof value === "string" ? value.trim() : String(value).trim();
+  if (!str) return null;
+  if (str.startsWith("-")) return null;
+  if (str.includes("e") || str.includes("E")) {
+    const n = Number(str);
+    if (!Number.isFinite(n) || n < 0) return null;
+    return BigInt(Math.round(n * Math.pow(10, scale)));
+  }
+  const parts = str.split(".");
+  const whole = parts[0] || "0";
+  const frac = parts[1] || "";
+  if (!/^[0-9]+$/.test(whole) || frac && !/^[0-9]+$/.test(frac)) return null;
+  const digits = (whole.replace(/^0+(?=\d)/, "") || "0") + frac;
+  const fracLen = frac.length;
+  if (scale >= fracLen) {
+    const zeros = "0".repeat(scale - fracLen);
+    return BigInt(digits + zeros);
+  }
+  const cut = fracLen - scale;
+  const keepLen = digits.length - cut;
+  const kept = digits.slice(0, keepLen) || "0";
+  const next = digits.slice(keepLen, keepLen + 1);
+  let rounded = BigInt(kept);
+  if (next && Number(next) >= 5) rounded += 1n;
+  return rounded;
+}

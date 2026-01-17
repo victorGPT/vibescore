@@ -14,7 +14,7 @@
 - Update API docs and specs to reflect the new contract.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code:
   - `insforge-src/functions/vibescore-usage-summary.js`
   - `insforge-src/functions/vibescore-usage-daily.js`

@@ -31,20 +31,20 @@ async function main() {
   });
 
   const { data, error } = await client.database
-    .from('vibescore_model_aliases')
+    .from('vibeusage_model_aliases')
     .select('usage_model')
     .limit(1);
 
   if (error) {
     throw new Error(
-      `vibescore_model_aliases missing or inaccessible: ${error.message || error}`
+      `vibeusage_model_aliases missing or inaccessible: ${error.message || error}`
     );
   }
 
   assert.ok(Array.isArray(data));
 
   process.stdout.write(
-    JSON.stringify({ ok: true, table: 'vibescore_model_aliases' }, null, 2) + '\n'
+    JSON.stringify({ ok: true, table: 'vibeusage_model_aliases' }, null, 2) + '\n'
   );
 }
 

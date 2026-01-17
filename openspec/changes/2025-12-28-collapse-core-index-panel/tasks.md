@@ -16,5 +16,5 @@
 - [x] Run `node scripts/validate-copy-registry.cjs`
 
 ## 5. Docs & Spec
-- [x] Update spec delta under `openspec/changes/2025-12-28-collapse-core-index-panel/specs/vibescore-tracker/spec.md`
+- [x] Update spec delta under `openspec/changes/2025-12-28-collapse-core-index-panel/specs/vibeusage-tracker/spec.md`
 - [ ] Record verification notes (if applicable)

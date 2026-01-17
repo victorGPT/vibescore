@@ -9,7 +9,7 @@
 - Update dashboard API documentation to reflect the preferred path and fallback behavior.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: `dashboard/src/lib/vibescore-api.js`, `docs/dashboard/api.md`
 - **BREAKING** (if any): None (compatibility improvement).
 

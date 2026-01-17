@@ -25,7 +25,7 @@ class DatabaseStub {
   }
 
   maybeSingle() {
-    if (this._table === 'vibescore_tracker_device_tokens') {
+    if (this._table === 'vibeusage_tracker_device_tokens') {
       return {
         data: {
           id: 'token-id',
@@ -40,7 +40,7 @@ class DatabaseStub {
   }
 
   insert() {
-    if (this._table === 'vibescore_tracker_events') {
+    if (this._table === 'vibeusage_tracker_events') {
       throw new Error('expected service-role path to avoid SDK insert');
     }
     return { error: null };
@@ -157,7 +157,7 @@ function buildFetchStub() {
     const url = new URL(typeof input === 'string' ? input : input.url);
     const method = (init.method || 'GET').toUpperCase();
 
-    if (url.pathname === '/api/database/records/vibescore_tracker_hourly' && method === 'POST') {
+    if (url.pathname === '/api/database/records/vibeusage_tracker_hourly' && method === 'POST') {
       calls.hourlyInsert += 1;
       const prefer = String(init.headers?.Prefer || init.headers?.prefer || '');
       if (prefer.includes('resolution=merge-duplicates')) {
@@ -179,7 +179,7 @@ function buildFetchStub() {
       return jsonResponse(201, inserted);
     }
 
-    if (url.pathname === '/api/database/records/vibescore_tracker_hourly' && method === 'GET') {
+    if (url.pathname === '/api/database/records/vibeusage_tracker_hourly' && method === 'GET') {
       calls.hourlySelect += 1;
       return jsonResponse(200, []);
     }

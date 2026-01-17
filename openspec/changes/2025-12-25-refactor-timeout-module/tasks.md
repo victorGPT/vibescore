@@ -3,7 +3,7 @@
 - [x] 1.2 Update `dashboard/src/lib/insforge-client.js` to use the new module without behavior change.
 - [x] 1.3 Add unit tests: `test/http-timeout.test.js` (default/clamp/disable/timeout/caller-abort).
 - [x] 1.4 Update docs if module API introduces new envs (expected none).
-- [x] 1.5 Add OpenSpec delta spec for timeout behavior (`openspec/changes/2025-12-25-refactor-timeout-module/specs/vibescore-tracker/spec.md`).
+- [x] 1.5 Add OpenSpec delta spec for timeout behavior (`openspec/changes/2025-12-25-refactor-timeout-module/specs/vibeusage-tracker/spec.md`).
 
 ## 2. Verification
 - [x] 2.1 Run `node --test test/http-timeout.test.js`.

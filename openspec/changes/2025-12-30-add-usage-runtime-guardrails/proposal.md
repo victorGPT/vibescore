@@ -10,7 +10,7 @@
 - Introduce configurable thresholds via environment variables.
 
 ## Impact
-- Affected specs: `vibescore-tracker`.
+- Affected specs: `vibeusage-tracker`.
 - Affected code: `insforge-src/shared/logging.js`, `insforge-src/functions/vibescore-usage-*.js`, tests, and `insforge-functions/*` build output.
 - **BREAKING**: None (invalid oversized ranges return 400).
 

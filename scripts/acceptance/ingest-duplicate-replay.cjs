@@ -101,7 +101,7 @@ function buildFetchStub() {
     const url = new URL(typeof input === 'string' ? input : input.url);
     const method = (init.method || 'GET').toUpperCase();
 
-    if (url.pathname === '/api/database/records/vibescore_tracker_device_tokens' && method === 'GET') {
+    if (url.pathname === '/api/database/records/vibeusage_tracker_device_tokens' && method === 'GET') {
       return jsonResponse(200, [
         {
           id: 'token-id',
@@ -112,7 +112,7 @@ function buildFetchStub() {
       ]);
     }
 
-    if (url.pathname === '/api/database/records/vibescore_tracker_hourly' && method === 'POST') {
+    if (url.pathname === '/api/database/records/vibeusage_tracker_hourly' && method === 'POST') {
       calls.insert += 1;
       const prefer = String(init.headers?.Prefer || init.headers?.prefer || '');
       if (prefer.includes('resolution=merge-duplicates')) {

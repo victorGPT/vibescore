@@ -11,7 +11,7 @@
 - 模型聚合与筛选统一使用 canonical 维度。
 
 ## Impact
-- Affected specs: `openspec/specs/vibescore-tracker/spec.md`
+- Affected specs: `openspec/specs/vibeusage-tracker/spec.md`
 - Affected code: `insforge-src/shared/*`, usage edge functions, dashboard model breakdown
 - **BREAKING**: API 输出新增 `model_id`，`model` 语义变为 display_name（需在文档中声明）
 

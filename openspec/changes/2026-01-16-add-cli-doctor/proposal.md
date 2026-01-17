@@ -11,7 +11,7 @@
 - **BREAKING**：仅接受 `VIBEUSAGE_*` 作为环境变量来源（忽略 `INSFORGE_ANON_KEY`）。
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: `src/cli.js`, `src/commands/doctor.js`, `src/lib/doctor.js`, `src/lib/runtime-config.js`, `src/commands/init.js`, `src/commands/sync.js`, tests, docs
 - **BREAKING**: `VIBESCORE_*` env 不再生效
 

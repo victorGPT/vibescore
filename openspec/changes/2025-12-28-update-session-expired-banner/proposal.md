@@ -10,7 +10,7 @@
 - 新增 copy registry 文案键。
 
 ## Impact
-- Affected specs: `openspec/specs/vibescore-tracker/spec.md`
+- Affected specs: `openspec/specs/vibeusage-tracker/spec.md`
 - Affected code: `dashboard/src/lib/auth-storage.js`, `dashboard/src/lib/vibescore-api.js`, `dashboard/src/hooks/use-auth.js`, `dashboard/src/App.jsx`, `dashboard/src/pages/DashboardPage.jsx`, `dashboard/src/content/copy.csv`
 - **BREAKING**: None
 

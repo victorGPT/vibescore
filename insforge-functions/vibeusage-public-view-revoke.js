@@ -15,13 +15,13 @@ var require_http = __commonJS({
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey"
     };
-    function handleOptions(request) {
+    function handleOptions2(request) {
       if (request.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: corsHeaders });
       }
       return null;
     }
-    function json(body, status = 200, extraHeaders = null) {
+    function json2(body, status = 200, extraHeaders = null) {
       return new Response(JSON.stringify(body), {
         status,
         headers: {
@@ -31,8 +31,8 @@ var require_http = __commonJS({
         }
       });
     }
-    function requireMethod(request, method) {
-      if (request.method !== method) return json({ error: "Method not allowed" }, 405);
+    function requireMethod2(request, method) {
+      if (request.method !== method) return json2({ error: "Method not allowed" }, 405);
       return null;
     }
     async function readJson(request) {
@@ -48,9 +48,9 @@ var require_http = __commonJS({
     }
     module2.exports = {
       corsHeaders,
-      handleOptions,
-      json,
-      requireMethod,
+      handleOptions: handleOptions2,
+      json: json2,
+      requireMethod: requireMethod2,
       readJson
     };
   }
@@ -60,7 +60,7 @@ var require_http = __commonJS({
 var require_env = __commonJS({
   "insforge-src/shared/env.js"(exports2, module2) {
     "use strict";
-    function getBaseUrl() {
+    function getBaseUrl2() {
       return Deno.env.get("INSFORGE_INTERNAL_URL") || "http://insforge:7130";
     }
     function getServiceRoleKey() {
@@ -70,7 +70,7 @@ var require_env = __commonJS({
       return Deno.env.get("ANON_KEY") || Deno.env.get("INSFORGE_ANON_KEY") || null;
     }
     module2.exports = {
-      getBaseUrl,
+      getBaseUrl: getBaseUrl2,
       getServiceRoleKey,
       getAnonKey
     };
@@ -110,7 +110,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -135,7 +135,7 @@ var require_auth = __commonJS({
     "use strict";
     var { getAnonKey } = require_env();
     var { resolvePublicView } = require_public_view();
-    function getBearerToken(headerValue) {
+    function getBearerToken2(headerValue) {
       if (!headerValue) return null;
       const prefix = "Bearer ";
       if (!headerValue.startsWith(prefix)) return null;
@@ -194,7 +194,7 @@ var require_auth = __commonJS({
       if (!Number.isFinite(exp)) return false;
       return exp * 1e3 <= Date.now();
     }
-    async function getEdgeClientAndUserId({ baseUrl, bearer }) {
+    async function getEdgeClientAndUserId2({ baseUrl, bearer }) {
       const anonKey = getAnonKey();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const { data: userData, error: userErr } = await edgeClient.auth.getCurrentUser();
@@ -235,9 +235,9 @@ var require_auth = __commonJS({
       };
     }
     module2.exports = {
-      getBearerToken,
+      getBearerToken: getBearerToken2,
       getAccessContext,
-      getEdgeClientAndUserId,
+      getEdgeClientAndUserId: getEdgeClientAndUserId2,
       getEdgeClientAndUserIdFast,
       isProjectAdminBearer
     };
@@ -313,7 +313,7 @@ var require_logging = __commonJS({
       }
       return functionName;
     }
-    function withRequestLogging(functionName, handler) {
+    function withRequestLogging2(functionName, handler) {
       return async function(request) {
         const resolvedName = resolveFunctionName(functionName, request);
         const logger = createLogger({ functionName: resolvedName });
@@ -329,7 +329,7 @@ var require_logging = __commonJS({
       };
     }
     module2.exports = {
-      withRequestLogging,
+      withRequestLogging: withRequestLogging2,
       logSlowQuery,
       getSlowQueryThresholdMs
     };
@@ -347,7 +347,7 @@ var require_logging = __commonJS({
       });
     }
     function getSlowQueryThresholdMs() {
-      const raw = readEnvValue("VIBEUSAGE_SLOW_QUERY_MS") ?? readEnvValue("VIBESCORE_SLOW_QUERY_MS");
+      const raw = readEnvValue("VIBEUSAGE_SLOW_QUERY_MS");
       if (raw == null || raw === "") return 2e3;
       const n = Number(raw);
       if (!Number.isFinite(n)) return 2e3;
@@ -378,31 +378,23 @@ var require_logging = __commonJS({
   }
 });
 
-// insforge-src/functions/vibescore-public-view-revoke.js
-var require_vibescore_public_view_revoke = __commonJS({
-  "insforge-src/functions/vibescore-public-view-revoke.js"(exports2, module2) {
-    "use strict";
-    var { handleOptions, json, requireMethod } = require_http();
-    var { getBearerToken, getEdgeClientAndUserId } = require_auth();
-    var { getBaseUrl } = require_env();
-    var { withRequestLogging } = require_logging();
-    module2.exports = withRequestLogging("vibescore-public-view-revoke", async function(request) {
-      const opt = handleOptions(request);
-      if (opt) return opt;
-      const methodErr = requireMethod(request, "POST");
-      if (methodErr) return methodErr;
-      const bearer = getBearerToken(request.headers.get("Authorization"));
-      if (!bearer) return json({ error: "Missing bearer token" }, 401);
-      const baseUrl = getBaseUrl();
-      const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
-      if (!auth.ok) return json({ error: "Unauthorized" }, 401);
-      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-      const { error } = await auth.edgeClient.database.from("vibescore_public_views").update({ revoked_at: nowIso, updated_at: nowIso }).eq("user_id", auth.userId);
-      if (error) return json({ error: "Failed to revoke public view link" }, 500);
-      return json({ enabled: false }, 200);
-    });
-  }
-});
-
 // insforge-src/functions/vibeusage-public-view-revoke.js
-module.exports = require_vibescore_public_view_revoke();
+var { handleOptions, json, requireMethod } = require_http();
+var { getBearerToken, getEdgeClientAndUserId } = require_auth();
+var { getBaseUrl } = require_env();
+var { withRequestLogging } = require_logging();
+module.exports = withRequestLogging("vibeusage-public-view-revoke", async function(request) {
+  const opt = handleOptions(request);
+  if (opt) return opt;
+  const methodErr = requireMethod(request, "POST");
+  if (methodErr) return methodErr;
+  const bearer = getBearerToken(request.headers.get("Authorization"));
+  if (!bearer) return json({ error: "Missing bearer token" }, 401);
+  const baseUrl = getBaseUrl();
+  const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
+  if (!auth.ok) return json({ error: "Unauthorized" }, 401);
+  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+  const { error } = await auth.edgeClient.database.from("vibeusage_public_views").update({ revoked_at: nowIso, updated_at: nowIso }).eq("user_id", auth.userId);
+  if (error) return json({ error: "Failed to revoke public view link" }, 500);
+  return json({ enabled: false }, 200);
+});

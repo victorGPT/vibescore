@@ -10,5 +10,5 @@ We need automatic usage ingestion for Claude Code, analogous to Codex notify, us
 - Add unit tests for Claude parser and hook install/uninstall behavior.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: `src/commands/init.js`, `src/commands/uninstall.js`, `src/commands/sync.js`, `src/commands/status.js`, `src/lib/diagnostics.js`, `src/lib/rollout.js`, `src/lib/claude-config.js`, tests.

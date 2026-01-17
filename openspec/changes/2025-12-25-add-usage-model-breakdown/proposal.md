@@ -11,7 +11,7 @@
 - Update API docs and verification artifacts.
 
 ## Impact
-- Affected specs: `vibescore-tracker`.
+- Affected specs: `vibeusage-tracker`.
 - Affected code: `insforge-src/functions`, `insforge-functions`, docs.
 - **BREAKING**: None.
 

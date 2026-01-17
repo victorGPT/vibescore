@@ -9,7 +9,7 @@
 - Add admin endpoints to grant/revoke entitlements.
 
 ## Impact
-- Affected specs: vibescore-tracker
+- Affected specs: vibeusage-tracker
 - Affected code: insforge-src/functions/* (new endpoints), insforge-src/shared/* (pro calculation), database schema
 - **BREAKING**: none
 

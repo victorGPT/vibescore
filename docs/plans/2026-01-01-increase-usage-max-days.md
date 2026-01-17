@@ -74,12 +74,12 @@ Expected: PASS.
 
 **Files:**
 - Modify: `BACKEND_API.md`
-- Modify: `openspec/specs/vibescore-tracker/spec.md`
+- Modify: `openspec/specs/vibeusage-tracker/spec.md`
 - Rebuild: `insforge-functions/` (via `npm run build:insforge`)
 
 **Step 1: Update docs**
 - `BACKEND_API.md`: change default from `370` to `800`.
-- `openspec/specs/vibescore-tracker/spec.md`: change default from `370` to `800` in the requirement text.
+- `openspec/specs/vibeusage-tracker/spec.md`: change default from `370` to `800` in the requirement text.
 
 **Step 2: Rebuild functions**
 
@@ -118,7 +118,7 @@ Expected: first returns 200, second returns 400 with max-day error.
 **Step 1: Stage and commit**
 
 ```bash
-git add insforge-src/shared/date.js test/edge-functions.test.js BACKEND_API.md openspec/specs/vibescore-tracker/spec.md insforge-functions/ architecture.canvas
+git add insforge-src/shared/date.js test/edge-functions.test.js BACKEND_API.md openspec/specs/vibeusage-tracker/spec.md insforge-functions/ architecture.canvas
 ```
 
 ```bash

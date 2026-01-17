@@ -8,7 +8,7 @@
 ## M2 - OpenSpec Proposal (if applicable)
 - Entry criteria: M1 complete.
 - Exit criteria: proposal + tasks + spec delta completed.
-- Required artifacts: proposal.md, tasks.md, specs/vibescore-tracker/spec.md
+- Required artifacts: proposal.md, tasks.md, specs/vibeusage-tracker/spec.md
 
 ## M3 - Unit Test Coverage
 - Entry criteria: M2 approved.

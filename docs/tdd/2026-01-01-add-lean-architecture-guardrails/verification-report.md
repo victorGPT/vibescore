@@ -14,8 +14,8 @@
 - Guardrail script: `scripts/validate-architecture-guardrails.cjs`.
 - Test coverage: `test/architecture-guardrails.test.js`.
 - CI gate: `.github/workflows/guardrails.yml`.
-- Stable spec updated: `openspec/specs/vibescore-tracker/spec.md`.
-- Change spec updated: `openspec/changes/2026-01-01-add-lean-architecture-guardrails/specs/vibescore-tracker/spec.md`.
+- Stable spec updated: `openspec/specs/vibeusage-tracker/spec.md`.
+- Change spec updated: `openspec/changes/2026-01-01-add-lean-architecture-guardrails/specs/vibeusage-tracker/spec.md`.
 
 ## Remaining Risks
 - Static scans can miss dynamically constructed imports or environment usage.

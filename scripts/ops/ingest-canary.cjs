@@ -3,51 +3,53 @@
 'use strict';
 
 const baseUrl =
-  process.env.VIBESCORE_CANARY_BASE_URL ||
-  process.env.VIBESCORE_INSFORGE_BASE_URL ||
+  process.env.VIBEUSAGE_CANARY_BASE_URL ||
+  process.env.VIBEUSAGE_INSFORGE_BASE_URL ||
   process.env.INSFORGE_BASE_URL ||
   '';
-const deviceToken = process.env.VIBESCORE_CANARY_DEVICE_TOKEN || '';
+const deviceToken = process.env.VIBEUSAGE_CANARY_DEVICE_TOKEN || '';
 
 if (!baseUrl) {
-  console.error('Missing base URL: set VIBESCORE_CANARY_BASE_URL or VIBESCORE_INSFORGE_BASE_URL');
+  console.error(
+    'Missing base URL: set VIBEUSAGE_CANARY_BASE_URL or VIBEUSAGE_INSFORGE_BASE_URL or INSFORGE_BASE_URL'
+  );
   process.exit(2);
 }
 
 if (!deviceToken) {
-  console.error('Missing device token: set VIBESCORE_CANARY_DEVICE_TOKEN');
+  console.error('Missing device token: set VIBEUSAGE_CANARY_DEVICE_TOKEN');
   process.exit(2);
 }
 
-const confirmIsolated = normalizeFlag(process.env.VIBESCORE_CANARY_CONFIRM_ISOLATED);
+const confirmIsolated = normalizeFlag(process.env.VIBEUSAGE_CANARY_CONFIRM_ISOLATED);
 if (!confirmIsolated) {
   console.error('Refusing to run canary without isolation confirmation.');
-  console.error('Set VIBESCORE_CANARY_CONFIRM_ISOLATED=1 and use a dedicated user token.');
+  console.error('Set VIBEUSAGE_CANARY_CONFIRM_ISOLATED=1 and use a dedicated user token.');
   console.error('Also disable leaderboard for that user to avoid public exposure.');
   process.exit(2);
 }
 
-const source = process.env.VIBESCORE_CANARY_SOURCE || 'canary';
-const model = process.env.VIBESCORE_CANARY_MODEL || 'canary';
-const hourStart = process.env.VIBESCORE_CANARY_HOUR_START || currentHalfHourIso();
-const allowCustomTag = normalizeFlag(process.env.VIBESCORE_CANARY_ALLOW_CUSTOM_TAG);
+const source = process.env.VIBEUSAGE_CANARY_SOURCE || 'canary';
+const model = process.env.VIBEUSAGE_CANARY_MODEL || 'canary';
+const hourStart = process.env.VIBEUSAGE_CANARY_HOUR_START || currentHalfHourIso();
+const allowCustomTag = normalizeFlag(process.env.VIBEUSAGE_CANARY_ALLOW_CUSTOM_TAG);
 
 if (!allowCustomTag && (!isCanaryTag(source) || !isCanaryTag(model))) {
   console.error('Refusing to run canary with non-canary source/model.');
-  console.error('Set VIBESCORE_CANARY_ALLOW_CUSTOM_TAG=1 to override.');
+  console.error('Set VIBEUSAGE_CANARY_ALLOW_CUSTOM_TAG=1 to override.');
   process.exit(2);
 }
 
 if (!isHalfHourIso(hourStart)) {
-  console.error('Invalid VIBESCORE_CANARY_HOUR_START: must be UTC half-hour boundary ISO');
+  console.error('Invalid VIBEUSAGE_CANARY_HOUR_START: must be UTC half-hour boundary ISO');
   process.exit(2);
 }
 
-const inputTokens = toNonNegativeInt(process.env.VIBESCORE_CANARY_INPUT_TOKENS) ?? 0;
-const cachedTokens = toNonNegativeInt(process.env.VIBESCORE_CANARY_CACHED_TOKENS) ?? 0;
-const outputTokens = toNonNegativeInt(process.env.VIBESCORE_CANARY_OUTPUT_TOKENS) ?? 0;
-const reasoningTokens = toNonNegativeInt(process.env.VIBESCORE_CANARY_REASONING_TOKENS) ?? 0;
-const totalTokensEnv = toNonNegativeInt(process.env.VIBESCORE_CANARY_TOTAL_TOKENS);
+const inputTokens = toNonNegativeInt(process.env.VIBEUSAGE_CANARY_INPUT_TOKENS) ?? 0;
+const cachedTokens = toNonNegativeInt(process.env.VIBEUSAGE_CANARY_CACHED_TOKENS) ?? 0;
+const outputTokens = toNonNegativeInt(process.env.VIBEUSAGE_CANARY_OUTPUT_TOKENS) ?? 0;
+const reasoningTokens = toNonNegativeInt(process.env.VIBEUSAGE_CANARY_REASONING_TOKENS) ?? 0;
+const totalTokensEnv = toNonNegativeInt(process.env.VIBEUSAGE_CANARY_TOTAL_TOKENS);
 const totalTokens = totalTokensEnv ?? inputTokens + cachedTokens + outputTokens + reasoningTokens;
 
 const payload = {

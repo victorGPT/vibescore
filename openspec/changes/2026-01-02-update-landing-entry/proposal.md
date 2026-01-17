@@ -9,5 +9,5 @@ Unauthenticated or expired sessions should always land on the landing page to pr
 - Keep poster view limited to signed-in or mock sessions only.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: `dashboard/src/App.jsx`, `test/dashboard-session-expired-banner.test.js`

@@ -15,13 +15,13 @@ var require_http = __commonJS({
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey"
     };
-    function handleOptions(request) {
+    function handleOptions2(request) {
       if (request.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: corsHeaders });
       }
       return null;
     }
-    function json(body, status = 200, extraHeaders = null) {
+    function json2(body, status = 200, extraHeaders = null) {
       return new Response(JSON.stringify(body), {
         status,
         headers: {
@@ -31,8 +31,8 @@ var require_http = __commonJS({
         }
       });
     }
-    function requireMethod(request, method) {
-      if (request.method !== method) return json({ error: "Method not allowed" }, 405);
+    function requireMethod2(request, method) {
+      if (request.method !== method) return json2({ error: "Method not allowed" }, 405);
       return null;
     }
     async function readJson(request) {
@@ -48,9 +48,9 @@ var require_http = __commonJS({
     }
     module2.exports = {
       corsHeaders,
-      handleOptions,
-      json,
-      requireMethod,
+      handleOptions: handleOptions2,
+      json: json2,
+      requireMethod: requireMethod2,
       readJson
     };
   }
@@ -60,7 +60,7 @@ var require_http = __commonJS({
 var require_env = __commonJS({
   "insforge-src/shared/env.js"(exports2, module2) {
     "use strict";
-    function getBaseUrl() {
+    function getBaseUrl2() {
       return Deno.env.get("INSFORGE_INTERNAL_URL") || "http://insforge:7130";
     }
     function getServiceRoleKey() {
@@ -70,7 +70,7 @@ var require_env = __commonJS({
       return Deno.env.get("ANON_KEY") || Deno.env.get("INSFORGE_ANON_KEY") || null;
     }
     module2.exports = {
-      getBaseUrl,
+      getBaseUrl: getBaseUrl2,
       getServiceRoleKey,
       getAnonKey
     };
@@ -98,7 +98,7 @@ var require_public_view = __commonJS({
     "use strict";
     var { getAnonKey, getServiceRoleKey } = require_env();
     var { sha256Hex } = require_crypto();
-    async function resolvePublicView({ baseUrl, shareToken }) {
+    async function resolvePublicView2({ baseUrl, shareToken }) {
       const token = normalizeToken(shareToken);
       if (!token) return { ok: false, edgeClient: null, userId: null };
       const serviceRoleKey = getServiceRoleKey();
@@ -110,7 +110,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -124,7 +124,7 @@ var require_public_view = __commonJS({
       return token;
     }
     module2.exports = {
-      resolvePublicView
+      resolvePublicView: resolvePublicView2
     };
   }
 });
@@ -134,8 +134,8 @@ var require_auth = __commonJS({
   "insforge-src/shared/auth.js"(exports2, module2) {
     "use strict";
     var { getAnonKey } = require_env();
-    var { resolvePublicView } = require_public_view();
-    function getBearerToken(headerValue) {
+    var { resolvePublicView: resolvePublicView2 } = require_public_view();
+    function getBearerToken2(headerValue) {
       if (!headerValue) return null;
       const prefix = "Bearer ";
       if (!headerValue.startsWith(prefix)) return null;
@@ -223,7 +223,7 @@ var require_auth = __commonJS({
       if (!allowPublic) {
         return { ok: false, edgeClient: null, userId: null, accessType: null };
       }
-      const publicView = await resolvePublicView({ baseUrl, shareToken: bearer });
+      const publicView = await resolvePublicView2({ baseUrl, shareToken: bearer });
       if (!publicView.ok) {
         return { ok: false, edgeClient: null, userId: null, accessType: null };
       }
@@ -235,7 +235,7 @@ var require_auth = __commonJS({
       };
     }
     module2.exports = {
-      getBearerToken,
+      getBearerToken: getBearerToken2,
       getAccessContext,
       getEdgeClientAndUserId,
       getEdgeClientAndUserIdFast,
@@ -313,7 +313,7 @@ var require_logging = __commonJS({
       }
       return functionName;
     }
-    function withRequestLogging(functionName, handler) {
+    function withRequestLogging2(functionName, handler) {
       return async function(request) {
         const resolvedName = resolveFunctionName(functionName, request);
         const logger = createLogger({ functionName: resolvedName });
@@ -329,7 +329,7 @@ var require_logging = __commonJS({
       };
     }
     module2.exports = {
-      withRequestLogging,
+      withRequestLogging: withRequestLogging2,
       logSlowQuery,
       getSlowQueryThresholdMs
     };
@@ -347,7 +347,7 @@ var require_logging = __commonJS({
       });
     }
     function getSlowQueryThresholdMs() {
-      const raw = readEnvValue("VIBEUSAGE_SLOW_QUERY_MS") ?? readEnvValue("VIBESCORE_SLOW_QUERY_MS");
+      const raw = readEnvValue("VIBEUSAGE_SLOW_QUERY_MS");
       if (raw == null || raw === "") return 2e3;
       const n = Number(raw);
       if (!Number.isFinite(n)) return 2e3;
@@ -378,67 +378,59 @@ var require_logging = __commonJS({
   }
 });
 
-// insforge-src/functions/vibescore-public-view-profile.js
-var require_vibescore_public_view_profile = __commonJS({
-  "insforge-src/functions/vibescore-public-view-profile.js"(exports2, module2) {
-    "use strict";
-    var { handleOptions, json, requireMethod } = require_http();
-    var { getBearerToken } = require_auth();
-    var { resolvePublicView } = require_public_view();
-    var { getBaseUrl } = require_env();
-    var { withRequestLogging } = require_logging();
-    module2.exports = withRequestLogging("vibescore-public-view-profile", async function(request) {
-      const opt = handleOptions(request);
-      if (opt) return opt;
-      const methodErr = requireMethod(request, "GET");
-      if (methodErr) return methodErr;
-      const bearer = getBearerToken(request.headers.get("Authorization"));
-      if (!bearer) return json({ error: "Missing bearer token" }, 401);
-      const baseUrl = getBaseUrl();
-      const publicView = await resolvePublicView({ baseUrl, shareToken: bearer });
-      if (!publicView.ok) return json({ error: "Unauthorized" }, 401);
-      const { data, error } = await publicView.edgeClient.database.from("users").select("nickname,avatar_url,profile,metadata").eq("id", publicView.userId).maybeSingle();
-      if (error) return json({ error: "Failed to fetch public profile" }, 500);
-      const displayName = resolveDisplayName(data);
-      const avatarUrl = resolveAvatarUrl(data);
-      return json({ display_name: displayName, avatar_url: avatarUrl }, 200);
-    });
-    function resolveDisplayName(row) {
-      const profile = isObject(row?.profile) ? row.profile : null;
-      const metadata = isObject(row?.metadata) ? row.metadata : null;
-      return sanitizeName(row?.nickname) || sanitizeName(profile?.name) || sanitizeName(profile?.full_name) || sanitizeName(metadata?.full_name) || sanitizeName(metadata?.name) || null;
-    }
-    function resolveAvatarUrl(row) {
-      const profile = isObject(row?.profile) ? row.profile : null;
-      const metadata = isObject(row?.metadata) ? row.metadata : null;
-      return sanitizeAvatarUrl(row?.avatar_url) || sanitizeAvatarUrl(profile?.avatar_url) || sanitizeAvatarUrl(metadata?.avatar_url) || sanitizeAvatarUrl(metadata?.picture) || null;
-    }
-    function sanitizeName(value) {
-      if (typeof value !== "string") return null;
-      const trimmed = value.trim();
-      if (!trimmed) return null;
-      if (trimmed.includes("@")) return null;
-      if (trimmed.length > 128) return trimmed.slice(0, 128);
-      return trimmed;
-    }
-    function sanitizeAvatarUrl(value) {
-      if (typeof value !== "string") return null;
-      const trimmed = value.trim();
-      if (!trimmed) return null;
-      if (trimmed.length > 1024) return null;
-      try {
-        const url = new URL(trimmed);
-        if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-        return url.toString();
-      } catch (_e) {
-        return null;
-      }
-    }
-    function isObject(value) {
-      return Boolean(value && typeof value === "object");
-    }
-  }
-});
-
 // insforge-src/functions/vibeusage-public-view-profile.js
-module.exports = require_vibescore_public_view_profile();
+var { handleOptions, json, requireMethod } = require_http();
+var { getBearerToken } = require_auth();
+var { resolvePublicView } = require_public_view();
+var { getBaseUrl } = require_env();
+var { withRequestLogging } = require_logging();
+module.exports = withRequestLogging("vibeusage-public-view-profile", async function(request) {
+  const opt = handleOptions(request);
+  if (opt) return opt;
+  const methodErr = requireMethod(request, "GET");
+  if (methodErr) return methodErr;
+  const bearer = getBearerToken(request.headers.get("Authorization"));
+  if (!bearer) return json({ error: "Missing bearer token" }, 401);
+  const baseUrl = getBaseUrl();
+  const publicView = await resolvePublicView({ baseUrl, shareToken: bearer });
+  if (!publicView.ok) return json({ error: "Unauthorized" }, 401);
+  const { data, error } = await publicView.edgeClient.database.from("users").select("nickname,avatar_url,profile,metadata").eq("id", publicView.userId).maybeSingle();
+  if (error) return json({ error: "Failed to fetch public profile" }, 500);
+  const displayName = resolveDisplayName(data);
+  const avatarUrl = resolveAvatarUrl(data);
+  return json({ display_name: displayName, avatar_url: avatarUrl }, 200);
+});
+function resolveDisplayName(row) {
+  const profile = isObject(row?.profile) ? row.profile : null;
+  const metadata = isObject(row?.metadata) ? row.metadata : null;
+  return sanitizeName(row?.nickname) || sanitizeName(profile?.name) || sanitizeName(profile?.full_name) || sanitizeName(metadata?.full_name) || sanitizeName(metadata?.name) || null;
+}
+function resolveAvatarUrl(row) {
+  const profile = isObject(row?.profile) ? row.profile : null;
+  const metadata = isObject(row?.metadata) ? row.metadata : null;
+  return sanitizeAvatarUrl(row?.avatar_url) || sanitizeAvatarUrl(profile?.avatar_url) || sanitizeAvatarUrl(metadata?.avatar_url) || sanitizeAvatarUrl(metadata?.picture) || null;
+}
+function sanitizeName(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes("@")) return null;
+  if (trimmed.length > 128) return trimmed.slice(0, 128);
+  return trimmed;
+}
+function sanitizeAvatarUrl(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 1024) return null;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.toString();
+  } catch (_e) {
+    return null;
+  }
+}
+function isObject(value) {
+  return Boolean(value && typeof value === "object");
+}

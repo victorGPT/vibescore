@@ -15,13 +15,13 @@ var require_http = __commonJS({
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey"
     };
-    function handleOptions(request) {
+    function handleOptions2(request) {
       if (request.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: corsHeaders });
       }
       return null;
     }
-    function json(body, status = 200, extraHeaders = null) {
+    function json2(body, status = 200, extraHeaders = null) {
       return new Response(JSON.stringify(body), {
         status,
         headers: {
@@ -31,11 +31,11 @@ var require_http = __commonJS({
         }
       });
     }
-    function requireMethod(request, method) {
-      if (request.method !== method) return json({ error: "Method not allowed" }, 405);
+    function requireMethod2(request, method) {
+      if (request.method !== method) return json2({ error: "Method not allowed" }, 405);
       return null;
     }
-    async function readJson(request) {
+    async function readJson2(request) {
       if (!request.headers.get("Content-Type")?.includes("application/json")) {
         return { error: "Content-Type must be application/json", status: 415, data: null };
       }
@@ -48,10 +48,10 @@ var require_http = __commonJS({
     }
     module2.exports = {
       corsHeaders,
-      handleOptions,
-      json,
-      requireMethod,
-      readJson
+      handleOptions: handleOptions2,
+      json: json2,
+      requireMethod: requireMethod2,
+      readJson: readJson2
     };
   }
 });
@@ -60,19 +60,19 @@ var require_http = __commonJS({
 var require_env = __commonJS({
   "insforge-src/shared/env.js"(exports2, module2) {
     "use strict";
-    function getBaseUrl() {
+    function getBaseUrl2() {
       return Deno.env.get("INSFORGE_INTERNAL_URL") || "http://insforge:7130";
     }
-    function getServiceRoleKey() {
+    function getServiceRoleKey2() {
       return Deno.env.get("INSFORGE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("INSFORGE_API_KEY") || Deno.env.get("API_KEY") || null;
     }
-    function getAnonKey() {
+    function getAnonKey2() {
       return Deno.env.get("ANON_KEY") || Deno.env.get("INSFORGE_ANON_KEY") || null;
     }
     module2.exports = {
-      getBaseUrl,
-      getServiceRoleKey,
-      getAnonKey
+      getBaseUrl: getBaseUrl2,
+      getServiceRoleKey: getServiceRoleKey2,
+      getAnonKey: getAnonKey2
     };
   }
 });
@@ -81,13 +81,13 @@ var require_env = __commonJS({
 var require_crypto = __commonJS({
   "insforge-src/shared/crypto.js"(exports2, module2) {
     "use strict";
-    async function sha256Hex(input) {
+    async function sha256Hex2(input) {
       const data = new TextEncoder().encode(input);
       const hash = await crypto.subtle.digest("SHA-256", data);
       return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
     }
     module2.exports = {
-      sha256Hex
+      sha256Hex: sha256Hex2
     };
   }
 });
@@ -96,21 +96,21 @@ var require_crypto = __commonJS({
 var require_public_view = __commonJS({
   "insforge-src/shared/public-view.js"(exports2, module2) {
     "use strict";
-    var { getAnonKey, getServiceRoleKey } = require_env();
-    var { sha256Hex } = require_crypto();
+    var { getAnonKey: getAnonKey2, getServiceRoleKey: getServiceRoleKey2 } = require_env();
+    var { sha256Hex: sha256Hex2 } = require_crypto();
     async function resolvePublicView({ baseUrl, shareToken }) {
       const token = normalizeToken(shareToken);
       if (!token) return { ok: false, edgeClient: null, userId: null };
-      const serviceRoleKey = getServiceRoleKey();
+      const serviceRoleKey = getServiceRoleKey2();
       if (!serviceRoleKey) return { ok: false, edgeClient: null, userId: null };
-      const anonKey = getAnonKey();
+      const anonKey = getAnonKey2();
       const dbClient = createClient({
         baseUrl,
         anonKey: anonKey || serviceRoleKey,
         edgeFunctionToken: serviceRoleKey
       });
-      const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const tokenHash = await sha256Hex2(token);
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -133,9 +133,9 @@ var require_public_view = __commonJS({
 var require_auth = __commonJS({
   "insforge-src/shared/auth.js"(exports2, module2) {
     "use strict";
-    var { getAnonKey } = require_env();
+    var { getAnonKey: getAnonKey2 } = require_env();
     var { resolvePublicView } = require_public_view();
-    function getBearerToken(headerValue) {
+    function getBearerToken2(headerValue) {
       if (!headerValue) return null;
       const prefix = "Bearer ";
       if (!headerValue.startsWith(prefix)) return null;
@@ -194,8 +194,8 @@ var require_auth = __commonJS({
       if (!Number.isFinite(exp)) return false;
       return exp * 1e3 <= Date.now();
     }
-    async function getEdgeClientAndUserId({ baseUrl, bearer }) {
-      const anonKey = getAnonKey();
+    async function getEdgeClientAndUserId2({ baseUrl, bearer }) {
+      const anonKey = getAnonKey2();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const { data: userData, error: userErr } = await edgeClient.auth.getCurrentUser();
       const userId = userData?.user?.id;
@@ -203,7 +203,7 @@ var require_auth = __commonJS({
       return { ok: true, edgeClient, userId };
     }
     async function getEdgeClientAndUserIdFast({ baseUrl, bearer }) {
-      const anonKey = getAnonKey();
+      const anonKey = getAnonKey2();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const payload = decodeJwtPayload(bearer);
       if (payload && isJwtExpired(payload)) {
@@ -235,9 +235,9 @@ var require_auth = __commonJS({
       };
     }
     module2.exports = {
-      getBearerToken,
+      getBearerToken: getBearerToken2,
       getAccessContext,
-      getEdgeClientAndUserId,
+      getEdgeClientAndUserId: getEdgeClientAndUserId2,
       getEdgeClientAndUserIdFast,
       isProjectAdminBearer
     };
@@ -313,7 +313,7 @@ var require_logging = __commonJS({
       }
       return functionName;
     }
-    function withRequestLogging(functionName, handler) {
+    function withRequestLogging2(functionName, handler) {
       return async function(request) {
         const resolvedName = resolveFunctionName(functionName, request);
         const logger = createLogger({ functionName: resolvedName });
@@ -329,7 +329,7 @@ var require_logging = __commonJS({
       };
     }
     module2.exports = {
-      withRequestLogging,
+      withRequestLogging: withRequestLogging2,
       logSlowQuery,
       getSlowQueryThresholdMs
     };
@@ -347,7 +347,7 @@ var require_logging = __commonJS({
       });
     }
     function getSlowQueryThresholdMs() {
-      const raw = readEnvValue("VIBEUSAGE_SLOW_QUERY_MS") ?? readEnvValue("VIBESCORE_SLOW_QUERY_MS");
+      const raw = readEnvValue("VIBEUSAGE_SLOW_QUERY_MS");
       if (raw == null || raw === "") return 2e3;
       const n = Number(raw);
       if (!Number.isFinite(n)) return 2e3;
@@ -378,55 +378,47 @@ var require_logging = __commonJS({
   }
 });
 
-// insforge-src/functions/vibescore-link-code-init.js
-var require_vibescore_link_code_init = __commonJS({
-  "insforge-src/functions/vibescore-link-code-init.js"(exports2, module2) {
-    "use strict";
-    var { handleOptions, json, requireMethod, readJson } = require_http();
-    var { getBearerToken, getEdgeClientAndUserId } = require_auth();
-    var { getBaseUrl, getAnonKey, getServiceRoleKey } = require_env();
-    var { sha256Hex } = require_crypto();
-    var { withRequestLogging } = require_logging();
-    var LINK_CODE_TTL_MS = 10 * 6e4;
-    module2.exports = withRequestLogging("vibescore-link-code-init", async function(request) {
-      const opt = handleOptions(request);
-      if (opt) return opt;
-      const methodErr = requireMethod(request, "POST");
-      if (methodErr) return methodErr;
-      const bearer = getBearerToken(request.headers.get("Authorization"));
-      if (!bearer) return json({ error: "Missing bearer token" }, 401);
-      const body = await readJson(request);
-      if (body.error) return json({ error: body.error }, body.status);
-      const baseUrl = getBaseUrl();
-      const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
-      if (!auth.ok) return json({ error: "Unauthorized" }, 401);
-      const serviceRoleKey = getServiceRoleKey();
-      const anonKey = getAnonKey();
-      const dbClient = serviceRoleKey ? createClient({ baseUrl, anonKey: anonKey || serviceRoleKey, edgeFunctionToken: serviceRoleKey }) : auth.edgeClient;
-      const linkCode = generateLinkCode();
-      const codeHash = await sha256Hex(linkCode);
-      const sessionId = await sha256Hex(bearer);
-      const expiresAt = new Date(Date.now() + LINK_CODE_TTL_MS).toISOString();
-      const { error: insertErr } = await dbClient.database.from("vibescore_link_codes").insert([
-        {
-          user_id: auth.userId,
-          code_hash: codeHash,
-          session_id: sessionId,
-          expires_at: expiresAt,
-          used_at: null,
-          request_id: null
-        }
-      ]);
-      if (insertErr) {
-        return json({ error: "Failed to issue link code" }, 500);
-      }
-      return json({ link_code: linkCode, expires_at: expiresAt }, 200);
-    });
-    function generateLinkCode() {
-      return crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
-    }
-  }
-});
-
 // insforge-src/functions/vibeusage-link-code-init.js
-module.exports = require_vibescore_link_code_init();
+var { handleOptions, json, requireMethod, readJson } = require_http();
+var { getBearerToken, getEdgeClientAndUserId } = require_auth();
+var { getBaseUrl, getAnonKey, getServiceRoleKey } = require_env();
+var { sha256Hex } = require_crypto();
+var { withRequestLogging } = require_logging();
+var LINK_CODE_TTL_MS = 10 * 6e4;
+module.exports = withRequestLogging("vibeusage-link-code-init", async function(request) {
+  const opt = handleOptions(request);
+  if (opt) return opt;
+  const methodErr = requireMethod(request, "POST");
+  if (methodErr) return methodErr;
+  const bearer = getBearerToken(request.headers.get("Authorization"));
+  if (!bearer) return json({ error: "Missing bearer token" }, 401);
+  const body = await readJson(request);
+  if (body.error) return json({ error: body.error }, body.status);
+  const baseUrl = getBaseUrl();
+  const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
+  if (!auth.ok) return json({ error: "Unauthorized" }, 401);
+  const serviceRoleKey = getServiceRoleKey();
+  const anonKey = getAnonKey();
+  const dbClient = serviceRoleKey ? createClient({ baseUrl, anonKey: anonKey || serviceRoleKey, edgeFunctionToken: serviceRoleKey }) : auth.edgeClient;
+  const linkCode = generateLinkCode();
+  const codeHash = await sha256Hex(linkCode);
+  const sessionId = await sha256Hex(bearer);
+  const expiresAt = new Date(Date.now() + LINK_CODE_TTL_MS).toISOString();
+  const { error: insertErr } = await dbClient.database.from("vibeusage_link_codes").insert([
+    {
+      user_id: auth.userId,
+      code_hash: codeHash,
+      session_id: sessionId,
+      expires_at: expiresAt,
+      used_at: null,
+      request_id: null
+    }
+  ]);
+  if (insertErr) {
+    return json({ error: "Failed to issue link code" }, 500);
+  }
+  return json({ link_code: linkCode, expires_at: expiresAt }, 200);
+});
+function generateLinkCode() {
+  return crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "");
+}

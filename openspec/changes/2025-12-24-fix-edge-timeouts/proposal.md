@@ -10,7 +10,7 @@
 - Keep existing API contracts and data models unchanged.
 
 ## Impact
-- Affected specs: `openspec/specs/vibescore-tracker/spec.md`
+- Affected specs: `openspec/specs/vibeusage-tracker/spec.md`
 - Affected code: `src/commands/init.js`, `src/lib/insforge-client.js`, `dashboard/src/lib/insforge-client.js`, `dashboard/src/lib/vibescore-api.js`
 - **BREAKING**: No
 

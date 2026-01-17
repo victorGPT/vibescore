@@ -8,7 +8,7 @@
 ## M2 - OpenSpec Proposal
 - Entry criteria: M1 completed.
 - Exit criteria: Proposal, tasks, and spec deltas drafted; `openspec validate` passes.
-- Required artifacts: `proposal.md`, `tasks.md`, `specs/vibescore-tracker/spec.md`.
+- Required artifacts: `proposal.md`, `tasks.md`, `specs/vibeusage-tracker/spec.md`.
 
 ## M3 - Unit Test Coverage
 - Entry criteria: Implementation approach chosen.
@@ -23,4 +23,4 @@
 ## M5 - Release & Monitoring
 - Entry criteria: M4 completed, change approved.
 - Exit criteria: Deployed build verified; evidence map updated.
-- Required artifacts: updated `openspec/specs/vibescore-tracker/evidence.md`.
+- Required artifacts: updated `openspec/specs/vibeusage-tracker/evidence.md`.

@@ -11,8 +11,8 @@
 - Update OpenSpec requirements for canonical domain + legacy redirects.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
-- Affected code: `dashboard/public/robots.txt`, `dashboard/public/sitemap.xml`, `dashboard/wrapped-2025.html`, `dashboard/src/pages/DashboardPage.jsx`, `dashboard/vercel.json`, `README.md`, `README.zh-CN.md`, `openspec/specs/vibescore-tracker/spec.md`
+- Affected specs: `vibeusage-tracker`
+- Affected code: `dashboard/public/robots.txt`, `dashboard/public/sitemap.xml`, `dashboard/wrapped-2025.html`, `dashboard/src/pages/DashboardPage.jsx`, `dashboard/vercel.json`, `README.md`, `README.zh-CN.md`, `openspec/specs/vibeusage-tracker/spec.md`
 - **BREAKING**: none (legacy domains redirect)
 
 ## Risks & Mitigations

@@ -11,6 +11,6 @@ The current Matrix UI relies on many ad-hoc font sizes, spacing rules, and color
 - Normalize color hierarchy: primary highlight for core data, secondary/muted for labels.
 
 ## Impact
-- Affected specs: `vibescore-tracker` (UI visual system only; no data logic changes)
+- Affected specs: `vibeusage-tracker` (UI visual system only; no data logic changes)
 - Affected code: `dashboard/src/styles.css`, `dashboard/src/ui/matrix-a/**/*`, `dashboard/package.json`
 - Copy registry: no text changes expected; `dashboard/src/content/copy.csv` remains unchanged

@@ -9,7 +9,7 @@ const DEFAULT_MOCK_SEED = "vibeusage";
 
 export function isMockEnabled() {
   if (typeof import.meta !== "undefined" && import.meta.env) {
-    const flag = String(import.meta.env.VITE_VIBESCORE_MOCK || "").toLowerCase();
+    const flag = String(import.meta.env.VITE_VIBEUSAGE_MOCK || "").toLowerCase();
     if (flag === "1" || flag === "true") return true;
   }
   if (typeof window !== "undefined") {
@@ -22,9 +22,9 @@ export function isMockEnabled() {
 
 function readMockNowRaw() {
   if (typeof import.meta !== "undefined" && import.meta.env) {
-    const envNow = String(import.meta.env.VITE_VIBESCORE_MOCK_NOW || "").trim();
+    const envNow = String(import.meta.env.VITE_VIBEUSAGE_MOCK_NOW || "").trim();
     if (envNow) return envNow;
-    const envToday = String(import.meta.env.VITE_VIBESCORE_MOCK_TODAY || "").trim();
+    const envToday = String(import.meta.env.VITE_VIBEUSAGE_MOCK_TODAY || "").trim();
     if (envToday) return envToday;
   }
   if (typeof window !== "undefined") {
@@ -60,7 +60,7 @@ export function getMockNow() {
 
 function readMockSeed() {
   if (typeof import.meta !== "undefined" && import.meta.env) {
-    const seed = String(import.meta.env.VITE_VIBESCORE_MOCK_SEED || "").trim();
+    const seed = String(import.meta.env.VITE_VIBEUSAGE_MOCK_SEED || "").trim();
     if (seed) return seed;
   }
   if (typeof window !== "undefined") {
@@ -73,7 +73,7 @@ function readMockSeed() {
 
 function readMockMissingCount() {
   if (typeof import.meta !== "undefined" && import.meta.env) {
-    const raw = String(import.meta.env.VITE_VIBESCORE_MOCK_MISSING || "").trim();
+    const raw = String(import.meta.env.VITE_VIBEUSAGE_MOCK_MISSING || "").trim();
     const n = Number(raw);
     if (Number.isFinite(n) && n > 0) return Math.floor(n);
   }

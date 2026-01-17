@@ -9,7 +9,7 @@
 - Tests and docs updated.
 
 ## Impact
-- Affected specs: `openspec/specs/vibescore-tracker/spec.md`
+- Affected specs: `openspec/specs/vibeusage-tracker/spec.md`
 - Affected code:
   - `insforge-src/functions/vibescore-public-view-profile.js`
   - `dashboard/src/pages/DashboardPage.jsx`

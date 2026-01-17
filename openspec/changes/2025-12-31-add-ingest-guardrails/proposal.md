@@ -11,7 +11,7 @@
 - usage 端默认排除 `source=model=canary` 桶（除非显式请求）。
 
 ## Impact
-- Affected specs: `openspec/specs/vibescore-tracker/spec.md`
+- Affected specs: `openspec/specs/vibeusage-tracker/spec.md`
 - Affected code: `insforge-src/functions/*`, `insforge-src/shared/*`, `scripts/ops/*`, `scripts/acceptance/*`
 - **BREAKING**: None
 

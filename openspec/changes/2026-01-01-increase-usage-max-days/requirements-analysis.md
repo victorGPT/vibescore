@@ -37,7 +37,7 @@
 ## Dependencies
 - `insforge-src/shared/date.js` guardrail helper.
 - Usage endpoints that call `getUsageMaxDays()`.
-- `BACKEND_API.md` and `openspec/specs/vibescore-tracker/spec.md` documentation.
+- `BACKEND_API.md` and `openspec/specs/vibeusage-tracker/spec.md` documentation.
 
 ## Risks
 - Larger default range may increase query latency or load.

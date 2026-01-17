@@ -6,7 +6,7 @@ const { test } = require('node:test');
 
 function stubIngestHourly() {
   const calls = [];
-  const apiPath = require.resolve('../src/lib/vibescore-api');
+  const apiPath = require.resolve('../src/lib/vibeusage-api');
   const uploaderPath = require.resolve('../src/lib/uploader');
   const original = require.cache[apiPath];
   const originalUploader = require.cache[uploaderPath];

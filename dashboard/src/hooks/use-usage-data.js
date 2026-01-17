@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { getUsageDaily, getUsageSummary } from "../lib/vibescore-api.js";
+import { getUsageDaily, getUsageSummary } from "../lib/vibeusage-api.js";
 import { formatDateLocal, formatDateUTC } from "../lib/date-range.js";
 import { isMockEnabled } from "../lib/mock-data.js";
 import { getLocalDayKey, getTimeZoneCacheKey } from "../lib/timezone.js";

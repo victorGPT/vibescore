@@ -8,7 +8,7 @@
 ## M2 - OpenSpec Proposal
 - Entry criteria: M1 completed.
 - Exit criteria: Proposal + spec delta + tasks drafted.
-- Required artifacts: `proposal.md`, `specs/vibescore-tracker/spec.md`, `tasks.md`.
+- Required artifacts: `proposal.md`, `specs/vibeusage-tracker/spec.md`, `tasks.md`.
 
 ## M3 - UI Component Implementation
 - Entry criteria: Proposal approved.

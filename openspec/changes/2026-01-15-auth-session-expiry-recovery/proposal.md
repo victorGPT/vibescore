@@ -10,5 +10,5 @@
 - Wire UI gating and session-expired banner to the new status machine.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: `dashboard/src/App.jsx`, `dashboard/src/pages/DashboardPage.jsx`, `dashboard/src/lib/vibescore-api.js`, tests

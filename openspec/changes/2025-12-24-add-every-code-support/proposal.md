@@ -10,7 +10,7 @@
 - Treat `(source, hour_start)` as the client-side dedupe key to avoid cross-source collisions.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: `src/commands/sync.js`, `src/lib/rollout.js`, `src/lib/uploader.js`, CLI docs/help
 - **BREAKING**: none (Codex path remains default)
 

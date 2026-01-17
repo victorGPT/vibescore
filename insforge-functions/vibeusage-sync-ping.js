@@ -15,13 +15,13 @@ var require_http = __commonJS({
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey"
     };
-    function handleOptions(request) {
+    function handleOptions2(request) {
       if (request.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: corsHeaders });
       }
       return null;
     }
-    function json(body, status = 200, extraHeaders = null) {
+    function json2(body, status = 200, extraHeaders = null) {
       return new Response(JSON.stringify(body), {
         status,
         headers: {
@@ -31,8 +31,8 @@ var require_http = __commonJS({
         }
       });
     }
-    function requireMethod(request, method) {
-      if (request.method !== method) return json({ error: "Method not allowed" }, 405);
+    function requireMethod2(request, method) {
+      if (request.method !== method) return json2({ error: "Method not allowed" }, 405);
       return null;
     }
     async function readJson(request) {
@@ -48,9 +48,9 @@ var require_http = __commonJS({
     }
     module2.exports = {
       corsHeaders,
-      handleOptions,
-      json,
-      requireMethod,
+      handleOptions: handleOptions2,
+      json: json2,
+      requireMethod: requireMethod2,
       readJson
     };
   }
@@ -125,7 +125,7 @@ var require_logging = __commonJS({
       }
       return functionName;
     }
-    function withRequestLogging(functionName, handler) {
+    function withRequestLogging2(functionName, handler) {
       return async function(request) {
         const resolvedName = resolveFunctionName(functionName, request);
         const logger = createLogger({ functionName: resolvedName });
@@ -141,7 +141,7 @@ var require_logging = __commonJS({
       };
     }
     module2.exports = {
-      withRequestLogging,
+      withRequestLogging: withRequestLogging2,
       logSlowQuery,
       getSlowQueryThresholdMs
     };
@@ -159,7 +159,7 @@ var require_logging = __commonJS({
       });
     }
     function getSlowQueryThresholdMs() {
-      const raw = readEnvValue("VIBEUSAGE_SLOW_QUERY_MS") ?? readEnvValue("VIBESCORE_SLOW_QUERY_MS");
+      const raw = readEnvValue("VIBEUSAGE_SLOW_QUERY_MS");
       if (raw == null || raw === "") return 2e3;
       const n = Number(raw);
       if (!Number.isFinite(n)) return 2e3;
@@ -194,19 +194,19 @@ var require_logging = __commonJS({
 var require_env = __commonJS({
   "insforge-src/shared/env.js"(exports2, module2) {
     "use strict";
-    function getBaseUrl() {
+    function getBaseUrl2() {
       return Deno.env.get("INSFORGE_INTERNAL_URL") || "http://insforge:7130";
     }
-    function getServiceRoleKey() {
+    function getServiceRoleKey2() {
       return Deno.env.get("INSFORGE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("INSFORGE_API_KEY") || Deno.env.get("API_KEY") || null;
     }
-    function getAnonKey() {
+    function getAnonKey2() {
       return Deno.env.get("ANON_KEY") || Deno.env.get("INSFORGE_ANON_KEY") || null;
     }
     module2.exports = {
-      getBaseUrl,
-      getServiceRoleKey,
-      getAnonKey
+      getBaseUrl: getBaseUrl2,
+      getServiceRoleKey: getServiceRoleKey2,
+      getAnonKey: getAnonKey2
     };
   }
 });
@@ -215,13 +215,13 @@ var require_env = __commonJS({
 var require_crypto = __commonJS({
   "insforge-src/shared/crypto.js"(exports2, module2) {
     "use strict";
-    async function sha256Hex(input) {
+    async function sha256Hex2(input) {
       const data = new TextEncoder().encode(input);
       const hash = await crypto.subtle.digest("SHA-256", data);
       return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
     }
     module2.exports = {
-      sha256Hex
+      sha256Hex: sha256Hex2
     };
   }
 });
@@ -230,21 +230,21 @@ var require_crypto = __commonJS({
 var require_public_view = __commonJS({
   "insforge-src/shared/public-view.js"(exports2, module2) {
     "use strict";
-    var { getAnonKey, getServiceRoleKey } = require_env();
-    var { sha256Hex } = require_crypto();
+    var { getAnonKey: getAnonKey2, getServiceRoleKey: getServiceRoleKey2 } = require_env();
+    var { sha256Hex: sha256Hex2 } = require_crypto();
     async function resolvePublicView({ baseUrl, shareToken }) {
       const token = normalizeToken(shareToken);
       if (!token) return { ok: false, edgeClient: null, userId: null };
-      const serviceRoleKey = getServiceRoleKey();
+      const serviceRoleKey = getServiceRoleKey2();
       if (!serviceRoleKey) return { ok: false, edgeClient: null, userId: null };
-      const anonKey = getAnonKey();
+      const anonKey = getAnonKey2();
       const dbClient = createClient({
         baseUrl,
         anonKey: anonKey || serviceRoleKey,
         edgeFunctionToken: serviceRoleKey
       });
-      const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const tokenHash = await sha256Hex2(token);
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -267,9 +267,9 @@ var require_public_view = __commonJS({
 var require_auth = __commonJS({
   "insforge-src/shared/auth.js"(exports2, module2) {
     "use strict";
-    var { getAnonKey } = require_env();
+    var { getAnonKey: getAnonKey2 } = require_env();
     var { resolvePublicView } = require_public_view();
-    function getBearerToken(headerValue) {
+    function getBearerToken2(headerValue) {
       if (!headerValue) return null;
       const prefix = "Bearer ";
       if (!headerValue.startsWith(prefix)) return null;
@@ -329,7 +329,7 @@ var require_auth = __commonJS({
       return exp * 1e3 <= Date.now();
     }
     async function getEdgeClientAndUserId({ baseUrl, bearer }) {
-      const anonKey = getAnonKey();
+      const anonKey = getAnonKey2();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const { data: userData, error: userErr } = await edgeClient.auth.getCurrentUser();
       const userId = userData?.user?.id;
@@ -337,7 +337,7 @@ var require_auth = __commonJS({
       return { ok: true, edgeClient, userId };
     }
     async function getEdgeClientAndUserIdFast({ baseUrl, bearer }) {
-      const anonKey = getAnonKey();
+      const anonKey = getAnonKey2();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const payload = decodeJwtPayload(bearer);
       if (payload && isJwtExpired(payload)) {
@@ -369,7 +369,7 @@ var require_auth = __commonJS({
       };
     }
     module2.exports = {
-      getBearerToken,
+      getBearerToken: getBearerToken2,
       getAccessContext,
       getEdgeClientAndUserId,
       getEdgeClientAndUserIdFast,
@@ -378,123 +378,115 @@ var require_auth = __commonJS({
   }
 });
 
-// insforge-src/functions/vibescore-sync-ping.js
-var require_vibescore_sync_ping = __commonJS({
-  "insforge-src/functions/vibescore-sync-ping.js"(exports2, module2) {
-    "use strict";
-    var { handleOptions, json, requireMethod } = require_http();
-    var { withRequestLogging } = require_logging();
-    var { getBearerToken } = require_auth();
-    var { getAnonKey, getBaseUrl, getServiceRoleKey } = require_env();
-    var { sha256Hex } = require_crypto();
-    var MIN_INTERVAL_MINUTES = 30;
-    module2.exports = withRequestLogging("vibescore-sync-ping", async function(request, logger) {
-      const opt = handleOptions(request);
-      if (opt) return opt;
-      const methodErr = requireMethod(request, "POST");
-      if (methodErr) return methodErr;
-      const deviceToken = getBearerToken(request.headers.get("Authorization"));
-      if (!deviceToken) return json({ error: "Missing bearer token" }, 401);
-      const baseUrl = getBaseUrl();
-      const serviceRoleKey = getServiceRoleKey();
-      const anonKey = getAnonKey();
-      const fetcher = logger?.fetch || fetch;
-      if (!serviceRoleKey && !anonKey) {
-        return json({ error: "Missing anon key" }, 500);
-      }
-      const tokenHash = await sha256Hex(deviceToken);
-      const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-      if (serviceRoleKey) {
-        const serviceClient = createClient({
-          baseUrl,
-          anonKey: anonKey || serviceRoleKey,
-          edgeFunctionToken: serviceRoleKey
-        });
-        const { data: tokenRow, error: tokenErr } = await serviceClient.database.from("vibescore_tracker_device_tokens").select("id,revoked_at,last_sync_at").eq("token_hash", tokenHash).maybeSingle();
-        if (tokenErr) return json({ error: tokenErr.message }, 500);
-        if (!tokenRow || tokenRow.revoked_at) return json({ error: "Unauthorized" }, 401);
-        const lastSyncAt = normalizeIso(tokenRow.last_sync_at);
-        if (lastSyncAt && isWithinInterval(lastSyncAt, MIN_INTERVAL_MINUTES)) {
-          return json(
-            {
-              success: true,
-              updated: false,
-              last_sync_at: lastSyncAt,
-              min_interval_minutes: MIN_INTERVAL_MINUTES
-            },
-            200
-          );
-        }
-        const { error: updateErr } = await serviceClient.database.from("vibescore_tracker_device_tokens").update({ last_sync_at: nowIso, last_used_at: nowIso }).eq("id", tokenRow.id);
-        if (updateErr) return json({ error: updateErr.message }, 500);
-        return json(
-          {
-            success: true,
-            updated: true,
-            last_sync_at: nowIso,
-            min_interval_minutes: MIN_INTERVAL_MINUTES
-          },
-          200
-        );
-      }
-      try {
-        const touch = await touchSyncWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher });
-        if (!touch) return json({ error: "Unauthorized" }, 401);
-        return json(
-          {
-            success: true,
-            updated: Boolean(touch.updated),
-            last_sync_at: touch.last_sync_at || nowIso,
-            min_interval_minutes: MIN_INTERVAL_MINUTES
-          },
-          200
-        );
-      } catch (e) {
-        return json({ error: e?.message || "Internal error" }, 500);
-      }
+// insforge-src/functions/vibeusage-sync-ping.js
+var { handleOptions, json, requireMethod } = require_http();
+var { withRequestLogging } = require_logging();
+var { getBearerToken } = require_auth();
+var { getAnonKey, getBaseUrl, getServiceRoleKey } = require_env();
+var { sha256Hex } = require_crypto();
+var MIN_INTERVAL_MINUTES = 30;
+module.exports = withRequestLogging("vibeusage-sync-ping", async function(request, logger) {
+  const opt = handleOptions(request);
+  if (opt) return opt;
+  const methodErr = requireMethod(request, "POST");
+  if (methodErr) return methodErr;
+  const deviceToken = getBearerToken(request.headers.get("Authorization"));
+  if (!deviceToken) return json({ error: "Missing bearer token" }, 401);
+  const baseUrl = getBaseUrl();
+  const serviceRoleKey = getServiceRoleKey();
+  const anonKey = getAnonKey();
+  const fetcher = logger?.fetch || fetch;
+  if (!serviceRoleKey && !anonKey) {
+    return json({ error: "Missing anon key" }, 500);
+  }
+  const tokenHash = await sha256Hex(deviceToken);
+  const nowIso = (/* @__PURE__ */ new Date()).toISOString();
+  if (serviceRoleKey) {
+    const serviceClient = createClient({
+      baseUrl,
+      anonKey: anonKey || serviceRoleKey,
+      edgeFunctionToken: serviceRoleKey
     });
-    async function touchSyncWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher }) {
-      const url = new URL("/api/database/rpc/vibescore_touch_device_token_sync", baseUrl);
-      const res = await (fetcher || fetch)(url.toString(), {
-        method: "POST",
-        headers: {
-          apikey: anonKey,
-          Authorization: `Bearer ${anonKey}`,
-          "x-vibeusage-device-token-hash": tokenHash,
-          "Content-Type": "application/json"
+    const { data: tokenRow, error: tokenErr } = await serviceClient.database.from("vibeusage_tracker_device_tokens").select("id,revoked_at,last_sync_at").eq("token_hash", tokenHash).maybeSingle();
+    if (tokenErr) return json({ error: tokenErr.message }, 500);
+    if (!tokenRow || tokenRow.revoked_at) return json({ error: "Unauthorized" }, 401);
+    const lastSyncAt = normalizeIso(tokenRow.last_sync_at);
+    if (lastSyncAt && isWithinInterval(lastSyncAt, MIN_INTERVAL_MINUTES)) {
+      return json(
+        {
+          success: true,
+          updated: false,
+          last_sync_at: lastSyncAt,
+          min_interval_minutes: MIN_INTERVAL_MINUTES
         },
-        body: JSON.stringify({ min_interval_minutes: MIN_INTERVAL_MINUTES })
-      });
-      const { data, error } = await readApiJson(res);
-      if (!res.ok) throw new Error(error || `HTTP ${res.status}`);
-      if (Array.isArray(data) && data.length > 0) return data[0];
-      if (data && typeof data === "object") return data;
-      return null;
+        200
+      );
     }
-    async function readApiJson(res) {
-      const text = await res.text();
-      if (!text) return { data: null, error: null };
-      try {
-        const parsed = JSON.parse(text);
-        return { data: parsed, error: parsed?.message || parsed?.error || null };
-      } catch (_e) {
-        return { data: null, error: text.slice(0, 300) };
-      }
-    }
-    function normalizeIso(value) {
-      if (typeof value !== "string") return null;
-      const dt = new Date(value);
-      if (!Number.isFinite(dt.getTime())) return null;
-      return dt.toISOString();
-    }
-    function isWithinInterval(lastSyncAt, minutes) {
-      const lastMs = Date.parse(lastSyncAt);
-      if (!Number.isFinite(lastMs)) return false;
-      const windowMs = Math.max(0, minutes) * 60 * 1e3;
-      return windowMs > 0 && Date.now() - lastMs < windowMs;
-    }
+    const { error: updateErr } = await serviceClient.database.from("vibeusage_tracker_device_tokens").update({ last_sync_at: nowIso, last_used_at: nowIso }).eq("id", tokenRow.id);
+    if (updateErr) return json({ error: updateErr.message }, 500);
+    return json(
+      {
+        success: true,
+        updated: true,
+        last_sync_at: nowIso,
+        min_interval_minutes: MIN_INTERVAL_MINUTES
+      },
+      200
+    );
+  }
+  try {
+    const touch = await touchSyncWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher });
+    if (!touch) return json({ error: "Unauthorized" }, 401);
+    return json(
+      {
+        success: true,
+        updated: Boolean(touch.updated),
+        last_sync_at: touch.last_sync_at || nowIso,
+        min_interval_minutes: MIN_INTERVAL_MINUTES
+      },
+      200
+    );
+  } catch (e) {
+    return json({ error: e?.message || "Internal error" }, 500);
   }
 });
-
-// insforge-src/functions/vibeusage-sync-ping.js
-module.exports = require_vibescore_sync_ping();
+async function touchSyncWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher }) {
+  const url = new URL("/api/database/rpc/vibeusage_touch_device_token_sync", baseUrl);
+  const res = await (fetcher || fetch)(url.toString(), {
+    method: "POST",
+    headers: {
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+      "x-vibeusage-device-token-hash": tokenHash,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ min_interval_minutes: MIN_INTERVAL_MINUTES })
+  });
+  const { data, error } = await readApiJson(res);
+  if (!res.ok) throw new Error(error || `HTTP ${res.status}`);
+  if (Array.isArray(data) && data.length > 0) return data[0];
+  if (data && typeof data === "object") return data;
+  return null;
+}
+async function readApiJson(res) {
+  const text = await res.text();
+  if (!text) return { data: null, error: null };
+  try {
+    const parsed = JSON.parse(text);
+    return { data: parsed, error: parsed?.message || parsed?.error || null };
+  } catch (_e) {
+    return { data: null, error: text.slice(0, 300) };
+  }
+}
+function normalizeIso(value) {
+  if (typeof value !== "string") return null;
+  const dt = new Date(value);
+  if (!Number.isFinite(dt.getTime())) return null;
+  return dt.toISOString();
+}
+function isWithinInterval(lastSyncAt, minutes) {
+  const lastMs = Date.parse(lastSyncAt);
+  if (!Number.isFinite(lastMs)) return false;
+  const windowMs = Math.max(0, minutes) * 60 * 1e3;
+  return windowMs > 0 && Date.now() - lastMs < windowMs;
+}

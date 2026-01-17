@@ -17,4 +17,4 @@
 - [x] 3.3 Run `node --test test/details-*.test.js` and record results.
 
 ## 4. Docs & Evidence
-- [x] 4.1 Update `openspec/specs/vibescore-tracker/evidence.md` with implementation + verification.
+- [x] 4.1 Update `openspec/specs/vibeusage-tracker/evidence.md` with implementation + verification.

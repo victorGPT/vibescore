@@ -8,7 +8,7 @@
 - 新增单测覆盖默认值、clamp、禁用与中断优先级。
 
 ## Impact
-- Affected specs: `openspec/specs/vibescore-tracker/spec.md`（无行为变更）
+- Affected specs: `openspec/specs/vibeusage-tracker/spec.md`（无行为变更）
 - Affected code: `dashboard/src/lib/insforge-client.js`、新增模块与测试。
 - **BREAKING** (if any): 无。
 

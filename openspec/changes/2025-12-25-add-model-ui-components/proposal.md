@@ -11,7 +11,7 @@
 - Use mainstream titles for the new modules.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: Dashboard UI components, hooks, API client, mock data, copy registry.
 - **BREAKING**: None (additive UI + endpoint consumption).
 

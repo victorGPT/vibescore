@@ -31,7 +31,7 @@ const SCENARIO_CATALOG = [
       "src/commands/sync.js",
       "src/lib/rollout.js",
       "src/lib/uploader.js",
-      "src/lib/vibescore-api.js",
+      "src/lib/vibeusage-api.js",
       "insforge-src/functions/vibeusage-ingest.js",
     ],
     optionalPaths: ["insforge-src/functions/vibeusage-sync-ping.js"],
@@ -74,7 +74,7 @@ const SCENARIO_CATALOG = [
       {
         id: "db",
         name: "InsForge DB",
-        subtitle: "vibescore_tracker_*",
+        subtitle: "vibeusage_tracker_*",
         notes: "Idempotent upserts + metrics.",
         color: "4",
       },
@@ -165,7 +165,7 @@ const SCENARIO_CATALOG = [
       "src/commands/init.js",
       "insforge-src/functions/vibeusage-link-code-init.js",
       "insforge-src/functions/vibeusage-link-code-exchange.js",
-      "src/lib/vibescore-api.js",
+      "src/lib/vibeusage-api.js",
     ],
     optionalPaths: [],
     lifelines: [
@@ -266,7 +266,7 @@ const SCENARIO_CATALOG = [
     title: "Usage Summary Query",
     weight: 70,
     requiredPaths: [
-      "dashboard/src/lib/vibescore-api.js",
+      "dashboard/src/lib/vibeusage-api.js",
       "dashboard/src/lib/insforge-client.js",
       "insforge-src/functions/vibeusage-usage-summary.js",
     ],
@@ -296,7 +296,7 @@ const SCENARIO_CATALOG = [
       {
         id: "db",
         name: "InsForge DB",
-        subtitle: "vibescore_tracker_hourly",
+        subtitle: "vibeusage_tracker_hourly",
         notes: "Serves aggregate rows.",
         color: "4",
       },

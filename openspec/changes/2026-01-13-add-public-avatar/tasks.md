@@ -1,5 +1,5 @@
 ## 1. Spec Updates
-- [x] 1.1 Add Public View avatar requirements delta in `specs/vibescore-tracker/spec.md`.
+- [x] 1.1 Add Public View avatar requirements delta in `specs/vibeusage-tracker/spec.md`.
 
 ## 2. Backend (InsForge)
 - [x] 2.1 Extend `vibeusage-public-view-profile` to return `avatar_url` (http/https only, max length, else `null`).

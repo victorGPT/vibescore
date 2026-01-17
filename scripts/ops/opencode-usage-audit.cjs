@@ -45,7 +45,7 @@ function resolveStorageDir(env) {
 }
 
 async function resolveAccessToken({ env, baseUrl, noOpen, log }) {
-  const token = env.VIBEUSAGE_ACCESS_TOKEN || env.VIBESCORE_ACCESS_TOKEN || '';
+  const token = env.VIBEUSAGE_ACCESS_TOKEN || '';
   if (token) return token;
   const flow = await beginBrowserAuth({ baseUrl, timeoutMs: 10 * 60_000, open: false });
   if (noOpen) {
@@ -77,7 +77,6 @@ async function runAuditCli(argv, deps = {}) {
   const baseUrl =
     args.baseUrl ||
     env.VIBEUSAGE_INSFORGE_BASE_URL ||
-    env.VIBESCORE_INSFORGE_BASE_URL ||
     DEFAULT_BASE_URL;
   const storageDir = args.storageDir || resolveStorageDir(env);
   const accessToken = await resolveAccessToken({ env, baseUrl, noOpen: args.noOpen, log });

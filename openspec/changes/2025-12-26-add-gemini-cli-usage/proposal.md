@@ -9,7 +9,7 @@
 - 输出口径采用 B 策略：`output_tokens = output + tool`。
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: `src/lib/rollout.js`, `src/commands/sync.js`, `test/rollout-parser.test.js`
 - **BREAKING** (if any): none
 

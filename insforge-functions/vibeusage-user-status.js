@@ -15,13 +15,13 @@ var require_http = __commonJS({
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey"
     };
-    function handleOptions(request) {
+    function handleOptions2(request) {
       if (request.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: corsHeaders });
       }
       return null;
     }
-    function json(body, status = 200, extraHeaders = null) {
+    function json2(body, status = 200, extraHeaders = null) {
       return new Response(JSON.stringify(body), {
         status,
         headers: {
@@ -31,8 +31,8 @@ var require_http = __commonJS({
         }
       });
     }
-    function requireMethod(request, method) {
-      if (request.method !== method) return json({ error: "Method not allowed" }, 405);
+    function requireMethod2(request, method) {
+      if (request.method !== method) return json2({ error: "Method not allowed" }, 405);
       return null;
     }
     async function readJson(request) {
@@ -48,9 +48,9 @@ var require_http = __commonJS({
     }
     module2.exports = {
       corsHeaders,
-      handleOptions,
-      json,
-      requireMethod,
+      handleOptions: handleOptions2,
+      json: json2,
+      requireMethod: requireMethod2,
       readJson
     };
   }
@@ -60,19 +60,19 @@ var require_http = __commonJS({
 var require_env = __commonJS({
   "insforge-src/shared/env.js"(exports2, module2) {
     "use strict";
-    function getBaseUrl() {
+    function getBaseUrl2() {
       return Deno.env.get("INSFORGE_INTERNAL_URL") || "http://insforge:7130";
     }
-    function getServiceRoleKey() {
+    function getServiceRoleKey2() {
       return Deno.env.get("INSFORGE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY") || Deno.env.get("INSFORGE_API_KEY") || Deno.env.get("API_KEY") || null;
     }
-    function getAnonKey() {
+    function getAnonKey2() {
       return Deno.env.get("ANON_KEY") || Deno.env.get("INSFORGE_ANON_KEY") || null;
     }
     module2.exports = {
-      getBaseUrl,
-      getServiceRoleKey,
-      getAnonKey
+      getBaseUrl: getBaseUrl2,
+      getServiceRoleKey: getServiceRoleKey2,
+      getAnonKey: getAnonKey2
     };
   }
 });
@@ -96,21 +96,21 @@ var require_crypto = __commonJS({
 var require_public_view = __commonJS({
   "insforge-src/shared/public-view.js"(exports2, module2) {
     "use strict";
-    var { getAnonKey, getServiceRoleKey } = require_env();
+    var { getAnonKey: getAnonKey2, getServiceRoleKey: getServiceRoleKey2 } = require_env();
     var { sha256Hex } = require_crypto();
     async function resolvePublicView({ baseUrl, shareToken }) {
       const token = normalizeToken(shareToken);
       if (!token) return { ok: false, edgeClient: null, userId: null };
-      const serviceRoleKey = getServiceRoleKey();
+      const serviceRoleKey = getServiceRoleKey2();
       if (!serviceRoleKey) return { ok: false, edgeClient: null, userId: null };
-      const anonKey = getAnonKey();
+      const anonKey = getAnonKey2();
       const dbClient = createClient({
         baseUrl,
         anonKey: anonKey || serviceRoleKey,
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -133,9 +133,9 @@ var require_public_view = __commonJS({
 var require_auth = __commonJS({
   "insforge-src/shared/auth.js"(exports2, module2) {
     "use strict";
-    var { getAnonKey } = require_env();
+    var { getAnonKey: getAnonKey2 } = require_env();
     var { resolvePublicView } = require_public_view();
-    function getBearerToken(headerValue) {
+    function getBearerToken2(headerValue) {
       if (!headerValue) return null;
       const prefix = "Bearer ";
       if (!headerValue.startsWith(prefix)) return null;
@@ -194,8 +194,8 @@ var require_auth = __commonJS({
       if (!Number.isFinite(exp)) return false;
       return exp * 1e3 <= Date.now();
     }
-    async function getEdgeClientAndUserId({ baseUrl, bearer }) {
-      const anonKey = getAnonKey();
+    async function getEdgeClientAndUserId2({ baseUrl, bearer }) {
+      const anonKey = getAnonKey2();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const { data: userData, error: userErr } = await edgeClient.auth.getCurrentUser();
       const userId = userData?.user?.id;
@@ -203,7 +203,7 @@ var require_auth = __commonJS({
       return { ok: true, edgeClient, userId };
     }
     async function getEdgeClientAndUserIdFast({ baseUrl, bearer }) {
-      const anonKey = getAnonKey();
+      const anonKey = getAnonKey2();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const payload = decodeJwtPayload(bearer);
       if (payload && isJwtExpired(payload)) {
@@ -235,9 +235,9 @@ var require_auth = __commonJS({
       };
     }
     module2.exports = {
-      getBearerToken,
+      getBearerToken: getBearerToken2,
       getAccessContext,
-      getEdgeClientAndUserId,
+      getEdgeClientAndUserId: getEdgeClientAndUserId2,
       getEdgeClientAndUserIdFast,
       isProjectAdminBearer
     };
@@ -271,7 +271,7 @@ var require_pro_status = __commonJS({
       );
       return out.toISOString();
     }
-    function computeProStatus({ createdAt, entitlements, now }) {
+    function computeProStatus2({ createdAt, entitlements, now }) {
       const nowMs = toMs(now) ?? Date.now();
       const cutoffMs = toMs(CUTOFF_UTC_ISO);
       const createdMs = toMs(createdAt);
@@ -304,7 +304,7 @@ var require_pro_status = __commonJS({
     module2.exports = {
       CUTOFF_UTC_ISO,
       REGISTRATION_YEARS,
-      computeProStatus
+      computeProStatus: computeProStatus2
     };
   }
 });
@@ -378,7 +378,7 @@ var require_logging = __commonJS({
       }
       return functionName;
     }
-    function withRequestLogging(functionName, handler) {
+    function withRequestLogging2(functionName, handler) {
       return async function(request) {
         const resolvedName = resolveFunctionName(functionName, request);
         const logger = createLogger({ functionName: resolvedName });
@@ -394,7 +394,7 @@ var require_logging = __commonJS({
       };
     }
     module2.exports = {
-      withRequestLogging,
+      withRequestLogging: withRequestLogging2,
       logSlowQuery,
       getSlowQueryThresholdMs
     };
@@ -412,7 +412,7 @@ var require_logging = __commonJS({
       });
     }
     function getSlowQueryThresholdMs() {
-      const raw = readEnvValue("VIBEUSAGE_SLOW_QUERY_MS") ?? readEnvValue("VIBESCORE_SLOW_QUERY_MS");
+      const raw = readEnvValue("VIBEUSAGE_SLOW_QUERY_MS");
       if (raw == null || raw === "") return 2e3;
       const n = Number(raw);
       if (!Number.isFinite(n)) return 2e3;
@@ -443,70 +443,62 @@ var require_logging = __commonJS({
   }
 });
 
-// insforge-src/functions/vibescore-user-status.js
-var require_vibescore_user_status = __commonJS({
-  "insforge-src/functions/vibescore-user-status.js"(exports2, module2) {
-    "use strict";
-    var { handleOptions, json, requireMethod } = require_http();
-    var { getBearerToken, getEdgeClientAndUserId } = require_auth();
-    var { getAnonKey, getBaseUrl, getServiceRoleKey } = require_env();
-    var { computeProStatus } = require_pro_status();
-    var { withRequestLogging } = require_logging();
-    module2.exports = withRequestLogging("vibescore-user-status", async function(request) {
-      const opt = handleOptions(request);
-      if (opt) return opt;
-      const methodErr = requireMethod(request, "GET");
-      if (methodErr) return methodErr;
-      const bearer = getBearerToken(request.headers.get("Authorization"));
-      if (!bearer) return json({ error: "Missing bearer token" }, 401);
-      const baseUrl = getBaseUrl();
-      const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
-      if (!auth.ok) return json({ error: "Unauthorized" }, 401);
-      const { data: userData, error: userErr } = await auth.edgeClient.auth.getCurrentUser();
-      if (userErr || !userData?.user?.id) return json({ error: "Unauthorized" }, 401);
-      let createdAt = userData.user.created_at;
-      let partial = false;
-      if (typeof createdAt !== "string" || createdAt.length === 0) {
-        const serviceRoleKey = getServiceRoleKey();
-        if (!serviceRoleKey) {
-          createdAt = null;
-          partial = true;
-        } else {
-          const anonKey = getAnonKey();
-          const serviceClient = createClient({
-            baseUrl,
-            anonKey: anonKey || serviceRoleKey,
-            edgeFunctionToken: serviceRoleKey
-          });
-          const { data: userRow, error: userRowErr } = await serviceClient.database.from("users").select("created_at").eq("id", auth.userId).maybeSingle();
-          if (userRowErr) return json({ error: userRowErr.message }, 500);
-          if (typeof userRow?.created_at !== "string" || userRow.created_at.length === 0) {
-            return json({ error: "Missing user created_at" }, 500);
-          }
-          createdAt = userRow.created_at;
-        }
-      }
-      const { data: entitlements, error: entErr } = await auth.edgeClient.database.from("vibescore_user_entitlements").select("source,effective_from,effective_to,revoked_at").eq("user_id", auth.userId).order("effective_to", { ascending: false });
-      if (entErr) return json({ error: entErr.message }, 500);
-      const asOf = (/* @__PURE__ */ new Date()).toISOString();
-      const status = computeProStatus({ createdAt, entitlements, now: asOf });
-      return json(
-        {
-          user_id: auth.userId,
-          created_at: createdAt ?? null,
-          pro: {
-            active: status.active,
-            sources: status.sources,
-            expires_at: status.expires_at,
-            partial,
-            as_of: asOf
-          }
-        },
-        200
-      );
-    });
-  }
-});
-
 // insforge-src/functions/vibeusage-user-status.js
-module.exports = require_vibescore_user_status();
+var { handleOptions, json, requireMethod } = require_http();
+var { getBearerToken, getEdgeClientAndUserId } = require_auth();
+var { getAnonKey, getBaseUrl, getServiceRoleKey } = require_env();
+var { computeProStatus } = require_pro_status();
+var { withRequestLogging } = require_logging();
+module.exports = withRequestLogging("vibeusage-user-status", async function(request) {
+  const opt = handleOptions(request);
+  if (opt) return opt;
+  const methodErr = requireMethod(request, "GET");
+  if (methodErr) return methodErr;
+  const bearer = getBearerToken(request.headers.get("Authorization"));
+  if (!bearer) return json({ error: "Missing bearer token" }, 401);
+  const baseUrl = getBaseUrl();
+  const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
+  if (!auth.ok) return json({ error: "Unauthorized" }, 401);
+  const { data: userData, error: userErr } = await auth.edgeClient.auth.getCurrentUser();
+  if (userErr || !userData?.user?.id) return json({ error: "Unauthorized" }, 401);
+  let createdAt = userData.user.created_at;
+  let partial = false;
+  if (typeof createdAt !== "string" || createdAt.length === 0) {
+    const serviceRoleKey = getServiceRoleKey();
+    if (!serviceRoleKey) {
+      createdAt = null;
+      partial = true;
+    } else {
+      const anonKey = getAnonKey();
+      const serviceClient = createClient({
+        baseUrl,
+        anonKey: anonKey || serviceRoleKey,
+        edgeFunctionToken: serviceRoleKey
+      });
+      const { data: userRow, error: userRowErr } = await serviceClient.database.from("users").select("created_at").eq("id", auth.userId).maybeSingle();
+      if (userRowErr) return json({ error: userRowErr.message }, 500);
+      if (typeof userRow?.created_at !== "string" || userRow.created_at.length === 0) {
+        return json({ error: "Missing user created_at" }, 500);
+      }
+      createdAt = userRow.created_at;
+    }
+  }
+  const { data: entitlements, error: entErr } = await auth.edgeClient.database.from("vibeusage_user_entitlements").select("source,effective_from,effective_to,revoked_at").eq("user_id", auth.userId).order("effective_to", { ascending: false });
+  if (entErr) return json({ error: entErr.message }, 500);
+  const asOf = (/* @__PURE__ */ new Date()).toISOString();
+  const status = computeProStatus({ createdAt, entitlements, now: asOf });
+  return json(
+    {
+      user_id: auth.userId,
+      created_at: createdAt ?? null,
+      pro: {
+        active: status.active,
+        sources: status.sources,
+        expires_at: status.expires_at,
+        partial,
+        as_of: asOf
+      }
+    },
+    200
+  );
+});

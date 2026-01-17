@@ -44,7 +44,7 @@
 - Vercel project domain settings (external).
 - Dashboard files: `dashboard/public/robots.txt`, `dashboard/public/sitemap.xml`, `dashboard/src/pages/DashboardPage.jsx`, `dashboard/wrapped-2025.html`, `dashboard/vercel.json`.
 - Docs: `README.md`, `README.zh-CN.md`.
-- Spec: `openspec/specs/vibescore-tracker/spec.md`.
+- Spec: `openspec/specs/vibeusage-tracker/spec.md`.
 
 ## Risks
 - SEO regressions if canonical/redirect settings are inconsistent.

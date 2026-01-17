@@ -8,7 +8,7 @@
 ## M2 - OpenSpec Proposal
 - Entry criteria: M1 complete.
 - Exit criteria: proposal + spec delta validated.
-- Required artifacts: `proposal.md`, `specs/vibescore-tracker/spec.md`, `tasks.md`, `openspec validate --strict`.
+- Required artifacts: `proposal.md`, `specs/vibeusage-tracker/spec.md`, `tasks.md`, `openspec validate --strict`.
 
 ## M3 - Module Brief
 - Entry criteria: M2 complete.

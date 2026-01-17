@@ -55,12 +55,10 @@ function normalizeModelValue(value) {
 
 function getPricingDefaults() {
   const primaryModel = normalizeModelValue(getEnvValue('VIBEUSAGE_PRICING_MODEL'));
-  const legacyModel = normalizeModelValue(getEnvValue('VIBESCORE_PRICING_MODEL'));
   const primarySource = normalizeSource(getEnvValue('VIBEUSAGE_PRICING_SOURCE'));
-  const legacySource = normalizeSource(getEnvValue('VIBESCORE_PRICING_SOURCE'));
   return {
-    model: primaryModel || legacyModel || DEFAULT_PROFILE.model,
-    source: primarySource || legacySource || DEFAULT_PROFILE.source
+    model: primaryModel || DEFAULT_PROFILE.model,
+    source: primarySource || DEFAULT_PROFILE.source
   };
 }
 
@@ -83,7 +81,7 @@ async function resolvePricingProfile({ edgeClient, effectiveDate, model, source 
 
     if (requestedModelLower) {
       const { data: aliasRows, error: aliasError } = await edgeClient.database
-        .from('vibescore_pricing_model_aliases')
+        .from('vibeusage_pricing_model_aliases')
         .select('pricing_model,effective_from')
         .eq('active', true)
         .eq('pricing_source', requestedSource)
@@ -99,7 +97,7 @@ async function resolvePricingProfile({ edgeClient, effectiveDate, model, source 
     }
 
     let query = edgeClient.database
-      .from('vibescore_pricing_profiles')
+      .from('vibeusage_pricing_profiles')
       .select(
         [
           'model',

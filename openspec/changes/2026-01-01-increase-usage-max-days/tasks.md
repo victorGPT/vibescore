@@ -1,6 +1,6 @@
 ## 1. Implementation
 - [x] 1.1 Update default `VIBESCORE_USAGE_MAX_DAYS` to 800 in `insforge-src/shared/date.js`.
-- [x] 1.2 Update docs (`BACKEND_API.md`, `openspec/specs/vibescore-tracker/spec.md`).
+- [x] 1.2 Update docs (`BACKEND_API.md`, `openspec/specs/vibeusage-tracker/spec.md`).
 - [x] 1.3 Update or add unit tests for default max-day behavior.
 - [x] 1.4 Rebuild `insforge-functions/` artifacts.
 

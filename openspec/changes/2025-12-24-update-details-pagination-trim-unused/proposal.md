@@ -11,7 +11,7 @@
 - Keep existing rule: do not display future buckets.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: `dashboard/src/pages/DashboardPage.jsx`, new/updated detail-row helper (if introduced), dashboard tests under `test/`
 - **BREAKING**: none
 

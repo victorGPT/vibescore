@@ -19,7 +19,7 @@ async function issueDeviceToken({ baseUrl, accessToken, deviceName, platform = '
   const data = await invokeFunction({
     baseUrl,
     accessToken,
-    slug: 'vibescore-device-token-issue',
+    slug: 'vibeusage-device-token-issue',
     method: 'POST',
     body: { device_name: deviceName, platform },
     errorPrefix: 'Device token issue failed'
@@ -39,7 +39,7 @@ async function exchangeLinkCode({ baseUrl, linkCode, requestId, deviceName, plat
   const data = await invokeFunction({
     baseUrl,
     accessToken: null,
-    slug: 'vibescore-link-code-exchange',
+    slug: 'vibeusage-link-code-exchange',
     method: 'POST',
     body: {
       link_code: linkCode,
@@ -66,7 +66,7 @@ async function ingestHourly({ baseUrl, deviceToken, hourly }) {
   const data = await invokeFunctionWithRetry({
     baseUrl,
     accessToken: deviceToken,
-    slug: 'vibescore-ingest',
+    slug: 'vibeusage-ingest',
     method: 'POST',
     body: { hourly },
     errorPrefix: 'Ingest failed',
@@ -83,7 +83,7 @@ async function syncHeartbeat({ baseUrl, deviceToken }) {
   const data = await invokeFunction({
     baseUrl,
     accessToken: deviceToken,
-    slug: 'vibescore-sync-ping',
+    slug: 'vibeusage-sync-ping',
     method: 'POST',
     body: {},
     errorPrefix: 'Sync heartbeat failed'

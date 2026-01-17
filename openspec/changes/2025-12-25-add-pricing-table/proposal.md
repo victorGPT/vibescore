@@ -9,7 +9,7 @@
 - Ensure usage endpoints return pricing metadata derived from table.
 
 ## Impact
-- Affected specs: `vibescore-tracker`.
+- Affected specs: `vibeusage-tracker`.
 - Affected code: pricing helper, usage endpoints, migrations, docs.
 - **BREAKING**: None (fallback preserves behavior).
 

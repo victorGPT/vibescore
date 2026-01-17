@@ -9,4 +9,4 @@
 - [x] 2.2 Run `npm --prefix dashboard run build` and confirm `dashboard/dist/index.html` includes OG/Twitter meta tags and the canonical `og:url`
 
 ## 3. Docs
-- [x] 3.1 Update `openspec/specs/vibescore-tracker/evidence.md` for the new requirement
+- [x] 3.1 Update `openspec/specs/vibeusage-tracker/evidence.md` for the new requirement

@@ -34,6 +34,10 @@ async function main() {
     throw new Error(`No entry points found under ${path.relative(rootDir, srcDir)}/`);
   }
 
+  if (!check) {
+    await removeStaleOutputs({ outDir, entryPoints });
+  }
+
   const esbuild = require('esbuild');
 
   const result = await esbuild.build({
@@ -109,6 +113,16 @@ async function diffOutputs({ rootDir, outDir, outputFiles }) {
   return problems;
 }
 
+async function removeStaleOutputs({ outDir, entryPoints }) {
+  const expected = new Set(entryPoints.map((entry) => `${path.parse(entry).name}.js`));
+  const existing = await fs.readdir(outDir, { withFileTypes: true }).catch(() => []);
+  for (const entry of existing) {
+    if (!entry.isFile() || !entry.name.endsWith('.js')) continue;
+    if (expected.has(entry.name)) continue;
+    await fs.rm(path.join(outDir, entry.name));
+  }
+}
+
 function buffersEqual(a, b) {
   if (!a || !b) return false;
   if (a.length !== b.length) return false;
@@ -122,4 +136,3 @@ main().catch((err) => {
   process.stderr.write(`${err && err.stack ? err.stack : String(err)}\n`);
   process.exitCode = 1;
 });
-

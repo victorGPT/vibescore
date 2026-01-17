@@ -89,7 +89,7 @@ async function fetchAliasRows({ edgeClient, usageModels, effectiveDate } = {}) {
   const dateKeyNext = nextDateKey(dateKey) || dateKey;
 
   const query = edgeClient.database
-    .from('vibescore_model_aliases')
+    .from('vibeusage_model_aliases')
     .select('usage_model,canonical_model,display_name,effective_from')
     .eq('active', true)
     .in('usage_model', models)

@@ -1,4 +1,4 @@
-const { exchangeLinkCode, issueDeviceToken, signInWithPassword } = require('./vibescore-api');
+const { exchangeLinkCode, issueDeviceToken, signInWithPassword } = require('./vibeusage-api');
 
 async function issueDeviceTokenWithPassword({ baseUrl, email, password, deviceName }) {
   const accessToken = await signInWithPassword({ baseUrl, email, password });

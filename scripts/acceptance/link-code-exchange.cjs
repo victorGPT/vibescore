@@ -61,17 +61,17 @@ async function main() {
   assert.equal(body.token, expectedToken);
   assert.equal(body.user_id, userId);
 
-  const deviceInsert = db.inserts.find((entry) => entry.table === 'vibescore_tracker_devices');
+  const deviceInsert = db.inserts.find((entry) => entry.table === 'vibeusage_tracker_devices');
   assert.ok(deviceInsert, 'device insert missing');
   const deviceRow = deviceInsert.rows[0];
   assert.equal(body.device_id, deviceRow.id);
 
-  const tokenInsert = db.inserts.find((entry) => entry.table === 'vibescore_tracker_device_tokens');
+  const tokenInsert = db.inserts.find((entry) => entry.table === 'vibeusage_tracker_device_tokens');
   assert.ok(tokenInsert, 'token insert missing');
   assert.equal(tokenInsert.rows[0].token_hash, expectedTokenHash);
   assert.equal(tokenInsert.rows[0].device_id, deviceRow.id);
 
-  const update = db.updates.find((entry) => entry.table === 'vibescore_link_codes');
+  const update = db.updates.find((entry) => entry.table === 'vibeusage_link_codes');
   assert.ok(update, 'link code update missing');
   assert.equal(update.values.request_id, requestId);
   assert.equal(update.values.device_id, deviceRow.id);
@@ -102,7 +102,7 @@ function createLinkCodeExchangeDbMock(linkCodeRow) {
   }
 
   function from(table) {
-    if (table === 'vibescore_link_codes') {
+    if (table === 'vibeusage_link_codes') {
       return {
         select: (columns) => {
           const q = { table, columns, filters: [] };
@@ -147,7 +147,7 @@ function createLinkCodeExchangeDbMock(linkCodeRow) {
       };
     }
 
-    if (table === 'vibescore_tracker_devices' || table === 'vibescore_tracker_device_tokens') {
+    if (table === 'vibeusage_tracker_devices' || table === 'vibeusage_tracker_device_tokens') {
       return {
         insert: async (rows) => {
           inserts.push({ table, rows });

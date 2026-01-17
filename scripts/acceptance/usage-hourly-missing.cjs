@@ -31,7 +31,7 @@ class DatabaseStub {
   }
 
   lt() {
-    if (this._table !== 'vibescore_tracker_hourly') {
+    if (this._table !== 'vibeusage_tracker_hourly') {
       return { data: [], error: null };
     }
 
@@ -39,11 +39,11 @@ class DatabaseStub {
   }
 
   order() {
-    if (this._table === 'vibescore_tracker_device_tokens') {
+    if (this._table === 'vibeusage_tracker_device_tokens') {
       return this;
     }
 
-    if (this._table !== 'vibescore_tracker_hourly') {
+    if (this._table !== 'vibeusage_tracker_hourly') {
       return { data: [], error: null };
     }
 
@@ -51,7 +51,7 @@ class DatabaseStub {
   }
 
   limit(n) {
-    if (this._table === 'vibescore_tracker_device_tokens') {
+    if (this._table === 'vibeusage_tracker_device_tokens') {
       return { data: this.tokenRows.slice(0, n), error: null };
     }
     return { data: [], error: null };

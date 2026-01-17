@@ -12,7 +12,7 @@
 - `notify` 触发时检查依赖标记，缺失则回退 `npx --yes @vibescore/tracker sync --auto`。
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: `src/commands/init.js`，生成的 `~/.vibescore/bin/notify.cjs`
 - **BREAKING**: none
 

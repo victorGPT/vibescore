@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { getUsageModelBreakdown } from "../lib/vibescore-api.js";
+import { getUsageModelBreakdown } from "../lib/vibeusage-api.js";
 import { isMockEnabled } from "../lib/mock-data.js";
 import { getTimeZoneCacheKey } from "../lib/timezone.js";
 

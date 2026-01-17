@@ -18,7 +18,7 @@
 - Required artifacts:
   - `openspec/changes/2025-12-28-update-session-expired-banner/proposal.md`
   - `openspec/changes/2025-12-28-update-session-expired-banner/tasks.md`
-  - `openspec/changes/2025-12-28-update-session-expired-banner/specs/vibescore-tracker/spec.md`
+  - `openspec/changes/2025-12-28-update-session-expired-banner/specs/vibeusage-tracker/spec.md`
 
 ## M3 - Unit Test Coverage
 - Entry criteria:

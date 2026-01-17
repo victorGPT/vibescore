@@ -10,5 +10,5 @@ We need automatic token usage ingestion for Opencode sessions, consistent with e
 - Add tests for Opencode parser and hook install/uninstall behavior.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: `src/commands/init.js`, `src/commands/uninstall.js`, `src/commands/sync.js`, `src/commands/status.js`, `src/lib/diagnostics.js`, `src/lib/rollout.js`, tests.

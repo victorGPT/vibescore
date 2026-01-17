@@ -10,6 +10,6 @@ We are rebranding the product to **VibeUsage** and moving all public identifiers
 - Docs, copy registry, and SEO assets updated to **VibeUsage**.
 
 ## Impact
-- Affected specs: `openspec/specs/vibescore-tracker/spec.md`
+- Affected specs: `openspec/specs/vibeusage-tracker/spec.md`
 - Affected code: CLI (`bin/`, `src/`), Dashboard (`dashboard/`), Edge Functions (`insforge-src/`), tests, docs, copy registry.
 - Affected integrations: InsForge Edge Functions, Vercel domains, NPM packages.

@@ -14,7 +14,7 @@ import {
   subscribeSessionExpired,
 } from "./lib/auth-storage.js";
 import { insforgeAuthClient } from "./lib/insforge-auth-client.js";
-import { probeBackend } from "./lib/vibescore-api.js";
+import { probeBackend } from "./lib/vibeusage-api.js";
 
 import { UpgradeAlertModal } from "./ui/matrix-a/components/UpgradeAlertModal.jsx";
 

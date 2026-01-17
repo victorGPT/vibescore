@@ -4,10 +4,7 @@ const MAX_TIMEOUT_MS = 30_000;
 
 export function getHttpTimeoutMs({ env } = {}) {
   const resolvedEnv = env ?? (typeof import.meta !== "undefined" ? import.meta.env : undefined);
-  const raw = readEnvValue(resolvedEnv, [
-    "VITE_VIBEUSAGE_HTTP_TIMEOUT_MS",
-    "VITE_VIBESCORE_HTTP_TIMEOUT_MS",
-  ]);
+  const raw = readEnvValue(resolvedEnv, ["VITE_VIBEUSAGE_HTTP_TIMEOUT_MS"]);
   if (raw == null || raw === "") return DEFAULT_TIMEOUT_MS;
   const n = Number(raw);
   if (!Number.isFinite(n)) return DEFAULT_TIMEOUT_MS;

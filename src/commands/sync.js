@@ -16,7 +16,7 @@ const {
 } = require('../lib/rollout');
 const { drainQueueToCloud } = require('../lib/uploader');
 const { createProgress, renderBar, formatNumber, formatBytes } = require('../lib/progress');
-const { syncHeartbeat } = require('../lib/vibescore-api');
+const { syncHeartbeat } = require('../lib/vibeusage-api');
 const {
   DEFAULTS: UPLOAD_DEFAULTS,
   normalizeState: normalizeUploadState,

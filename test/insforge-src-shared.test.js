@@ -12,9 +12,9 @@ function createPricingEdgeClient({ aliasRows = [], profileRows = [] } = {}) {
   return {
     database: {
       from: (table) => {
-        const rows = table === 'vibescore_pricing_model_aliases'
+        const rows = table === 'vibeusage_pricing_model_aliases'
           ? aliasRows
-          : table === 'vibescore_pricing_profiles'
+          : table === 'vibeusage_pricing_profiles'
             ? profileRows
             : [];
         const state = {
@@ -103,7 +103,7 @@ test('logSlowQuery emits only above threshold (VIBEUSAGE env)', { concurrency: 1
   }
 });
 
-test('logSlowQuery falls back to VIBESCORE env when VIBEUSAGE missing', { concurrency: 1 }, () => {
+test('logSlowQuery ignores VIBESCORE env when VIBEUSAGE missing', { concurrency: 1 }, () => {
   const prevNewThreshold = process.env.VIBEUSAGE_SLOW_QUERY_MS;
   const prevLegacyThreshold = process.env.VIBESCORE_SLOW_QUERY_MS;
   const logs = [];
@@ -119,6 +119,9 @@ test('logSlowQuery falls back to VIBESCORE env when VIBEUSAGE missing', { concur
     assert.equal(logs.length, 0);
 
     logSlowQuery(logger, { query_label: 'test', duration_ms: 50, row_count: 1 });
+    assert.equal(logs.length, 0);
+
+    logSlowQuery(logger, { query_label: 'test', duration_ms: 2100, row_count: 1 });
     assert.equal(logs.length, 1);
   } finally {
     if (prevNewThreshold === undefined) delete process.env.VIBEUSAGE_SLOW_QUERY_MS;
@@ -128,7 +131,7 @@ test('logSlowQuery falls back to VIBESCORE env when VIBEUSAGE missing', { concur
   }
 });
 
-test('getUsageMaxDays reads VIBEUSAGE env with VIBESCORE fallback', () => {
+test('getUsageMaxDays ignores VIBESCORE env when VIBEUSAGE missing', () => {
   const prevNewMax = process.env.VIBEUSAGE_USAGE_MAX_DAYS;
   const prevLegacyMax = process.env.VIBESCORE_USAGE_MAX_DAYS;
 
@@ -138,7 +141,7 @@ test('getUsageMaxDays reads VIBEUSAGE env with VIBESCORE fallback', () => {
     assert.equal(getUsageMaxDays(), 1200);
 
     delete process.env.VIBEUSAGE_USAGE_MAX_DAYS;
-    assert.equal(getUsageMaxDays(), 900);
+    assert.equal(getUsageMaxDays(), 800);
   } finally {
     if (prevNewMax === undefined) delete process.env.VIBEUSAGE_USAGE_MAX_DAYS;
     else process.env.VIBEUSAGE_USAGE_MAX_DAYS = prevNewMax;
@@ -147,7 +150,7 @@ test('getUsageMaxDays reads VIBEUSAGE env with VIBESCORE fallback', () => {
   }
 });
 
-test('pricing defaults read VIBEUSAGE env with VIBESCORE fallback', () => {
+test('pricing defaults ignore VIBESCORE env when VIBEUSAGE missing', () => {
   const prevNewModel = process.env.VIBEUSAGE_PRICING_MODEL;
   const prevNewSource = process.env.VIBEUSAGE_PRICING_SOURCE;
   const prevLegacyModel = process.env.VIBESCORE_PRICING_MODEL;
@@ -156,8 +159,8 @@ test('pricing defaults read VIBEUSAGE env with VIBESCORE fallback', () => {
   try {
     process.env.VIBEUSAGE_PRICING_MODEL = 'gpt-5-mini';
     process.env.VIBEUSAGE_PRICING_SOURCE = 'openai';
-    process.env.VIBESCORE_PRICING_MODEL = 'gpt-5.2-codex';
-    process.env.VIBESCORE_PRICING_SOURCE = 'openrouter';
+    process.env.VIBESCORE_PRICING_MODEL = 'gpt-4o';
+    process.env.VIBESCORE_PRICING_SOURCE = 'openai';
     assert.deepEqual(pricing._getPricingDefaults(), {
       model: 'gpt-5-mini',
       source: 'openai'

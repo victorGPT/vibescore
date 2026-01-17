@@ -15,13 +15,13 @@ var require_http = __commonJS({
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey"
     };
-    function handleOptions(request) {
+    function handleOptions2(request) {
       if (request.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: corsHeaders });
       }
       return null;
     }
-    function json(body, status = 200, extraHeaders = null) {
+    function json2(body, status = 200, extraHeaders = null) {
       return new Response(JSON.stringify(body), {
         status,
         headers: {
@@ -31,11 +31,11 @@ var require_http = __commonJS({
         }
       });
     }
-    function requireMethod(request, method) {
-      if (request.method !== method) return json({ error: "Method not allowed" }, 405);
+    function requireMethod2(request, method) {
+      if (request.method !== method) return json2({ error: "Method not allowed" }, 405);
       return null;
     }
-    async function readJson(request) {
+    async function readJson2(request) {
       if (!request.headers.get("Content-Type")?.includes("application/json")) {
         return { error: "Content-Type must be application/json", status: 415, data: null };
       }
@@ -48,10 +48,10 @@ var require_http = __commonJS({
     }
     module2.exports = {
       corsHeaders,
-      handleOptions,
-      json,
-      requireMethod,
-      readJson
+      handleOptions: handleOptions2,
+      json: json2,
+      requireMethod: requireMethod2,
+      readJson: readJson2
     };
   }
 });
@@ -60,7 +60,7 @@ var require_http = __commonJS({
 var require_env = __commonJS({
   "insforge-src/shared/env.js"(exports2, module2) {
     "use strict";
-    function getBaseUrl() {
+    function getBaseUrl2() {
       return Deno.env.get("INSFORGE_INTERNAL_URL") || "http://insforge:7130";
     }
     function getServiceRoleKey() {
@@ -70,7 +70,7 @@ var require_env = __commonJS({
       return Deno.env.get("ANON_KEY") || Deno.env.get("INSFORGE_ANON_KEY") || null;
     }
     module2.exports = {
-      getBaseUrl,
+      getBaseUrl: getBaseUrl2,
       getServiceRoleKey,
       getAnonKey
     };
@@ -110,7 +110,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -135,7 +135,7 @@ var require_auth = __commonJS({
     "use strict";
     var { getAnonKey } = require_env();
     var { resolvePublicView } = require_public_view();
-    function getBearerToken(headerValue) {
+    function getBearerToken2(headerValue) {
       if (!headerValue) return null;
       const prefix = "Bearer ";
       if (!headerValue.startsWith(prefix)) return null;
@@ -194,7 +194,7 @@ var require_auth = __commonJS({
       if (!Number.isFinite(exp)) return false;
       return exp * 1e3 <= Date.now();
     }
-    async function getEdgeClientAndUserId({ baseUrl, bearer }) {
+    async function getEdgeClientAndUserId2({ baseUrl, bearer }) {
       const anonKey = getAnonKey();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const { data: userData, error: userErr } = await edgeClient.auth.getCurrentUser();
@@ -235,67 +235,59 @@ var require_auth = __commonJS({
       };
     }
     module2.exports = {
-      getBearerToken,
+      getBearerToken: getBearerToken2,
       getAccessContext,
-      getEdgeClientAndUserId,
+      getEdgeClientAndUserId: getEdgeClientAndUserId2,
       getEdgeClientAndUserIdFast,
       isProjectAdminBearer
     };
   }
 });
 
-// insforge-src/functions/vibescore-leaderboard-settings.js
-var require_vibescore_leaderboard_settings = __commonJS({
-  "insforge-src/functions/vibescore-leaderboard-settings.js"(exports2, module2) {
-    "use strict";
-    var { handleOptions, json, requireMethod, readJson } = require_http();
-    var { getBearerToken, getEdgeClientAndUserId } = require_auth();
-    var { getBaseUrl } = require_env();
-    module2.exports = async function(request) {
-      const opt = handleOptions(request);
-      if (opt) return opt;
-      const methodErr = requireMethod(request, "POST");
-      if (methodErr) return methodErr;
-      const bearer = getBearerToken(request.headers.get("Authorization"));
-      if (!bearer) return json({ error: "Missing bearer token" }, 401);
-      const body = await readJson(request);
-      if (body.error) return json({ error: body.error }, body.status);
-      const leaderboardPublic = body.data?.leaderboard_public;
-      if (typeof leaderboardPublic !== "boolean") {
-        return json({ error: "leaderboard_public must be boolean" }, 400);
-      }
-      const baseUrl = getBaseUrl();
-      const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
-      if (!auth.ok) return json({ error: "Unauthorized" }, 401);
-      const updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-      const upsertRow = {
-        user_id: auth.userId,
-        leaderboard_public: leaderboardPublic,
-        updated_at: updatedAt
-      };
-      const settingsTable = auth.edgeClient.database.from("vibescore_user_settings");
-      if (typeof settingsTable.upsert === "function") {
-        try {
-          const { error: upsertErr } = await settingsTable.upsert([upsertRow], { onConflict: "user_id" });
-          if (!upsertErr) {
-            return json({ leaderboard_public: leaderboardPublic, updated_at: updatedAt }, 200);
-          }
-        } catch (_err) {
-        }
-      }
-      const { data: existing, error: selErr } = await auth.edgeClient.database.from("vibescore_user_settings").select("user_id").eq("user_id", auth.userId).maybeSingle();
-      if (selErr) return json({ error: selErr.message }, 500);
-      if (existing?.user_id) {
-        const { error: updErr } = await auth.edgeClient.database.from("vibescore_user_settings").update({ leaderboard_public: leaderboardPublic, updated_at: updatedAt }).eq("user_id", auth.userId);
-        if (updErr) return json({ error: updErr.message }, 500);
-      } else {
-        const { error: insErr } = await auth.edgeClient.database.from("vibescore_user_settings").insert([upsertRow]);
-        if (insErr) return json({ error: insErr.message }, 500);
-      }
-      return json({ leaderboard_public: leaderboardPublic, updated_at: updatedAt }, 200);
-    };
-  }
-});
-
 // insforge-src/functions/vibeusage-leaderboard-settings.js
-module.exports = require_vibescore_leaderboard_settings();
+var { handleOptions, json, requireMethod, readJson } = require_http();
+var { getBearerToken, getEdgeClientAndUserId } = require_auth();
+var { getBaseUrl } = require_env();
+module.exports = async function(request) {
+  const opt = handleOptions(request);
+  if (opt) return opt;
+  const methodErr = requireMethod(request, "POST");
+  if (methodErr) return methodErr;
+  const bearer = getBearerToken(request.headers.get("Authorization"));
+  if (!bearer) return json({ error: "Missing bearer token" }, 401);
+  const body = await readJson(request);
+  if (body.error) return json({ error: body.error }, body.status);
+  const leaderboardPublic = body.data?.leaderboard_public;
+  if (typeof leaderboardPublic !== "boolean") {
+    return json({ error: "leaderboard_public must be boolean" }, 400);
+  }
+  const baseUrl = getBaseUrl();
+  const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
+  if (!auth.ok) return json({ error: "Unauthorized" }, 401);
+  const updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+  const upsertRow = {
+    user_id: auth.userId,
+    leaderboard_public: leaderboardPublic,
+    updated_at: updatedAt
+  };
+  const settingsTable = auth.edgeClient.database.from("vibeusage_user_settings");
+  if (typeof settingsTable.upsert === "function") {
+    try {
+      const { error: upsertErr } = await settingsTable.upsert([upsertRow], { onConflict: "user_id" });
+      if (!upsertErr) {
+        return json({ leaderboard_public: leaderboardPublic, updated_at: updatedAt }, 200);
+      }
+    } catch (_err) {
+    }
+  }
+  const { data: existing, error: selErr } = await auth.edgeClient.database.from("vibeusage_user_settings").select("user_id").eq("user_id", auth.userId).maybeSingle();
+  if (selErr) return json({ error: selErr.message }, 500);
+  if (existing?.user_id) {
+    const { error: updErr } = await auth.edgeClient.database.from("vibeusage_user_settings").update({ leaderboard_public: leaderboardPublic, updated_at: updatedAt }).eq("user_id", auth.userId);
+    if (updErr) return json({ error: updErr.message }, 500);
+  } else {
+    const { error: insErr } = await auth.edgeClient.database.from("vibeusage_user_settings").insert([upsertRow]);
+    if (insErr) return json({ error: insErr.message }, 500);
+  }
+  return json({ leaderboard_public: leaderboardPublic, updated_at: updatedAt }, 200);
+};

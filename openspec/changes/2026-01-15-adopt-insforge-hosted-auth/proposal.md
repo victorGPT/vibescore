@@ -11,6 +11,6 @@ Users still land on the Landing page after OAuth login in some cases because our
 - Configure `afterSignInUrl`/`afterSignUpUrl` to return to the dashboard home.
 
 ## Impact
-- Affected specs: `openspec/specs/vibescore-tracker/spec.md`
+- Affected specs: `openspec/specs/vibeusage-tracker/spec.md`
 - Affected code: `dashboard/src/main.jsx`, `dashboard/src/App.jsx`, `dashboard/src/pages/LandingPage.jsx`, `dashboard/src/hooks/use-auth.js` (fallback), `dashboard/src/lib/auth-url.js` (if replaced)
 - Risks: auth boundary change, routing refactor, regression in login flow

@@ -13,7 +13,7 @@
 - Add tests and an acceptance script.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: `src/lib/gemini-config.js`, `src/commands/init.js`, `src/commands/uninstall.js`, `src/commands/status.js`, `src/lib/diagnostics.js`, notify handler generator, tests.
 - **BREAKING**: none
 

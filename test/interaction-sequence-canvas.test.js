@@ -35,7 +35,7 @@ async function setupTrackerSyncFixtures(rootDir) {
   await writeFixture(rootDir, "src/commands/sync.js", "module.exports = {};\n");
   await writeFixture(rootDir, "src/lib/rollout.js", "module.exports = {};\n");
   await writeFixture(rootDir, "src/lib/uploader.js", "module.exports = {};\n");
-  await writeFixture(rootDir, "src/lib/vibescore-api.js", "module.exports = {};\n");
+  await writeFixture(rootDir, "src/lib/vibeusage-api.js", "module.exports = {};\n");
   await writeFixture(rootDir, "insforge-src/functions/vibeusage-ingest.js", "export {};\n");
   await writeFixture(rootDir, "insforge-src/functions/vibeusage-sync-ping.js", "export {};\n");
 }

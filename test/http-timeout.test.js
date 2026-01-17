@@ -62,7 +62,7 @@ test("getHttpTimeoutMs returns defaults and clamps", async () => {
         VITE_VIBESCORE_HTTP_TIMEOUT_MS: "5000",
       },
     }),
-    5000
+    15000
   );
   assert.equal(
     getHttpTimeoutMs({
@@ -71,7 +71,7 @@ test("getHttpTimeoutMs returns defaults and clamps", async () => {
         VITE_VIBESCORE_HTTP_TIMEOUT_MS: "5000",
       },
     }),
-    5000
+    15000
   );
 });
 

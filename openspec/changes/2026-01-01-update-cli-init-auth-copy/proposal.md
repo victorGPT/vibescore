@@ -9,7 +9,7 @@
 - 成功提示中展示可访问的 Dashboard 地址（优先解析本地或 `VIBESCORE_DASHBOARD_URL`）。
 
 ## Impact
-- Affected specs: `openspec/specs/vibescore-tracker/spec.md`
+- Affected specs: `openspec/specs/vibeusage-tracker/spec.md`
 - Affected code: `src/commands/init.js`, `src/lib/cli-ui.js`, `src/lib/init-flow.js` (new)
 - Affected tests: add CLI output regression under `test/`
 - Docs: none

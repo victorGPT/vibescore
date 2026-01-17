@@ -10,6 +10,6 @@
 - Update tests and API behavior documentation.
 
 ## Impact
-- Affected specs: `openspec/specs/vibescore-tracker/spec.md`.
+- Affected specs: `openspec/specs/vibeusage-tracker/spec.md`.
 - Affected code: `insforge-src/shared/model.js`, usage edge functions, pricing resolver behavior, tests.
 - No schema changes; no historical backfill.

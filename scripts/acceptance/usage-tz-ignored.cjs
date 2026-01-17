@@ -172,12 +172,12 @@ function buildFetchStub() {
       return jsonResponse(200, { user: { id: 'user-id' } });
     }
 
-    if (url.pathname === '/api/database/records/vibescore_tracker_daily' && method === 'GET') {
+    if (url.pathname === '/api/database/records/vibeusage_tracker_daily' && method === 'GET') {
       calls.daily += 1;
       return jsonResponse(200, []);
     }
 
-    if (url.pathname === '/api/database/records/vibescore_tracker_hourly') {
+    if (url.pathname === '/api/database/records/vibeusage_tracker_hourly') {
       calls.hourly += 1;
       return jsonResponse(200, [
         {
@@ -199,7 +199,7 @@ function buildFetchStub() {
       ]);
     }
 
-    if (url.pathname === '/api/database/records/vibescore_pricing_profiles') {
+    if (url.pathname === '/api/database/records/vibeusage_pricing_profiles') {
       return jsonResponse(200, [
         {
           model: 'gpt-5.2-codex',
@@ -213,7 +213,7 @@ function buildFetchStub() {
       ]);
     }
 
-    if (url.pathname === '/api/database/records/vibescore_pricing_model_aliases') {
+    if (url.pathname === '/api/database/records/vibeusage_pricing_model_aliases') {
       return jsonResponse(200, []);
     }
 

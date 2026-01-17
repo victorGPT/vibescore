@@ -10,6 +10,6 @@
 - Regenerate `insforge-functions/` bundles.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: `insforge-src/functions/vibescore-user-status.js`, `insforge-src/functions/vibescore-entitlements.js`, `insforge-src/functions/vibescore-entitlements-revoke.js`, `insforge-src/functions/vibescore-usage-model-breakdown.js`, `insforge-src/functions/vibescore-pricing-sync.js`, `insforge-functions/*`
 - **BREAKING**: none

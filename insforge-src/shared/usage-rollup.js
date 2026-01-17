@@ -30,7 +30,7 @@ async function fetchRollupRows({ edgeClient, userId, fromDay, toDay, source, mod
   const { error } = await forEachPage({
     createQuery: () => {
       let query = edgeClient.database
-        .from('vibescore_tracker_daily_rollup')
+        .from('vibeusage_tracker_daily_rollup')
         .select('day,source,model,total_tokens,billable_total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
         .eq('user_id', userId)
         .gte('day', fromDay)

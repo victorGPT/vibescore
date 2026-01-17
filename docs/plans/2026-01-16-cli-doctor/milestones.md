@@ -19,7 +19,7 @@
 - Required artifacts:
   - openspec/changes/2026-01-16-add-cli-doctor/proposal.md
   - openspec/changes/2026-01-16-add-cli-doctor/tasks.md
-  - openspec/changes/2026-01-16-add-cli-doctor/specs/vibescore-tracker/spec.md
+  - openspec/changes/2026-01-16-add-cli-doctor/specs/vibeusage-tracker/spec.md
 
 ## M3 - Unit Test Coverage
 - Entry criteria:

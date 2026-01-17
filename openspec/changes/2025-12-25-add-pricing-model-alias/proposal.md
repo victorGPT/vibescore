@@ -11,7 +11,7 @@
 - Add health check SQL to report unmatched usage models.
 
 ## Impact
-- Affected specs: `openspec/specs/vibescore-tracker/spec.md`
+- Affected specs: `openspec/specs/vibeusage-tracker/spec.md`
 - Affected code: `insforge-src/shared/pricing.js`, `insforge-src/functions/vibescore-pricing-sync.js`
 - **BREAKING** (if any): None
 

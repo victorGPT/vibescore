@@ -3,7 +3,7 @@ const fssync = require('node:fs');
 const readline = require('node:readline');
 
 const { ensureDir, readJson, writeJson } = require('./fs');
-const { ingestHourly } = require('./vibescore-api');
+const { ingestHourly } = require('./vibeusage-api');
 
 const DEFAULT_SOURCE = 'codex';
 const DEFAULT_MODEL = 'unknown';

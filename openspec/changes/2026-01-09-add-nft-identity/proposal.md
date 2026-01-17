@@ -15,7 +15,7 @@
 - Use Foundry as the contract toolchain.
 
 ## Impact
-- Affected specs: `openspec/specs/vibescore-tracker/spec.md`
+- Affected specs: `openspec/specs/vibeusage-tracker/spec.md`
 - Affected code:
   - `dashboard/src/pages/*` (new public page + routing)
   - `dashboard/src/ui/matrix-a/components/IdentityCard.jsx` (single stat slot)

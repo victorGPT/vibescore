@@ -20,7 +20,7 @@ import {
   issuePublicViewToken,
   requestInstallLinkCode,
   revokePublicViewToken,
-} from "../lib/vibescore-api.js";
+} from "../lib/vibeusage-api.js";
 import { buildFleetData, buildTopModels } from "../lib/model-breakdown.js";
 import { safeWriteClipboard, safeWriteClipboardImage } from "../lib/safe-browser.js";
 import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";

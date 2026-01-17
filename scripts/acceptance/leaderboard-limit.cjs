@@ -80,7 +80,7 @@ async function main() {
   assert.equal(res.status, 200);
   assert.equal(body.entries.length, 1);
 
-  const entriesView = 'vibescore_leaderboard_day_current';
+  const entriesView = 'vibeusage_leaderboard_day_current';
   assert.equal(db.limits.get(entriesView), 1);
 
   process.stdout.write(

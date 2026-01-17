@@ -9,5 +9,5 @@ Usage endpoints duplicate aggregation logic, creating drift risks and inconsiste
 - Add unit and integration tests to lock behavior.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: `insforge-src/shared/usage-billable.js`, `insforge-src/shared/usage-rollup.js`, usage endpoints in `insforge-src/functions/`

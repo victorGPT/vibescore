@@ -9,7 +9,7 @@
 - Define a TDD test strategy and milestones for enforcement.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: documentation + future guardrail enforcement
 - **BREAKING** (if any): none
 

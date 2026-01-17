@@ -6,7 +6,7 @@ const DEFAULT_BASE_URL = 'https://5tmappuk.us-east.insforge.app';
 
 async function beginBrowserAuth({ baseUrl, dashboardUrl, timeoutMs, open }) {
   const nonce = crypto.randomBytes(16).toString('hex');
-  const callbackPath = `/vibescore/callback/${nonce}`;
+  const callbackPath = `/vibeusage/callback/${nonce}`;
   const authUrl = dashboardUrl ? new URL('/', dashboardUrl) : new URL('/auth/sign-up', baseUrl);
   const postAuthRedirect = resolvePostAuthRedirect({ dashboardUrl, authUrl });
   const { callbackUrl, waitForCallback } = await startLocalCallbackServer({

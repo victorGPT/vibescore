@@ -59,7 +59,7 @@ VIBEUSAGE_HTTP_TIMEOUT_MS=60000 npx --yes vibeusage sync --debug
 
 ## Pricing configuration
 
-Pricing metadata is resolved from `vibescore_pricing_profiles`. The default pricing profile is selected by:
+Pricing metadata is resolved from `vibeusage_pricing_profiles`. The default pricing profile is selected by:
 
 - `VIBEUSAGE_PRICING_SOURCE` (default `openrouter`)
 - `VIBEUSAGE_PRICING_MODEL` (default `gpt-5.2-codex`; exact match or `*/<model>` suffix match)
@@ -74,7 +74,7 @@ Health check:
 - See `docs/ops/pricing-sync-health.md` and `scripts/ops/pricing-sync-health.sql`.
 
 Alias mapping:
-- `vibescore_pricing_model_aliases` maps `usage_model` -> `pricing_model` with `effective_from`.
+- `vibeusage_pricing_model_aliases` maps `usage_model` -> `pricing_model` with `effective_from`.
 - Resolver checks alias mapping before suffix matching.
 - Prefixed usage models require explicit aliases; without one, pricing falls back to the default profile (no suffix inference).
 
@@ -234,7 +234,7 @@ Notes:
 - Uploads are upserts keyed by `user_id + device_id + source + model + hour_start`.
 - Backward compatibility: `{ "data": { "hourly": [...] } }` is accepted, but `{ "hourly": [...] }` remains canonical.
 - `hour_start` is the usage-time bucket. Database `created_at`/`updated_at` reflect ingest/upsert time, so many rows can share the same timestamp when a batch is uploaded.
-- Internal observability: ingest requests also write a best-effort metrics row to `vibescore_tracker_ingest_batches` (project_admin only). Fields include `bucket_count`, `inserted`, `skipped`, `source`, `user_id`, `device_id`, and `created_at`. No prompt/response content is stored.
+- Internal observability: ingest requests also write a best-effort metrics row to `vibeusage_tracker_ingest_batches` (project_admin only). Fields include `bucket_count`, `inserted`, `skipped`, `source`, `user_id`, `device_id`, and `created_at`. No prompt/response content is stored.
 - Retention: `POST /functions/vibeusage-events-retention` supports `include_ingest_batches` to purge ingest batch metrics older than the cutoff.
 - When concurrency limits are exceeded, the endpoint may return `429` with `Retry-After` to signal backoff. The guard is opt-in via `VIBEUSAGE_INGEST_MAX_INFLIGHT`.
 
@@ -404,7 +404,7 @@ Response (bigints as strings):
 ```
 
 Notes:
-- Pricing metadata is resolved from `vibescore_pricing_profiles` using the configured default model/source and the latest `effective_from` not in the future (`active=true`).
+- Pricing metadata is resolved from `vibeusage_pricing_profiles` using the configured default model/source and the latest `effective_from` not in the future (`active=true`).
 - If no pricing rows exist, the endpoint falls back to the built-in default profile.
 - `pricing_mode` is `add`, `overlap`, or `mixed` (multiple pricing modes across sources).
 - `model` query uses canonical model id; the backend expands it only to explicit active aliases for the date range (no implicit suffix matching).
@@ -431,7 +431,7 @@ Query:
 Notes:
 - `model` is not accepted because this endpoint already returns per-model groups.
 - Model groups are aggregated by canonical `model_id` across sources; `model` is the display name.
-- Pricing metadata is resolved from `vibescore_pricing_profiles`. If the range contains exactly one non-`unknown` model, pricing is resolved for that model; otherwise it falls back to the configured default profile.
+- Pricing metadata is resolved from `vibeusage_pricing_profiles`. If the range contains exactly one non-`unknown` model, pricing is resolved for that model; otherwise it falls back to the configured default profile.
 - `pricing_mode` is `add`, `overlap`, or `mixed` (multiple pricing modes across sources).
 - When `debug=1` is set, the response includes a `debug` object with `request_id`, `status`, `query_ms`, `slow_threshold_ms`, `slow_query`.
 
@@ -784,7 +784,7 @@ Response:
 
 ### POST /functions/vibeusage-pricing-sync
 
-Sync OpenRouter Models API pricing into `vibescore_pricing_profiles` (admin only).
+Sync OpenRouter Models API pricing into `vibeusage_pricing_profiles` (admin only).
 
 Auth:
 - `Authorization: Bearer <service_role_key>`

@@ -10,7 +10,7 @@
 - Backfill legacy rows to `model = "unknown"` and set `model` non-nullable.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: CLI parser, ingest edge function, usage endpoints, DB schema.
 - **BREAKING**: Potential DB unique constraint change (requires migration).
 

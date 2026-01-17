@@ -11,7 +11,7 @@
 - Add optional retention handling for old pricing rows (default: no purge).
 
 ## Impact
-- Affected specs: `openspec/specs/vibescore-tracker/spec.md`
+- Affected specs: `openspec/specs/vibeusage-tracker/spec.md`
 - Affected code: `insforge-src/functions`, `insforge-src/shared`, `.github/workflows`, docs
 - **BREAKING** (if any): None
 

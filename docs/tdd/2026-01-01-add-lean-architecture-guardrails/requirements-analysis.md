@@ -24,7 +24,7 @@
 ## Inputs
 - `architecture.canvas` module map.
 - Progressive disclosure for canvas reading: run `node scripts/ops/architecture-canvas.cjs --list-modules` then `--focus <module>` to generate a focused canvas (default canvas is full).
-- `openspec/specs/vibescore-tracker/spec.md` requirements.
+- `openspec/specs/vibeusage-tracker/spec.md` requirements.
 - Current Edge Functions, CLI, and Dashboard behavior.
 
 ## Outputs

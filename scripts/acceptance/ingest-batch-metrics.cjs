@@ -140,7 +140,7 @@ function buildFetchStub() {
     const url = new URL(typeof input === 'string' ? input : input.url);
     const method = (init.method || 'GET').toUpperCase();
 
-    if (url.pathname === '/api/database/records/vibescore_tracker_device_tokens' && method === 'GET') {
+    if (url.pathname === '/api/database/records/vibeusage_tracker_device_tokens' && method === 'GET') {
       return jsonResponse(200, [
         {
           id: 'token-id',
@@ -151,7 +151,7 @@ function buildFetchStub() {
       ]);
     }
 
-    if (url.pathname === '/api/database/records/vibescore_tracker_hourly' && method === 'POST') {
+    if (url.pathname === '/api/database/records/vibeusage_tracker_hourly' && method === 'POST') {
       const prefer = String(init.headers?.Prefer || init.headers?.prefer || '');
       if (!prefer.includes('return=representation')) {
         return jsonResponse(400, { error: 'missing return=representation' });
@@ -167,7 +167,7 @@ function buildFetchStub() {
       return jsonResponse(201, inserted);
     }
 
-    if (url.pathname === '/api/database/records/vibescore_tracker_ingest_batches' && method === 'POST') {
+    if (url.pathname === '/api/database/records/vibeusage_tracker_ingest_batches' && method === 'POST') {
       state.metricsInserts += 1;
       if (state.failMetrics) {
         return jsonResponse(500, { error: 'metrics insert failed' });
@@ -177,7 +177,7 @@ function buildFetchStub() {
       return jsonResponse(201, row ? [row] : []);
     }
 
-    if (url.pathname === '/api/database/rpc/vibescore_touch_device_token_sync' && method === 'POST') {
+    if (url.pathname === '/api/database/rpc/vibeusage_touch_device_token_sync' && method === 'POST') {
       return jsonResponse(200, { ok: true });
     }
 

@@ -14,7 +14,7 @@
 - Exit criteria:
   - Proposal + tasks + spec delta validated (`openspec validate --strict`).
 - Required artifacts:
-  - `proposal.md`, `tasks.md`, `specs/vibescore-tracker/spec.md`.
+  - `proposal.md`, `tasks.md`, `specs/vibeusage-tracker/spec.md`.
 
 ## M3 - Unit Test Coverage
 - Entry criteria:

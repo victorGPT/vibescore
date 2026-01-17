@@ -12,7 +12,7 @@
 - Update CLI `init` to accept `--link-code`.
 
 ## Impact
-- Affected specs: `vibescore-tracker`.
+- Affected specs: `vibeusage-tracker`.
 - Affected code: `insforge-src/`, `dashboard/`, `src/` (CLI), `test/`.
 - **BREAKING** (if any): None.
 

@@ -5,15 +5,15 @@
  * Developer smoke test (requires a verified email/password account).
  *
  * Env:
- * - VIBESCORE_INSFORGE_BASE_URL (default https://5tmappuk.us-east.insforge.app)
- * - VIBESCORE_SMOKE_EMAIL (required)
- * - VIBESCORE_SMOKE_PASSWORD (required)
- * - VIBESCORE_SMOKE_ALLOW_NO_HEATMAP ("1" to ignore missing heatmap endpoint)
+ * - VIBEUSAGE_INSFORGE_BASE_URL (default https://5tmappuk.us-east.insforge.app)
+ * - VIBEUSAGE_SMOKE_EMAIL (required)
+ * - VIBEUSAGE_SMOKE_PASSWORD (required)
+ * - VIBEUSAGE_SMOKE_ALLOW_NO_HEATMAP ("1" to ignore missing heatmap endpoint)
  */
 
 const assert = require('node:assert/strict');
-const AUTH_RETRY_DELAY_MS = normalizePositiveInt(process.env.VIBESCORE_SMOKE_AUTH_RETRY_MS, 5000);
-const AUTH_RETRIES = normalizePositiveInt(process.env.VIBESCORE_SMOKE_AUTH_RETRIES, 6);
+const AUTH_RETRY_DELAY_MS = normalizePositiveInt(process.env.VIBEUSAGE_SMOKE_AUTH_RETRY_MS, 5000);
+const AUTH_RETRIES = normalizePositiveInt(process.env.VIBEUSAGE_SMOKE_AUTH_RETRIES, 6);
 
 main().catch((err) => {
   console.error(err && err.stack ? err.stack : String(err));
@@ -21,13 +21,13 @@ main().catch((err) => {
 });
 
 async function main() {
-  const baseUrl = process.env.VIBESCORE_INSFORGE_BASE_URL || 'https://5tmappuk.us-east.insforge.app';
-  const email = process.env.VIBESCORE_SMOKE_EMAIL || '';
-  const password = process.env.VIBESCORE_SMOKE_PASSWORD || '';
-  const allowNoHeatmap = process.env.VIBESCORE_SMOKE_ALLOW_NO_HEATMAP === '1';
+  const baseUrl = process.env.VIBEUSAGE_INSFORGE_BASE_URL || 'https://5tmappuk.us-east.insforge.app';
+  const email = process.env.VIBEUSAGE_SMOKE_EMAIL || '';
+  const password = process.env.VIBEUSAGE_SMOKE_PASSWORD || '';
+  const allowNoHeatmap = process.env.VIBEUSAGE_SMOKE_ALLOW_NO_HEATMAP === '1';
 
   if (!email || !password) {
-    throw new Error('Missing env: VIBESCORE_SMOKE_EMAIL / VIBESCORE_SMOKE_PASSWORD');
+    throw new Error('Missing env: VIBEUSAGE_SMOKE_EMAIL / VIBEUSAGE_SMOKE_PASSWORD');
   }
 
   const accessToken = await signInWithPassword({ baseUrl, email, password });
@@ -178,7 +178,7 @@ async function signInWithPassword({ baseUrl, email, password }) {
 }
 
 async function issueDeviceToken({ baseUrl, accessToken, deviceName }) {
-  const url = new URL('/functions/vibescore-device-token-issue', baseUrl).toString();
+  const url = new URL('/functions/vibeusage-device-token-issue', baseUrl).toString();
   const res = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
@@ -197,7 +197,7 @@ async function issueDeviceToken({ baseUrl, accessToken, deviceName }) {
 }
 
 async function ingest({ baseUrl, deviceToken, events }) {
-  const url = new URL('/functions/vibescore-ingest', baseUrl).toString();
+  const url = new URL('/functions/vibeusage-ingest', baseUrl).toString();
   const res = await fetch(url, {
     method: 'POST',
     headers: { Authorization: `Bearer ${deviceToken}`, 'Content-Type': 'application/json' },
@@ -211,7 +211,7 @@ async function ingest({ baseUrl, deviceToken, events }) {
 }
 
 async function usageSummary({ baseUrl, accessToken }) {
-  const url = new URL('/functions/vibescore-usage-summary', baseUrl).toString();
+  const url = new URL('/functions/vibeusage-usage-summary', baseUrl).toString();
   const res = await fetch(url, {
     method: 'GET',
     headers: { Authorization: `Bearer ${accessToken}` }
@@ -224,7 +224,7 @@ async function usageSummary({ baseUrl, accessToken }) {
 }
 
 async function usageDaily({ baseUrl, accessToken, from, to }) {
-  const url = new URL('/functions/vibescore-usage-daily', baseUrl);
+  const url = new URL('/functions/vibeusage-usage-daily', baseUrl);
   if (from) url.searchParams.set('from', from);
   if (to) url.searchParams.set('to', to);
 
@@ -240,7 +240,7 @@ async function usageDaily({ baseUrl, accessToken, from, to }) {
 }
 
 async function usageHeatmap({ baseUrl, accessToken, weeks, to, weekStartsOn }) {
-  const url = new URL('/functions/vibescore-usage-heatmap', baseUrl);
+  const url = new URL('/functions/vibeusage-usage-heatmap', baseUrl);
   if (weeks != null) url.searchParams.set('weeks', String(weeks));
   if (to) url.searchParams.set('to', to);
   if (weekStartsOn) url.searchParams.set('week_starts_on', weekStartsOn);
@@ -281,7 +281,7 @@ function validateHeatmapContract(data) {
 }
 
 async function usageLeaderboard({ baseUrl, accessToken, period, limit }) {
-  const url = new URL('/functions/vibescore-leaderboard', baseUrl);
+  const url = new URL('/functions/vibeusage-leaderboard', baseUrl);
   if (period) url.searchParams.set('period', period);
   if (limit != null) url.searchParams.set('limit', String(limit));
 

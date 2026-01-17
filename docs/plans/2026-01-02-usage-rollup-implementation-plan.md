@@ -459,7 +459,7 @@ Expected: PASS.
 **Files:**
 - Modify: `docs/dashboard/api.md`
 - Modify: `BACKEND_API.md`
-- Modify: `openspec/specs/vibescore-tracker/spec.md`
+- Modify: `openspec/specs/vibeusage-tracker/spec.md`
 
 **Step 1: Update API contract**
 
@@ -468,7 +468,7 @@ Expected: PASS.
 
 **Step 2: Sync stable spec**
 
-- Merge delta requirements into `openspec/specs/vibescore-tracker/spec.md`.
+- Merge delta requirements into `openspec/specs/vibeusage-tracker/spec.md`.
 
 ---
 

@@ -69,8 +69,8 @@ function createClientStub(db) {
 }
 
 async function runScenario({ name, singleError }) {
-  const entriesView = 'vibescore_leaderboard_day_current';
-  const meView = 'vibescore_leaderboard_me_day_current';
+  const entriesView = 'vibeusage_leaderboard_day_current';
+  const meView = 'vibeusage_leaderboard_me_day_current';
 
   const singleRows = [
     { rank: 1, is_me: false, display_name: 'Alpha', avatar_url: null, total_tokens: '10' },

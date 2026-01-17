@@ -15,7 +15,7 @@ test('link code table allows authenticated inserts for owner', () => {
   );
   const sql = fs.readFileSync(sqlPath, 'utf8');
   assert.ok(
-    sql.includes('create policy vibescore_link_codes_insert_self'),
+    sql.includes('create policy vibeusage_link_codes_insert_self'),
     'expected insert policy for link codes'
   );
   assert.ok(

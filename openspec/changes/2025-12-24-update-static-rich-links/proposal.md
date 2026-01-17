@@ -10,7 +10,7 @@
 - Remove client-side rich link injection from `dashboard/src/main.jsx`.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: `dashboard/index.html`, `dashboard/vite.config.js`, `dashboard/src/main.jsx`, `dashboard/src/content/copy.csv`
 - **BREAKING**: none
 

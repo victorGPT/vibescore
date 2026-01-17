@@ -6,7 +6,7 @@ import {
   getHeatmapRangeLocal,
 } from "../lib/activity-heatmap.js";
 import { isMockEnabled } from "../lib/mock-data.js";
-import { getUsageDaily, getUsageHeatmap } from "../lib/vibescore-api.js";
+import { getUsageDaily, getUsageHeatmap } from "../lib/vibeusage-api.js";
 import { getTimeZoneCacheKey } from "../lib/timezone.js";
 
 export function useActivityHeatmap({

@@ -200,7 +200,7 @@ git commit -m "feat: update dashboard branding to VibeUsage"
 - Modify: `docs/deployment/freeze.md`
 - Modify: `CHANGELOG.md`
 - Modify: `openspec/project.md`
-- Modify: `openspec/specs/vibescore-tracker/spec.md`
+- Modify: `openspec/specs/vibeusage-tracker/spec.md`
 - Modify: `interaction_sequence.canvas`
 - Modify: `architecture.canvas`
 - Modify: `scripts/ops/interaction-sequence-canvas.cjs`
@@ -217,7 +217,7 @@ Run: `node scripts/ops/interaction-sequence-canvas.cjs`
 
 **Step 3: Commit**
 ```bash
-git add README.md README.zh-CN.md BACKEND_API.md docs/dashboard/api.md docs/ops/backfill-codex-unknown.md docs/ops/pricing-sync-health.md docs/diagrams/cli-init-flow.d2 docs/diagrams/cli-init-flow.svg docs/deployment/freeze.md CHANGELOG.md openspec/project.md openspec/specs/vibescore-tracker/spec.md interaction_sequence.canvas architecture.canvas scripts/ops/interaction-sequence-canvas.cjs scripts/acceptance scripts/ops
+git add README.md README.zh-CN.md BACKEND_API.md docs/dashboard/api.md docs/ops/backfill-codex-unknown.md docs/ops/pricing-sync-health.md docs/diagrams/cli-init-flow.d2 docs/diagrams/cli-init-flow.svg docs/deployment/freeze.md CHANGELOG.md openspec/project.md openspec/specs/vibeusage-tracker/spec.md interaction_sequence.canvas architecture.canvas scripts/ops/interaction-sequence-canvas.cjs scripts/acceptance scripts/ops
 git commit -m "docs: align public docs and scripts with VibeUsage"
 ```
 

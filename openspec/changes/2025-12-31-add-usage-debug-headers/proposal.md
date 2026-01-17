@@ -9,5 +9,5 @@ We cannot observe `slow_query` logs via InsForge MCP log sources, and InsForge p
 - Update tests and backend API documentation.
 
 ## Impact
-- Affected specs: `openspec/specs/vibescore-tracker/spec.md`
+- Affected specs: `openspec/specs/vibeusage-tracker/spec.md`
 - Affected code: `insforge-src/shared/debug.js`, `insforge-src/functions/vibescore-usage-*.js`, `insforge-functions/*`, `test/edge-functions.test.js`, `BACKEND_API.md`

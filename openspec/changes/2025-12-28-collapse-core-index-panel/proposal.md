@@ -9,5 +9,5 @@ The CORE_INDEX panel is visually dense on mobile. Collapsing the four breakdown 
 - When collapsed, hide only the four breakdown modules; keep the summary value visible. When expanded, render the current layout.
 
 ## Impact
-- Affected specs: `vibescore-tracker`
+- Affected specs: `vibeusage-tracker`
 - Affected code: `dashboard/src/ui/matrix-a/components/UsagePanel.jsx`, `dashboard/src/pages/DashboardPage.jsx`, `dashboard/src/content/copy.csv`
