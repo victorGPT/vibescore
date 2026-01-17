@@ -12,9 +12,9 @@ function createPricingEdgeClient({ aliasRows = [], profileRows = [] } = {}) {
   return {
     database: {
       from: (table) => {
-        const rows = table === 'vibescore_pricing_model_aliases'
+        const rows = table === 'vibeusage_pricing_model_aliases'
           ? aliasRows
-          : table === 'vibescore_pricing_profiles'
+          : table === 'vibeusage_pricing_profiles'
             ? profileRows
             : [];
         const state = {

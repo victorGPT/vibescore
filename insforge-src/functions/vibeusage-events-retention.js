@@ -45,7 +45,7 @@ module.exports = async function(request) {
   const cutoffIso = cutoff.toISOString();
   const eventsResult = await purgeTable({
     serviceClient,
-    table: 'vibescore_tracker_events',
+    table: 'vibeusage_tracker_events',
     cutoffColumn: 'token_timestamp',
     cutoffIso,
     dryRun,
@@ -57,7 +57,7 @@ module.exports = async function(request) {
   if (includeIngestBatches) {
     ingestResult = await purgeTable({
       serviceClient,
-      table: 'vibescore_tracker_ingest_batches',
+      table: 'vibeusage_tracker_ingest_batches',
       cutoffColumn: 'created_at',
       cutoffIso,
       dryRun,

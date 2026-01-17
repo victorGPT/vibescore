@@ -36,7 +36,7 @@ class DatabaseStub {
 
   range(from, to) {
     this.calls.ranges.push([from, to]);
-    if (this._table !== 'vibescore_tracker_hourly') {
+    if (this._table !== 'vibeusage_tracker_hourly') {
       return { data: [], error: null };
     }
     if (from > 0) return { data: [], error: null };

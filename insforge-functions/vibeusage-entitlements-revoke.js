@@ -110,7 +110,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -416,7 +416,7 @@ module.exports = withRequestLogging("vibeusage-entitlements-revoke", async funct
     revoked_at: revokedAt || nowIso,
     updated_at: nowIso
   };
-  const { error } = await dbClient.database.from("vibescore_user_entitlements").update(update).eq("id", id);
+  const { error } = await dbClient.database.from("vibeusage_user_entitlements").update(update).eq("id", id);
   if (error) return json({ error: error.message }, 500);
   return json({ id, revoked_at: update.revoked_at }, 200);
 });

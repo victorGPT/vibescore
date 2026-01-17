@@ -110,7 +110,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -483,7 +483,7 @@ module.exports = withRequestLogging("vibeusage-user-status", async function(requ
       createdAt = userRow.created_at;
     }
   }
-  const { data: entitlements, error: entErr } = await auth.edgeClient.database.from("vibescore_user_entitlements").select("source,effective_from,effective_to,revoked_at").eq("user_id", auth.userId).order("effective_to", { ascending: false });
+  const { data: entitlements, error: entErr } = await auth.edgeClient.database.from("vibeusage_user_entitlements").select("source,effective_from,effective_to,revoked_at").eq("user_id", auth.userId).order("effective_to", { ascending: false });
   if (entErr) return json({ error: entErr.message }, 500);
   const asOf = (/* @__PURE__ */ new Date()).toISOString();
   const status = computeProStatus({ createdAt, entitlements, now: asOf });

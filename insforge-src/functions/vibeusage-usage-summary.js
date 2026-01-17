@@ -184,7 +184,7 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
     const { error } = await forEachPage({
       createQuery: () => {
         let query = auth.edgeClient.database
-          .from('vibescore_tracker_hourly')
+          .from('vibeusage_tracker_hourly')
           .select(
             'hour_start,source,model,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens'
           )
@@ -212,7 +212,7 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
 
   const hasHourlyData = async (rangeStartIso, rangeEndIso) => {
     let query = auth.edgeClient.database
-      .from('vibescore_tracker_hourly')
+      .from('vibeusage_tracker_hourly')
       .select('hour_start')
       .eq('user_id', auth.userId);
     if (source) query = query.eq('source', source);

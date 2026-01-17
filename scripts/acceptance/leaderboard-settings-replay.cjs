@@ -31,7 +31,7 @@ async function main() {
       },
       database: {
         from: (table) => {
-          assert.equal(table, 'vibescore_user_settings');
+          assert.equal(table, 'vibeusage_user_settings');
 
           return {
             select: () => ({

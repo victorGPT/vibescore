@@ -94,7 +94,7 @@ async function computeWindow({ period, serviceClient }) {
   }
 
   const { data: meta, error } = await serviceClient.database
-    .from('vibescore_leaderboard_source_total')
+    .from('vibeusage_leaderboard_source_total')
     .select('from_day,to_day')
     .limit(1)
     .maybeSingle();
@@ -108,7 +108,7 @@ async function computeWindow({ period, serviceClient }) {
 
 async function refreshPeriod({ serviceClient, period, from, to, generatedAt }) {
   const deleteRes = await serviceClient.database
-    .from('vibescore_leaderboard_snapshots')
+    .from('vibeusage_leaderboard_snapshots')
     .delete()
     .eq('period', period)
     .eq('from_day', from)
@@ -118,7 +118,7 @@ async function refreshPeriod({ serviceClient, period, from, to, generatedAt }) {
     throw new Error(deleteRes.error.message);
   }
 
-  const sourceView = `vibescore_leaderboard_source_${period}`;
+  const sourceView = `vibeusage_leaderboard_source_${period}`;
   const { data: rows, error } = await serviceClient.database
     .from(sourceView)
     .select('user_id,rank,total_tokens,display_name,avatar_url,from_day,to_day')
@@ -131,7 +131,7 @@ async function refreshPeriod({ serviceClient, period, from, to, generatedAt }) {
     .filter(Boolean);
 
   for (const batch of chunkRows(normalized, INSERT_BATCH_SIZE)) {
-    const { error: insertErr } = await serviceClient.database.from('vibescore_leaderboard_snapshots').insert(batch);
+    const { error: insertErr } = await serviceClient.database.from('vibeusage_leaderboard_snapshots').insert(batch);
     if (insertErr) throw new Error(insertErr.message);
   }
 

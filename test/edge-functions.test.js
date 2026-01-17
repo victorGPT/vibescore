@@ -181,7 +181,7 @@ function createEntitlementsDbMock(options = {}) {
     ? options.conflictRow
     : null;
   const duplicateError = options.duplicateError || {
-    message: 'duplicate key value violates unique constraint "vibescore_user_entitlements_pkey"',
+    message: 'duplicate key value violates unique constraint "vibeusage_user_entitlements_pkey"',
     code: '23505'
   };
   let conflictArmed = Boolean(conflictRow);
@@ -196,7 +196,7 @@ function createEntitlementsDbMock(options = {}) {
   }
 
   function from(table) {
-    if (table === 'vibescore_user_entitlements') {
+    if (table === 'vibeusage_user_entitlements') {
       return {
         insert: async (newRows) => {
           inserts.push({ table, rows: newRows });
@@ -267,7 +267,7 @@ function createLinkCodeExchangeDbMock(linkCodeRow) {
   }
 
   function from(table) {
-    if (table === 'vibescore_link_codes') {
+    if (table === 'vibeusage_link_codes') {
       return {
         select: (columns) => {
           const q = { table, columns, filters: [] };
@@ -312,7 +312,7 @@ function createLinkCodeExchangeDbMock(linkCodeRow) {
       };
     }
 
-    if (table === 'vibescore_tracker_devices' || table === 'vibescore_tracker_device_tokens') {
+    if (table === 'vibeusage_tracker_devices' || table === 'vibeusage_tracker_device_tokens') {
       return {
         insert: async (rows) => {
           inserts.push({ table, rows });
@@ -410,11 +410,11 @@ test('vibeusage-device-token-issue works without serviceRoleKey (user mode)', as
 
   assert.equal(calls.length, 1, 'expected only one createClient call');
 
-  const deviceInsert = db.inserts.find((i) => i.table === 'vibescore_tracker_devices');
+  const deviceInsert = db.inserts.find((i) => i.table === 'vibeusage_tracker_devices');
   assert.ok(deviceInsert, 'device insert not performed');
   assert.equal(deviceInsert.rows?.[0]?.user_id, userId);
 
-  const tokenInsert = db.inserts.find((i) => i.table === 'vibescore_tracker_device_tokens');
+  const tokenInsert = db.inserts.find((i) => i.table === 'vibeusage_tracker_device_tokens');
   assert.ok(tokenInsert, 'token insert not performed');
 });
 
@@ -444,7 +444,7 @@ test('vibeusage-device-token-issue admin mode skips user lookup', async () => {
 
   assert.equal(calls.length, 1, 'expected only service client createClient call in admin mode');
 
-  const deviceInsert = service.inserts.find((i) => i.table === 'vibescore_tracker_devices');
+  const deviceInsert = service.inserts.find((i) => i.table === 'vibeusage_tracker_devices');
   assert.ok(deviceInsert, 'device insert not performed');
   assert.equal(deviceInsert.rows?.[0]?.user_id, adminUserId);
 });
@@ -463,7 +463,7 @@ test('vibeusage-ingest uses serviceRoleKey as edgeFunctionToken and ingests hour
   };
 
   function from(table) {
-    if (table === 'vibescore_tracker_device_tokens') {
+    if (table === 'vibeusage_tracker_device_tokens') {
       return {
         select: () => ({
           eq: () => ({
@@ -474,7 +474,7 @@ test('vibeusage-ingest uses serviceRoleKey as edgeFunctionToken and ingests hour
       };
     }
 
-    if (table === 'vibescore_tracker_devices') {
+    if (table === 'vibeusage_tracker_devices') {
       return {
         update: () => ({ eq: async () => ({ error: null }) })
       };
@@ -495,7 +495,7 @@ test('vibeusage-ingest uses serviceRoleKey as edgeFunctionToken and ingests hour
     fetchCalls.push({ url, init });
     const u = new URL(url);
 
-    if (u.pathname.endsWith('/api/database/records/vibescore_tracker_hourly')) {
+    if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_hourly')) {
       return new Response(JSON.stringify([{ hour_start: '2025-12-17T00:00:00.000Z' }]), {
         status: 201,
         headers: { 'Content-Type': 'application/json' }
@@ -529,7 +529,7 @@ test('vibeusage-ingest uses serviceRoleKey as edgeFunctionToken and ingests hour
   assert.equal(fetchCalls.length, 1);
   const postCall = fetchCalls[0];
   const postUrl = new URL(postCall.url);
-  assert.ok(String(postCall.url).includes('/api/database/records/vibescore_tracker_hourly'));
+  assert.ok(String(postCall.url).includes('/api/database/records/vibeusage_tracker_hourly'));
   assert.equal(postCall.init?.method, 'POST');
   assert.equal(postCall.init?.headers?.apikey, SERVICE_ROLE_KEY);
   assert.equal(postCall.init?.headers?.Authorization, `Bearer ${SERVICE_ROLE_KEY}`);
@@ -565,7 +565,7 @@ test('vibeusage-ingest accepts wrapped payload with data.hourly', async () => {
   };
 
   function from(table) {
-    if (table === 'vibescore_tracker_device_tokens') {
+    if (table === 'vibeusage_tracker_device_tokens') {
       return {
         select: () => ({
           eq: () => ({
@@ -576,7 +576,7 @@ test('vibeusage-ingest accepts wrapped payload with data.hourly', async () => {
       };
     }
 
-    if (table === 'vibescore_tracker_devices') {
+    if (table === 'vibeusage_tracker_devices') {
       return {
         update: () => ({ eq: async () => ({ error: null }) })
       };
@@ -597,7 +597,7 @@ test('vibeusage-ingest accepts wrapped payload with data.hourly', async () => {
     fetchCalls.push({ url, init });
     const u = new URL(url);
 
-    if (u.pathname.endsWith('/api/database/records/vibescore_tracker_hourly')) {
+    if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_hourly')) {
       return new Response(JSON.stringify([{ hour_start: '2025-12-17T00:00:00.000Z' }]), {
         status: 201,
         headers: { 'Content-Type': 'application/json' }
@@ -630,7 +630,7 @@ test('vibeusage-ingest accepts wrapped payload with data.hourly', async () => {
   assert.deepEqual(data, { success: true, inserted: 1, skipped: 0 });
   assert.equal(fetchCalls.length, 1);
   const postCall = fetchCalls[0];
-  assert.ok(String(postCall.url).includes('/api/database/records/vibescore_tracker_hourly'));
+  assert.ok(String(postCall.url).includes('/api/database/records/vibeusage_tracker_hourly'));
   const postBody = JSON.parse(postCall.init?.body || '[]');
   assert.equal(postBody.length, 1);
   assert.equal(postBody[0]?.source, 'codex');
@@ -659,11 +659,11 @@ test('vibeusage-ingest works without serviceRoleKey via anonKey records API', as
     fetchCalls.push({ url, init });
     const u = new URL(url);
 
-    if (u.pathname.endsWith('/api/database/records/vibescore_tracker_device_tokens')) {
+    if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_device_tokens')) {
       return new Response(JSON.stringify([tokenRow]), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    if (u.pathname.endsWith('/api/database/records/vibescore_tracker_hourly')) {
+    if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_hourly')) {
       return new Response(JSON.stringify([{ hour_start: '2025-12-17T00:00:00.000Z' }]), { status: 201, headers: { 'Content-Type': 'application/json' } });
     }
 
@@ -694,20 +694,20 @@ test('vibeusage-ingest works without serviceRoleKey via anonKey records API', as
 
   assert.equal(fetchCalls.length, 4);
   const getCall = fetchCalls.find((call) =>
-    String(call.url).includes('/api/database/records/vibescore_tracker_device_tokens')
+    String(call.url).includes('/api/database/records/vibeusage_tracker_device_tokens')
   );
   const postCall = fetchCalls.find((call) =>
-    String(call.url).includes('/api/database/records/vibescore_tracker_hourly')
+    String(call.url).includes('/api/database/records/vibeusage_tracker_hourly')
   );
   const touchCall = fetchCalls.find((call) =>
-    String(call.url).includes('/api/database/rpc/vibescore_touch_device_token_sync')
+    String(call.url).includes('/api/database/rpc/vibeusage_touch_device_token_sync')
   );
   const metricsCall = fetchCalls.find((call) =>
-    String(call.url).includes('/api/database/records/vibescore_tracker_ingest_batches')
+    String(call.url).includes('/api/database/records/vibeusage_tracker_ingest_batches')
   );
 
   assert.ok(getCall, 'device token fetch not found');
-  assert.ok(String(getCall.url).includes('/api/database/records/vibescore_tracker_device_tokens'));
+  assert.ok(String(getCall.url).includes('/api/database/records/vibeusage_tracker_device_tokens'));
   assert.equal(getCall.init?.method, 'GET');
   assert.equal(getCall.init?.headers?.apikey, ANON_KEY);
   assert.equal(getCall.init?.headers?.Authorization, `Bearer ${ANON_KEY}`);
@@ -715,7 +715,7 @@ test('vibeusage-ingest works without serviceRoleKey via anonKey records API', as
   assert.equal(getCall.init?.headers?.['x-vibeusage-device-token-hash'].length, 64);
 
   assert.ok(postCall, 'hourly upsert call not found');
-  assert.ok(String(postCall.url).includes('/api/database/records/vibescore_tracker_hourly'));
+  assert.ok(String(postCall.url).includes('/api/database/records/vibeusage_tracker_hourly'));
   assert.equal(postCall.init?.method, 'POST');
   assert.equal(postCall.init?.headers?.Prefer, 'return=representation,resolution=merge-duplicates');
   const postUrl = new URL(postCall.url);
@@ -723,14 +723,14 @@ test('vibeusage-ingest works without serviceRoleKey via anonKey records API', as
   assert.equal(postUrl.searchParams.get('select'), 'hour_start');
 
   assert.ok(touchCall, 'touch RPC call not found');
-  assert.ok(String(touchCall.url).includes('/api/database/rpc/vibescore_touch_device_token_sync'));
+  assert.ok(String(touchCall.url).includes('/api/database/rpc/vibeusage_touch_device_token_sync'));
   assert.equal(touchCall.init?.method, 'POST');
   assert.equal(touchCall.init?.headers?.apikey, ANON_KEY);
   assert.equal(touchCall.init?.headers?.Authorization, `Bearer ${ANON_KEY}`);
   assert.equal(typeof touchCall.init?.headers?.['x-vibeusage-device-token-hash'], 'string');
 
   assert.ok(metricsCall, 'ingest batch metrics call not found');
-  assert.ok(String(metricsCall.url).includes('/api/database/records/vibescore_tracker_ingest_batches'));
+  assert.ok(String(metricsCall.url).includes('/api/database/records/vibeusage_tracker_ingest_batches'));
   assert.equal(metricsCall.init?.method, 'POST');
   assert.equal(metricsCall.init?.headers?.apikey, ANON_KEY);
   assert.equal(metricsCall.init?.headers?.Authorization, `Bearer ${ANON_KEY}`);
@@ -762,26 +762,26 @@ test('vibeusage-ingest returns 429 when concurrency limit exceeded', async () =>
   globalThis.fetch = async (url) => {
     const u = new URL(url);
 
-    if (u.pathname.endsWith('/api/database/records/vibescore_tracker_device_tokens')) {
+    if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_device_tokens')) {
       await hold;
       return new Response(JSON.stringify([tokenRow]), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    if (u.pathname.endsWith('/api/database/records/vibescore_tracker_hourly')) {
+    if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_hourly')) {
       return new Response(JSON.stringify([{ hour_start: '2025-12-17T00:00:00.000Z' }]), {
         status: 201,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    if (u.pathname.endsWith('/api/database/records/vibescore_tracker_ingest_batches')) {
+    if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_ingest_batches')) {
       return new Response(JSON.stringify({ ok: true }), {
         status: 201,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    if (u.pathname.endsWith('/api/database/rpc/vibescore_touch_device_token_sync')) {
+    if (u.pathname.endsWith('/api/database/rpc/vibeusage_touch_device_token_sync')) {
       return new Response(JSON.stringify({ updated: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
@@ -837,11 +837,11 @@ test('vibeusage-ingest anonKey path errors when hourly upsert unsupported', asyn
   globalThis.fetch = async (url, init) => {
     const u = new URL(url);
 
-    if (u.pathname.endsWith('/api/database/records/vibescore_tracker_device_tokens')) {
+    if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_device_tokens')) {
       return new Response(JSON.stringify([tokenRow]), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
-    if (u.pathname.endsWith('/api/database/records/vibescore_tracker_hourly')) {
+    if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_hourly')) {
       return new Response(JSON.stringify({ message: 'unknown on_conflict' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
@@ -908,7 +908,7 @@ test('vibeusage-usage-heatmap returns a week-aligned grid with derived fields', 
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({
                 rows,
                 onFilter: (entry) => {
@@ -920,15 +920,15 @@ test('vibeusage-usage-heatmap returns a week-aligned grid with derived fields', 
                 select: () => query
               };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: [] });
             }
-            if (table === 'vibescore_pricing_profiles') {
+            if (table === 'vibeusage_pricing_profiles') {
               const query = createQueryMock({ rows: [] });
               query.or = () => query;
               return query;
             }
-            if (table === 'vibescore_pricing_model_aliases') {
+            if (table === 'vibeusage_pricing_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -1007,14 +1007,14 @@ test('vibeusage-usage-heatmap canonical model filter includes alias rows', async
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({
                 rows: [],
                 onFilter: (entry) => filters.push(entry)
               });
               return { select: () => query };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: aliasRows });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -1073,11 +1073,11 @@ test('vibeusage-usage-heatmap normalizes model for non-UTC alias filtering', asy
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({ rows });
               return { select: () => query };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: aliasRows });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -1145,11 +1145,11 @@ test('vibeusage-usage-heatmap honors alias effective_from across range', async (
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({ rows });
               return { select: () => query };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: aliasRows });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -1209,7 +1209,7 @@ test('vibeusage-usage-daily uses hourly when rollup disabled', () =>
           },
           database: {
             from: (table) => {
-              assert.equal(table, 'vibescore_tracker_hourly');
+              assert.equal(table, 'vibeusage_tracker_hourly');
               const query = createQueryMock({
                 rows: [],
                 onFilter: (entry) => filters.push(entry)
@@ -1260,7 +1260,7 @@ test('vibeusage-usage-daily ignores rollup flag', () =>
           },
           database: {
             from: (table) => {
-              assert.equal(table, 'vibescore_tracker_hourly');
+              assert.equal(table, 'vibeusage_tracker_hourly');
               const query = createQueryMock({ rows: [] });
               return { select: () => query };
             }
@@ -1299,7 +1299,7 @@ test('vibeusage-usage-daily applies optional source filter', () =>
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({
                 rows,
                 onFilter: (entry) => {
@@ -1309,7 +1309,7 @@ test('vibeusage-usage-daily applies optional source filter', () =>
               });
               return { select: () => query };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -1354,7 +1354,7 @@ test('vibeusage-usage-daily applies optional model filter', () =>
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({
                 rows,
                 onFilter: (entry) => {
@@ -1364,7 +1364,7 @@ test('vibeusage-usage-daily applies optional model filter', () =>
               });
               return { select: () => query };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -1412,7 +1412,7 @@ test('vibeusage-usage-daily treats empty source as missing', () =>
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({
                 rows,
                 onFilter: (entry) => {
@@ -1422,7 +1422,7 @@ test('vibeusage-usage-daily treats empty source as missing', () =>
               });
               return { select: () => query };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -1468,7 +1468,7 @@ test('vibeusage-usage-daily excludes canary buckets by default', () =>
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({
                 rows,
                 onFilter: (entry) => {
@@ -1478,7 +1478,7 @@ test('vibeusage-usage-daily excludes canary buckets by default', () =>
               });
               return { select: () => query };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -1543,17 +1543,17 @@ test('vibeusage-usage-daily includes billable_total_tokens in summary', async ()
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({ rows });
               return { select: () => query };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: [] });
             }
-            if (table === 'vibescore_pricing_profiles') {
+            if (table === 'vibeusage_pricing_profiles') {
               return createQueryMock({ rows: [] });
             }
-            if (table === 'vibescore_pricing_model_aliases') {
+            if (table === 'vibeusage_pricing_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -1606,17 +1606,17 @@ test('vibeusage-usage-daily prefers stored billable_total_tokens', async () => {
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({ rows });
               return { select: () => query };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: [] });
             }
-            if (table === 'vibescore_pricing_profiles') {
+            if (table === 'vibeusage_pricing_profiles') {
               return createQueryMock({ rows: [] });
             }
-            if (table === 'vibescore_pricing_model_aliases') {
+            if (table === 'vibeusage_pricing_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -1688,7 +1688,7 @@ test('vibeusage-usage-hourly aggregates half-hour buckets into half-hour totals'
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
+            assert.equal(table, 'vibeusage_tracker_hourly');
             return {
               select: (columns) => {
                 const isAggregate =
@@ -1772,7 +1772,7 @@ test('vibeusage-usage-hourly local timezone prefers stored billable_total_tokens
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
+            assert.equal(table, 'vibeusage_tracker_hourly');
             return {
               select: (columns) => {
                 selectColumns = String(columns || '');
@@ -1829,7 +1829,7 @@ test('vibeusage-usage-hourly computes billable totals from aggregated rows', asy
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
+            assert.equal(table, 'vibeusage_tracker_hourly');
             return {
               select: (columns) => {
                 const isAggregate =
@@ -1893,7 +1893,7 @@ test('vibeusage-usage-hourly prefers stored billable totals in aggregate path', 
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
+            assert.equal(table, 'vibeusage_tracker_hourly');
             return {
               select: (columns) => {
                 selectColumns = String(columns || '');
@@ -1958,7 +1958,7 @@ test('vibeusage-usage-hourly aggregate path falls back when billable sums incomp
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
+            assert.equal(table, 'vibeusage_tracker_hourly');
             return {
               select: (columns) => {
                 selectColumns = String(columns || '');
@@ -2032,7 +2032,7 @@ test('vibeusage-usage-hourly canonical model filter includes alias rows', async 
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               return {
                 select: (columns) => {
                   const isAggregate =
@@ -2058,7 +2058,7 @@ test('vibeusage-usage-hourly canonical model filter includes alias rows', async 
                 }
               };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: aliasRows });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -2121,7 +2121,7 @@ test('vibeusage-usage-hourly selects model column for canonical filtering (UTC)'
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               return {
                 select: (columns) => {
                   selectColumns = columns;
@@ -2131,7 +2131,7 @@ test('vibeusage-usage-hourly selects model column for canonical filtering (UTC)'
                 }
               };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: aliasRows });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -2195,7 +2195,7 @@ test('vibeusage-usage-hourly selects model column for canonical filtering (local
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               return {
                 select: (columns) => {
                   selectColumns = columns;
@@ -2205,7 +2205,7 @@ test('vibeusage-usage-hourly selects model column for canonical filtering (local
                 }
               };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: aliasRows });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -2276,13 +2276,13 @@ test('vibeusage-usage-hourly honors alias effective_from across day', async () =
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               return createQueryMock({
                 rows,
                 onFilter: (entry) => filters.push(entry)
               });
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: aliasRows });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -2360,7 +2360,7 @@ test('vibeusage-usage-monthly aggregates hourly rows into months', async () => {
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({
                 rows,
                 onFilter: (entry) => {
@@ -2372,15 +2372,15 @@ test('vibeusage-usage-monthly aggregates hourly rows into months', async () => {
                 select: () => query
               };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: [] });
             }
-            if (table === 'vibescore_pricing_profiles') {
+            if (table === 'vibeusage_pricing_profiles') {
               const query = createQueryMock({ rows: [] });
               query.or = () => query;
               return query;
             }
-            if (table === 'vibescore_pricing_model_aliases') {
+            if (table === 'vibeusage_pricing_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -2445,14 +2445,14 @@ test('vibeusage-usage-monthly canonical model filter includes alias rows', async
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({
                 rows: [],
                 onFilter: (entry) => filters.push(entry)
               });
               return { select: () => query };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: aliasRows });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -2521,11 +2521,11 @@ test('vibeusage-usage-monthly honors alias effective_from across range', async (
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({ rows });
               return { select: () => query };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: aliasRows });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -2567,7 +2567,7 @@ test('vibeusage-usage-summary uses hourly when rollup disabled', () =>
           },
           database: {
             from: (table) => {
-              assert.equal(table, 'vibescore_tracker_hourly');
+              assert.equal(table, 'vibeusage_tracker_hourly');
               const query = createQueryMock({
                 rows: [],
                 onFilter: (entry) => filters.push(entry)
@@ -2634,7 +2634,7 @@ test('vibeusage-usage-summary returns total_cost_usd and pricing metadata', () =
           },
           database: {
             from: (table) => {
-              if (table === 'vibescore_tracker_hourly') {
+              if (table === 'vibeusage_tracker_hourly') {
                 const query = createQueryMock({
                   rows,
                   onFilter: (entry) => {
@@ -2646,15 +2646,15 @@ test('vibeusage-usage-summary returns total_cost_usd and pricing metadata', () =
                   select: () => query
                 };
               }
-              if (table === 'vibescore_model_aliases') {
+              if (table === 'vibeusage_model_aliases') {
                 return createQueryMock({ rows: [] });
               }
-              if (table === 'vibescore_pricing_profiles') {
+              if (table === 'vibeusage_pricing_profiles') {
                 const query = createQueryMock({ rows: [] });
                 query.or = () => query;
                 return query;
               }
-              if (table === 'vibescore_pricing_model_aliases') {
+              if (table === 'vibeusage_pricing_model_aliases') {
                 return createQueryMock({ rows: [] });
               }
               throw new Error(`Unexpected table ${table}`);
@@ -2720,17 +2720,17 @@ test('vibeusage-usage-summary prefers stored billable_total_tokens', () =>
           },
           database: {
             from: (table) => {
-              if (table === 'vibescore_tracker_hourly') {
+              if (table === 'vibeusage_tracker_hourly') {
                 const query = createQueryMock({ rows });
                 return { select: () => query };
               }
-              if (table === 'vibescore_model_aliases') {
+              if (table === 'vibeusage_model_aliases') {
                 return createQueryMock({ rows: [] });
               }
-              if (table === 'vibescore_pricing_profiles') {
+              if (table === 'vibeusage_pricing_profiles') {
                 return createQueryMock({ rows: [] });
               }
-              if (table === 'vibescore_pricing_model_aliases') {
+              if (table === 'vibeusage_pricing_model_aliases') {
                 return createQueryMock({ rows: [] });
               }
               throw new Error(`Unexpected table ${table}`);
@@ -2794,14 +2794,14 @@ test('vibeusage-usage-summary canonical model filter includes alias rows', () =>
           },
           database: {
             from: (table) => {
-              if (table === 'vibescore_tracker_hourly') {
+              if (table === 'vibeusage_tracker_hourly') {
                 const query = createQueryMock({
                   rows: hourlyRows,
                   onFilter: (entry) => filters.push(entry)
                 });
                 return { select: () => query };
               }
-              if (table === 'vibescore_model_aliases') {
+              if (table === 'vibeusage_model_aliases') {
                 return createQueryMock({ rows: aliasRows });
               }
               throw new Error(`Unexpected table ${table}`);
@@ -2884,11 +2884,11 @@ test('vibeusage-usage-summary honors alias effective_from across range', () =>
           },
           database: {
             from: (table) => {
-              if (table === 'vibescore_tracker_hourly') {
+              if (table === 'vibeusage_tracker_hourly') {
                 const query = createQueryMock({ rows: hourlyRows });
                 return { select: () => query };
               }
-              if (table === 'vibescore_model_aliases') {
+              if (table === 'vibeusage_model_aliases') {
                 return createQueryMock({ rows: aliasRows });
               }
               throw new Error(`Unexpected table ${table}`);
@@ -2988,14 +2988,14 @@ test('vibeusage-usage-summary prices per-alias effective_from when unfiltered', 
           },
           database: {
             from: (table) => {
-              if (table === 'vibescore_tracker_hourly') {
+              if (table === 'vibeusage_tracker_hourly') {
                 const query = createQueryMock({ rows: hourlyRows });
                 return { select: () => query };
               }
-              if (table === 'vibescore_model_aliases') {
+              if (table === 'vibeusage_model_aliases') {
                 return createQueryMock({ rows: aliasRows });
               }
-              if (table === 'vibescore_pricing_profiles') {
+              if (table === 'vibeusage_pricing_profiles') {
                 const state = { model: null };
                 const query = {
                   select: () => query,
@@ -3017,7 +3017,7 @@ test('vibeusage-usage-summary prices per-alias effective_from when unfiltered', 
                 };
                 return query;
               }
-              if (table === 'vibescore_pricing_model_aliases') {
+              if (table === 'vibeusage_pricing_model_aliases') {
                 return createQueryMock({ rows: [] });
               }
               throw new Error(`Unexpected table ${table}`);
@@ -3076,7 +3076,7 @@ test('vibeusage-usage-summary emits debug payload when requested', () =>
           },
           database: {
             from: (table) => {
-              if (table === 'vibescore_tracker_hourly') {
+              if (table === 'vibeusage_tracker_hourly') {
                 const query = createQueryMock({
                   rows,
                   onFilter: (entry) => {
@@ -3088,15 +3088,15 @@ test('vibeusage-usage-summary emits debug payload when requested', () =>
                   select: () => query
                 };
               }
-              if (table === 'vibescore_model_aliases') {
+              if (table === 'vibeusage_model_aliases') {
                 return createQueryMock({ rows: [] });
               }
-              if (table === 'vibescore_pricing_profiles') {
+              if (table === 'vibeusage_pricing_profiles') {
                 const query = createQueryMock({ rows: [] });
                 query.or = () => query;
                 return query;
               }
-              if (table === 'vibescore_pricing_model_aliases') {
+              if (table === 'vibeusage_pricing_model_aliases') {
                 return createQueryMock({ rows: [] });
               }
               throw new Error(`Unexpected table: ${table}`);
@@ -3177,19 +3177,19 @@ test('vibeusage-usage-summary logs vibeusage function name', () =>
           },
           database: {
             from: (table) => {
-              if (table === 'vibescore_tracker_hourly') {
+              if (table === 'vibeusage_tracker_hourly') {
                 const query = createQueryMock({ rows });
                 return { select: () => query };
               }
-              if (table === 'vibescore_model_aliases') {
+              if (table === 'vibeusage_model_aliases') {
                 return createQueryMock({ rows: [] });
               }
-              if (table === 'vibescore_pricing_profiles') {
+              if (table === 'vibeusage_pricing_profiles') {
                 const query = createQueryMock({ rows: [] });
                 query.or = () => query;
                 return query;
               }
-              if (table === 'vibescore_pricing_model_aliases') {
+              if (table === 'vibeusage_pricing_model_aliases') {
                 return createQueryMock({ rows: [] });
               }
               throw new Error(`Unexpected table ${table}`);
@@ -3263,7 +3263,7 @@ test('vibeusage-usage-summary uses auth lookup even with jwt payload', () =>
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({
                 rows,
                 onFilter: (entry) => {
@@ -3275,15 +3275,15 @@ test('vibeusage-usage-summary uses auth lookup even with jwt payload', () =>
                 select: () => query
               };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: [] });
             }
-            if (table === 'vibescore_pricing_profiles') {
+            if (table === 'vibeusage_pricing_profiles') {
               const query = createQueryMock({ rows: [] });
               query.or = () => query;
               return query;
             }
-            if (table === 'vibescore_pricing_model_aliases') {
+            if (table === 'vibeusage_pricing_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -3547,17 +3547,17 @@ test('vibeusage-usage-model-breakdown includes billable_total_tokens per source'
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({ rows });
               return { select: () => query };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: [] });
             }
-            if (table === 'vibescore_pricing_profiles') {
+            if (table === 'vibeusage_pricing_profiles') {
               return createQueryMock({ rows: [] });
             }
-            if (table === 'vibescore_pricing_model_aliases') {
+            if (table === 'vibeusage_pricing_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -3625,17 +3625,17 @@ test('vibeusage-usage-model-breakdown prefers stored billable_total_tokens', asy
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({ rows });
               return { select: () => query };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: [] });
             }
-            if (table === 'vibescore_pricing_profiles') {
+            if (table === 'vibeusage_pricing_profiles') {
               return createQueryMock({ rows: [] });
             }
-            if (table === 'vibescore_pricing_model_aliases') {
+            if (table === 'vibeusage_pricing_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -3703,17 +3703,17 @@ test('vibeusage-usage-model-breakdown sorts models by billable_total_tokens', as
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({ rows });
               return { select: () => query };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: [] });
             }
-            if (table === 'vibescore_pricing_profiles') {
+            if (table === 'vibeusage_pricing_profiles') {
               return createQueryMock({ rows: [] });
             }
-            if (table === 'vibescore_pricing_model_aliases') {
+            if (table === 'vibeusage_pricing_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -3800,17 +3800,17 @@ test('vibeusage usage aggregates stay consistent across summary daily breakdown'
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({ rows });
               return { select: () => query };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: [] });
             }
-            if (table === 'vibescore_pricing_profiles') {
+            if (table === 'vibeusage_pricing_profiles') {
               return createQueryMock({ rows: [] });
             }
-            if (table === 'vibescore_pricing_model_aliases') {
+            if (table === 'vibeusage_pricing_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -3906,17 +3906,17 @@ test('vibeusage usage costs stay consistent across daily summary and model break
           },
           database: {
             from: (table) => {
-              if (table === 'vibescore_tracker_hourly') {
+              if (table === 'vibeusage_tracker_hourly') {
                 const query = createQueryMock({ rows: hourlyRows });
                 return { select: () => query };
               }
-              if (table === 'vibescore_model_aliases') {
+              if (table === 'vibeusage_model_aliases') {
                 return createQueryMock({ rows: [] });
               }
-              if (table === 'vibescore_pricing_profiles') {
+              if (table === 'vibeusage_pricing_profiles') {
                 return createQueryMock({ rows: [pricingProfile], onFilter: (entry) => pricingFilters.push(entry) });
               }
-              if (table === 'vibescore_pricing_model_aliases') {
+              if (table === 'vibeusage_pricing_model_aliases') {
                 return createQueryMock({ rows: [] });
               }
               throw new Error(`Unexpected table ${table}`);
@@ -4031,14 +4031,14 @@ test('vibeusage usage costs stay consistent when source contains bucket delimite
           },
           database: {
             from: (table) => {
-              if (table === 'vibescore_tracker_hourly') {
+              if (table === 'vibeusage_tracker_hourly') {
                 const query = createQueryMock({ rows: hourlyRows });
                 return { select: () => query };
               }
-              if (table === 'vibescore_model_aliases') {
+              if (table === 'vibeusage_model_aliases') {
                 return createQueryMock({ rows: [] });
               }
-              if (table === 'vibescore_pricing_profiles') {
+              if (table === 'vibeusage_pricing_profiles') {
                 const state = { model: null };
                 const query = {
                   select: () => query,
@@ -4060,7 +4060,7 @@ test('vibeusage usage costs stay consistent when source contains bucket delimite
                 };
                 return query;
               }
-              if (table === 'vibescore_pricing_model_aliases') {
+              if (table === 'vibeusage_pricing_model_aliases') {
                 return createQueryMock({ rows: [] });
               }
               throw new Error(`Unexpected table ${table}`);
@@ -4256,19 +4256,19 @@ test('vibeusage-usage-model-breakdown emits model_id and merges aliases', async 
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               return createQueryMock({ rows: hourlyRows });
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: aliasRows });
             }
-            if (table === 'vibescore_pricing_profiles') {
+            if (table === 'vibeusage_pricing_profiles') {
               const query = createQueryMock({ rows: [] });
               query.or = () => query;
               query.limit = async () => ({ data: [], error: null });
               return query;
             }
-            if (table === 'vibescore_pricing_model_aliases') {
+            if (table === 'vibeusage_pricing_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -4351,19 +4351,19 @@ test('vibeusage-usage-model-breakdown honors alias effective_from across range',
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               return createQueryMock({ rows: hourlyRows });
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: aliasRows });
             }
-            if (table === 'vibescore_pricing_profiles') {
+            if (table === 'vibeusage_pricing_profiles') {
               const query = createQueryMock({ rows: [] });
               query.or = () => query;
               query.limit = async () => ({ data: [], error: null });
               return query;
             }
-            if (table === 'vibescore_pricing_model_aliases') {
+            if (table === 'vibeusage_pricing_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -4467,14 +4467,14 @@ test('vibeusage-usage-model-breakdown prices per-alias effective_from when unfil
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               const query = createQueryMock({ rows: hourlyRows });
               return { select: () => query };
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: aliasRows });
             }
-            if (table === 'vibescore_pricing_profiles') {
+            if (table === 'vibeusage_pricing_profiles') {
               const state = { model: null };
               const query = {
                 select: () => query,
@@ -4496,7 +4496,7 @@ test('vibeusage-usage-model-breakdown prices per-alias effective_from when unfil
               };
               return query;
             }
-            if (table === 'vibescore_pricing_model_aliases') {
+            if (table === 'vibeusage_pricing_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -4565,10 +4565,10 @@ test('vibeusage-usage-daily canonical model filter includes alias rows', async (
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               return createQueryMock({ rows: hourlyRows, onFilter: (entry) => filters.push(entry) });
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: aliasRows });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -4636,10 +4636,10 @@ test('vibeusage-usage-daily prefixed model filter includes alias rows', async ()
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               return createQueryMock({ rows: hourlyRows, onFilter: (entry) => filters.push(entry) });
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: aliasRows });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -4721,19 +4721,19 @@ test('vibeusage-usage-daily honors alias effective_from across range', async () 
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_tracker_hourly') {
+            if (table === 'vibeusage_tracker_hourly') {
               return createQueryMock({ rows: hourlyRows });
             }
-            if (table === 'vibescore_model_aliases') {
+            if (table === 'vibeusage_model_aliases') {
               return createQueryMock({ rows: aliasRows });
             }
-            if (table === 'vibescore_pricing_profiles') {
+            if (table === 'vibeusage_pricing_profiles') {
               const query = createQueryMock({ rows: [] });
               query.or = () => query;
               query.limit = async () => ({ data: [], error: null });
               return query;
             }
-            if (table === 'vibescore_pricing_model_aliases') {
+            if (table === 'vibeusage_pricing_model_aliases') {
               return createQueryMock({ rows: [] });
             }
             throw new Error(`Unexpected table ${table}`);
@@ -4834,14 +4834,14 @@ test('vibeusage-usage-daily prices per-alias effective_from when unfiltered', { 
           },
           database: {
             from: (table) => {
-              if (table === 'vibescore_tracker_hourly') {
+              if (table === 'vibeusage_tracker_hourly') {
                 const query = createQueryMock({ rows: hourlyRows });
                 return { select: () => query };
               }
-              if (table === 'vibescore_model_aliases') {
+              if (table === 'vibeusage_model_aliases') {
                 return createQueryMock({ rows: aliasRows });
               }
-              if (table === 'vibescore_pricing_profiles') {
+              if (table === 'vibeusage_pricing_profiles') {
                 const state = { model: null };
                 const query = {
                   select: () => query,
@@ -4863,7 +4863,7 @@ test('vibeusage-usage-daily prices per-alias effective_from when unfiltered', { 
                 };
                 return query;
               }
-              if (table === 'vibescore_pricing_model_aliases') {
+              if (table === 'vibeusage_pricing_model_aliases') {
                 return createQueryMock({ rows: [] });
               }
               throw new Error(`Unexpected table ${table}`);
@@ -4917,7 +4917,7 @@ test('vibeusage-leaderboard returns a week window and slices entries to limit', 
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_leaderboard_week_current') {
+            if (table === 'vibeusage_leaderboard_week_current') {
               return {
                 select: () => ({
                   order: (col, opts) => {
@@ -4931,7 +4931,7 @@ test('vibeusage-leaderboard returns a week window and slices entries to limit', 
               };
             }
 
-            if (table === 'vibescore_leaderboard_me_week_current') {
+            if (table === 'vibeusage_leaderboard_me_week_current') {
               return {
                 select: () => ({
                   maybeSingle: async () => ({ data: meRow, error: null })
@@ -5001,7 +5001,7 @@ test('vibeusage-leaderboard uses system earliest day for total window', async ()
         },
         database: {
           from: (table) => {
-            if (table === 'vibescore_leaderboard_meta_total_current') {
+            if (table === 'vibeusage_leaderboard_meta_total_current') {
               return {
                 select: () => ({
                   maybeSingle: async () => ({ data: metaRow, error: null })
@@ -5009,7 +5009,7 @@ test('vibeusage-leaderboard uses system earliest day for total window', async ()
               };
             }
 
-            if (table === 'vibescore_leaderboard_total_current') {
+            if (table === 'vibeusage_leaderboard_total_current') {
               return {
                 select: () => ({
                   order: () => ({
@@ -5019,7 +5019,7 @@ test('vibeusage-leaderboard uses system earliest day for total window', async ()
               };
             }
 
-            if (table === 'vibescore_leaderboard_me_total_current') {
+            if (table === 'vibeusage_leaderboard_me_total_current') {
               return {
                 select: () => ({
                   maybeSingle: async () => ({ data: meRow, error: null })
@@ -5097,7 +5097,7 @@ test('vibeusage-leaderboard-settings inserts user setting row', async () => {
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_user_settings');
+            assert.equal(table, 'vibeusage_user_settings');
             return {
               select: () => ({
                 eq: () => ({
@@ -5153,7 +5153,7 @@ test('vibeusage-leaderboard-settings updates existing row', async () => {
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_user_settings');
+            assert.equal(table, 'vibeusage_user_settings');
             return {
               select: () => ({
                 eq: () => ({
@@ -5242,7 +5242,7 @@ test('vibeusage-user-status returns pro.active for cutoff user', async () => {
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_user_entitlements');
+            assert.equal(table, 'vibeusage_user_entitlements');
             return {
               select: () => ({
                 eq: () => ({
@@ -5285,7 +5285,7 @@ test('vibeusage-user-status falls back to users table when created_at missing', 
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_user_entitlements');
+            assert.equal(table, 'vibeusage_user_entitlements');
             return {
               select: () => ({
                 eq: () => ({
@@ -5350,7 +5350,7 @@ test('vibeusage-user-status degrades when created_at missing and no service role
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_user_entitlements');
+            assert.equal(table, 'vibeusage_user_entitlements');
             return {
               select: () => ({
                 eq: () => ({
@@ -5442,7 +5442,7 @@ test('vibeusage-entitlements inserts entitlement (admin)', async () => {
   assert.equal(body.source, 'manual');
   assert.equal(body.note, 'test');
   assert.equal(db.inserts.length, 1);
-  assert.equal(db.inserts[0].table, 'vibescore_user_entitlements');
+  assert.equal(db.inserts[0].table, 'vibeusage_user_entitlements');
   assert.equal(db.inserts[0].rows[0].user_id, userId);
 });
 
@@ -5805,7 +5805,7 @@ test('vibeusage-entitlements-revoke updates revoked_at (admin)', async () => {
   assert.equal(body.id, entitlementId);
   assert.equal(typeof body.revoked_at, 'string');
   assert.equal(db.updates.length, 1);
-  assert.equal(db.updates[0].table, 'vibescore_user_entitlements');
+  assert.equal(db.updates[0].table, 'vibeusage_user_entitlements');
   assert.equal(db.updates[0].where.col, 'id');
   assert.equal(db.updates[0].where.value, entitlementId);
 });
@@ -5870,7 +5870,7 @@ test('vibeusage-link-code-init issues a short-lived link code', async () => {
   assert.ok(body.link_code.length > 0);
   assert.equal(typeof body.expires_at, 'string');
 
-  const insert = db.inserts.find((i) => i.table === 'vibescore_link_codes');
+  const insert = db.inserts.find((i) => i.table === 'vibeusage_link_codes');
   assert.ok(insert, 'link code insert missing');
   const row = insert.rows?.[0] || {};
 
@@ -5925,17 +5925,17 @@ test('vibeusage-link-code-exchange creates device token and marks link code used
   assert.equal(body.token, expectedToken);
   assert.equal(body.user_id, userId);
 
-  const deviceInsert = db.inserts.find((entry) => entry.table === 'vibescore_tracker_devices');
+  const deviceInsert = db.inserts.find((entry) => entry.table === 'vibeusage_tracker_devices');
   assert.ok(deviceInsert, 'device insert missing');
   const deviceRow = deviceInsert.rows[0];
   assert.equal(body.device_id, deviceRow.id);
 
-  const tokenInsert = db.inserts.find((entry) => entry.table === 'vibescore_tracker_device_tokens');
+  const tokenInsert = db.inserts.find((entry) => entry.table === 'vibeusage_tracker_device_tokens');
   assert.ok(tokenInsert, 'token insert missing');
   assert.equal(tokenInsert.rows[0].token_hash, expectedTokenHash);
   assert.equal(tokenInsert.rows[0].device_id, deviceRow.id);
 
-  const update = db.updates.find((entry) => entry.table === 'vibescore_link_codes');
+  const update = db.updates.find((entry) => entry.table === 'vibeusage_link_codes');
   assert.ok(update, 'link code update missing');
   assert.equal(update.values.request_id, requestId);
   assert.equal(update.values.device_id, deviceRow.id);

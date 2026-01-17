@@ -110,7 +110,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -984,7 +984,7 @@ module.exports = withRequestLogging("vibeusage-pricing-sync", async function(req
   let upserted = 0;
   for (let i = 0; i < rows.length; i += UPSERT_BATCH_SIZE) {
     const batch = rows.slice(i, i + UPSERT_BATCH_SIZE);
-    const { error } = await serviceClient.database.from("vibescore_pricing_profiles").upsert(batch, { onConflict: "model,source,effective_from" });
+    const { error } = await serviceClient.database.from("vibeusage_pricing_profiles").upsert(batch, { onConflict: "model,source,effective_from" });
     if (error) return json({ error: error.message }, 500);
     upserted += batch.length;
   }
@@ -1002,7 +1002,7 @@ module.exports = withRequestLogging("vibeusage-pricing-sync", async function(req
   let aliasesUpserted = 0;
   for (let i = 0; i < aliasRows.length; i += UPSERT_BATCH_SIZE) {
     const batch = aliasRows.slice(i, i + UPSERT_BATCH_SIZE);
-    const { error } = await serviceClient.database.from("vibescore_pricing_model_aliases").upsert(batch, { onConflict: "usage_model,pricing_source,effective_from" });
+    const { error } = await serviceClient.database.from("vibeusage_pricing_model_aliases").upsert(batch, { onConflict: "usage_model,pricing_source,effective_from" });
     if (error) return json({ error: error.message }, 500);
     aliasesUpserted += batch.length;
   }
@@ -1011,9 +1011,9 @@ module.exports = withRequestLogging("vibeusage-pricing-sync", async function(req
     const cutoff = /* @__PURE__ */ new Date();
     cutoff.setUTCDate(cutoff.getUTCDate() - retentionDays);
     const cutoffDate = formatDateUTC(cutoff);
-    const { error } = await serviceClient.database.from("vibescore_pricing_profiles").update({ active: false }).eq("source", pricingSource).lt("effective_from", cutoffDate);
+    const { error } = await serviceClient.database.from("vibeusage_pricing_profiles").update({ active: false }).eq("source", pricingSource).lt("effective_from", cutoffDate);
     if (error) return json({ error: error.message }, 500);
-    const { error: aliasError } = await serviceClient.database.from("vibescore_pricing_model_aliases").update({ active: false }).eq("pricing_source", pricingSource).lt("effective_from", cutoffDate);
+    const { error: aliasError } = await serviceClient.database.from("vibeusage_pricing_model_aliases").update({ active: false }).eq("pricing_source", pricingSource).lt("effective_from", cutoffDate);
     if (aliasError) return json({ error: aliasError.message }, 500);
     retention = { retention_days: retentionDays, cutoff_date: cutoffDate };
   }
@@ -1071,7 +1071,7 @@ async function listUsageModels({ serviceClient, windowDays }) {
   const since = cutoff.toISOString();
   const { error } = await forEachPage({
     createQuery: () => {
-      let query = serviceClient.database.from("vibescore_tracker_hourly").select("model").gte("hour_start", since);
+      let query = serviceClient.database.from("vibeusage_tracker_hourly").select("model").gte("hour_start", since);
       query = applyCanaryFilter(query, { source: null, model: null });
       return query.order("hour_start", { ascending: true }).order("user_id", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
     },

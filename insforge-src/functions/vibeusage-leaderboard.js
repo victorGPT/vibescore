@@ -75,8 +75,8 @@ module.exports = async function(request) {
     }
   }
 
-  const entriesView = `vibescore_leaderboard_${period}_current`;
-  const meView = `vibescore_leaderboard_me_${period}_current`;
+  const entriesView = `vibeusage_leaderboard_${period}_current`;
+  const meView = `vibeusage_leaderboard_me_${period}_current`;
 
   const singleQuery = await tryLoadSingleQuery({
     edgeClient: auth.edgeClient,
@@ -176,7 +176,7 @@ function normalizeLimit(raw) {
 
 async function loadSnapshot({ serviceClient, period, from, to, userId, limit }) {
   const { data: entryRows, error: entriesErr } = await serviceClient.database
-    .from('vibescore_leaderboard_snapshots')
+    .from('vibeusage_leaderboard_snapshots')
     .select('user_id,rank,total_tokens,display_name,avatar_url,generated_at')
     .eq('period', period)
     .eq('from_day', from)
@@ -190,7 +190,7 @@ async function loadSnapshot({ serviceClient, period, from, to, userId, limit }) 
   }
 
   const { data: meRow, error: meErr } = await serviceClient.database
-    .from('vibescore_leaderboard_snapshots')
+    .from('vibeusage_leaderboard_snapshots')
     .select('rank,total_tokens,generated_at')
     .eq('period', period)
     .eq('from_day', from)
@@ -242,7 +242,7 @@ async function computeWindow({ period, edgeClient }) {
   }
 
   const { data: meta, error } = await edgeClient.database
-    .from('vibescore_leaderboard_meta_total_current')
+    .from('vibeusage_leaderboard_meta_total_current')
     .select('from_day,to_day')
     .maybeSingle();
 

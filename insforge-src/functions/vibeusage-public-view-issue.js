@@ -33,7 +33,7 @@ module.exports = withRequestLogging('vibeusage-public-view-issue', async functio
     updated_at: nowIso
   };
 
-  const table = auth.edgeClient.database.from('vibescore_public_views');
+  const table = auth.edgeClient.database.from('vibeusage_public_views');
   if (typeof table.upsert === 'function') {
     try {
       const { error: upsertErr } = await table.upsert([nextRow], { onConflict: 'user_id' });

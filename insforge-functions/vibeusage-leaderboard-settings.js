@@ -110,7 +110,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -270,7 +270,7 @@ module.exports = async function(request) {
     leaderboard_public: leaderboardPublic,
     updated_at: updatedAt
   };
-  const settingsTable = auth.edgeClient.database.from("vibescore_user_settings");
+  const settingsTable = auth.edgeClient.database.from("vibeusage_user_settings");
   if (typeof settingsTable.upsert === "function") {
     try {
       const { error: upsertErr } = await settingsTable.upsert([upsertRow], { onConflict: "user_id" });
@@ -280,13 +280,13 @@ module.exports = async function(request) {
     } catch (_err) {
     }
   }
-  const { data: existing, error: selErr } = await auth.edgeClient.database.from("vibescore_user_settings").select("user_id").eq("user_id", auth.userId).maybeSingle();
+  const { data: existing, error: selErr } = await auth.edgeClient.database.from("vibeusage_user_settings").select("user_id").eq("user_id", auth.userId).maybeSingle();
   if (selErr) return json({ error: selErr.message }, 500);
   if (existing?.user_id) {
-    const { error: updErr } = await auth.edgeClient.database.from("vibescore_user_settings").update({ leaderboard_public: leaderboardPublic, updated_at: updatedAt }).eq("user_id", auth.userId);
+    const { error: updErr } = await auth.edgeClient.database.from("vibeusage_user_settings").update({ leaderboard_public: leaderboardPublic, updated_at: updatedAt }).eq("user_id", auth.userId);
     if (updErr) return json({ error: updErr.message }, 500);
   } else {
-    const { error: insErr } = await auth.edgeClient.database.from("vibescore_user_settings").insert([upsertRow]);
+    const { error: insErr } = await auth.edgeClient.database.from("vibeusage_user_settings").insert([upsertRow]);
     if (insErr) return json({ error: insErr.message }, 500);
   }
   return json({ leaderboard_public: leaderboardPublic, updated_at: updatedAt }, 200);

@@ -29,17 +29,17 @@ class DatabaseStub {
   or() { return this; }
   order() { return this; }
   range() {
-    if (this._table === 'vibescore_tracker_daily_rollup') {
+    if (this._table === 'vibeusage_tracker_daily_rollup') {
       return { data: null, error: { message: 'rollup down' } };
     }
-    if (this._table === 'vibescore_tracker_hourly') {
+    if (this._table === 'vibeusage_tracker_hourly') {
       return { data: HOURLY_ROWS, error: null };
     }
     return { data: [], error: null };
   }
   limit() { return { data: [], error: null }; }
   then(resolve, reject) {
-    if (this._table === 'vibescore_tracker_daily_rollup') {
+    if (this._table === 'vibeusage_tracker_daily_rollup') {
       return Promise.resolve({ data: null, error: { message: 'rollup down' } }).then(resolve, reject);
     }
     return Promise.resolve({ data: [], error: null }).then(resolve, reject);

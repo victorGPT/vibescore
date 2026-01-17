@@ -110,7 +110,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -394,7 +394,7 @@ module.exports = withRequestLogging("vibeusage-public-view-revoke", async functi
   const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
   if (!auth.ok) return json({ error: "Unauthorized" }, 401);
   const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-  const { error } = await auth.edgeClient.database.from("vibescore_public_views").update({ revoked_at: nowIso, updated_at: nowIso }).eq("user_id", auth.userId);
+  const { error } = await auth.edgeClient.database.from("vibeusage_public_views").update({ revoked_at: nowIso, updated_at: nowIso }).eq("user_id", auth.userId);
   if (error) return json({ error: "Failed to revoke public view link" }, 500);
   return json({ enabled: false }, 200);
 });

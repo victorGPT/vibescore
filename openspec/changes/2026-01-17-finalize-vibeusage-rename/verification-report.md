@@ -26,6 +26,24 @@
 - Result: PASS
 - Date: 2026-01-17
 - Command: `node --test test/edge-functions.test.js`
+- Result: FAIL (expected; DB table rename not applied yet)
+- Date: 2026-01-17
+- Command: `node scripts/build-insforge-functions.cjs`
+- Result: PASS
+- Date: 2026-01-17
+- Command: `node --test test/edge-functions.test.js`
+- Result: PASS
+- Date: 2026-01-17
+- Command: `node --test test/link-code-exchange-payload.test.js`
+- Result: PASS
+- Date: 2026-01-17
+- Command: `node --test test/link-code-rls.test.js`
+- Result: PASS
+- Date: 2026-01-17
+- Command: `node --test test/rollup-recovery-doc.test.js`
+- Result: PASS
+- Date: 2026-01-17
+- Command: `node --test test/edge-functions.test.js`
 - Result: FAIL (expected; vibeusage functions still wrapper shims)
 - Date: 2026-01-17
 - Command: `node scripts/build-insforge-functions.cjs`

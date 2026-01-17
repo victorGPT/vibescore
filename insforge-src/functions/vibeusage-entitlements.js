@@ -102,7 +102,7 @@ module.exports = withRequestLogging('vibeusage-entitlements', async function(req
     created_by: null
   };
 
-  const { error: insertError } = await dbClient.database.from('vibescore_user_entitlements').insert([row]);
+  const { error: insertError } = await dbClient.database.from('vibeusage_user_entitlements').insert([row]);
   if (!insertError) return json(row, 200);
 
   if (entitlementId) {
@@ -161,7 +161,7 @@ function formatUuidFromHash(hex) {
 
 async function loadEntitlementById({ dbClient, id }) {
   const { data, error } = await dbClient.database
-    .from('vibescore_user_entitlements')
+    .from('vibeusage_user_entitlements')
     .select(
       'id,user_id,source,effective_from,effective_to,revoked_at,note,created_at,updated_at,created_by'
     )

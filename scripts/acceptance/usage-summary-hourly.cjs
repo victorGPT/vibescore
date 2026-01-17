@@ -28,7 +28,7 @@ class DatabaseStub {
   lt() { return this; }
   order() { return this; }
   range() {
-    if (this._table === 'vibescore_tracker_hourly') {
+    if (this._table === 'vibeusage_tracker_hourly') {
       return { data: HOURLY_ROWS, error: null };
     }
     return { data: [], error: null };

@@ -110,7 +110,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex2(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -403,7 +403,7 @@ module.exports = withRequestLogging("vibeusage-public-view-issue", async functio
     revoked_at: null,
     updated_at: nowIso
   };
-  const table = auth.edgeClient.database.from("vibescore_public_views");
+  const table = auth.edgeClient.database.from("vibeusage_public_views");
   if (typeof table.upsert === "function") {
     try {
       const { error: upsertErr } = await table.upsert([nextRow], { onConflict: "user_id" });

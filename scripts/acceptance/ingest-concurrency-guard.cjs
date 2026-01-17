@@ -31,7 +31,7 @@ const hold = new Promise((resolve) => {
 globalThis.fetch = async (url, init) => {
   const u = new URL(url);
 
-  if (u.pathname.endsWith('/api/database/records/vibescore_tracker_device_tokens')) {
+  if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_device_tokens')) {
     await hold;
     return new Response(JSON.stringify([tokenRow]), {
       status: 200,
@@ -39,21 +39,21 @@ globalThis.fetch = async (url, init) => {
     });
   }
 
-  if (u.pathname.endsWith('/api/database/records/vibescore_tracker_hourly')) {
+  if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_hourly')) {
     return new Response(JSON.stringify([{ hour_start: '2025-12-31T00:00:00.000Z' }]), {
       status: 201,
       headers: { 'Content-Type': 'application/json' }
     });
   }
 
-  if (u.pathname.endsWith('/api/database/records/vibescore_tracker_ingest_batches')) {
+  if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_ingest_batches')) {
     return new Response(JSON.stringify({ ok: true }), {
       status: 201,
       headers: { 'Content-Type': 'application/json' }
     });
   }
 
-  if (u.pathname.endsWith('/api/database/rpc/vibescore_touch_device_token_sync')) {
+  if (u.pathname.endsWith('/api/database/rpc/vibeusage_touch_device_token_sync')) {
     return new Response(JSON.stringify({ updated: true }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }

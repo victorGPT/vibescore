@@ -56,7 +56,7 @@ module.exports = withRequestLogging('vibeusage-user-status', async function(requ
   }
 
   const { data: entitlements, error: entErr } = await auth.edgeClient.database
-    .from('vibescore_user_entitlements')
+    .from('vibeusage_user_entitlements')
     .select('source,effective_from,effective_to,revoked_at')
     .eq('user_id', auth.userId)
     .order('effective_to', { ascending: false });

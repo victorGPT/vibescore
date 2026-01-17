@@ -44,7 +44,7 @@ module.exports = withRequestLogging('vibeusage-sync-ping', async function(reques
     });
 
     const { data: tokenRow, error: tokenErr } = await serviceClient.database
-      .from('vibescore_tracker_device_tokens')
+      .from('vibeusage_tracker_device_tokens')
       .select('id,revoked_at,last_sync_at')
       .eq('token_hash', tokenHash)
       .maybeSingle();
@@ -66,7 +66,7 @@ module.exports = withRequestLogging('vibeusage-sync-ping', async function(reques
     }
 
     const { error: updateErr } = await serviceClient.database
-      .from('vibescore_tracker_device_tokens')
+      .from('vibeusage_tracker_device_tokens')
       .update({ last_sync_at: nowIso, last_used_at: nowIso })
       .eq('id', tokenRow.id);
 
@@ -102,7 +102,7 @@ module.exports = withRequestLogging('vibeusage-sync-ping', async function(reques
 });
 
 async function touchSyncWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher }) {
-  const url = new URL('/api/database/rpc/vibescore_touch_device_token_sync', baseUrl);
+  const url = new URL('/api/database/rpc/vibeusage_touch_device_token_sync', baseUrl);
   const res = await (fetcher || fetch)(url.toString(), {
     method: 'POST',
     headers: {

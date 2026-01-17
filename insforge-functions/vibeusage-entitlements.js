@@ -110,7 +110,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex2(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -464,7 +464,7 @@ module.exports = withRequestLogging("vibeusage-entitlements", async function(req
     updated_at: nowIso,
     created_by: null
   };
-  const { error: insertError } = await dbClient.database.from("vibescore_user_entitlements").insert([row]);
+  const { error: insertError } = await dbClient.database.from("vibeusage_user_entitlements").insert([row]);
   if (!insertError) return json(row, 200);
   if (entitlementId) {
     const existing = await loadEntitlementById({ dbClient, id: entitlementId });
@@ -513,7 +513,7 @@ function formatUuidFromHash(hex) {
   return `${s.slice(0, 8)}-${s.slice(8, 12)}-${s.slice(12, 16)}-${s.slice(16, 20)}-${s.slice(20, 32)}`;
 }
 async function loadEntitlementById({ dbClient, id }) {
-  const { data, error } = await dbClient.database.from("vibescore_user_entitlements").select(
+  const { data, error } = await dbClient.database.from("vibeusage_user_entitlements").select(
     "id,user_id,source,effective_from,effective_to,revoked_at,note,created_at,updated_at,created_by"
   ).eq("id", id).maybeSingle();
   if (error) return { row: null, error: error.message };

@@ -50,10 +50,10 @@ class DatabaseStub {
   }
 
   limit() {
-    if (this._table === 'vibescore_pricing_model_aliases') {
+    if (this._table === 'vibeusage_pricing_model_aliases') {
       return { data: [], error: null };
     }
-    if (this._rows && this._table === 'vibescore_pricing_profiles') {
+    if (this._rows && this._table === 'vibeusage_pricing_profiles') {
       return { data: [buildPricingRow()], error: null };
     }
     return { data: [], error: null };

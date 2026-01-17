@@ -244,7 +244,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex2(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -407,7 +407,7 @@ module.exports = withRequestLogging("vibeusage-sync-ping", async function(reques
       anonKey: anonKey || serviceRoleKey,
       edgeFunctionToken: serviceRoleKey
     });
-    const { data: tokenRow, error: tokenErr } = await serviceClient.database.from("vibescore_tracker_device_tokens").select("id,revoked_at,last_sync_at").eq("token_hash", tokenHash).maybeSingle();
+    const { data: tokenRow, error: tokenErr } = await serviceClient.database.from("vibeusage_tracker_device_tokens").select("id,revoked_at,last_sync_at").eq("token_hash", tokenHash).maybeSingle();
     if (tokenErr) return json({ error: tokenErr.message }, 500);
     if (!tokenRow || tokenRow.revoked_at) return json({ error: "Unauthorized" }, 401);
     const lastSyncAt = normalizeIso(tokenRow.last_sync_at);
@@ -422,7 +422,7 @@ module.exports = withRequestLogging("vibeusage-sync-ping", async function(reques
         200
       );
     }
-    const { error: updateErr } = await serviceClient.database.from("vibescore_tracker_device_tokens").update({ last_sync_at: nowIso, last_used_at: nowIso }).eq("id", tokenRow.id);
+    const { error: updateErr } = await serviceClient.database.from("vibeusage_tracker_device_tokens").update({ last_sync_at: nowIso, last_used_at: nowIso }).eq("id", tokenRow.id);
     if (updateErr) return json({ error: updateErr.message }, 500);
     return json(
       {
@@ -451,7 +451,7 @@ module.exports = withRequestLogging("vibeusage-sync-ping", async function(reques
   }
 });
 async function touchSyncWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher }) {
-  const url = new URL("/api/database/rpc/vibescore_touch_device_token_sync", baseUrl);
+  const url = new URL("/api/database/rpc/vibeusage_touch_device_token_sync", baseUrl);
   const res = await (fetcher || fetch)(url.toString(), {
     method: "POST",
     headers: {

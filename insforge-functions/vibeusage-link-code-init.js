@@ -110,7 +110,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex2(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -404,7 +404,7 @@ module.exports = withRequestLogging("vibeusage-link-code-init", async function(r
   const codeHash = await sha256Hex(linkCode);
   const sessionId = await sha256Hex(bearer);
   const expiresAt = new Date(Date.now() + LINK_CODE_TTL_MS).toISOString();
-  const { error: insertErr } = await dbClient.database.from("vibescore_link_codes").insert([
+  const { error: insertErr } = await dbClient.database.from("vibeusage_link_codes").insert([
     {
       user_id: auth.userId,
       code_hash: codeHash,

@@ -110,7 +110,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -648,8 +648,8 @@ module.exports = async function(request) {
       );
     }
   }
-  const entriesView = `vibescore_leaderboard_${period}_current`;
-  const meView = `vibescore_leaderboard_me_${period}_current`;
+  const entriesView = `vibeusage_leaderboard_${period}_current`;
+  const meView = `vibeusage_leaderboard_me_${period}_current`;
   const singleQuery = await tryLoadSingleQuery({
     edgeClient: auth.edgeClient,
     entriesView,
@@ -720,12 +720,12 @@ function normalizeLimit(raw) {
   return i;
 }
 async function loadSnapshot({ serviceClient, period, from, to, userId, limit }) {
-  const { data: entryRows, error: entriesErr } = await serviceClient.database.from("vibescore_leaderboard_snapshots").select("user_id,rank,total_tokens,display_name,avatar_url,generated_at").eq("period", period).eq("from_day", from).eq("to_day", to).order("rank", { ascending: true }).limit(limit);
+  const { data: entryRows, error: entriesErr } = await serviceClient.database.from("vibeusage_leaderboard_snapshots").select("user_id,rank,total_tokens,display_name,avatar_url,generated_at").eq("period", period).eq("from_day", from).eq("to_day", to).order("rank", { ascending: true }).limit(limit);
   if (entriesErr) {
     console.error("snapshot entries error", entriesErr);
     return { ok: false };
   }
-  const { data: meRow, error: meErr } = await serviceClient.database.from("vibescore_leaderboard_snapshots").select("rank,total_tokens,generated_at").eq("period", period).eq("from_day", from).eq("to_day", to).eq("user_id", userId).maybeSingle();
+  const { data: meRow, error: meErr } = await serviceClient.database.from("vibeusage_leaderboard_snapshots").select("rank,total_tokens,generated_at").eq("period", period).eq("from_day", from).eq("to_day", to).eq("user_id", userId).maybeSingle();
   if (meErr) {
     console.error("snapshot me error", meErr);
     return { ok: false };
@@ -760,7 +760,7 @@ async function computeWindow({ period, edgeClient }) {
     const to2 = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
     return { from: formatDateUTC(from2), to: formatDateUTC(to2) };
   }
-  const { data: meta, error } = await edgeClient.database.from("vibescore_leaderboard_meta_total_current").select("from_day,to_day").maybeSingle();
+  const { data: meta, error } = await edgeClient.database.from("vibeusage_leaderboard_meta_total_current").select("from_day,to_day").maybeSingle();
   if (error) throw new Error(error.message);
   const from = isDate(meta?.from_day) ? meta.from_day : formatDateUTC(today);
   const to = isDate(meta?.to_day) ? meta.to_day : formatDateUTC(today);

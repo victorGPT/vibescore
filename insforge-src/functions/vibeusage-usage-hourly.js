@@ -188,7 +188,7 @@ module.exports = withRequestLogging('vibeusage-usage-hourly', async function(req
     const { error } = await forEachPage({
       createQuery: () => {
         let query = auth.edgeClient.database
-          .from('vibescore_tracker_hourly')
+          .from('vibeusage_tracker_hourly')
           .select('hour_start,model,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
           .eq('user_id', auth.userId);
         if (source) query = query.eq('source', source);
@@ -310,7 +310,7 @@ module.exports = withRequestLogging('vibeusage-usage-hourly', async function(req
   const { error } = await forEachPage({
     createQuery: () => {
         let query = auth.edgeClient.database
-          .from('vibescore_tracker_hourly')
+          .from('vibeusage_tracker_hourly')
           .select(
             'hour_start,model,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens'
           )
@@ -476,7 +476,7 @@ function parseHalfHourSlotFromKey(key) {
 async function tryAggregateHourlyTotals({ edgeClient, userId, startIso, endIso, source, canonicalModel, usageModels }) {
   try {
     let query = edgeClient.database
-      .from('vibescore_tracker_hourly')
+      .from('vibeusage_tracker_hourly')
       .select(
         'source,hour:hour_start,sum_total_tokens:sum(total_tokens),sum_input_tokens:sum(input_tokens),sum_cached_input_tokens:sum(cached_input_tokens),sum_output_tokens:sum(output_tokens),sum_reasoning_output_tokens:sum(reasoning_output_tokens),sum_billable_total_tokens:sum(billable_total_tokens),count_rows:count(),count_billable_total_tokens:count(billable_total_tokens)'
       )
@@ -539,7 +539,7 @@ async function getSyncMeta({ edgeClient, userId, startUtc, endUtc, tzContext }) 
 async function getLastSyncAt({ edgeClient, userId }) {
   try {
     const { data, error } = await edgeClient.database
-      .from('vibescore_tracker_device_tokens')
+      .from('vibeusage_tracker_device_tokens')
       .select('last_sync_at')
       .eq('user_id', userId)
       .order('last_sync_at', { ascending: false })

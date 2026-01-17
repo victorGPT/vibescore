@@ -110,7 +110,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -276,7 +276,7 @@ module.exports = async function(request) {
   const cutoffIso = cutoff.toISOString();
   const eventsResult = await purgeTable({
     serviceClient,
-    table: "vibescore_tracker_events",
+    table: "vibeusage_tracker_events",
     cutoffColumn: "token_timestamp",
     cutoffIso,
     dryRun,
@@ -287,7 +287,7 @@ module.exports = async function(request) {
   if (includeIngestBatches) {
     ingestResult = await purgeTable({
       serviceClient,
-      table: "vibescore_tracker_ingest_batches",
+      table: "vibeusage_tracker_ingest_batches",
       cutoffColumn: "created_at",
       cutoffIso,
       dryRun,

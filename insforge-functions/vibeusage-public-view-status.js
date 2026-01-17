@@ -110,7 +110,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -392,7 +392,7 @@ module.exports = withRequestLogging("vibeusage-public-view-status", async functi
   const baseUrl = getBaseUrl();
   const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
   if (!auth.ok) return json({ error: "Unauthorized" }, 401);
-  const { data, error } = await auth.edgeClient.database.from("vibescore_public_views").select("revoked_at").eq("user_id", auth.userId).maybeSingle();
+  const { data, error } = await auth.edgeClient.database.from("vibeusage_public_views").select("revoked_at").eq("user_id", auth.userId).maybeSingle();
   if (error) return json({ error: "Failed to fetch public view status" }, 500);
   const enabled = Boolean(data && !data.revoked_at);
   return json({ enabled }, 200);

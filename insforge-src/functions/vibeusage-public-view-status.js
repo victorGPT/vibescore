@@ -22,7 +22,7 @@ module.exports = withRequestLogging('vibeusage-public-view-status', async functi
   if (!auth.ok) return json({ error: 'Unauthorized' }, 401);
 
   const { data, error } = await auth.edgeClient.database
-    .from('vibescore_public_views')
+    .from('vibeusage_public_views')
     .select('revoked_at')
     .eq('user_id', auth.userId)
     .maybeSingle();

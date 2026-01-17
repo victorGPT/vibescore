@@ -62,7 +62,7 @@ module.exports = withRequestLogging('vibeusage-device-token-issue', async functi
   const tokenHash = await sha256Hex(token);
 
   const { error: deviceErr } = await dbClient.database
-    .from('vibescore_tracker_devices')
+    .from('vibeusage_tracker_devices')
     .insert([
       {
         id: deviceId,
@@ -77,7 +77,7 @@ module.exports = withRequestLogging('vibeusage-device-token-issue', async functi
   }
 
   const { error: tokenErr } = await dbClient.database
-    .from('vibescore_tracker_device_tokens')
+    .from('vibeusage_tracker_device_tokens')
     .insert([
       {
         id: tokenId,
@@ -115,7 +115,7 @@ function generateToken() {
 
 async function bestEffortDeleteDevice({ dbClient, deviceId, userId }) {
   try {
-    let query = dbClient.database.from('vibescore_tracker_devices').delete().eq('id', deviceId);
+    let query = dbClient.database.from('vibeusage_tracker_devices').delete().eq('id', deviceId);
     if (userId) query = query.eq('user_id', userId);
     const { error } = await query;
     if (error) {

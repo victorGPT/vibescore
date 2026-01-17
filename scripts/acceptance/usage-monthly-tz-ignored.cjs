@@ -166,12 +166,12 @@ function buildFetchStub() {
       return jsonResponse(200, { user: { id: 'user-id' } });
     }
 
-    if (url.pathname === '/api/database/records/vibescore_tracker_daily' && method === 'GET') {
+    if (url.pathname === '/api/database/records/vibeusage_tracker_daily' && method === 'GET') {
       calls.daily += 1;
       return jsonResponse(200, []);
     }
 
-    if (url.pathname === '/api/database/records/vibescore_tracker_hourly') {
+    if (url.pathname === '/api/database/records/vibeusage_tracker_hourly') {
       calls.hourly += 1;
       return jsonResponse(200, [
         {

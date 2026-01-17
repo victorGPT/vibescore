@@ -110,7 +110,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -661,23 +661,23 @@ async function computeWindow({ period, serviceClient }) {
     const to2 = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
     return { ok: true, from: formatDateUTC(from2), to: formatDateUTC(to2) };
   }
-  const { data: meta, error } = await serviceClient.database.from("vibescore_leaderboard_source_total").select("from_day,to_day").limit(1).maybeSingle();
+  const { data: meta, error } = await serviceClient.database.from("vibeusage_leaderboard_source_total").select("from_day,to_day").limit(1).maybeSingle();
   if (error) return { ok: false, error: error.message };
   const from = isDate(meta?.from_day) ? meta.from_day : formatDateUTC(today);
   const to = isDate(meta?.to_day) ? meta.to_day : formatDateUTC(today);
   return { ok: true, from, to };
 }
 async function refreshPeriod({ serviceClient, period, from, to, generatedAt }) {
-  const deleteRes = await serviceClient.database.from("vibescore_leaderboard_snapshots").delete().eq("period", period).eq("from_day", from).eq("to_day", to);
+  const deleteRes = await serviceClient.database.from("vibeusage_leaderboard_snapshots").delete().eq("period", period).eq("from_day", from).eq("to_day", to);
   if (deleteRes.error) {
     throw new Error(deleteRes.error.message);
   }
-  const sourceView = `vibescore_leaderboard_source_${period}`;
+  const sourceView = `vibeusage_leaderboard_source_${period}`;
   const { data: rows, error } = await serviceClient.database.from(sourceView).select("user_id,rank,total_tokens,display_name,avatar_url,from_day,to_day").order("rank", { ascending: true });
   if (error) throw new Error(error.message);
   const normalized = (rows || []).map((row) => normalizeSnapshotRow({ row, period, from, to, generatedAt })).filter(Boolean);
   for (const batch of chunkRows(normalized, INSERT_BATCH_SIZE)) {
-    const { error: insertErr } = await serviceClient.database.from("vibescore_leaderboard_snapshots").insert(batch);
+    const { error: insertErr } = await serviceClient.database.from("vibeusage_leaderboard_snapshots").insert(batch);
     if (insertErr) throw new Error(insertErr.message);
   }
   return { inserted: normalized.length };

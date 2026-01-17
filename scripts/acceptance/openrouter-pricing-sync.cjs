@@ -35,10 +35,10 @@ class DatabaseStub {
   }
 
   upsert(rows) {
-    if (this._table === 'vibescore_pricing_profiles') {
+    if (this._table === 'vibeusage_pricing_profiles') {
       this.upserts.push(...rows);
       this.upsertCalls += 1;
-    } else if (this._table === 'vibescore_pricing_model_aliases') {
+    } else if (this._table === 'vibeusage_pricing_model_aliases') {
       this.aliasUpserts.push(...rows);
       this.aliasUpsertCalls += 1;
     }
@@ -61,7 +61,7 @@ class DatabaseStub {
       eq: this._eq,
       lt: { column, value }
     };
-    if (this._table === 'vibescore_pricing_model_aliases') {
+    if (this._table === 'vibeusage_pricing_model_aliases') {
       this.aliasRetention = target;
     } else {
       this.retention = target;
@@ -70,7 +70,7 @@ class DatabaseStub {
   }
 
   range() {
-    if (this._table === 'vibescore_tracker_hourly') {
+    if (this._table === 'vibeusage_tracker_hourly') {
       return { data: this.usageRows, error: null };
     }
     return { data: [], error: null };

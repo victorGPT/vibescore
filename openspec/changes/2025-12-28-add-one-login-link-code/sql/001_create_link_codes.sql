@@ -1,7 +1,7 @@
 -- VibeScore link code schema
 -- Change: 2025-12-28-add-one-login-link-code
 
-create table if not exists public.vibescore_link_codes (
+create table if not exists public.vibeusage_link_codes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   code_hash text not null unique,
@@ -13,13 +13,13 @@ create table if not exists public.vibescore_link_codes (
   created_at timestamptz not null default now()
 );
 
-create index if not exists vibescore_link_codes_expires_at_idx
-  on public.vibescore_link_codes (expires_at);
+create index if not exists vibeusage_link_codes_expires_at_idx
+  on public.vibeusage_link_codes (expires_at);
 
-alter table public.vibescore_link_codes enable row level security;
+alter table public.vibeusage_link_codes enable row level security;
 
 do $$ begin
-  create policy vibescore_link_codes_insert_self on public.vibescore_link_codes
+  create policy vibeusage_link_codes_insert_self on public.vibeusage_link_codes
     for insert to authenticated
     with check (auth.uid() = user_id);
 exception when duplicate_object then null; end $$;

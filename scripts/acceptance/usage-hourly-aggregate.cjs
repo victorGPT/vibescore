@@ -35,7 +35,7 @@ class DatabaseStub {
   }
 
   order() {
-    if (this._table !== 'vibescore_tracker_hourly') {
+    if (this._table !== 'vibeusage_tracker_hourly') {
       return { data: [], error: null };
     }
 

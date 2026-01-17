@@ -282,7 +282,7 @@ module.exports = withRequestLogging("vibeusage-link-code-exchange", async functi
   const deviceId = crypto.randomUUID();
   const tokenId = crypto.randomUUID();
   const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-  const { error: deviceErr } = await dbClient.database.from("vibescore_tracker_devices").insert([
+  const { error: deviceErr } = await dbClient.database.from("vibeusage_tracker_devices").insert([
     {
       id: deviceId,
       user_id: userId,
@@ -294,7 +294,7 @@ module.exports = withRequestLogging("vibeusage-link-code-exchange", async functi
     logIssueError("device insert failed", deviceErr?.message || ISSUE_ERROR_MESSAGE);
     return json({ error: ISSUE_ERROR_MESSAGE }, 500);
   }
-  const { error: tokenErr } = await dbClient.database.from("vibescore_tracker_device_tokens").insert([
+  const { error: tokenErr } = await dbClient.database.from("vibeusage_tracker_device_tokens").insert([
     {
       id: tokenId,
       user_id: userId,
@@ -307,7 +307,7 @@ module.exports = withRequestLogging("vibeusage-link-code-exchange", async functi
     await bestEffortDeleteDevice({ dbClient, deviceId, userId });
     return json({ error: ISSUE_ERROR_MESSAGE }, 500);
   }
-  const { data: updatedRow, error: updateErr } = await dbClient.database.from("vibescore_link_codes").update({ used_at: nowIso, request_id: requestId, device_id: deviceId }).eq("id", linkRow.id).is("used_at", null).select("user_id, device_id, request_id").maybeSingle();
+  const { data: updatedRow, error: updateErr } = await dbClient.database.from("vibeusage_link_codes").update({ used_at: nowIso, request_id: requestId, device_id: deviceId }).eq("id", linkRow.id).is("used_at", null).select("user_id, device_id, request_id").maybeSingle();
   if (updateErr) {
     logIssueError("link code update failed", updateErr?.message || ISSUE_ERROR_MESSAGE);
     await bestEffortDeleteToken({ dbClient, tokenId });
@@ -336,7 +336,7 @@ async function deriveToken({ secret, codeHash, requestId }) {
   return sha256Hex(input);
 }
 async function fetchLinkCodeRow({ dbClient, codeHash }) {
-  const { data, error } = await dbClient.database.from("vibescore_link_codes").select("id,user_id,expires_at,used_at,request_id,device_id").eq("code_hash", codeHash).maybeSingle();
+  const { data, error } = await dbClient.database.from("vibeusage_link_codes").select("id,user_id,expires_at,used_at,request_id,device_id").eq("code_hash", codeHash).maybeSingle();
   return { row: data || null, error };
 }
 function isExpired(expiresAt) {
@@ -347,7 +347,7 @@ function isExpired(expiresAt) {
 }
 async function bestEffortDeleteToken({ dbClient, tokenId }) {
   try {
-    const { error } = await dbClient.database.from("vibescore_tracker_device_tokens").delete().eq("id", tokenId);
+    const { error } = await dbClient.database.from("vibeusage_tracker_device_tokens").delete().eq("id", tokenId);
     if (error) {
       logIssueError("compensation token delete failed", ISSUE_ERROR_MESSAGE);
     }
@@ -357,7 +357,7 @@ async function bestEffortDeleteToken({ dbClient, tokenId }) {
 }
 async function bestEffortDeleteDevice({ dbClient, deviceId, userId }) {
   try {
-    let query = dbClient.database.from("vibescore_tracker_devices").delete().eq("id", deviceId);
+    let query = dbClient.database.from("vibeusage_tracker_devices").delete().eq("id", deviceId);
     if (userId) query = query.eq("user_id", userId);
     const { error } = await query;
     if (error) {

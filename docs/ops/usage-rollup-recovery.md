@@ -1,12 +1,12 @@
 # Usage Rollup Recovery
 
 ## 背景
-Usage rollup 目前为临时降级状态，后端强制走 hourly 聚合（避免在缺表环境触发 `vibescore_tracker_daily_rollup` 查询错误）。当前版本忽略 `VIBEUSAGE_ROLLUP_ENABLED` / `VIBESCORE_ROLLUP_ENABLED`。
+Usage rollup 目前为临时降级状态，后端强制走 hourly 聚合（避免在缺表环境触发 `vibeusage_tracker_daily_rollup` 查询错误）。当前版本忽略 `VIBEUSAGE_ROLLUP_ENABLED` / `VIBESCORE_ROLLUP_ENABLED`。
 
 ## 恢复条件
 1. InsForge 数据库已执行 `scripts/ops/usage-daily-rollup.sql`（表 + 触发器 + 函数）。
 2. 已执行 `scripts/ops/usage-daily-rollup-backfill.sql` 并完成历史回填。
-3. 日志中不再出现 `relation "public.vibescore_tracker_daily_rollup" does not exist`。
+3. 日志中不再出现 `relation "public.vibeusage_tracker_daily_rollup" does not exist`。
 4. 验收脚本通过（见下方验证记录）。
 
 ## 恢复步骤

@@ -74,7 +74,7 @@ module.exports = withRequestLogging('vibeusage-link-code-exchange', async functi
   const nowIso = new Date().toISOString();
 
   const { error: deviceErr } = await dbClient.database
-    .from('vibescore_tracker_devices')
+    .from('vibeusage_tracker_devices')
     .insert([
       {
         id: deviceId,
@@ -89,7 +89,7 @@ module.exports = withRequestLogging('vibeusage-link-code-exchange', async functi
   }
 
   const { error: tokenErr } = await dbClient.database
-    .from('vibescore_tracker_device_tokens')
+    .from('vibeusage_tracker_device_tokens')
     .insert([
       {
         id: tokenId,
@@ -105,7 +105,7 @@ module.exports = withRequestLogging('vibeusage-link-code-exchange', async functi
   }
 
   const { data: updatedRow, error: updateErr } = await dbClient.database
-    .from('vibescore_link_codes')
+    .from('vibeusage_link_codes')
     .update({ used_at: nowIso, request_id: requestId, device_id: deviceId })
     .eq('id', linkRow.id)
     .is('used_at', null)
@@ -148,7 +148,7 @@ async function deriveToken({ secret, codeHash, requestId }) {
 
 async function fetchLinkCodeRow({ dbClient, codeHash }) {
   const { data, error } = await dbClient.database
-    .from('vibescore_link_codes')
+    .from('vibeusage_link_codes')
     .select('id,user_id,expires_at,used_at,request_id,device_id')
     .eq('code_hash', codeHash)
     .maybeSingle();
@@ -165,7 +165,7 @@ function isExpired(expiresAt) {
 async function bestEffortDeleteToken({ dbClient, tokenId }) {
   try {
     const { error } = await dbClient.database
-      .from('vibescore_tracker_device_tokens')
+      .from('vibeusage_tracker_device_tokens')
       .delete()
       .eq('id', tokenId);
     if (error) {
@@ -178,7 +178,7 @@ async function bestEffortDeleteToken({ dbClient, tokenId }) {
 
 async function bestEffortDeleteDevice({ dbClient, deviceId, userId }) {
   try {
-    let query = dbClient.database.from('vibescore_tracker_devices').delete().eq('id', deviceId);
+    let query = dbClient.database.from('vibeusage_tracker_devices').delete().eq('id', deviceId);
     if (userId) query = query.eq('user_id', userId);
     const { error } = await query;
     if (error) {

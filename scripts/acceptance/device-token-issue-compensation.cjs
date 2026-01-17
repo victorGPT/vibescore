@@ -14,7 +14,7 @@ class QueryStub {
 
   insert(rows) {
     this.state.inserts.push({ table: this.table, rows });
-    if (this.table === 'vibescore_tracker_device_tokens') {
+    if (this.table === 'vibeusage_tracker_device_tokens') {
       return { error: new Error('token insert failed') };
     }
     return { error: null };
@@ -95,16 +95,16 @@ async function main() {
   assert.equal(res.status, 500);
   assert.equal(body.error, 'Failed to issue device token');
 
-  const deviceInsert = state.inserts.find((i) => i.table === 'vibescore_tracker_devices');
+  const deviceInsert = state.inserts.find((i) => i.table === 'vibeusage_tracker_devices');
   assert.ok(deviceInsert, 'device insert not performed');
 
-  const tokenInsert = state.inserts.find((i) => i.table === 'vibescore_tracker_device_tokens');
+  const tokenInsert = state.inserts.find((i) => i.table === 'vibeusage_tracker_device_tokens');
   assert.ok(tokenInsert, 'token insert not performed');
 
   const deviceId = deviceInsert.rows?.[0]?.id;
   assert.equal(typeof deviceId, 'string');
 
-  const deleteCall = state.deletes.find((d) => d.table === 'vibescore_tracker_devices');
+  const deleteCall = state.deletes.find((d) => d.table === 'vibeusage_tracker_devices');
   assert.ok(deleteCall, 'compensation delete not performed');
 
   const idFilter = deleteCall.filters.find((f) => f.column === 'id');

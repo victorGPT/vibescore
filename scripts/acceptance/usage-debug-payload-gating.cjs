@@ -58,10 +58,10 @@ class DatabaseStub {
   }
 
   limit() {
-    if (this._table === 'vibescore_pricing_model_aliases') {
+    if (this._table === 'vibeusage_pricing_model_aliases') {
       return { data: [], error: null };
     }
-    if (this._table === 'vibescore_pricing_profiles') {
+    if (this._table === 'vibeusage_pricing_profiles') {
       const profile = getDefaultPricingProfile();
       return {
         data: [
@@ -82,7 +82,7 @@ class DatabaseStub {
   }
 
   range(from) {
-    if (this._table !== 'vibescore_tracker_hourly') {
+    if (this._table !== 'vibeusage_tracker_hourly') {
       return { data: [], error: null };
     }
     if (from > 0) return { data: [], error: null };

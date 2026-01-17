@@ -331,7 +331,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex2(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -782,14 +782,14 @@ function deriveMetricsSource(rows) {
   return null;
 }
 async function getTokenRowWithServiceClient(serviceClient, tokenHash) {
-  const { data: tokenRow, error: tokenErr } = await serviceClient.database.from("vibescore_tracker_device_tokens").select("id,user_id,device_id,revoked_at,last_sync_at").eq("token_hash", tokenHash).maybeSingle();
+  const { data: tokenRow, error: tokenErr } = await serviceClient.database.from("vibeusage_tracker_device_tokens").select("id,user_id,device_id,revoked_at,last_sync_at").eq("token_hash", tokenHash).maybeSingle();
   if (tokenErr) throw new Error(tokenErr.message);
   if (!tokenRow || tokenRow.revoked_at) return null;
   return tokenRow;
 }
 async function getTokenRowWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher }) {
   if (!anonKey) throw new Error("Anon key missing");
-  const url = new URL("/api/database/records/vibescore_tracker_device_tokens", baseUrl);
+  const url = new URL("/api/database/records/vibeusage_tracker_device_tokens", baseUrl);
   url.searchParams.set("select", "id,user_id,device_id,revoked_at,last_sync_at");
   url.searchParams.set("token_hash", `eq.${tokenHash}`);
   url.searchParams.set("limit", "1");
@@ -815,7 +815,7 @@ async function upsertWithServiceClient({
   fetcher
 }) {
   if (serviceRoleKey && baseUrl) {
-    const url = new URL("/api/database/records/vibescore_tracker_hourly", baseUrl);
+    const url = new URL("/api/database/records/vibeusage_tracker_hourly", baseUrl);
     const res = await recordsUpsert({
       url,
       anonKey: serviceRoleKey,
@@ -837,7 +837,7 @@ async function upsertWithServiceClient({
       return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
     }
   }
-  const table = serviceClient.database.from("vibescore_tracker_hourly");
+  const table = serviceClient.database.from("vibeusage_tracker_hourly");
   if (typeof table?.upsert === "function") {
     const { error } = await table.upsert(rows, { onConflict: "user_id,device_id,source,model,hour_start" });
     if (error) return { ok: false, error: error.message, inserted: 0, skipped: 0 };
@@ -848,7 +848,7 @@ async function upsertWithServiceClient({
 }
 async function upsertWithAnonKey({ baseUrl, anonKey, tokenHash, tokenRow, rows, nowIso, fetcher }) {
   if (!anonKey) return { ok: false, error: "Anon key missing", inserted: 0, skipped: 0 };
-  const url = new URL("/api/database/records/vibescore_tracker_hourly", baseUrl);
+  const url = new URL("/api/database/records/vibeusage_tracker_hourly", baseUrl);
   const res = await recordsUpsert({
     url,
     anonKey,
@@ -895,12 +895,12 @@ async function recordIngestBatchMetrics({
   };
   try {
     if (serviceClient) {
-      const { error } = await serviceClient.database.from("vibescore_tracker_ingest_batches").insert(row);
+      const { error } = await serviceClient.database.from("vibeusage_tracker_ingest_batches").insert(row);
       if (error) throw new Error(error.message);
       return;
     }
     if (!anonKey || !baseUrl) return;
-    const url = new URL("/api/database/records/vibescore_tracker_ingest_batches", baseUrl);
+    const url = new URL("/api/database/records/vibeusage_tracker_ingest_batches", baseUrl);
     const res = await (fetcher || fetch)(url.toString(), {
       method: "POST",
       headers: {
@@ -920,18 +920,18 @@ async function bestEffortTouchWithServiceClient(serviceClient, tokenRow, nowIso)
   const lastSyncAt = normalizeIso(tokenRow?.last_sync_at);
   const shouldUpdateSync = !lastSyncAt || !isWithinInterval(lastSyncAt, 30);
   try {
-    await serviceClient.database.from("vibescore_tracker_device_tokens").update(shouldUpdateSync ? { last_used_at: nowIso, last_sync_at: nowIso } : { last_used_at: nowIso }).eq("id", tokenRow.id);
+    await serviceClient.database.from("vibeusage_tracker_device_tokens").update(shouldUpdateSync ? { last_used_at: nowIso, last_sync_at: nowIso } : { last_used_at: nowIso }).eq("id", tokenRow.id);
   } catch (_e) {
   }
   try {
-    await serviceClient.database.from("vibescore_tracker_devices").update({ last_seen_at: nowIso }).eq("id", tokenRow.device_id);
+    await serviceClient.database.from("vibeusage_tracker_devices").update({ last_seen_at: nowIso }).eq("id", tokenRow.device_id);
   } catch (_e) {
   }
 }
 async function bestEffortTouchWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher }) {
   if (!anonKey) return;
   try {
-    const url = new URL("/api/database/rpc/vibescore_touch_device_token_sync", baseUrl);
+    const url = new URL("/api/database/rpc/vibeusage_touch_device_token_sync", baseUrl);
     await (fetcher || fetch)(url.toString(), {
       method: "POST",
       headers: {

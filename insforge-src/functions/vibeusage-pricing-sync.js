@@ -1,5 +1,5 @@
 // Edge function: vibeusage-pricing-sync
-// Fetches OpenRouter Models API pricing and upserts into vibescore_pricing_profiles.
+// Fetches OpenRouter Models API pricing and upserts into vibeusage_pricing_profiles.
 // Auth: Authorization: Bearer <service_role_key>
 
 'use strict';
@@ -147,7 +147,7 @@ module.exports = withRequestLogging('vibeusage-pricing-sync', async function(req
   for (let i = 0; i < rows.length; i += UPSERT_BATCH_SIZE) {
     const batch = rows.slice(i, i + UPSERT_BATCH_SIZE);
     const { error } = await serviceClient.database
-      .from('vibescore_pricing_profiles')
+      .from('vibeusage_pricing_profiles')
       .upsert(batch, { onConflict: 'model,source,effective_from' });
     if (error) return json({ error: error.message }, 500);
     upserted += batch.length;
@@ -170,7 +170,7 @@ module.exports = withRequestLogging('vibeusage-pricing-sync', async function(req
   for (let i = 0; i < aliasRows.length; i += UPSERT_BATCH_SIZE) {
     const batch = aliasRows.slice(i, i + UPSERT_BATCH_SIZE);
     const { error } = await serviceClient.database
-      .from('vibescore_pricing_model_aliases')
+      .from('vibeusage_pricing_model_aliases')
       .upsert(batch, { onConflict: 'usage_model,pricing_source,effective_from' });
     if (error) return json({ error: error.message }, 500);
     aliasesUpserted += batch.length;
@@ -182,14 +182,14 @@ module.exports = withRequestLogging('vibeusage-pricing-sync', async function(req
     cutoff.setUTCDate(cutoff.getUTCDate() - retentionDays);
     const cutoffDate = formatDateUTC(cutoff);
     const { error } = await serviceClient.database
-      .from('vibescore_pricing_profiles')
+      .from('vibeusage_pricing_profiles')
       .update({ active: false })
       .eq('source', pricingSource)
       .lt('effective_from', cutoffDate);
     if (error) return json({ error: error.message }, 500);
 
     const { error: aliasError } = await serviceClient.database
-      .from('vibescore_pricing_model_aliases')
+      .from('vibeusage_pricing_model_aliases')
       .update({ active: false })
       .eq('pricing_source', pricingSource)
       .lt('effective_from', cutoffDate);
@@ -263,7 +263,7 @@ async function listUsageModels({ serviceClient, windowDays }) {
   const { error } = await forEachPage({
     createQuery: () => {
       let query = serviceClient.database
-        .from('vibescore_tracker_hourly')
+        .from('vibeusage_tracker_hourly')
         .select('model')
         .gte('hour_start', since);
       query = applyCanaryFilter(query, { source: null, model: null });

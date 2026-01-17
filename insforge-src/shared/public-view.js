@@ -19,7 +19,7 @@ async function resolvePublicView({ baseUrl, shareToken }) {
 
   const tokenHash = await sha256Hex(token);
   const { data, error } = await dbClient.database
-    .from('vibescore_public_views')
+    .from('vibeusage_public_views')
     .select('user_id')
     .eq('token_hash', tokenHash)
     .is('revoked_at', null)

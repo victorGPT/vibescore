@@ -24,7 +24,7 @@ module.exports = withRequestLogging('vibeusage-public-view-revoke', async functi
 
   const nowIso = new Date().toISOString();
   const { error } = await auth.edgeClient.database
-    .from('vibescore_public_views')
+    .from('vibeusage_public_views')
     .update({ revoked_at: nowIso, updated_at: nowIso })
     .eq('user_id', auth.userId);
 

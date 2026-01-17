@@ -16,8 +16,8 @@ test('rollup recovery doc references rollup scripts that query rollup table', ()
     const scriptPath = path.join(repoRoot, 'scripts', 'acceptance', script);
     const content = fs.readFileSync(scriptPath, 'utf8');
     assert.ok(
-      content.includes('vibescore_tracker_daily_rollup'),
-      `Expected ${script} to reference vibescore_tracker_daily_rollup`
+      content.includes('vibeusage_tracker_daily_rollup'),
+      `Expected ${script} to reference vibeusage_tracker_daily_rollup`
     );
   }
 });

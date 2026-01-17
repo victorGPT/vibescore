@@ -110,7 +110,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -411,7 +411,7 @@ var require_model_identity = __commonJS({
       }
       const dateKey = normalizeDateKey(effectiveDate) || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       const dateKeyNext = nextDateKey(dateKey) || dateKey;
-      const query = edgeClient.database.from("vibescore_model_aliases").select("usage_model,canonical_model,display_name,effective_from").eq("active", true).in("usage_model", models).lt("effective_from", dateKeyNext).order("effective_from", { ascending: false });
+      const query = edgeClient.database.from("vibeusage_model_aliases").select("usage_model,canonical_model,display_name,effective_from").eq("active", true).in("usage_model", models).lt("effective_from", dateKeyNext).order("effective_from", { ascending: false });
       const result = await query;
       const data = Array.isArray(result?.data) ? result.data : Array.isArray(query?.data) ? query.data : null;
       const error = result?.error || query?.error || null;
@@ -428,7 +428,7 @@ var require_model_identity = __commonJS({
       }
       const dateKey = normalizeDateKey(effectiveDate) || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       const dateKeyNext = nextDateKey(dateKey) || dateKey;
-      const query = edgeClient.database.from("vibescore_model_aliases").select("usage_model,canonical_model,effective_from").eq("active", true).eq("canonical_model", canonical).lt("effective_from", dateKeyNext).order("effective_from", { ascending: false });
+      const query = edgeClient.database.from("vibeusage_model_aliases").select("usage_model,canonical_model,effective_from").eq("active", true).eq("canonical_model", canonical).lt("effective_from", dateKeyNext).order("effective_from", { ascending: false });
       const result = await query;
       const data = Array.isArray(result?.data) ? result.data : Array.isArray(query?.data) ? query.data : null;
       const error = result?.error || query?.error || null;
@@ -1130,7 +1130,7 @@ var require_model_alias_timeline = __commonJS({
       if (!models.length || !edgeClient || !edgeClient.database) return [];
       const dateKey = extractDateKey2(effectiveDate) || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       const dateKeyNext = nextDateKey(dateKey) || dateKey;
-      const query = edgeClient.database.from("vibescore_model_aliases").select("usage_model,canonical_model,display_name,effective_from").eq("active", true).in("usage_model", models).lt("effective_from", dateKeyNext).order("effective_from", { ascending: true });
+      const query = edgeClient.database.from("vibeusage_model_aliases").select("usage_model,canonical_model,display_name,effective_from").eq("active", true).in("usage_model", models).lt("effective_from", dateKeyNext).order("effective_from", { ascending: true });
       const result = await query;
       const data = Array.isArray(result?.data) ? result.data : Array.isArray(query?.data) ? query.data : null;
       if (!Array.isArray(data) || result?.error || query?.error) return [];
@@ -1204,7 +1204,7 @@ var require_usage_rollup = __commonJS({
       const rows = [];
       const { error } = await forEachPage2({
         createQuery: () => {
-          let query = edgeClient.database.from("vibescore_tracker_daily_rollup").select("day,source,model,total_tokens,billable_total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", userId).gte("day", fromDay).lte("day", toDay);
+          let query = edgeClient.database.from("vibeusage_tracker_daily_rollup").select("day,source,model,total_tokens,billable_total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", userId).gte("day", fromDay).lte("day", toDay);
           if (source) query = query.eq("source", source);
           if (model) query = query.eq("model", model);
           query = applyCanaryFilter2(query, { source, model });
@@ -1424,7 +1424,7 @@ module.exports = withRequestLogging("vibeusage-usage-hourly", async function(req
     let rowCount2 = 0;
     const { error: error2 } = await forEachPage({
       createQuery: () => {
-        let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,model,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
+        let query = auth.edgeClient.database.from("vibeusage_tracker_hourly").select("hour_start,model,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
         if (source) query = query.eq("source", source);
         if (hasModelFilter2) query = applyUsageModelFilter(query, usageModels2);
         query = applyCanaryFilter(query, { source, model: canonicalModel2 });
@@ -1529,7 +1529,7 @@ module.exports = withRequestLogging("vibeusage-usage-hourly", async function(req
   let rowCount = 0;
   const { error } = await forEachPage({
     createQuery: () => {
-      let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select(
+      let query = auth.edgeClient.database.from("vibeusage_tracker_hourly").select(
         "hour_start,model,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens"
       ).eq("user_id", auth.userId);
       if (source) query = query.eq("source", source);
@@ -1676,7 +1676,7 @@ function parseHalfHourSlotFromKey(key) {
 }
 async function tryAggregateHourlyTotals({ edgeClient, userId, startIso, endIso, source, canonicalModel, usageModels }) {
   try {
-    let query = edgeClient.database.from("vibescore_tracker_hourly").select(
+    let query = edgeClient.database.from("vibeusage_tracker_hourly").select(
       "source,hour:hour_start,sum_total_tokens:sum(total_tokens),sum_input_tokens:sum(input_tokens),sum_cached_input_tokens:sum(cached_input_tokens),sum_output_tokens:sum(output_tokens),sum_reasoning_output_tokens:sum(reasoning_output_tokens),sum_billable_total_tokens:sum(billable_total_tokens),count_rows:count(),count_billable_total_tokens:count(billable_total_tokens)"
     ).eq("user_id", userId);
     if (source) query = query.eq("source", source);
@@ -1720,7 +1720,7 @@ async function getSyncMeta({ edgeClient, userId, startUtc, endUtc, tzContext }) 
 }
 async function getLastSyncAt({ edgeClient, userId }) {
   try {
-    const { data, error } = await edgeClient.database.from("vibescore_tracker_device_tokens").select("last_sync_at").eq("user_id", userId).order("last_sync_at", { ascending: false }).limit(1);
+    const { data, error } = await edgeClient.database.from("vibeusage_tracker_device_tokens").select("last_sync_at").eq("user_id", userId).order("last_sync_at", { ascending: false }).limit(1);
     if (error) return null;
     if (!Array.isArray(data) || data.length === 0) return null;
     return data[0]?.last_sync_at || null;

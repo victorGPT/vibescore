@@ -244,7 +244,7 @@ var require_public_view = __commonJS({
         edgeFunctionToken: serviceRoleKey
       });
       const tokenHash = await sha256Hex2(token);
-      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
@@ -420,7 +420,7 @@ module.exports = withRequestLogging("vibeusage-device-token-issue", async functi
   const tokenId = crypto.randomUUID();
   const token = generateToken();
   const tokenHash = await sha256Hex(token);
-  const { error: deviceErr } = await dbClient.database.from("vibescore_tracker_devices").insert([
+  const { error: deviceErr } = await dbClient.database.from("vibeusage_tracker_devices").insert([
     {
       id: deviceId,
       user_id: userId,
@@ -432,7 +432,7 @@ module.exports = withRequestLogging("vibeusage-device-token-issue", async functi
     logIssueError("device insert failed", ISSUE_ERROR_MESSAGE);
     return json({ error: ISSUE_ERROR_MESSAGE }, 500);
   }
-  const { error: tokenErr } = await dbClient.database.from("vibescore_tracker_device_tokens").insert([
+  const { error: tokenErr } = await dbClient.database.from("vibeusage_tracker_device_tokens").insert([
     {
       id: tokenId,
       user_id: userId,
@@ -465,7 +465,7 @@ function generateToken() {
 }
 async function bestEffortDeleteDevice({ dbClient, deviceId, userId }) {
   try {
-    let query = dbClient.database.from("vibescore_tracker_devices").delete().eq("id", deviceId);
+    let query = dbClient.database.from("vibeusage_tracker_devices").delete().eq("id", deviceId);
     if (userId) query = query.eq("user_id", userId);
     const { error } = await query;
     if (error) {

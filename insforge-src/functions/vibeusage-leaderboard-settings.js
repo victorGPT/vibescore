@@ -36,7 +36,7 @@ module.exports = async function(request) {
     updated_at: updatedAt
   };
 
-  const settingsTable = auth.edgeClient.database.from('vibescore_user_settings');
+  const settingsTable = auth.edgeClient.database.from('vibeusage_user_settings');
   if (typeof settingsTable.upsert === 'function') {
     try {
       const { error: upsertErr } = await settingsTable.upsert([upsertRow], { onConflict: 'user_id' });
@@ -49,7 +49,7 @@ module.exports = async function(request) {
   }
 
   const { data: existing, error: selErr } = await auth.edgeClient.database
-    .from('vibescore_user_settings')
+    .from('vibeusage_user_settings')
     .select('user_id')
     .eq('user_id', auth.userId)
     .maybeSingle();
@@ -58,13 +58,13 @@ module.exports = async function(request) {
 
   if (existing?.user_id) {
     const { error: updErr } = await auth.edgeClient.database
-      .from('vibescore_user_settings')
+      .from('vibeusage_user_settings')
       .update({ leaderboard_public: leaderboardPublic, updated_at: updatedAt })
       .eq('user_id', auth.userId);
     if (updErr) return json({ error: updErr.message }, 500);
   } else {
     const { error: insErr } = await auth.edgeClient.database
-      .from('vibescore_user_settings')
+      .from('vibeusage_user_settings')
       .insert([upsertRow]);
     if (insErr) return json({ error: insErr.message }, 500);
   }

@@ -31,8 +31,8 @@
 - [x] 6.3 Commit edge function rename
 
 ## 7. Rename database objects (migration + rollback)
-- [ ] 7.1 Add rename and rollback SQL scripts
-- [ ] 7.2 Update code references to `vibeusage_*`
+- [x] 7.1 Add rename and rollback SQL scripts
+- [x] 7.2 Update code references to `vibeusage_*`
 - [ ] 7.3 Commit DB rename assets
 
 ## 8. Dashboard API + storage rename

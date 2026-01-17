@@ -66,7 +66,7 @@ function makeClient({ userId, userJwt, state }) {
       },
       database: {
         from: (table) => {
-          assert.equal(table, 'vibescore_public_views');
+          assert.equal(table, 'vibeusage_public_views');
 
           return {
             upsert: async (rows, options) => {
