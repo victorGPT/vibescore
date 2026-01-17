@@ -105,10 +105,10 @@ Expected: all tests pass.
 
 ```bash
 curl -s -H "Authorization: Bearer <USER_JWT>" \
-  "https://5tmappuk.us-east.insforge.app/functions/vibescore-usage-summary?from=2024-02-01&to=2026-01-01"
+  "https://5tmappuk.us-east.insforge.app/functions/vibeusage-usage-summary?from=2024-02-01&to=2026-01-01"
 
 curl -s -H "Authorization: Bearer <USER_JWT>" \
-  "https://5tmappuk.us-east.insforge.app/functions/vibescore-usage-summary?from=2023-01-01&to=2026-01-01"
+  "https://5tmappuk.us-east.insforge.app/functions/vibeusage-usage-summary?from=2023-01-01&to=2026-01-01"
 ```
 
 Expected: first returns 200, second returns 400 with max-day error.

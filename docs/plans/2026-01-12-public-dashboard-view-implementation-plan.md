@@ -1,6 +1,8 @@
 # Public Dashboard View Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+>
+> **Legacy naming:** This plan predates the VibeUsage rename. References to `vibescore-usage-*` and related paths map to `vibeusage-usage-*` after the rename is finalized.
 
 **Goal:** Deliver a revocable public share link that renders the full dashboard at `/share/:token` with read-only access.
 

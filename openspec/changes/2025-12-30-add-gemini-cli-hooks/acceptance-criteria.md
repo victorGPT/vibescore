@@ -7,7 +7,7 @@
 
 #### Scenario: Existing SessionEnd hooks are preserved
 - WHEN `tracker init` runs and Gemini `settings.json` exists with other `SessionEnd` hooks
-- THEN the tracker hook is added with `type = "command"` and `name = "vibescore-tracker"`
+- THEN the tracker hook is added with `type = "command"` and `name = "vibeusage-tracker"`
 - AND the command uses `notify.cjs --source=gemini`
 - AND the hook matcher targets all `SessionEnd` reasons (`exit`, `clear`, `logout`, `prompt_input_exit`, `other`)
 - AND `hooks.disabled` remains unchanged

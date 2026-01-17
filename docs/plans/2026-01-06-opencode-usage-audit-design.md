@@ -1,5 +1,7 @@
 # Opencode Usage Audit Design
 
+> 说明：本文档早于 VibeUsage 重命名，`vibescore-usage-*` 为历史命名，完成重命名后对应 `vibeusage-usage-*`。
+
 ## 背景
 Opencode 会对 message 进行回填/重写，存在重复计数风险。当前 server 侧只保留 hourly 聚合结果，缺少 message 级别可追溯证据，因此需要本机对账来验证结果真实可靠。
 

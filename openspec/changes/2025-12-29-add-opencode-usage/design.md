@@ -22,7 +22,7 @@ We need Opencode token usage ingestion that is automatic and non-invasive, align
   - Parsing non-token content or attachments.
   - Backfilling historical data beyond local storage availability.
 - Interfaces:
-  - Plugin file: `~/.config/opencode/plugin/vibescore-tracker.js`.
+  - Plugin file: `~/.config/opencode/plugin/vibeusage-tracker.js`.
   - Notify command: `node ~/.vibescore/bin/notify.cjs --source=opencode`.
   - Parser input: `~/.local/share/opencode/storage/message/**/msg_*.json`.
   - Parser output: half-hour buckets in `~/.vibescore/tracker/queue.jsonl`.

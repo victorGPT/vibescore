@@ -1,6 +1,8 @@
 # Model Identity Alias Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+>
+> **Legacy naming:** This plan predates the VibeUsage rename. References to `vibescore-usage-*` and related paths map to `vibeusage-usage-*` after the rename is finalized.
 
 **Goal:** 统一模型身份映射并在 usage API 输出 `model_id` + display `model`，统计聚合不依赖定价来源。
 

@@ -14,7 +14,7 @@
 
 ## CLI Binaries
 - Primary: `vibeusage`
-- Aliases: `vibeusage-tracker`, `tracker`, `vibescore-tracker`
+- Aliases: `vibeusage-tracker`, `tracker`
 
 ## Environment Variables (CLI + Edge)
 - `VIBEUSAGE_INSFORGE_BASE_URL` (fallback: `VIBESCORE_INSFORGE_BASE_URL`)

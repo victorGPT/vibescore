@@ -11,7 +11,7 @@ Date: 2026-01-04
 - Result: pass (note: `--localstorage-file` warning emitted by test harness)
 
 ## Manual Verification
-- Command: `node -e "process.argv=['node','vibescore-tracker','--help']; require('./bin/tracker.js');"`
+- Command: `node -e "process.argv=['node','vibeusage','--help']; require('./bin/tracker.js');"`
 - Result: pass (help runs and displays VibeUsage commands)
 - Command: `node - <<'NODE'\nconst assert = require('node:assert/strict');\nconst a = require('./insforge-src/functions/vibeusage-usage-summary.js');\nconst b = require('./insforge-src/functions/vibescore-usage-summary.js');\nconst c = require('./insforge-src/functions/vibeusage-device-token-issue.js');\nconst d = require('./insforge-src/functions/vibescore-device-token-issue.js');\nassert.equal(a, b);\nassert.equal(c, d);\nconsole.log('ok: vibeusage and vibescore handlers match');\nNODE`
 - Result: pass (legacy and new handlers resolve to same module)

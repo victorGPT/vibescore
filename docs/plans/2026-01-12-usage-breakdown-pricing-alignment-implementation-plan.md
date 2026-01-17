@@ -1,6 +1,8 @@
 # Usage Breakdown Pricing Alignment Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+>
+> **Legacy naming:** This plan predates the VibeUsage rename. References to `vibescore-usage-*` and related paths map to `vibeusage-usage-*` after the rename is finalized.
 
 **Goal:** Align usage-model-breakdown cost totals with usage-summary by pricing per model/date buckets.
 

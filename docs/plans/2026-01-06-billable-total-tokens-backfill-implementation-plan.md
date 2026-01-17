@@ -1,6 +1,8 @@
 # Billable Total Tokens Backfill Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+>
+> **Legacy naming:** This plan predates the VibeUsage rename. References to `vibescore-usage-*` and related paths map to `vibeusage-usage-*` after the rename is finalized.
 
 **Goal:** Implement Option C by writing `billable_total_tokens` at ingest, backfilling historical hourly rows, and updating read paths to prefer stored billable totals with a temporary fallback for NULL rows.
 

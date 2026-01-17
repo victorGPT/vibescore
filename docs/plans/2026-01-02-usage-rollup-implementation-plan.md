@@ -1,6 +1,8 @@
 # Usage Rollup Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+>
+> **Legacy naming:** This plan predates the VibeUsage rename. References to `vibescore-usage-*` and related paths map to `vibeusage-usage-*` after the rename is finalized.
 
 **Goal:** Move total token aggregation to the backend with half-hour freshness while reducing summary query load via UTC daily rollups.
 

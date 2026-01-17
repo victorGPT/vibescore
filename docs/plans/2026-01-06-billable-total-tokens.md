@@ -1,6 +1,8 @@
 # Billable Total Tokens Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+>
+> **Legacy naming:** This plan predates the VibeUsage rename. References to `vibescore-usage-*` and related paths map to `vibeusage-usage-*` after the rename is finalized.
 
 **Goal:** Compute `billable_total_tokens` server-side using provider-specific rules, and have all dashboard “total” displays use it.
 
