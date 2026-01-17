@@ -46,11 +46,11 @@
 - [x] 9.2 Commit docs/scripts updates
 
 ## 10. Verification + build + canvas sync
-- [ ] 10.1 Run full tests and insforge build checks
-- [ ] 10.2 Run runtime guard
-- [ ] 10.3 Update `architecture.canvas`
-- [ ] 10.4 Run `openspec validate 2026-01-17-finalize-vibeusage-rename --strict`
-- [ ] 10.5 Commit build + canvas sync
+- [x] 10.1 Run full tests and insforge build checks
+- [x] 10.2 Run runtime guard
+- [x] 10.3 Update `architecture.canvas`
+- [x] 10.4 Run `openspec validate 2026-01-17-finalize-vibeusage-rename --strict`
+- [x] 10.5 Commit build + canvas sync
 
 ## 11. Deployment (MCP only)
 - [ ] 11.1 Deploy updated edge functions
