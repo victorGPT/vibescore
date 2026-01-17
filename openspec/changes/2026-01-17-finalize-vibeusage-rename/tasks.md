@@ -28,7 +28,7 @@
 ## 6. Rename edge functions to vibeusage
 - [x] 6.1 Rename edge function files and remove wrappers
 - [x] 6.2 Run `node --test test/edge-functions.test.js`
-- [ ] 6.3 Commit edge function rename
+- [x] 6.3 Commit edge function rename
 
 ## 7. Rename database objects (migration + rollback)
 - [ ] 7.1 Add rename and rollback SQL scripts
