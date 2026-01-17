@@ -4,6 +4,12 @@
 - Command: `openspec validate 2026-01-17-finalize-vibeusage-rename --strict`
 - Result: PASS
 - Date: 2026-01-17
+- Command: `node --test test/vibeusage-docs-smoke-rename.test.js`
+- Result: FAIL (expected; docs/scripts still referenced vibescore)
+- Date: 2026-01-17
+- Command: `node --test test/vibeusage-docs-smoke-rename.test.js`
+- Result: PASS
+- Date: 2026-01-17
 - Command: `node --test test/insforge-src-shared.test.js`
 - Result: FAIL (expected; legacy env fallbacks not removed yet)
 - Date: 2026-01-17

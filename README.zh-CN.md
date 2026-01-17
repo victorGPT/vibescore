@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🟢 VIBESCORE
+# 🟢 VIBEUSAGE
 
 **量化你的 AI 产出**  
 _Codex CLI 实时 AI 分析工具_
@@ -103,7 +103,7 @@ npx --yes vibeusage doctor --base-url https://example.invalid
 ## 🔧 环境变量
 
 - `VIBEUSAGE_HTTP_TIMEOUT_MS`：CLI 请求超时（毫秒，默认 `20000`，`0` 表示关闭，范围 `1000..120000`）。
-- `VITE_VIBESCORE_HTTP_TIMEOUT_MS`：Dashboard 请求超时（毫秒，默认 `15000`，`0` 表示关闭，范围 `1000..30000`）。
+- `VITE_VIBEUSAGE_HTTP_TIMEOUT_MS`：Dashboard 请求超时（毫秒，默认 `15000`，`0` 表示关闭，范围 `1000..30000`）。
 - `VIBEUSAGE_ROLLUP_ENABLED`：当前被忽略，rollup 聚合在代码层禁用，等待 rollup 表部署完成后再恢复。
 - `GEMINI_HOME`：覆盖 Gemini CLI 的 home（默认 `~/.gemini`）。
 

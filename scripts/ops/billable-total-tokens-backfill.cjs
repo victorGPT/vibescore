@@ -258,12 +258,10 @@ async function main() {
 
   const baseUrl =
     process.env.INSFORGE_BASE_URL ||
-    process.env.VIBESCORE_INSFORGE_BASE_URL ||
     process.env.VIBEUSAGE_INSFORGE_BASE_URL ||
     '';
   const serviceRoleKey =
     process.env.INSFORGE_SERVICE_ROLE_KEY ||
-    process.env.VIBESCORE_SERVICE_ROLE_KEY ||
     process.env.VIBEUSAGE_SERVICE_ROLE_KEY ||
     '';
 

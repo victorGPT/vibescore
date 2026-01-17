@@ -142,7 +142,7 @@ async function main() {
     return;
   }
 
-  const trackerDir = opts.trackerDir || process.env.VIBESCORE_TRACKER_DIR || DEFAULT_TRACKER_DIR;
+  const trackerDir = opts.trackerDir || process.env.VIBEUSAGE_TRACKER_DIR || DEFAULT_TRACKER_DIR;
   const queuePath = opts.queuePath || path.join(trackerDir, "queue.jsonl");
   const cursorsPath = opts.cursorsPath || path.join(trackerDir, "cursors.json");
 

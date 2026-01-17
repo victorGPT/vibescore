@@ -87,7 +87,7 @@ Response:
 ```
 
 Notes:
-- Pricing metadata is resolved from `vibescore_pricing_profiles` (latest effective row, `active=true`) using the configured default model/source.
+- Pricing metadata is resolved from `vibeusage_pricing_profiles` (latest effective row, `active=true`) using the configured default model/source.
 - If the pricing table is empty, the backend falls back to the default profile.
 
 ### GET /functions/vibeusage-usage-model-breakdown
@@ -102,7 +102,7 @@ Query:
 
 Notes:
 - `model` is not accepted because this endpoint already returns per-model groups.
-- Pricing metadata is resolved from `vibescore_pricing_profiles` with fallback to default profile when no match exists.
+- Pricing metadata is resolved from `vibeusage_pricing_profiles` with fallback to default profile when no match exists.
 
 Response:
 

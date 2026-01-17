@@ -10,8 +10,8 @@ const ANON_KEY = 'anon_test_123';
 setDenoEnv({
   INSFORGE_INTERNAL_URL: BASE_URL,
   ANON_KEY,
-  VIBESCORE_INGEST_MAX_INFLIGHT: '1',
-  VIBESCORE_INGEST_RETRY_AFTER_MS: '1000'
+  VIBEUSAGE_INGEST_MAX_INFLIGHT: '1',
+  VIBEUSAGE_INGEST_RETRY_AFTER_MS: '1000'
 });
 
 const fn = require('../../insforge-functions/vibeusage-ingest');
