@@ -4,7 +4,7 @@ const path = require('node:path');
 const { test } = require('node:test');
 
 const ROOT = path.resolve(__dirname, '..');
-const RUNTIME_DIRS = ['bin', 'src', 'dashboard', 'insforge-src', 'scripts'];
+const RUNTIME_DIRS = ['bin', 'src', 'dashboard', 'insforge-src', 'insforge-functions', 'scripts'];
 
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {

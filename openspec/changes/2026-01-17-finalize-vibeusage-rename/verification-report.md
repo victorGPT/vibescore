@@ -22,6 +22,12 @@
 - Command: `node --test test/no-vibescore-runtime.test.js`
 - Result: PASS
 - Date: 2026-01-17
+- Command: `node --test test/no-vibescore-runtime.test.js`
+- Result: FAIL (expected; insforge-functions still had legacy vibescore artifacts)
+- Date: 2026-01-17
+- Command: `node --test test/no-vibescore-runtime.test.js`
+- Result: PASS
+- Date: 2026-01-17
 - Command: `openspec validate 2026-01-17-finalize-vibeusage-rename --strict`
 - Result: PASS
 - Date: 2026-01-17
