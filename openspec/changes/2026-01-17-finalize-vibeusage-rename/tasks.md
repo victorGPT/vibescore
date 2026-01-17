@@ -10,7 +10,7 @@
 - [x] 2.4 Commit spec rename
 
 ## 3. Add runtime guard against `vibescore` references
-- [ ] 3.1 Add `test/no-vibescore-runtime.test.js`
+- [x] 3.1 Add `test/no-vibescore-runtime.test.js`
 - [ ] 3.2 Run `node --test test/no-vibescore-runtime.test.js` (expect fail then pass)
 - [ ] 3.3 Commit runtime guard
 
