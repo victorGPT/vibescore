@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { probeBackend } from "../lib/vibescore-api.js";
+import { probeBackend } from "../lib/vibeusage-api.js";
 import {
   createProbeCadence,
   DEFAULT_PROBE_INTERVAL_MS,

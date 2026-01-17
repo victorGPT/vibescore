@@ -43,6 +43,21 @@
 - Command: `node --test test/rollup-recovery-doc.test.js`
 - Result: PASS
 - Date: 2026-01-17
+- Command: `node --test test/no-vibescore-runtime.test.js`
+- Result: PASS
+- Date: 2026-01-17
+- Command: `node --test test/dashboard-function-path.test.js`
+- Result: PASS
+- Date: 2026-01-17
+- Command: `node --test test/dashboard-session-expired-banner.test.js`
+- Result: PASS
+- Date: 2026-01-17
+- Command: `node --test test/public-view.test.js`
+- Result: PASS
+- Date: 2026-01-17
+- Command: `node --test test/usage-pagination-order.test.js`
+- Result: PASS
+- Date: 2026-01-17
 - Command: `node --test test/edge-functions.test.js`
 - Result: FAIL (expected; vibeusage functions still wrapper shims)
 - Date: 2026-01-17

@@ -4,7 +4,7 @@ import {
   getUsageDaily,
   getUsageHourly,
   getUsageMonthly,
-} from "../lib/vibescore-api.js";
+} from "../lib/vibeusage-api.js";
 import { formatDateLocal, formatDateUTC } from "../lib/date-range.js";
 import { isMockEnabled } from "../lib/mock-data.js";
 import { getLocalDayKey, getTimeZoneCacheKey } from "../lib/timezone.js";

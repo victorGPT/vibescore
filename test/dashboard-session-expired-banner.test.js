@@ -132,8 +132,8 @@ test("App probes backend to revalidate expired sessions", () => {
   assert.match(src, /getInsforgeAccessToken\(\)[\s\S]*probeBackend/);
 });
 
-test("vibescore-api resolves access token providers", () => {
-  const src = read("dashboard/src/lib/vibescore-api.js");
+test("vibeusage-api resolves access token providers", () => {
+  const src = read("dashboard/src/lib/vibeusage-api.js");
   assert.match(src, /resolveAccessToken/);
   assert.match(src, /typeof\s+accessToken\s*===\s*\"function\"/);
 });
@@ -164,8 +164,8 @@ test("DashboardPage uses hosted auth routes", () => {
   assert.ok(!src.includes("/auth/callback"));
 });
 
-test("vibescore-api marks session expired only for jwt access tokens", () => {
-  const src = read("dashboard/src/lib/vibescore-api.js");
+test("vibeusage-api marks session expired only for jwt access tokens", () => {
+  const src = read("dashboard/src/lib/vibeusage-api.js");
   assert.match(src, /markSessionExpired/);
   assert.match(src, /isJwtAccessToken/);
   const match = src.match(/function shouldMarkSessionExpired[\s\S]*?\n}/);
@@ -175,8 +175,8 @@ test("vibescore-api marks session expired only for jwt access tokens", () => {
   assert.match(match[0], /isJwtAccessToken\(/);
 });
 
-test("vibescore-api clears session expired after successful jwt responses", () => {
-  const src = read("dashboard/src/lib/vibescore-api.js");
+test("vibeusage-api clears session expired after successful jwt responses", () => {
+  const src = read("dashboard/src/lib/vibeusage-api.js");
   assert.match(src, /clearSessionExpired/);
   const match = src.match(/function shouldClearSessionExpired[\s\S]*?\n}/);
   assert.ok(match, "expected shouldClearSessionExpired helper");

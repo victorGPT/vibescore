@@ -11,7 +11,7 @@
 
 ## 3. Add runtime guard against `vibescore` references
 - [x] 3.1 Add `test/no-vibescore-runtime.test.js`
-- [ ] 3.2 Run `node --test test/no-vibescore-runtime.test.js` (expect fail then pass)
+- [x] 3.2 Run `node --test test/no-vibescore-runtime.test.js` (expect fail then pass)
 - [x] 3.3 Commit runtime guard
 
 ## 4. CLI + local runtime rename to vibeusage endpoints
@@ -36,9 +36,9 @@
 - [x] 7.3 Commit DB rename assets
 
 ## 8. Dashboard API + storage rename
-- [ ] 8.1 Rename dashboard API module and update imports
-- [ ] 8.2 Update storage keys and tests
-- [ ] 8.3 Run dashboard tests
+- [x] 8.1 Rename dashboard API module and update imports
+- [x] 8.2 Update storage keys and tests
+- [x] 8.3 Run dashboard tests
 - [ ] 8.4 Commit dashboard rename
 
 ## 9. Docs + scripts + smoke updates

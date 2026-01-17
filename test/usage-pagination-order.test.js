@@ -27,47 +27,47 @@ test('usage pagination uses deterministic ordering', () => {
   assert.ok(normalize(readFile('insforge-src/shared/usage-rollup.js')).includes(rollupOrder));
   assert.equal(
     countOccurrences(
-      normalize(readFile('insforge-src/functions/vibescore-usage-summary.js')),
+      normalize(readFile('insforge-src/functions/vibeusage-usage-summary.js')),
       hourlyOrder
     ),
     1
   );
   assert.equal(
     countOccurrences(
-      normalize(readFile('insforge-src/functions/vibescore-usage-daily.js')),
+      normalize(readFile('insforge-src/functions/vibeusage-usage-daily.js')),
       hourlyOrder
     ),
     1
   );
   assert.equal(
     countOccurrences(
-      normalize(readFile('insforge-src/functions/vibescore-usage-model-breakdown.js')),
+      normalize(readFile('insforge-src/functions/vibeusage-usage-model-breakdown.js')),
       hourlyOrder
     ),
     1
   );
   assert.equal(
     countOccurrences(
-      normalize(readFile('insforge-src/functions/vibescore-usage-monthly.js')),
+      normalize(readFile('insforge-src/functions/vibeusage-usage-monthly.js')),
       hourlyOrder
     ),
     1
   );
   assert.equal(
     countOccurrences(
-      normalize(readFile('insforge-src/functions/vibescore-usage-heatmap.js')),
+      normalize(readFile('insforge-src/functions/vibeusage-usage-heatmap.js')),
       hourlyOrder
     ),
     2
   );
   assert.equal(
     countOccurrences(
-      normalize(readFile('insforge-src/functions/vibescore-usage-hourly.js')),
+      normalize(readFile('insforge-src/functions/vibeusage-usage-hourly.js')),
       hourlyOrder
     ),
     2
   );
   assert.ok(
-    normalize(readFile('insforge-src/functions/vibescore-pricing-sync.js')).includes(adminOrder)
+    normalize(readFile('insforge-src/functions/vibeusage-pricing-sync.js')).includes(adminOrder)
   );
 });

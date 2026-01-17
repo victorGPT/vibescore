@@ -58,7 +58,7 @@ function parseArgs(argv) {
 function printHelp() {
   process.stdout.write(
     [
-      'Backfill billable_total_tokens on vibescore_tracker_hourly',
+      'Backfill billable_total_tokens on vibeusage_tracker_hourly',
       '',
       'Usage:',
       '  node scripts/ops/billable-total-tokens-backfill.cjs [--from <iso>] [--to <iso>] [--batch-size N] [--sleep-ms N] [--dry-run]',
@@ -140,7 +140,7 @@ function buildCursorFromRow(row) {
 }
 
 async function fetchBatch({ baseUrl, serviceRoleKey, from, to, limit, cursor }) {
-  const url = new URL('/api/database/records/vibescore_tracker_hourly', baseUrl);
+  const url = new URL('/api/database/records/vibeusage_tracker_hourly', baseUrl);
   url.searchParams.set(
     'select',
     'user_id,device_id,source,model,hour_start,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens,total_tokens,billable_total_tokens'
@@ -168,7 +168,7 @@ async function fetchBatch({ baseUrl, serviceRoleKey, from, to, limit, cursor }) 
 
 async function upsertBatch({ baseUrl, serviceRoleKey, updates }) {
   if (!updates.length) return { updated: 0 };
-  const url = new URL('/api/database/records/vibescore_tracker_hourly', baseUrl);
+  const url = new URL('/api/database/records/vibeusage_tracker_hourly', baseUrl);
   url.searchParams.set('on_conflict', 'user_id,device_id,source,model,hour_start');
   const res = await fetch(url.toString(), {
     method: 'POST',
