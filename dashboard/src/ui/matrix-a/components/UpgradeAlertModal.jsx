@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { copy } from "../../../lib/copy.js";
 import {
   safeGetItem,
-  safeRemoveItem,
   safeSetItem,
   safeWriteClipboard,
 } from "../../../lib/safe-browser.js";
@@ -43,14 +42,8 @@ export function UpgradeAlertModal({ requiredVersion, installCommand, onClose }) 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const dismissed = safeGetItem(storageKey);
-    if (!dismissed && hasVersion && safeGetItem(unknownDismissKey)) {
-      safeSetItem(storageKey, "true");
-      safeRemoveItem(unknownDismissKey);
-      setIsVisible(false);
-      return;
-    }
     setIsVisible(!dismissed);
-  }, [storageKey, hasVersion, unknownDismissKey]);
+  }, [storageKey]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
