@@ -115,7 +115,6 @@ test('init defaults dashboard url when not configured', async () => {
   const prevHome = process.env.HOME;
   const prevCodexHome = process.env.CODEX_HOME;
   const prevDashboard = process.env.VIBEUSAGE_DASHBOARD_URL;
-  const prevLegacyDashboard = process.env.VIBESCORE_DASHBOARD_URL;
   const prevWrite = process.stdout.write;
 
   let output = '';
@@ -124,8 +123,6 @@ test('init defaults dashboard url when not configured', async () => {
     process.env.HOME = tmp;
     process.env.CODEX_HOME = path.join(tmp, '.codex');
     delete process.env.VIBEUSAGE_DASHBOARD_URL;
-    delete process.env.VIBESCORE_DASHBOARD_URL;
-
     await fs.mkdir(process.env.CODEX_HOME, { recursive: true });
     await fs.writeFile(path.join(process.env.CODEX_HOME, 'config.toml'), '# empty\n', 'utf8');
 
@@ -147,8 +144,6 @@ test('init defaults dashboard url when not configured', async () => {
     else process.env.CODEX_HOME = prevCodexHome;
     if (prevDashboard === undefined) delete process.env.VIBEUSAGE_DASHBOARD_URL;
     else process.env.VIBEUSAGE_DASHBOARD_URL = prevDashboard;
-    if (prevLegacyDashboard === undefined) delete process.env.VIBESCORE_DASHBOARD_URL;
-    else process.env.VIBESCORE_DASHBOARD_URL = prevLegacyDashboard;
     await fs.rm(tmp, { recursive: true, force: true });
 
     const browserAuthPath = path.join(__dirname, '..', 'src', 'lib', 'browser-auth.js');

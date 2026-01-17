@@ -16,10 +16,7 @@ const { resolveTrackerPaths } = require('../lib/tracker-paths');
 async function cmdUninstall(argv) {
   const opts = parseArgs(argv);
   const home = os.homedir();
-  const { trackerDir, binDir, legacyRootDir } = await resolveTrackerPaths({
-    home,
-    migrate: false
-  });
+  const { trackerDir, binDir } = await resolveTrackerPaths({ home });
   const codexHome = process.env.CODEX_HOME || path.join(home, '.codex');
   const codexConfigPath = path.join(codexHome, 'config.toml');
   const codeHome = process.env.CODE_HOME || path.join(home, '.code');
@@ -73,7 +70,6 @@ async function cmdUninstall(argv) {
 
   if (opts.purge) {
     await fs.rm(path.join(home, '.vibeusage'), { recursive: true, force: true }).catch(() => {});
-    await fs.rm(legacyRootDir, { recursive: true, force: true }).catch(() => {});
   }
 
   process.stdout.write(

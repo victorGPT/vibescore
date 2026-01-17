@@ -13,5 +13,5 @@ test('stripDebugFlag detects --debug and env flags', () => {
   assert.equal(envDebug.debug, true);
 
   const legacyEnv = stripDebugFlag(['status'], { VIBESCORE_DEBUG: '1' });
-  assert.equal(legacyEnv.debug, true);
+  assert.equal(legacyEnv.debug, false);
 });

@@ -25,7 +25,7 @@ async function cmdStatus(argv = []) {
   }
 
   const home = os.homedir();
-  const { trackerDir, binDir } = await resolveTrackerPaths({ home, migrate: true });
+  const { trackerDir, binDir } = await resolveTrackerPaths({ home });
   const configPath = path.join(trackerDir, 'config.json');
   const queuePath = path.join(trackerDir, 'queue.jsonl');
   const queueStatePath = path.join(trackerDir, 'queue.state.json');

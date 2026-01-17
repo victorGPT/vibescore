@@ -52,6 +52,7 @@ test('status prints last upload timestamps from upload.throttle.json', async () 
 
     await cmdStatus();
 
+    assert.match(out, /- Base URL: https:\/\/example\.invalid/);
     assert.match(out, /- Last upload: 2025-12-18T10:19:05\.522Z/);
     assert.match(out, /- Next upload after: 2025-12-18T10:19:06\.522Z/);
   } finally {
@@ -64,7 +65,7 @@ test('status prints last upload timestamps from upload.throttle.json', async () 
   }
 });
 
-test('status migrates legacy tracker directory when only legacy exists', async () => {
+test('status does not migrate legacy tracker directory', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-status-legacy-'));
   const prevHome = process.env.HOME;
   const prevCodexHome = process.env.CODEX_HOME;
@@ -110,9 +111,11 @@ test('status migrates legacy tracker directory when only legacy exists', async (
 
     await cmdStatus();
 
-    assert.match(out, /- Last upload: 2025-12-18T10:19:05\.522Z/);
+    assert.match(out, /- Base URL: unset/);
+    assert.match(out, /- Last upload: never/);
     const newTrackerDir = path.join(tmp, '.vibeusage', 'tracker');
-    await assert.doesNotReject(fs.stat(newTrackerDir));
+    await assert.rejects(fs.stat(newTrackerDir));
+    await fs.stat(legacyTrackerDir);
   } finally {
     process.stdout.write = prevWrite;
     if (prevHome === undefined) delete process.env.HOME;

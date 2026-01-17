@@ -29,6 +29,7 @@ const {
   issueDeviceTokenWithLinkCode
 } = require('../lib/insforge');
 const { resolveTrackerPaths } = require('../lib/tracker-paths');
+const { resolveRuntimeConfig } = require('../lib/runtime-config');
 const {
   BOLD,
   DIM,
@@ -57,20 +58,20 @@ async function cmdInit(argv) {
   const opts = parseArgs(argv);
   const home = os.homedir();
 
-  const { rootDir, trackerDir, binDir } = await resolveTrackerPaths({ home, migrate: true });
+  const { rootDir, trackerDir, binDir } = await resolveTrackerPaths({ home });
 
   const configPath = path.join(trackerDir, 'config.json');
   const notifyOriginalPath = path.join(trackerDir, 'codex_notify_original.json');
   const linkCodeStatePath = path.join(trackerDir, 'link_code_state.json');
 
-  const baseUrl = opts.baseUrl ||
-    process.env.VIBEUSAGE_INSFORGE_BASE_URL ||
-    process.env.VIBESCORE_INSFORGE_BASE_URL ||
-    'https://5tmappuk.us-east.insforge.app';
-  let dashboardUrl = opts.dashboardUrl ||
-    process.env.VIBEUSAGE_DASHBOARD_URL ||
-    process.env.VIBESCORE_DASHBOARD_URL ||
-    DEFAULT_DASHBOARD_URL;
+  const existingConfig = await readJson(configPath);
+  const runtime = resolveRuntimeConfig({
+    cli: { baseUrl: opts.baseUrl, dashboardUrl: opts.dashboardUrl },
+    config: existingConfig || {},
+    env: process.env
+  });
+  const baseUrl = runtime.baseUrl;
+  let dashboardUrl = runtime.dashboardUrl || DEFAULT_DASHBOARD_URL;
   const notifyPath = path.join(binDir, 'notify.cjs');
   const appDir = path.join(trackerDir, 'app');
   const trackerBinPath = path.join(appDir, 'bin', 'tracker.js');
@@ -99,8 +100,8 @@ async function cmdInit(argv) {
       opts,
       home,
       trackerDir,
-      configPath,
-      notifyPath
+      notifyPath,
+      runtime
     });
     renderLocalReport({ summary: preview.summary, isDryRun: true });
     if (preview.pendingBrowserAuth) {
@@ -126,7 +127,9 @@ async function cmdInit(argv) {
       linkCodeStatePath,
       notifyPath,
       appDir,
-      trackerBinPath
+      trackerBinPath,
+      runtime,
+      existingConfig
     });
   } catch (err) {
     spinner.stop();
@@ -208,10 +211,8 @@ function shouldUseBrowserAuth({ deviceToken, opts }) {
   return true;
 }
 
-async function buildDryRunSummary({ opts, home, trackerDir, configPath, notifyPath }) {
-  const existingConfig = await readJson(configPath);
-  const deviceTokenFromEnv = process.env.VIBEUSAGE_DEVICE_TOKEN || process.env.VIBESCORE_DEVICE_TOKEN || null;
-  const deviceToken = deviceTokenFromEnv || existingConfig?.deviceToken || null;
+async function buildDryRunSummary({ opts, home, trackerDir, notifyPath, runtime }) {
+  const deviceToken = runtime?.deviceToken || null;
   const pendingBrowserAuth = shouldUseBrowserAuth({ deviceToken, opts });
   const context = buildIntegrationTargets({ home, trackerDir, notifyPath });
   const summary = await previewIntegrations({ context });
@@ -229,15 +230,13 @@ async function runSetup({
   linkCodeStatePath,
   notifyPath,
   appDir,
-  trackerBinPath
+  trackerBinPath,
+  runtime,
+  existingConfig
 }) {
   await ensureDir(trackerDir);
   await ensureDir(binDir);
-
-  const existingConfig = await readJson(configPath);
-  const deviceTokenFromEnv = process.env.VIBEUSAGE_DEVICE_TOKEN || process.env.VIBESCORE_DEVICE_TOKEN || null;
-
-  let deviceToken = deviceTokenFromEnv || existingConfig?.deviceToken || null;
+  let deviceToken = runtime?.deviceToken || null;
   let deviceId = existingConfig?.deviceId || null;
   const installedAt = existingConfig?.installedAt || new Date().toISOString();
   let pendingBrowserAuth = false;
@@ -610,7 +609,7 @@ try {
 // Throttle spawn: at most once per 20 seconds.
 try {
     const throttlePath = path.join(trackerDir, 'sync.throttle');
-    let deviceToken = process.env.VIBEUSAGE_DEVICE_TOKEN || process.env.VIBESCORE_DEVICE_TOKEN || null;
+    let deviceToken = process.env.VIBEUSAGE_DEVICE_TOKEN || null;
     if (!deviceToken) {
       try {
         const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
@@ -764,5 +763,5 @@ async function copyRuntimeDependencies({ from, to }) {
 }
 
 function isDebugEnabled() {
-  return process.env.VIBEUSAGE_DEBUG === '1' || process.env.VIBESCORE_DEBUG === '1';
+  return process.env.VIBEUSAGE_DEBUG === '1';
 }

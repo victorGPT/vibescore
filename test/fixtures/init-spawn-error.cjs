@@ -11,7 +11,7 @@ const cp = require('node:child_process');
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-init-spawn-'));
   const prevHome = process.env.HOME;
   const prevCodexHome = process.env.CODEX_HOME;
-  const prevToken = process.env.VIBESCORE_DEVICE_TOKEN;
+  const prevToken = process.env.VIBEUSAGE_DEVICE_TOKEN;
   const prevWrite = process.stdout.write;
   const originalSpawn = cp.spawn;
 
@@ -20,7 +20,7 @@ const cp = require('node:child_process');
   try {
     process.env.HOME = tmp;
     process.env.CODEX_HOME = path.join(tmp, '.codex');
-    delete process.env.VIBESCORE_DEVICE_TOKEN;
+    delete process.env.VIBEUSAGE_DEVICE_TOKEN;
     await fs.mkdir(process.env.CODEX_HOME, { recursive: true });
     await fs.writeFile(path.join(process.env.CODEX_HOME, 'config.toml'), '# empty\n', 'utf8');
 
@@ -50,8 +50,8 @@ const cp = require('node:child_process');
     else process.env.HOME = prevHome;
     if (prevCodexHome === undefined) delete process.env.CODEX_HOME;
     else process.env.CODEX_HOME = prevCodexHome;
-    if (prevToken === undefined) delete process.env.VIBESCORE_DEVICE_TOKEN;
-    else process.env.VIBESCORE_DEVICE_TOKEN = prevToken;
+    if (prevToken === undefined) delete process.env.VIBEUSAGE_DEVICE_TOKEN;
+    else process.env.VIBEUSAGE_DEVICE_TOKEN = prevToken;
     await fs.rm(tmp, { recursive: true, force: true });
   }
 })().catch((err) => {

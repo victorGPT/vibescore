@@ -22,6 +22,21 @@ async function readJson(filePath) {
   }
 }
 
+async function readJsonStrict(filePath) {
+  try {
+    const raw = await fs.readFile(filePath, 'utf8');
+    return { status: 'ok', value: JSON.parse(raw), error: null };
+  } catch (err) {
+    if (err && (err.code === 'ENOENT' || err.code === 'ENOTDIR')) {
+      return { status: 'missing', value: null, error: err };
+    }
+    if (err && err.name === 'SyntaxError') {
+      return { status: 'invalid', value: null, error: err };
+    }
+    return { status: 'error', value: null, error: err };
+  }
+}
+
 async function writeJson(filePath, obj) {
   await writeFileAtomic(filePath, JSON.stringify(obj, null, 2) + '\n');
 }
@@ -55,8 +70,8 @@ module.exports = {
   ensureDir,
   writeFileAtomic,
   readJson,
+  readJsonStrict,
   writeJson,
   chmod600IfPossible,
   openLock
 };
-

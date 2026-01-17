@@ -81,6 +81,19 @@ npx --yes vibeusage sync
 npx --yes vibeusage status
 ````
 
+### Doctor
+
+```bash
+# 运行健康检查
+npx --yes vibeusage doctor
+
+# 输出 JSON 报告（同时写文件）
+npx --yes vibeusage doctor --json --out doctor.json
+
+# 覆盖 base URL（仅诊断）
+npx --yes vibeusage doctor --base-url https://example.invalid
+```
+
 ### 日志来源
 
 - Codex CLI 日志：`~/.codex/sessions/**/rollout-*.jsonl`（可用 `CODEX_HOME` 覆盖）
@@ -89,10 +102,9 @@ npx --yes vibeusage status
 
 ## 🔧 环境变量
 
-- `VIBESCORE_HTTP_TIMEOUT_MS`：CLI 请求超时（毫秒，默认 `20000`，`0` 表示关闭，范围 `1000..120000`）。
+- `VIBEUSAGE_HTTP_TIMEOUT_MS`：CLI 请求超时（毫秒，默认 `20000`，`0` 表示关闭，范围 `1000..120000`）。
 - `VITE_VIBESCORE_HTTP_TIMEOUT_MS`：Dashboard 请求超时（毫秒，默认 `15000`，`0` 表示关闭，范围 `1000..30000`）。
 - `VIBEUSAGE_ROLLUP_ENABLED`：当前被忽略，rollup 聚合在代码层禁用，等待 rollup 表部署完成后再恢复。
-- `VIBESCORE_ROLLUP_ENABLED`：`VIBEUSAGE_ROLLUP_ENABLED` 的兼容别名（同样无效）。
 - `GEMINI_HOME`：覆盖 Gemini CLI 的 home（默认 `~/.gemini`）。
 
 ## 🧰 常见问题

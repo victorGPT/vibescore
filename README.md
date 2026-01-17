@@ -81,6 +81,19 @@ npx --yes vibeusage sync
 npx --yes vibeusage status
 ````
 
+### Doctor
+
+```bash
+# Run health checks
+npx --yes vibeusage doctor
+
+# Emit JSON report (and write to file)
+npx --yes vibeusage doctor --json --out doctor.json
+
+# Override base URL (diagnostics only)
+npx --yes vibeusage doctor --base-url https://example.invalid
+```
+
 ### Sources
 
 - Codex CLI logs: `~/.codex/sessions/**/rollout-*.jsonl` (override with `CODEX_HOME`)
@@ -89,10 +102,9 @@ npx --yes vibeusage status
 
 ## 🔧 Environment Variables
 
-- `VIBESCORE_HTTP_TIMEOUT_MS`: CLI HTTP timeout in ms (default `20000`, `0` disables, clamped to `1000..120000`).
+- `VIBEUSAGE_HTTP_TIMEOUT_MS`: CLI HTTP timeout in ms (default `20000`, `0` disables, clamped to `1000..120000`).
 - `VITE_VIBESCORE_HTTP_TIMEOUT_MS`: Dashboard request timeout in ms (default `15000`, `0` disables, clamped to `1000..30000`).
 - `VIBEUSAGE_ROLLUP_ENABLED`: Currently ignored; rollup aggregation is disabled in code until the daily rollup table is deployed.
-- `VIBESCORE_ROLLUP_ENABLED`: Legacy alias for `VIBEUSAGE_ROLLUP_ENABLED` (ignored).
 - `GEMINI_HOME`: Override Gemini CLI home (defaults to `~/.gemini`).
 
 ## 🧰 Troubleshooting

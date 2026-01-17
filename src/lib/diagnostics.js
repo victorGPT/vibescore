@@ -20,7 +20,7 @@ async function collectTrackerDiagnostics({
   codexHome = process.env.CODEX_HOME || path.join(home, '.codex'),
   codeHome = process.env.CODE_HOME || path.join(home, '.code')
 } = {}) {
-  const { trackerDir, binDir } = await resolveTrackerPaths({ home, migrate: true });
+  const { trackerDir, binDir } = await resolveTrackerPaths({ home });
   const configPath = path.join(trackerDir, 'config.json');
   const queuePath = path.join(trackerDir, 'queue.jsonl');
   const queueStatePath = path.join(trackerDir, 'queue.state.json');

@@ -5,6 +5,7 @@ const fs = require('node:fs/promises');
 const { test } = require('node:test');
 
 const { cmdDiagnostics } = require('../src/commands/diagnostics');
+const { collectTrackerDiagnostics } = require('../src/lib/diagnostics');
 
 test('diagnostics redacts device token and home paths', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-diagnostics-'));
@@ -88,4 +89,17 @@ test('diagnostics redacts device token and home paths', async () => {
     else process.env.CODEX_HOME = prevCodexHome;
     await fs.rm(tmp, { recursive: true, force: true });
   }
+});
+
+test('diagnostics does not migrate legacy root', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-diagnostics-'));
+  const home = path.join(tmp, 'home');
+  await fs.mkdir(home, { recursive: true });
+  const legacyRoot = path.join(home, '.vibescore');
+  await fs.mkdir(path.join(legacyRoot, 'tracker'), { recursive: true });
+
+  await collectTrackerDiagnostics({ home });
+
+  await fs.stat(legacyRoot);
+  await assert.rejects(() => fs.stat(path.join(home, '.vibeusage')));
 });
