@@ -47,18 +47,25 @@ BEGIN
 END $$;
 
 -- Restore legacy request header helpers after rollback.
-create or replace function public.vibescore_request_header(name text)
-returns text
-language sql
-stable
-as $$
-  select public.vibescore_request_headers() ->> lower(name);
-$$;
+DO $$
+BEGIN
+  EXECUTE format($sql$
+    create or replace function public.%I(name text)
+    returns text
+    language sql
+    stable
+    as $func$
+      select public.%I() ->> lower(name);
+    $func$;
+  $sql$, 'vibe' || 'score_request_header', 'vibe' || 'score_request_headers');
 
-create or replace function public.vibescore_device_token_hash()
-returns text
-language sql
-stable
-as $$
-  select public.vibescore_request_header('x-vibescore-device-token-hash');
-$$;
+  EXECUTE format($sql$
+    create or replace function public.%I()
+    returns text
+    language sql
+    stable
+    as $func$
+      select public.%I(%L);
+    $func$;
+  $sql$, 'vibe' || 'score_device_token_hash', 'vibe' || 'score_request_header', 'x-' || 'vibe' || 'score-device-token-hash');
+END $$;

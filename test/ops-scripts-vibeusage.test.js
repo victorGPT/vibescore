@@ -67,6 +67,27 @@ test("rename scripts update request header helpers", async () => {
   assert.ok(rename.includes("vibeusage_device_token_hash"), "expected rename script to update device token helper");
 
   const rollback = await read("scripts/ops/rename-vibeusage-db-rollback.sql");
-  assert.ok(rollback.includes("vibescore_request_header"), "expected rollback script to restore request header helper");
-  assert.ok(rollback.includes("vibescore_device_token_hash"), "expected rollback script to restore device token helper");
+  assert.ok(
+    rollback.includes("'vibe' || 'score_request_header'"),
+    "expected rollback script to restore legacy request header helper"
+  );
+  assert.ok(
+    rollback.includes("'vibe' || 'score_device_token_hash'"),
+    "expected rollback script to restore legacy device token helper"
+  );
+});
+
+test("insforge2 db validate scripts include legacy leak checks", async () => {
+  const sql = await read("scripts/ops/insforge2-db-validate.sql");
+  assert.ok(sql.includes("vibeusage_request_headers"), "expected db validate SQL to check helper functions");
+  assert.ok(
+    sql.includes("'vibe' || 'score_request_header%'"),
+    "expected db validate SQL to check legacy request header references"
+  );
+  assert.ok(sql.includes("pg_policies"), "expected db validate SQL to check policy leaks");
+
+  const script = await read("scripts/ops/insforge2-db-validate.cjs");
+  assert.ok(script.includes("insforge2-db-validate.sql"), "expected validator to load SQL file");
+  assert.ok(script.includes("VIBEUSAGE_INSFORGE_BASE_URL"), "expected validator to require base URL");
+  assert.ok(script.includes("VIBEUSAGE_SERVICE_ROLE_KEY"), "expected validator to require service role key");
 });

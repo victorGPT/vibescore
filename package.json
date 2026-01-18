@@ -22,7 +22,8 @@
     "architecture:canvas": "node scripts/ops/architecture-canvas.cjs",
     "architecture:canvas:focus": "node scripts/ops/architecture-canvas.cjs --focus",
     "architecture:canvas:list-modules": "node scripts/ops/architecture-canvas.cjs --list-modules",
-    "validate:guardrails": "node scripts/validate-architecture-guardrails.cjs"
+    "validate:guardrails": "node scripts/validate-architecture-guardrails.cjs",
+    "validate:insforge2-db": "node scripts/ops/insforge2-db-validate.cjs"
   },
   "bin": {
     "tracker": "bin/tracker.js",
