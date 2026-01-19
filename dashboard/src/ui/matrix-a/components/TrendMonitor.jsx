@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-import { copy } from "../../../lib/copy.js";
+import { copy } from "../../../lib/copy";
 import { AsciiBox } from "./AsciiBox.jsx";
 
 // --- Trend Monitor (NeuralFluxMonitor v2.0) ---

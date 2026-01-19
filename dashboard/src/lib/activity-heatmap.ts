@@ -1,7 +1,25 @@
-import { formatDateLocal, formatDateUTC } from "./date-range.js";
-import { toFiniteNumber } from "./format.js";
+import { formatDateLocal, formatDateUTC } from "./date-range";
+import { toFiniteNumber } from "./format";
 
-function parseDateString(yyyyMmDd) {
+type HeatmapRangeOptions = {
+  weeks?: number;
+  now?: Date;
+  weekStartsOn?: string;
+};
+
+type BuildHeatmapOptions = {
+  dailyRows?: any[];
+  weeks?: number;
+  to?: string;
+  weekStartsOn?: string;
+};
+
+type ActiveStreakOptions = {
+  dailyRows?: any[];
+  to?: string;
+};
+
+function parseDateString(yyyyMmDd: any) {
   if (typeof yyyyMmDd !== "string") return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(yyyyMmDd.trim());
   if (!m) return null;
@@ -13,20 +31,20 @@ function parseDateString(yyyyMmDd) {
   return formatDateUTC(dt) === yyyyMmDd.trim() ? dt : null;
 }
 
-function addUtcDays(date, days) {
+function addUtcDays(date: Date, days: number) {
   return new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days)
   );
 }
 
-function diffUtcDays(a, b) {
+function diffUtcDays(a: Date, b: Date) {
   const ms =
     Date.UTC(b.getUTCFullYear(), b.getUTCMonth(), b.getUTCDate()) -
     Date.UTC(a.getUTCFullYear(), a.getUTCMonth(), a.getUTCDate());
   return Math.floor(ms / 86400000);
 }
 
-function quantile(sorted, q) {
+function quantile(sorted: number[], q: number) {
   if (!Array.isArray(sorted) || sorted.length === 0) return 0;
   const n = sorted.length;
   const pos = (n - 1) * q;
@@ -37,7 +55,7 @@ function quantile(sorted, q) {
   return Math.round(left + (right - left) * rest);
 }
 
-function clampLevel(level) {
+function clampLevel(level: number) {
   if (level <= 0) return 0;
   if (level >= 4) return 4;
   return level;
@@ -47,7 +65,7 @@ export function getHeatmapRangeLocal({
   weeks = 52,
   now,
   weekStartsOn = "sun",
-} = {}) {
+}: HeatmapRangeOptions = {}) {
   const baseDate = now instanceof Date && Number.isFinite(now.getTime()) ? now : new Date();
   const to = formatDateLocal(baseDate);
   const end =
@@ -72,7 +90,7 @@ export function buildActivityHeatmap({
   weeks = 52,
   to,
   weekStartsOn = "sun",
-} = {}) {
+}: BuildHeatmapOptions = {}) {
   const end =
     parseDateString(to) ||
     new Date(
@@ -122,7 +140,7 @@ export function buildActivityHeatmap({
   const t2 = quantile(allValues, 0.75);
   const t3 = quantile(allValues, 0.9);
 
-  function levelFor(value) {
+  function levelFor(value: number) {
     if (!value || value <= 0) return 0;
     if (value <= t1) return 1;
     if (value <= t2) return 2;
@@ -162,7 +180,10 @@ export function buildActivityHeatmap({
   };
 }
 
-export function computeActiveStreakDays({ dailyRows, to } = {}) {
+export function computeActiveStreakDays({
+  dailyRows,
+  to,
+}: ActiveStreakOptions = {}) {
   const end =
     parseDateString(to) ||
     new Date(

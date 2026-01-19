@@ -4,10 +4,10 @@ import {
   buildActivityHeatmap,
   computeActiveStreakDays,
   getHeatmapRangeLocal,
-} from "../lib/activity-heatmap.js";
-import { isMockEnabled } from "../lib/mock-data.js";
-import { getUsageDaily, getUsageHeatmap } from "../lib/vibeusage-api.js";
-import { getTimeZoneCacheKey } from "../lib/timezone.js";
+} from "../lib/activity-heatmap";
+import { isMockEnabled } from "../lib/mock-data";
+import { getUsageDaily, getUsageHeatmap } from "../lib/vibeusage-api";
+import { getTimeZoneCacheKey } from "../lib/timezone";
 
 export function useActivityHeatmap({
   baseUrl,
@@ -18,15 +18,15 @@ export function useActivityHeatmap({
   timeZone,
   tzOffsetMinutes,
   now,
-} = {}) {
+}: any = {}) {
   const range = useMemo(() => {
     return getHeatmapRangeLocal({ weeks, weekStartsOn, now });
   }, [now, weeks, weekStartsOn]);
-  const [daily, setDaily] = useState([]);
-  const [heatmap, setHeatmap] = useState(null);
+  const [daily, setDaily] = useState<any[]>([]);
+  const [heatmap, setHeatmap] = useState<any | null>(null);
   const [source, setSource] = useState("edge");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const mockEnabled = isMockEnabled();
 
   const storageKey = useMemo(() => {
@@ -49,7 +49,7 @@ export function useActivityHeatmap({
   }, [storageKey]);
 
   const writeCache = useCallback(
-    (payload) => {
+    (payload: any) => {
       if (!storageKey || typeof window === "undefined") return;
       try {
         window.localStorage.setItem(storageKey, JSON.stringify(payload));
@@ -85,8 +85,8 @@ export function useActivityHeatmap({
             return;
           }
         }
-        const hasLevels = weeksData.some((week) =>
-          (Array.isArray(week) ? week : []).some((cell) =>
+        const hasLevels = weeksData.some((week: any) =>
+          (Array.isArray(week) ? week : []).some((cell: any) =>
             cell && Number.isFinite(Number(cell.level))
           )
         );
@@ -114,7 +114,7 @@ export function useActivityHeatmap({
             ...localHeatmap,
             week_starts_on: weekStartsOn,
             active_days: rows.filter(
-              (r) => Number(r?.billable_total_tokens ?? r?.total_tokens) > 0
+              (r: any) => Number(r?.billable_total_tokens ?? r?.total_tokens) > 0
             ).length,
             streak_days: computeActiveStreakDays({
               dailyRows: rows,
@@ -127,7 +127,7 @@ export function useActivityHeatmap({
               ...localHeatmap,
               week_starts_on: weekStartsOn,
               active_days: rows.filter(
-                (r) => Number(r?.billable_total_tokens ?? r?.total_tokens) > 0
+                (r: any) => Number(r?.billable_total_tokens ?? r?.total_tokens) > 0
               ).length,
               streak_days: computeActiveStreakDays({
                 dailyRows: rows,
@@ -152,7 +152,8 @@ export function useActivityHeatmap({
         }
         return;
       } catch (e) {
-        const status = e?.status ?? e?.statusCode;
+        const err = e as any;
+        const status = err?.status ?? err?.statusCode;
         if (status === 401 || status === 403) throw e;
       }
 
@@ -176,7 +177,7 @@ export function useActivityHeatmap({
         ...localHeatmap,
         week_starts_on: weekStartsOn,
         active_days: rows.filter(
-          (r) => Number(r?.billable_total_tokens ?? r?.total_tokens) > 0
+          (r: any) => Number(r?.billable_total_tokens ?? r?.total_tokens) > 0
         ).length,
         streak_days: computeActiveStreakDays({ dailyRows: rows, to: range.to }),
       });
@@ -186,7 +187,7 @@ export function useActivityHeatmap({
           ...localHeatmap,
           week_starts_on: weekStartsOn,
           active_days: rows.filter(
-            (r) => Number(r?.billable_total_tokens ?? r?.total_tokens) > 0
+            (r: any) => Number(r?.billable_total_tokens ?? r?.total_tokens) > 0
           ).length,
           streak_days: computeActiveStreakDays({ dailyRows: rows, to: range.to }),
         },
@@ -201,7 +202,8 @@ export function useActivityHeatmap({
         setSource("cache");
         setError(null);
       } else {
-        setError(e?.message || String(e));
+        const err = e as any;
+        setError(err?.message || String(err));
         setDaily([]);
         setHeatmap(null);
         setSource("edge");

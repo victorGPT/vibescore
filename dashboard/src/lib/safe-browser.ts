@@ -13,7 +13,12 @@ function getClipboardItemCtor() {
   return window.ClipboardItem || null;
 }
 
-export function safeGetItem(key, { storage } = {}) {
+type SafeBrowserOptions = {
+  storage?: any;
+  clipboard?: any;
+};
+
+export function safeGetItem(key: any, { storage }: SafeBrowserOptions = {}) {
   const target = storage ?? getLocalStorage();
   if (!target || typeof target.getItem !== "function") return null;
   try {
@@ -23,7 +28,11 @@ export function safeGetItem(key, { storage } = {}) {
   }
 }
 
-export function safeSetItem(key, value, { storage } = {}) {
+export function safeSetItem(
+  key: any,
+  value: any,
+  { storage }: SafeBrowserOptions = {}
+) {
   const target = storage ?? getLocalStorage();
   if (!target || typeof target.setItem !== "function") return false;
   try {
@@ -34,7 +43,7 @@ export function safeSetItem(key, value, { storage } = {}) {
   }
 }
 
-export function safeRemoveItem(key, { storage } = {}) {
+export function safeRemoveItem(key: any, { storage }: SafeBrowserOptions = {}) {
   const target = storage ?? getLocalStorage();
   if (!target || typeof target.removeItem !== "function") return false;
   try {
@@ -45,7 +54,10 @@ export function safeRemoveItem(key, { storage } = {}) {
   }
 }
 
-export async function safeWriteClipboard(text, { clipboard } = {}) {
+export async function safeWriteClipboard(
+  text: any,
+  { clipboard }: SafeBrowserOptions = {}
+) {
   const target = clipboard ?? getClipboard();
   if (!target || typeof target.writeText !== "function") return false;
   try {
@@ -56,7 +68,10 @@ export async function safeWriteClipboard(text, { clipboard } = {}) {
   }
 }
 
-export async function safeWriteClipboardImage(blob, { clipboard } = {}) {
+export async function safeWriteClipboardImage(
+  blob: any,
+  { clipboard }: SafeBrowserOptions = {}
+) {
   const target = clipboard ?? getClipboard();
   const ClipboardItemCtor = getClipboardItemCtor();
   if (

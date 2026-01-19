@@ -1,4 +1,4 @@
-import { sortDetailRows } from "./detail-sort.js";
+import { sortDetailRows } from "./detail-sort";
 
 export const DETAILS_PAGE_SIZE = 12;
 
@@ -11,7 +11,7 @@ const TOKEN_KEYS = [
   "reasoning_output_tokens",
 ];
 
-function isNonZeroToken(value) {
+function isNonZeroToken(value: any) {
   if (typeof value === "bigint") return value !== 0n;
   if (typeof value === "number") return Number.isFinite(value) && value !== 0;
   if (value == null) return false;
@@ -22,11 +22,11 @@ function isNonZeroToken(value) {
   return /[1-9]/.test(normalized);
 }
 
-function hasNonZeroTokens(row) {
+function hasNonZeroTokens(row: any) {
   return TOKEN_KEYS.some((key) => isNonZeroToken(row?.[key]));
 }
 
-export function trimLeadingZeroMonths(rows) {
+export function trimLeadingZeroMonths(rows: any) {
   const items = Array.isArray(rows) ? rows : [];
   if (!items.length) return [];
   const ordered = sortDetailRows(items, { key: "month", dir: "asc" });
@@ -37,7 +37,7 @@ export function trimLeadingZeroMonths(rows) {
   return ordered.slice(firstIndex);
 }
 
-export function paginateRows(rows, page, pageSize = DETAILS_PAGE_SIZE) {
+export function paginateRows(rows: any, page: any, pageSize = DETAILS_PAGE_SIZE) {
   const items = Array.isArray(rows) ? rows : [];
   const size = Number.isFinite(pageSize) && pageSize > 0 ? pageSize : DETAILS_PAGE_SIZE;
   const index = Number.isFinite(page) && page >= 0 ? Math.floor(page) : 0;

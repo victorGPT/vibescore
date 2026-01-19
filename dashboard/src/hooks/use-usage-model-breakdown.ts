@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { getUsageModelBreakdown } from "../lib/vibeusage-api.js";
-import { isMockEnabled } from "../lib/mock-data.js";
-import { getTimeZoneCacheKey } from "../lib/timezone.js";
+import { getUsageModelBreakdown } from "../lib/vibeusage-api";
+import { isMockEnabled } from "../lib/mock-data";
+import { getTimeZoneCacheKey } from "../lib/timezone";
 
 export function useUsageModelBreakdown({
   baseUrl,
@@ -12,11 +12,11 @@ export function useUsageModelBreakdown({
   cacheKey,
   timeZone,
   tzOffsetMinutes,
-} = {}) {
-  const [breakdown, setBreakdown] = useState(null);
-  const [source, setSource] = useState("edge");
+}: any = {}) {
+  const [breakdown, setBreakdown] = useState<any | null>(null);
+  const [source, setSource] = useState<string>("edge");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const mockEnabled = isMockEnabled();
 
   const storageKey = useMemo(() => {
@@ -40,7 +40,7 @@ export function useUsageModelBreakdown({
   }, [storageKey]);
 
   const writeCache = useCallback(
-    (payload) => {
+    (payload: any) => {
       if (!storageKey || typeof window === "undefined") return;
       try {
         window.localStorage.setItem(storageKey, JSON.stringify(payload));
@@ -78,7 +78,8 @@ export function useUsageModelBreakdown({
       } else {
         setBreakdown(null);
         setSource("edge");
-        setError(e?.message || String(e));
+        const err = e as any;
+        setError(err?.message || String(err));
       }
     } finally {
       setLoading(false);
@@ -112,7 +113,7 @@ export function useUsageModelBreakdown({
   };
 }
 
-function safeHost(baseUrl) {
+function safeHost(baseUrl: any) {
   try {
     const url = new URL(baseUrl);
     return url.host;

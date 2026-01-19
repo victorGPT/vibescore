@@ -8,7 +8,7 @@ export function getBrowserTimeZone() {
   }
 }
 
-export function getBrowserTimeZoneOffsetMinutes(date = new Date()) {
+export function getBrowserTimeZoneOffsetMinutes(date: any = new Date()) {
   const dt = date instanceof Date ? date : new Date(date);
   if (!Number.isFinite(dt.getTime())) return 0;
   const offset = dt.getTimezoneOffset();
@@ -16,7 +16,13 @@ export function getBrowserTimeZoneOffsetMinutes(date = new Date()) {
   return -offset;
 }
 
-export function formatUtcOffset(offsetMinutes) {
+type TimeZoneOptions = {
+  timeZone?: string;
+  offsetMinutes?: number;
+  date?: Date;
+};
+
+export function formatUtcOffset(offsetMinutes: any) {
   if (!Number.isFinite(offsetMinutes) || offsetMinutes === 0) return "UTC";
   const sign = offsetMinutes >= 0 ? "+" : "-";
   const abs = Math.abs(offsetMinutes);
@@ -25,19 +31,23 @@ export function formatUtcOffset(offsetMinutes) {
   return `UTC${sign}${hh}:${mm}`;
 }
 
-export function formatTimeZoneLabel({ timeZone, offsetMinutes } = {}) {
+export function formatTimeZoneLabel({ timeZone, offsetMinutes }: TimeZoneOptions = {}) {
   const offsetLabel = formatUtcOffset(offsetMinutes);
   if (timeZone && timeZone !== "UTC") return `${timeZone} (${offsetLabel})`;
   return offsetLabel;
 }
 
-export function formatTimeZoneShortLabel({ timeZone, offsetMinutes } = {}) {
+export function formatTimeZoneShortLabel({ timeZone, offsetMinutes }: TimeZoneOptions = {}) {
   if (Number.isFinite(offsetMinutes)) return formatUtcOffset(offsetMinutes);
   if (timeZone) return timeZone;
   return "UTC";
 }
 
-export function getLocalDayKey({ timeZone, offsetMinutes, date = new Date() } = {}) {
+export function getLocalDayKey({
+  timeZone,
+  offsetMinutes,
+  date = new Date(),
+}: TimeZoneOptions = {}) {
   const dt = date instanceof Date ? date : new Date(date);
   if (!Number.isFinite(dt.getTime())) return "";
 
@@ -50,10 +60,10 @@ export function getLocalDayKey({ timeZone, offsetMinutes, date = new Date() } = 
         day: "2-digit",
       });
       const parts = formatter.formatToParts(dt);
-      const values = parts.reduce((acc, part) => {
+      const values = parts.reduce((acc: Record<string, string>, part) => {
         if (part.type && part.value) acc[part.type] = part.value;
         return acc;
-      }, {});
+      }, {} as Record<string, string>);
       const year = values.year;
       const month = values.month;
       const day = values.day;
@@ -63,7 +73,7 @@ export function getLocalDayKey({ timeZone, offsetMinutes, date = new Date() } = 
     }
   }
 
-  if (Number.isFinite(offsetMinutes)) {
+  if (typeof offsetMinutes === "number" && Number.isFinite(offsetMinutes)) {
     const shifted = new Date(dt.getTime() + offsetMinutes * 60000);
     return formatUtcDateKey(shifted);
   }
@@ -71,7 +81,11 @@ export function getLocalDayKey({ timeZone, offsetMinutes, date = new Date() } = 
   return formatLocalDateKey(dt);
 }
 
-export function getLocalDateParts({ timeZone, offsetMinutes, date = new Date() } = {}) {
+export function getLocalDateParts({
+  timeZone,
+  offsetMinutes,
+  date = new Date(),
+}: TimeZoneOptions = {}) {
   const dt = date instanceof Date ? date : new Date(date);
   if (!Number.isFinite(dt.getTime())) return null;
 
@@ -84,10 +98,10 @@ export function getLocalDateParts({ timeZone, offsetMinutes, date = new Date() }
         day: "2-digit",
       });
       const parts = formatter.formatToParts(dt);
-      const values = parts.reduce((acc, part) => {
+      const values = parts.reduce((acc: Record<string, string>, part) => {
         if (part.type && part.value) acc[part.type] = part.value;
         return acc;
-      }, {});
+      }, {} as Record<string, string>);
       const year = Number(values.year);
       const month = Number(values.month);
       const day = Number(values.day);
@@ -99,7 +113,7 @@ export function getLocalDateParts({ timeZone, offsetMinutes, date = new Date() }
     }
   }
 
-  if (Number.isFinite(offsetMinutes)) {
+  if (typeof offsetMinutes === "number" && Number.isFinite(offsetMinutes)) {
     const shifted = new Date(dt.getTime() + offsetMinutes * 60000);
     return {
       year: shifted.getUTCFullYear(),
@@ -111,20 +125,25 @@ export function getLocalDateParts({ timeZone, offsetMinutes, date = new Date() }
   return { year: dt.getFullYear(), month: dt.getMonth() + 1, day: dt.getDate() };
 }
 
-export function getTimeZoneCacheKey({ timeZone, offsetMinutes } = {}) {
+export function getTimeZoneCacheKey({
+  timeZone,
+  offsetMinutes,
+}: TimeZoneOptions = {}) {
   if (timeZone) return `tz:${timeZone}`;
-  if (Number.isFinite(offsetMinutes)) return `offset:${Math.trunc(offsetMinutes)}`;
+  if (typeof offsetMinutes === "number" && Number.isFinite(offsetMinutes)) {
+    return `offset:${Math.trunc(offsetMinutes)}`;
+  }
   return "utc";
 }
 
-function formatUtcDateKey(date) {
+function formatUtcDateKey(date: Date) {
   const y = date.getUTCFullYear();
   const m = String(date.getUTCMonth() + 1).padStart(2, "0");
   const d = String(date.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
 
-function formatLocalDateKey(date) {
+function formatLocalDateKey(date: Date) {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");

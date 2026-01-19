@@ -1,7 +1,7 @@
 import React from "react";
 
-import { copy } from "../lib/copy.js";
-import { toFiniteNumber } from "../lib/format.js";
+import { copy } from "../lib/copy";
+import { toFiniteNumber } from "../lib/format";
 
 export function Sparkline({ rows }) {
   const values = (rows || [])

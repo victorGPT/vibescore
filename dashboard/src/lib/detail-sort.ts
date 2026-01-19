@@ -1,12 +1,12 @@
-import { toFiniteNumber } from "./format.js";
+import { toFiniteNumber } from "./format";
 
 const DATE_KEYS = new Set(["day", "hour", "month"]);
 
-export function isDetailDateKey(key) {
+export function isDetailDateKey(key: any) {
   return DATE_KEYS.has(key);
 }
 
-function toDigitString(value) {
+function toDigitString(value: any) {
   if (value == null) return null;
   const s = String(value).trim();
   if (!/^[0-9]+$/.test(s)) return null;
@@ -14,7 +14,7 @@ function toDigitString(value) {
   return stripped.length === 0 ? "0" : stripped;
 }
 
-function compareIntLike(a, b) {
+function compareIntLike(a: any, b: any) {
   const sa = toDigitString(a);
   const sb = toDigitString(b);
   if (sa && sb) {
@@ -32,14 +32,14 @@ function compareIntLike(a, b) {
   return na < nb ? -1 : 1;
 }
 
-function compareString(a, b) {
+function compareString(a: any, b: any) {
   const sa = typeof a === "string" ? a : String(a || "");
   const sb = typeof b === "string" ? b : String(b || "");
   if (sa === sb) return 0;
   return sa < sb ? -1 : 1;
 }
 
-function parseDayKey(value) {
+function parseDayKey(value: any) {
   if (!value) return null;
   const raw = String(value).trim();
   const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
@@ -62,7 +62,7 @@ function parseDayKey(value) {
   return dt.getTime();
 }
 
-function parseMonthKey(value) {
+function parseMonthKey(value: any) {
   if (!value) return null;
   const raw = String(value).trim();
   const match = raw.match(/^(\d{4})-(\d{2})$/);
@@ -76,7 +76,7 @@ function parseMonthKey(value) {
   return dt.getTime();
 }
 
-function parseHourKey(value) {
+function parseHourKey(value: any) {
   if (!value) return null;
   const raw = String(value).trim();
   const match = raw.match(
@@ -109,7 +109,7 @@ function parseHourKey(value) {
   return dt.getTime();
 }
 
-function compareDateLike(a, b, key) {
+function compareDateLike(a: any, b: any, key: any) {
   const parse =
     key === "hour" ? parseHourKey : key === "month" ? parseMonthKey : parseDayKey;
   const na = parse(a);
@@ -121,12 +121,16 @@ function compareDateLike(a, b, key) {
   return compareString(a, b);
 }
 
-export function sortDetailRows(rows, { key, dir }) {
+type SortOptions = { key?: any; dir?: string };
+
+export function sortDetailRows(rows: any, { key, dir }: SortOptions) {
   const direction = dir === "asc" ? 1 : -1;
   const items = Array.isArray(rows) ? rows : [];
 
-  const cmp = DATE_KEYS.has(key) ? (a, b) => compareDateLike(a, b, key) : compareIntLike;
-  const pickValue = (row) => {
+  const cmp = DATE_KEYS.has(key)
+    ? (a: any, b: any) => compareDateLike(a, b, key)
+    : compareIntLike;
+  const pickValue = (row: any) => {
     if (key === "total_tokens" && row?.billable_total_tokens != null) {
       return row.billable_total_tokens;
     }
@@ -134,8 +138,8 @@ export function sortDetailRows(rows, { key, dir }) {
   };
 
   return items
-    .map((row, index) => ({ row, index }))
-    .sort((a, b) => {
+    .map((row: any, index: number) => ({ row, index }))
+    .sort((a: any, b: any) => {
       const av = pickValue(a.row);
       const bv = pickValue(b.row);
 

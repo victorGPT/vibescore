@@ -2,7 +2,11 @@ const DEFAULT_TIMEOUT_MS = 15_000;
 const MIN_TIMEOUT_MS = 1_000;
 const MAX_TIMEOUT_MS = 30_000;
 
-export function getHttpTimeoutMs({ env } = {}) {
+type AnyRecord = Record<string, any>;
+type FetchLike = (input: any, init?: AnyRecord) => Promise<any>;
+type TimeoutOptions = { env?: AnyRecord };
+
+export function getHttpTimeoutMs({ env }: TimeoutOptions = {}) {
   const resolvedEnv = env ?? (typeof import.meta !== "undefined" ? import.meta.env : undefined);
   const raw = readEnvValue(resolvedEnv, ["VITE_VIBEUSAGE_HTTP_TIMEOUT_MS"]);
   if (raw == null || raw === "") return DEFAULT_TIMEOUT_MS;
@@ -12,19 +16,22 @@ export function getHttpTimeoutMs({ env } = {}) {
   return clampInt(n, MIN_TIMEOUT_MS, MAX_TIMEOUT_MS);
 }
 
-export function createTimeoutFetch(baseFetch, { env } = {}) {
-  if (!baseFetch) return baseFetch;
-  return async (input, init = {}) => {
+export function createTimeoutFetch(
+  baseFetch: FetchLike | null | undefined,
+  { env }: TimeoutOptions = {}
+): FetchLike | undefined {
+  if (!baseFetch) return undefined;
+  return async (input: any, init: AnyRecord = {}) => {
     const timeoutMs = getHttpTimeoutMs({ env });
     if (!timeoutMs) return baseFetch(input, init);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    const callerSignals = [];
-    const initSignal = init.signal;
+    const callerSignals: AbortSignal[] = [];
+    const initSignal = init.signal as AbortSignal | undefined;
     if (initSignal) callerSignals.push(initSignal);
     const inputSignal = getInputSignal(input);
     if (inputSignal && inputSignal !== initSignal) callerSignals.push(inputSignal);
-    const abortListeners = callerSignals.map((signal) => {
+    const abortListeners = callerSignals.map((signal: AbortSignal) => {
       const onAbort = () => controller.abort();
       signal.addEventListener("abort", onAbort, { once: true });
       if (signal.aborted) controller.abort();
@@ -47,20 +54,20 @@ export function createTimeoutFetch(baseFetch, { env } = {}) {
   };
 }
 
-function getInputSignal(input) {
+function getInputSignal(input: any): AbortSignal | null {
   if (!input || typeof input !== "object") return null;
-  const signal = input.signal;
+  const signal = (input as AnyRecord).signal as AbortSignal | undefined;
   if (signal && typeof signal === "object") return signal;
   return null;
 }
 
-function clampInt(value, min, max) {
+function clampInt(value: number, min: number, max: number) {
   const n = Number(value);
   if (!Number.isFinite(n)) return min;
   return Math.min(max, Math.max(min, Math.floor(n)));
 }
 
-function readEnvValue(env, keys) {
+function readEnvValue(env: AnyRecord | undefined, keys: string[]) {
   if (!env || !keys?.length) return undefined;
   for (const key of keys) {
     const value = env?.[key];

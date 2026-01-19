@@ -1,7 +1,11 @@
 const assert = require("node:assert/strict");
+const { execFile } = require("node:child_process");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const { test } = require("node:test");
+const { promisify } = require("node:util");
+
+const execFileAsync = promisify(execFile);
 
 const repoRoot = path.join(__dirname, "..");
 const tsconfigPath = path.join(repoRoot, "dashboard/tsconfig.json");
@@ -29,4 +33,56 @@ test("dashboard package defines typecheck", async () => {
 test("eslint uses typescript parser", async () => {
   const eslint = await read(eslintPath);
   assert.ok(eslint.includes("@typescript-eslint/parser"));
+});
+
+test("hooks and core lib files are migrated to TS", async () => {
+  for (const file of [
+    "dashboard/src/hooks/use-backend-status.ts",
+    "dashboard/src/hooks/use-activity-heatmap.ts",
+    "dashboard/src/hooks/use-usage-data.ts",
+    "dashboard/src/hooks/use-trend-data.ts",
+    "dashboard/src/hooks/use-usage-model-breakdown.ts",
+    "dashboard/src/lib/vibeusage-api.ts",
+    "dashboard/src/ui/matrix-a/components/MatrixConstants.ts",
+  ]) {
+    await fs.readFile(path.join(repoRoot, file));
+  }
+});
+
+test("lib layer is fully migrated to TS", async () => {
+  const libFiles = [
+    "auth-storage",
+    "auth-redirect",
+    "details",
+    "activity-heatmap",
+    "usage-aggregate",
+    "daily",
+    "insforge-client",
+    "http-timeout",
+    "timezone",
+    "npm-version",
+    "config",
+    "insforge-auth-client",
+    "mock-data",
+    "date-range",
+    "copy",
+    "safe-browser",
+    "format",
+    "model-breakdown",
+    "backend-probe-scheduler",
+    "detail-sort",
+  ];
+
+  for (const name of libFiles) {
+    await fs.readFile(path.join(repoRoot, `dashboard/src/lib/${name}.ts`));
+  }
+});
+
+test("tsc validates migrated TS files", async () => {
+  const tscPath = path.join(repoRoot, "dashboard/node_modules/.bin/tsc");
+  await execFileAsync(
+    tscPath,
+    ["--noEmit", "--pretty", "false", "-p", "dashboard/tsconfig.json"],
+    { cwd: repoRoot }
+  );
 });

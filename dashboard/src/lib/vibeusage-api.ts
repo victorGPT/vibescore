@@ -1,7 +1,7 @@
-import { createInsforgeClient } from "./insforge-client.js";
-import { clearSessionSoftExpired, markSessionSoftExpired } from "./auth-storage.js";
-import { formatDateLocal } from "./date-range.js";
-import { insforgeAuthClient } from "./insforge-auth-client.js";
+import { createInsforgeClient } from "./insforge-client";
+import { clearSessionSoftExpired, markSessionSoftExpired } from "./auth-storage";
+import { formatDateLocal } from "./date-range";
+import { insforgeAuthClient } from "./insforge-auth-client";
 import {
   getMockUsageDaily,
   getMockUsageHourly,
@@ -10,7 +10,7 @@ import {
   getMockUsageModelBreakdown,
   getMockUsageSummary,
   isMockEnabled,
-} from "./mock-data.js";
+} from "./mock-data";
 
 const BACKEND_RUNTIME_UNAVAILABLE =
   "Backend runtime unavailable (InsForge). Please retry later.";
@@ -35,9 +35,11 @@ const REQUEST_KIND = {
   business: "business",
   probe: "probe",
 };
-let refreshInFlight = null;
+type AnyRecord = Record<string, any>;
 
-async function resolveAccessToken(accessToken) {
+let refreshInFlight: Promise<any> | null = null;
+
+async function resolveAccessToken(accessToken: any) {
   if (!accessToken) return null;
   if (typeof accessToken === "function") {
     return await accessToken();
@@ -51,7 +53,7 @@ async function resolveAccessToken(accessToken) {
   return accessToken;
 }
 
-export async function probeBackend({ baseUrl, accessToken, signal } = {}) {
+export async function probeBackend({ baseUrl, accessToken, signal }: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   const today = formatDateLocal(new Date());
   await requestJson({
@@ -75,7 +77,7 @@ export async function getUsageSummary({
   model,
   timeZone,
   tzOffsetMinutes,
-}) {
+}: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
     return getMockUsageSummary({ from, to, seed: resolvedAccessToken });
@@ -98,7 +100,7 @@ export async function getUsageModelBreakdown({
   source,
   timeZone,
   tzOffsetMinutes,
-}) {
+}: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
     return getMockUsageModelBreakdown({ from, to, seed: resolvedAccessToken });
@@ -122,7 +124,7 @@ export async function getUsageDaily({
   model,
   timeZone,
   tzOffsetMinutes,
-}) {
+}: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
     return getMockUsageDaily({ from, to, seed: resolvedAccessToken });
@@ -145,7 +147,7 @@ export async function getUsageHourly({
   model,
   timeZone,
   tzOffsetMinutes,
-}) {
+}: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
     return getMockUsageHourly({ day, seed: resolvedAccessToken });
@@ -169,7 +171,7 @@ export async function getUsageMonthly({
   model,
   timeZone,
   tzOffsetMinutes,
-}) {
+}: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
     return getMockUsageMonthly({ months, to, seed: resolvedAccessToken });
@@ -199,7 +201,7 @@ export async function getUsageHeatmap({
   model,
   timeZone,
   tzOffsetMinutes,
-}) {
+}: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
     return getMockUsageHeatmap({
@@ -225,7 +227,7 @@ export async function getUsageHeatmap({
   });
 }
 
-export async function requestInstallLinkCode({ baseUrl, accessToken } = {}) {
+export async function requestInstallLinkCode({ baseUrl, accessToken }: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
     return {
@@ -241,7 +243,7 @@ export async function requestInstallLinkCode({ baseUrl, accessToken } = {}) {
   });
 }
 
-export async function getPublicViewStatus({ baseUrl, accessToken } = {}) {
+export async function getPublicViewStatus({ baseUrl, accessToken }: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   return requestJson({
     baseUrl,
@@ -250,7 +252,7 @@ export async function getPublicViewStatus({ baseUrl, accessToken } = {}) {
   });
 }
 
-export async function getPublicViewProfile({ baseUrl, accessToken } = {}) {
+export async function getPublicViewProfile({ baseUrl, accessToken }: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   return requestJson({
     baseUrl,
@@ -259,7 +261,7 @@ export async function getPublicViewProfile({ baseUrl, accessToken } = {}) {
   });
 }
 
-export async function issuePublicViewToken({ baseUrl, accessToken } = {}) {
+export async function issuePublicViewToken({ baseUrl, accessToken }: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   return requestPostJson({
     baseUrl,
@@ -269,7 +271,7 @@ export async function issuePublicViewToken({ baseUrl, accessToken } = {}) {
   });
 }
 
-export async function revokePublicViewToken({ baseUrl, accessToken } = {}) {
+export async function revokePublicViewToken({ baseUrl, accessToken }: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   return requestPostJson({
     baseUrl,
@@ -279,8 +281,8 @@ export async function revokePublicViewToken({ baseUrl, accessToken } = {}) {
   });
 }
 
-function buildTimeZoneParams({ timeZone, tzOffsetMinutes } = {}) {
-  const params = {};
+function buildTimeZoneParams({ timeZone, tzOffsetMinutes }: AnyRecord = {}) {
+  const params: AnyRecord = {};
   const tz = typeof timeZone === "string" ? timeZone.trim() : "";
   if (tz) params.tz = tz;
   if (Number.isFinite(tzOffsetMinutes)) {
@@ -289,8 +291,8 @@ function buildTimeZoneParams({ timeZone, tzOffsetMinutes } = {}) {
   return params;
 }
 
-function buildFilterParams({ source, model } = {}) {
-  const params = {};
+function buildFilterParams({ source, model }: AnyRecord = {}) {
+  const params: AnyRecord = {};
   const normalizedSource = typeof source === "string" ? source.trim().toLowerCase() : "";
   if (normalizedSource) params.source = normalizedSource;
   const normalizedModel = typeof model === "string" ? model.trim() : "";
@@ -309,7 +311,7 @@ async function requestJson({
   requestKind = REQUEST_KIND.business,
   skipSessionExpiry = false,
   allowRefresh = true,
-}) {
+}: AnyRecord = {}) {
   let activeAccessToken = await resolveAccessToken(accessToken);
   let hadAccessToken = hasAccessTokenValue(activeAccessToken);
   let http = createInsforgeClient({
@@ -336,9 +338,10 @@ async function requestJson({
       });
       return result;
     } catch (e) {
-      if (e?.name === "AbortError") throw e;
-      let err = null;
-      const status = e?.statusCode ?? e?.status;
+      const errInput = e as any;
+      if (errInput?.name === "AbortError") throw e;
+      let err: any = null;
+      const status = errInput?.statusCode ?? errInput?.status;
       if (
         allowRefresh &&
         shouldAttemptSessionRefresh({
@@ -373,7 +376,7 @@ async function requestJson({
             });
             return retryResult;
           } catch (retryErr) {
-            const retryStatus = retryErr?.statusCode ?? retryErr?.status;
+            const retryStatus = (retryErr as any)?.statusCode ?? (retryErr as any)?.status;
             if (
               shouldMarkSessionSoftExpired({
                 status: retryStatus,
@@ -400,14 +403,14 @@ async function requestJson({
         ) {
           markSessionSoftExpired();
         }
-        err ??= normalizeSdkError(e, {
+        err ??= normalizeSdkError(errInput, {
           errorPrefix,
           hadAccessToken,
           accessToken: activeAccessToken,
           skipSessionExpiry: true,
         });
       }
-      err ??= normalizeSdkError(e, {
+      err ??= normalizeSdkError(errInput, {
         errorPrefix,
         hadAccessToken,
         accessToken: activeAccessToken,
@@ -432,7 +435,7 @@ async function requestPostJson({
   requestKind = REQUEST_KIND.business,
   skipSessionExpiry = false,
   allowRefresh = true,
-}) {
+}: AnyRecord = {}) {
   let activeAccessToken = await resolveAccessToken(accessToken);
   let hadAccessToken = hasAccessTokenValue(activeAccessToken);
   let http = createInsforgeClient({
@@ -459,9 +462,10 @@ async function requestPostJson({
       });
       return result;
     } catch (e) {
-      if (e?.name === "AbortError") throw e;
-      let err = null;
-      const status = e?.statusCode ?? e?.status;
+      const errInput = e as any;
+      if (errInput?.name === "AbortError") throw e;
+      let err: any = null;
+      const status = errInput?.statusCode ?? errInput?.status;
       if (
         allowRefresh &&
         shouldAttemptSessionRefresh({
@@ -496,7 +500,7 @@ async function requestPostJson({
             });
             return retryResult;
           } catch (retryErr) {
-            const retryStatus = retryErr?.statusCode ?? retryErr?.status;
+            const retryStatus = (retryErr as any)?.statusCode ?? (retryErr as any)?.status;
             if (
               shouldMarkSessionSoftExpired({
                 status: retryStatus,
@@ -523,14 +527,14 @@ async function requestPostJson({
         ) {
           markSessionSoftExpired();
         }
-        err ??= normalizeSdkError(e, {
+        err ??= normalizeSdkError(errInput, {
           errorPrefix,
           hadAccessToken,
           accessToken: activeAccessToken,
           skipSessionExpiry: true,
         });
       }
-      err ??= normalizeSdkError(e, {
+      err ??= normalizeSdkError(errInput, {
         errorPrefix,
         hadAccessToken,
         accessToken: activeAccessToken,
@@ -544,19 +548,19 @@ async function requestPostJson({
   }
 }
 
-function buildFunctionPaths(slug) {
+function buildFunctionPaths(slug: any) {
   const normalized = normalizeFunctionSlug(slug);
   const primaryPath = `${normalizePrefix(FUNCTION_PREFIX)}/${normalized}`;
   const fallbackPath = `${normalizePrefix(LEGACY_FUNCTION_PREFIX)}/${normalized}`;
   return { primaryPath, fallbackPath };
 }
 
-function normalizeFunctionSlug(slug) {
+function normalizeFunctionSlug(slug: any) {
   const raw = typeof slug === "string" ? slug.trim() : "";
   return raw.replace(/^\/+/, "");
 }
 
-function normalizePrefix(prefix) {
+function normalizePrefix(prefix: any) {
   const raw = typeof prefix === "string" ? prefix.trim() : "";
   return raw.endsWith("/") ? raw.slice(0, -1) : raw;
 }
@@ -567,7 +571,7 @@ async function requestWithFallback({
   fallbackPath,
   params,
   fetchOptions,
-}) {
+}: AnyRecord = {}) {
   try {
     return await http.get(primaryPath, { params, ...(fetchOptions || {}) });
   } catch (err) {
@@ -582,7 +586,7 @@ async function requestWithFallbackPost({
   fallbackPath,
   body,
   fetchOptions,
-}) {
+}: AnyRecord = {}) {
   try {
     return await requestWithAuthRetryPost({
       http,
@@ -606,11 +610,11 @@ async function requestWithAuthRetryPost({
   path,
   body,
   fetchOptions,
-}) {
+}: AnyRecord = {}) {
   return await http.post(path, body, { ...(fetchOptions || {}) });
 }
 
-function shouldFallbackToLegacy(error, primaryPath) {
+function shouldFallbackToLegacy(error: any, primaryPath: any) {
   if (!primaryPath || !primaryPath.startsWith(`${normalizePrefix(FUNCTION_PREFIX)}/`)) {
     return false;
   }
@@ -619,12 +623,12 @@ function shouldFallbackToLegacy(error, primaryPath) {
 }
 
 function normalizeSdkError(
-  error,
-  { errorPrefix, hadAccessToken, accessToken, skipSessionExpiry } = {}
+  error: any,
+  { errorPrefix, hadAccessToken, accessToken, skipSessionExpiry }: AnyRecord = {}
 ) {
   const raw = error?.message || String(error || "Unknown error");
   const msg = normalizeBackendErrorMessage(raw);
-  const err = new Error(errorPrefix ? `${errorPrefix}: ${msg}` : msg);
+  const err: any = new Error(errorPrefix ? `${errorPrefix}: ${msg}` : msg);
   err.cause = error;
   const status = error?.statusCode ?? error?.status;
   if (
@@ -652,7 +656,7 @@ function canSetSessionSoftExpired({
   hadAccessToken,
   accessToken,
   skipSessionExpiry,
-} = {}) {
+}: AnyRecord = {}) {
   if (skipSessionExpiry) return false;
   if (!hadAccessToken) return false;
   if (!hasAccessTokenValue(accessToken)) return false;
@@ -664,26 +668,32 @@ function shouldMarkSessionSoftExpired({
   hadAccessToken,
   accessToken,
   skipSessionExpiry,
-} = {}) {
+}: AnyRecord = {}) {
   if (status !== 401) return false;
   return canSetSessionSoftExpired({ hadAccessToken, accessToken, skipSessionExpiry });
 }
 
-function shouldClearSessionSoftExpired({ hadAccessToken, accessToken } = {}) {
+function shouldClearSessionSoftExpired({
+  hadAccessToken,
+  accessToken,
+}: AnyRecord = {}) {
   return canSetSessionSoftExpired({ hadAccessToken, accessToken });
 }
 
-function clearSessionSoftExpiredIfNeeded({ hadAccessToken, accessToken } = {}) {
+function clearSessionSoftExpiredIfNeeded({
+  hadAccessToken,
+  accessToken,
+}: AnyRecord = {}) {
   if (!shouldClearSessionSoftExpired({ hadAccessToken, accessToken })) return;
   clearSessionSoftExpired();
 }
 
-function normalizeBackendErrorMessage(message) {
+function normalizeBackendErrorMessage(message: any) {
   if (!isBackendRuntimeDownMessage(message)) return String(message || "Unknown error");
   return BACKEND_RUNTIME_UNAVAILABLE;
 }
 
-function isBackendRuntimeDownMessage(message) {
+function isBackendRuntimeDownMessage(message: any) {
   const s = String(message || "").toLowerCase();
   if (!s) return false;
   if (s.includes("deno:") || s.includes("deno")) return true;
@@ -700,7 +710,7 @@ function shouldAttemptSessionRefresh({
   requestKind,
   hadAccessToken,
   accessToken,
-} = {}) {
+}: AnyRecord = {}) {
   if (status !== 401) return false;
   if (requestKind !== REQUEST_KIND.business) return false;
   return canSetSessionSoftExpired({ hadAccessToken, accessToken });
@@ -710,7 +720,7 @@ async function refreshSessionOnce() {
   if (refreshInFlight) return refreshInFlight;
   refreshInFlight = insforgeAuthClient.auth
     .getCurrentSession()
-    .then(({ data }) => data?.session ?? null)
+    .then(({ data }: AnyRecord) => data?.session ?? null)
     .catch(() => null)
     .finally(() => {
       refreshInFlight = null;
@@ -718,11 +728,11 @@ async function refreshSessionOnce() {
   return refreshInFlight;
 }
 
-function isRetryableStatus(status) {
+function isRetryableStatus(status: any) {
   return status === 502 || status === 503 || status === 504;
 }
 
-function isRetryableMessage(message) {
+function isRetryableMessage(message: any) {
   const s = String(message || "").toLowerCase();
   if (!s) return false;
   if (isBackendRuntimeDownMessage(s)) return true;
@@ -733,7 +743,7 @@ function isRetryableMessage(message) {
   return false;
 }
 
-function normalizeRetryOptions(retry, method) {
+function normalizeRetryOptions(retry: any, method: any) {
   const upperMethod = (method || "GET").toUpperCase();
   const defaultRetry =
     upperMethod === "GET"
@@ -757,25 +767,25 @@ function normalizeRetryOptions(retry, method) {
   return { maxRetries, baseDelayMs, maxDelayMs, jitterRatio };
 }
 
-function hasAccessTokenValue(accessToken) {
+function hasAccessTokenValue(accessToken: any) {
   if (typeof accessToken !== "string") return false;
   return accessToken.trim().length > 0;
 }
 
-function isJwtAccessToken(accessToken) {
+function isJwtAccessToken(accessToken: any) {
   if (!hasAccessTokenValue(accessToken)) return false;
   const parts = accessToken.split(".");
   if (parts.length !== 3) return false;
-  return parts.every((part) => /^[A-Za-z0-9_-]+$/.test(part));
+  return parts.every((part: string) => /^[A-Za-z0-9_-]+$/.test(part));
 }
 
-function shouldRetry({ err, attempt, retryOptions }) {
+function shouldRetry({ err, attempt, retryOptions }: AnyRecord = {}) {
   if (!retryOptions || retryOptions.maxRetries <= 0) return false;
   if (attempt >= retryOptions.maxRetries) return false;
   return Boolean(err && err.retryable);
 }
 
-function computeRetryDelayMs({ retryOptions, attempt }) {
+function computeRetryDelayMs({ retryOptions, attempt }: AnyRecord = {}) {
   if (!retryOptions || retryOptions.maxRetries <= 0) return 0;
   const exp = retryOptions.baseDelayMs * Math.pow(2, attempt);
   const capped = Math.min(retryOptions.maxDelayMs, exp);
@@ -783,13 +793,13 @@ function computeRetryDelayMs({ retryOptions, attempt }) {
   return Math.round(capped + jitter);
 }
 
-function clampInt(value, min, max) {
+function clampInt(value: any, min: number, max: number) {
   const n = Number(value);
   if (!Number.isFinite(n)) return min;
   return Math.min(max, Math.max(min, Math.floor(n)));
 }
 
-function sleep(ms) {
+function sleep(ms: number) {
   if (!ms || ms <= 0) return Promise.resolve();
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

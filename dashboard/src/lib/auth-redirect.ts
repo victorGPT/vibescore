@@ -1,5 +1,5 @@
 const REDIRECT_STORAGE_KEY = "vibeusage.dashboard.redirect.v1";
-let memoryRedirect = null;
+let memoryRedirect: string | null = null;
 
 function getRedirectStorage() {
   if (typeof window === "undefined") return null;
@@ -10,7 +10,7 @@ function getRedirectStorage() {
   }
 }
 
-export function parseRedirectParam(search) {
+export function parseRedirectParam(search: any) {
   if (typeof search !== "string" || search.length === 0) return null;
   const normalized = search.startsWith("?") ? search : `?${search}`;
   const params = new URLSearchParams(normalized);
@@ -19,11 +19,11 @@ export function parseRedirectParam(search) {
   return redirect;
 }
 
-function isLoopbackHost(hostname) {
+function isLoopbackHost(hostname: any) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
 
-export function validateLoopbackHttpRedirect(value) {
+export function validateLoopbackHttpRedirect(value: any) {
   if (typeof value !== "string" || value.length === 0) return null;
   let url;
   try {
@@ -36,7 +36,7 @@ export function validateLoopbackHttpRedirect(value) {
   return url.toString();
 }
 
-export function saveRedirectToStorage(target, storage = getRedirectStorage()) {
+export function saveRedirectToStorage(target: any, storage: any = getRedirectStorage()) {
   if (!storage || typeof storage.setItem !== "function") return false;
   if (typeof target !== "string" || target.length === 0) return false;
   try {
@@ -47,7 +47,7 @@ export function saveRedirectToStorage(target, storage = getRedirectStorage()) {
   }
 }
 
-export function clearRedirectFromStorage(storage = getRedirectStorage()) {
+export function clearRedirectFromStorage(storage: any = getRedirectStorage()) {
   if (!storage || typeof storage.removeItem !== "function") return false;
   try {
     storage.removeItem(REDIRECT_STORAGE_KEY);
@@ -57,7 +57,7 @@ export function clearRedirectFromStorage(storage = getRedirectStorage()) {
   }
 }
 
-export function consumeRedirectFromStorage(storage = getRedirectStorage()) {
+export function consumeRedirectFromStorage(storage: any = getRedirectStorage()) {
   if (!storage || typeof storage.getItem !== "function") return null;
   const value = storage.getItem(REDIRECT_STORAGE_KEY);
   if (!value) return null;
@@ -67,7 +67,7 @@ export function consumeRedirectFromStorage(storage = getRedirectStorage()) {
   return value;
 }
 
-export function stripRedirectParam(urlString) {
+export function stripRedirectParam(urlString: any) {
   if (typeof urlString !== "string" || urlString.length === 0) return null;
   let url;
   try {
@@ -80,7 +80,10 @@ export function stripRedirectParam(urlString) {
   return url.toString();
 }
 
-export function buildRedirectUrl(target, { accessToken, userId, email, name }) {
+export function buildRedirectUrl(
+  target: any,
+  { accessToken, userId, email, name }: Record<string, any> = {}
+) {
   const url = new URL(target);
   if (typeof accessToken === "string" && accessToken.length > 0) {
     url.searchParams.set("access_token", accessToken);
@@ -97,7 +100,10 @@ export function buildRedirectUrl(target, { accessToken, userId, email, name }) {
   return url.toString();
 }
 
-export function storeRedirectFromSearch(search, storage = getRedirectStorage()) {
+export function storeRedirectFromSearch(
+  search: any,
+  storage: any = getRedirectStorage()
+) {
   const raw = parseRedirectParam(search);
   const valid = validateLoopbackHttpRedirect(raw);
   const saved = valid ? saveRedirectToStorage(valid, storage) : false;
@@ -111,7 +117,10 @@ export function storeRedirectFromSearch(search, storage = getRedirectStorage()) 
   return { raw, valid, saved };
 }
 
-export function resolveRedirectTarget(search, storage = getRedirectStorage()) {
+export function resolveRedirectTarget(
+  search: any,
+  storage: any = getRedirectStorage()
+) {
   const raw = parseRedirectParam(search);
   const fromQuery = validateLoopbackHttpRedirect(raw);
   if (fromQuery) {
