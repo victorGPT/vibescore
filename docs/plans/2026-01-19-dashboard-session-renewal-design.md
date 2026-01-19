@@ -39,13 +39,12 @@
 
 ## Implementation Notes
 - **Probe 软失败机制**：为 `requestJson/requestPostJson` 增加 `skipSessionExpiry` 选项；`probeBackend` 传入该选项，绕过 `markSessionExpired`。
-- **刷新注入方式**：401 时调用 `insforgeAuthClient.auth.getCurrentSession()`，如返回 `session.accessToken` 则用该 token 重试一次；若拿不到或与旧 token 相同，视为刷新失败。
+- **刷新注入方式**：401 时调用 `insforgeAuthClient.auth.getCurrentSession()`，如返回 `session.accessToken` 则用该 token 重试一次；若拿不到 token 视为刷新失败；若 token 相同仍执行一次重试，重试仍 401 才判定失败。
 - **单飞刷新**：在 `vibeusage-api` 内引入 `refreshInFlight` promise，避免并发 401 导致多次刷新。
 
 ## Error Handling
 - 仅 401 + JWT access token 触发刷新逻辑。
 - 网络错误/超时不触发 `sessionExpired`。
-- 引入“刷新单飞”保护，避免并发 401 触发多次刷新。
 
 ## UX
 - 续期成功：用户无感知。
