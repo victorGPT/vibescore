@@ -2,12 +2,14 @@ const http = require('node:http');
 const crypto = require('node:crypto');
 const cp = require('node:child_process');
 
-const DEFAULT_BASE_URL = 'https://5tmappuk.us-east.insforge.app';
+const { DEFAULT_BASE_URL } = require('./runtime-config');
 
 async function beginBrowserAuth({ baseUrl, dashboardUrl, timeoutMs, open }) {
   const nonce = crypto.randomBytes(16).toString('hex');
   const callbackPath = `/vibeusage/callback/${nonce}`;
-  const authUrl = dashboardUrl ? new URL('/', dashboardUrl) : new URL('/auth/sign-up', baseUrl);
+  const authUrl = dashboardUrl
+    ? new URL('/', dashboardUrl)
+    : new URL('/auth/sign-up', baseUrl);
   const postAuthRedirect = resolvePostAuthRedirect({ dashboardUrl, authUrl });
   const { callbackUrl, waitForCallback } = await startLocalCallbackServer({
     callbackPath,
@@ -15,7 +17,9 @@ async function beginBrowserAuth({ baseUrl, dashboardUrl, timeoutMs, open }) {
     redirectUrl: postAuthRedirect
   });
   authUrl.searchParams.set('redirect', callbackUrl);
-  if (dashboardUrl && baseUrl && baseUrl !== DEFAULT_BASE_URL) authUrl.searchParams.set('base_url', baseUrl);
+  if (dashboardUrl && baseUrl && baseUrl !== DEFAULT_BASE_URL) {
+    authUrl.searchParams.set('base_url', baseUrl);
+  }
 
   if (open !== false) openInBrowser(authUrl.toString());
 

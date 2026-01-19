@@ -13,6 +13,12 @@ import {
   loadSessionExpired,
   subscribeSessionExpired,
 } from "./lib/auth-storage.js";
+import {
+  buildRedirectUrl,
+  resolveRedirectTarget,
+  storeRedirectFromSearch,
+  stripRedirectParam,
+} from "./lib/auth-redirect.js";
 import { insforgeAuthClient } from "./lib/insforge-auth-client.js";
 import { probeBackend } from "./lib/vibeusage-api.js";
 
@@ -46,6 +52,15 @@ export default function App() {
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const { saved } = storeRedirectFromSearch(window.location.search);
+    if (!saved) return;
+    const nextUrl = stripRedirectParam(window.location.href);
+    if (!nextUrl || nextUrl === window.location.href) return;
+    window.history.replaceState(null, "", nextUrl);
   }, []);
 
   useEffect(() => {
@@ -117,6 +132,25 @@ export default function App() {
       savedAt: new Date().toISOString(),
     };
   }, [getInsforgeAccessToken, insforgeSession]);
+
+  const redirectOnceRef = useRef(false);
+  useEffect(() => {
+    if (redirectOnceRef.current) return;
+    if (!insforgeSession?.accessToken || sessionExpired) return;
+    const target = resolveRedirectTarget(window.location.search);
+    if (!target) return;
+    const user = insforgeSession.user;
+    const profileName = user?.profile?.name;
+    const displayName = profileName ?? user?.name ?? null;
+    redirectOnceRef.current = true;
+    const redirectUrl = buildRedirectUrl(target, {
+      accessToken: insforgeSession.accessToken,
+      userId: user?.id ?? null,
+      email: user?.email ?? null,
+      name: displayName,
+    });
+    window.location.assign(redirectUrl);
+  }, [insforgeSession, sessionExpired]);
 
   const useInsforge = insforgeLoaded && insforgeSignedIn;
   const hasInsforgeSession = Boolean(insforgeSession);
