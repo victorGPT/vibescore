@@ -27,12 +27,20 @@
 3. **Visibility Revalidate**
    - 页面可见/聚焦时触发一次 `getCurrentSession()`，提前刷新 session。
 
+## Governance (OpenSpec)
+- 该变更影响认证行为与会话失效处理，属于“安全/权限边界变化”。实现前需要创建 OpenSpec change-id 并获确认。
+
 ---
 
 ## Data Flow
 - `requestJson/requestPostJson` 捕获 401 → 触发 `getCurrentSession()` 刷新 → 重试原请求一次。
 - `useBackendStatus` 的 probe 401 仅更新状态，不影响 auth/session。
 - `App` 依旧通过 `sessionExpired` 决定 banner 与登录引导，但只有“刷新失败”的业务请求才会设置该标记。
+
+## Implementation Notes
+- **Probe 软失败机制**：为 `requestJson/requestPostJson` 增加 `skipSessionExpiry` 选项；`probeBackend` 传入该选项，绕过 `markSessionExpired`。
+- **刷新注入方式**：401 时调用 `insforgeAuthClient.auth.getCurrentSession()`，如返回 `session.accessToken` 则用该 token 重试一次；若拿不到或与旧 token 相同，视为刷新失败。
+- **单飞刷新**：在 `vibeusage-api` 内引入 `refreshInFlight` promise，避免并发 401 导致多次刷新。
 
 ## Error Handling
 - 仅 401 + JWT access token 触发刷新逻辑。
@@ -52,4 +60,3 @@
 
 ## Risks / Trade-offs
 - 依赖 Insforge SDK 的 `getCurrentSession()` 是否会刷新 token；若不刷新，仍需 fallback 到登录提示（不影响安全）。
-
