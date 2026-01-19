@@ -85,6 +85,20 @@ test("storeRedirectFromSearch reports when redirect is not saved", async () => {
   assert.equal(result.saved, false);
 });
 
+test("saveRedirectToStorage returns false when storage setItem throws", async () => {
+  const { saveRedirectToStorage } = await loadRedirectModule();
+  const storage = {
+    setItem: () => {
+      throw new Error("quota exceeded");
+    },
+  };
+  const saved = saveRedirectToStorage(
+    "http://127.0.0.1:5678/callback",
+    storage
+  );
+  assert.equal(saved, false);
+});
+
 test("storeRedirectFromSearch saves loopback redirect when storage is available", async () => {
   const { storeRedirectFromSearch, consumeRedirectFromStorage } =
     await loadRedirectModule();

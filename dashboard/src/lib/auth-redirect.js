@@ -38,8 +38,12 @@ export function validateLoopbackHttpRedirect(value) {
 export function saveRedirectToStorage(target, storage = getRedirectStorage()) {
   if (!storage || typeof storage.setItem !== "function") return false;
   if (typeof target !== "string" || target.length === 0) return false;
-  storage.setItem(REDIRECT_STORAGE_KEY, target);
-  return true;
+  try {
+    storage.setItem(REDIRECT_STORAGE_KEY, target);
+    return true;
+  } catch (_e) {
+    return false;
+  }
 }
 
 export function consumeRedirectFromStorage(storage = getRedirectStorage()) {
