@@ -1,6 +1,6 @@
 # Dashboard Session Renewal (Soft Expiry) Design
 
-**Goal:** 静置场景下保持 Dashboard 不跳回登录；401 时先静默续期并重试一次，失败则立刻显示软提示（banner），保留已加载数据与视图。
+**Goal:** 静置场景下保持 Dashboard 不跳回登录；业务请求 401 时先静默续期并重试一次，失败则立刻显示软提示（banner），保留已加载数据与视图。
 
 **Scope (IN):**
 - 业务请求 401 的“静默续期 + 重试一次”流程
@@ -20,10 +20,10 @@
 
 ## Proposed Behavior
 1. **Business Request 401 → Silent Refresh → Retry Once**
-   - 仅对业务请求触发；刷新成功则重试一次并清除过期标记。
-   - 刷新失败或重试仍 401 → `markSessionExpired` → 立刻显示软提示。
+   - 仅对业务请求触发（不含 probe）；刷新成功则重试一次并清除软提示。
+   - 刷新失败（网络/超时/5xx）或重试仍 401 → `sessionSoftExpired = true` → 立刻显示软提示（不跳转、不清 auth）。
 2. **Probe 401 Soft-Fail**
-   - `probeBackend` 的 401 不触发 `markSessionExpired`，仅更新连接状态为 `UNSTABLE/Unauthorized`。
+   - `probeBackend` 的 401 不触发刷新或会话过期，仅更新连接状态为 `UNSTABLE/Unauthorized`。
 3. **Visibility Revalidate**
    - 页面可见/聚焦时触发一次 `getCurrentSession()`，提前刷新 session。
 
@@ -33,18 +33,18 @@
 ---
 
 ## Data Flow
-- `requestJson/requestPostJson` 捕获 401 → 触发 `getCurrentSession()` 刷新 → 重试原请求一次。
-- `useBackendStatus` 的 probe 401 仅更新状态，不影响 auth/session。
-- `App` 依旧通过 `sessionExpired` 决定 banner 与登录引导，但只有“刷新失败”的业务请求才会设置该标记。
+- `requestJson/requestPostJson` 捕获业务请求 401 → 触发 `getCurrentSession()` 刷新 → 重试原请求一次。
+- `useBackendStatus` 的 probe 401 仅更新状态，不影响 auth/session，也不触发 refresh。
+- `App` 通过 `sessionSoftExpired` 控制 banner 与登录提示入口，不触发路由跳转。
 
 ## Implementation Notes
-- **Probe 软失败机制**：为 `requestJson/requestPostJson` 增加 `skipSessionExpiry` 选项；`probeBackend` 传入该选项，绕过 `markSessionExpired`。
+- **Probe 软失败机制**：为 `requestJson/requestPostJson` 增加 `skipSessionExpiry`/`requestKind` 选项；`probeBackend` 传入并禁止触发 refresh。
 - **刷新注入方式**：401 时调用 `insforgeAuthClient.auth.getCurrentSession()`，如返回 `session.accessToken` 则用该 token 重试一次；若拿不到 token 视为刷新失败；若 token 相同仍执行一次重试，重试仍 401 才判定失败。
 - **单飞刷新**：在 `vibeusage-api` 内引入 `refreshInFlight` promise，避免并发 401 导致多次刷新。
 
 ## Error Handling
-- 仅 401 + JWT access token 触发刷新逻辑。
-- 网络错误/超时不触发 `sessionExpired`。
+- 仅业务请求的 401 触发刷新逻辑；probe 401 不触发。
+- 刷新失败（网络错误/超时/5xx）触发软提示，不清 auth。
 
 ## UX
 - 续期成功：用户无感知。
