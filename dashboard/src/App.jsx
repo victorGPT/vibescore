@@ -1,4 +1,11 @@
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import { useAuth as useInsforgeAuth } from "@insforge/react-router";
 
@@ -11,7 +18,9 @@ import {
   clearAuthStorage,
   clearSessionExpired,
   clearSessionSoftExpired,
+  loadSessionExpired,
   loadSessionSoftExpired,
+  subscribeSessionExpired,
   subscribeSessionSoftExpired,
 } from "./lib/auth-storage.js";
 import {
@@ -40,6 +49,9 @@ export default function App() {
   const mockEnabled = isMockEnabled();
   const [latestVersion, setLatestVersion] = useState(null);
   const [insforgeSession, setInsforgeSession] = useState(null);
+  const [sessionExpired, setSessionExpired] = useState(() =>
+    loadSessionExpired()
+  );
   const [sessionSoftExpired, setSessionSoftExpired] = useState(() =>
     loadSessionSoftExpired()
   );
@@ -84,6 +96,12 @@ export default function App() {
       active = false;
     };
   }, [insforgeLoaded, insforgeSignedIn]);
+
+  useEffect(() => {
+    return subscribeSessionExpired((next) => {
+      setSessionExpired(Boolean(next));
+    });
+  }, []);
 
   useEffect(() => {
     return subscribeSessionSoftExpired((next) => {

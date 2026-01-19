@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "lint": "eslint \"src/**/*.{js,jsx,ts,tsx}\"",
     "preview": "vite preview",
     "screenshot": "node scripts/capture-dashboard-screenshot.mjs",
     "verify:share-clipboard": "node scripts/verify-share-clipboard.mjs"
@@ -22,6 +23,9 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.0.0",
     "autoprefixer": "^10.4.21",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.35.0",
+    "eslint-plugin-react-hooks": "^4.6.2",
     "playwright": "^1.57.0",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
