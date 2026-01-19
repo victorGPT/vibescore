@@ -304,7 +304,7 @@
     {
       "id": "test_dashboard-auth-redirect_test_120ecd85",
       "type": "text",
-      "text": "**dashboard-auth-redirect.test**\n`test/dashboard-auth-redirect.test.js`\n\nTest module.\n\n包含：\n- dashboard-auth-redirect.test (122 行)\n- loadRedirectModule (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**dashboard-auth-redirect.test**\n`test/dashboard-auth-redirect.test.js`\n\nTest module.\n\n包含：\n- dashboard-auth-redirect.test (189 行)\n- loadRedirectModule (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1540,
       "y": 10132,
       "width": 280,
@@ -440,7 +440,7 @@
     {
       "id": "test_dashboard-session-expired-banner_test_12598be7",
       "type": "text",
-      "text": "**dashboard-session-expired-banner.test**\n`test/dashboard-session-expired-banner.test.js`\n\nTest module.\n\n包含：\n- dashboard-session-expired-banner.test (244 行)\n- read (1 个参数)\n\n依赖：1 个模块\n被依赖：0 次",
+      "text": "**dashboard-session-expired-banner.test**\n`test/dashboard-session-expired-banner.test.js`\n\nTest module.\n\n包含：\n- dashboard-session-expired-banner.test (268 行)\n- read (1 个参数)\n\n依赖：1 个模块\n被依赖：0 次",
       "x": 1180,
       "y": 10492,
       "width": 280,
@@ -2575,7 +2575,7 @@
     {
       "id": "entry_App_50b6270d",
       "type": "text",
-      "text": "**App**\n`dashboard/src/App.jsx`\n\nEntry module.\n\n包含：\n- App (207 行)\n- App (0 个参数)\n\n依赖：5 个模块\n被依赖：1 次",
+      "text": "**App**\n`dashboard/src/App.jsx`\n\nEntry module.\n\n包含：\n- App (224 行)\n- App (0 个参数)\n\n依赖：5 个模块\n被依赖：1 次",
       "x": 100,
       "y": 632,
       "width": 280,
@@ -3204,7 +3204,7 @@
     {
       "id": "utils_auth-redirect_69074b23",
       "type": "text",
-      "text": "**auth-redirect**\n`dashboard/src/lib/auth-redirect.js`\n\nShared utilities.\n\n包含：\n- auth-redirect (98 行)\n- getRedirectStorage (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**auth-redirect**\n`dashboard/src/lib/auth-redirect.js`\n\nShared utilities.\n\n包含：\n- auth-redirect (138 行)\n- getRedirectStorage (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 460,
       "y": 992,
       "width": 280,
@@ -3221,7 +3221,7 @@
     {
       "id": "utils_auth-storage_f3bd6b20",
       "type": "text",
-      "text": "**auth-storage**\n`dashboard/src/lib/auth-storage.js`\n\nShared utilities.\n\n包含：\n- auth-storage (128 行)\n- emitAuthStorageChange (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**auth-storage**\n`dashboard/src/lib/auth-storage.js`\n\nShared utilities.\n\n包含：\n- auth-storage (192 行)\n- emitAuthStorageChange (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 820,
       "y": 992,
       "width": 280,
@@ -3527,7 +3527,7 @@
     {
       "id": "utils_vibeusage-api_a0f50cf4",
       "type": "text",
-      "text": "**vibeusage-api**\n`dashboard/src/lib/vibeusage-api.js`\n\nShared utilities.\n\n包含：\n- vibeusage-api (596 行)\n- resolveAccessToken (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibeusage-api**\n`dashboard/src/lib/vibeusage-api.js`\n\nShared utilities.\n\n包含：\n- vibeusage-api (796 行)\n- resolveAccessToken (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 820,
       "y": 1712,
       "width": 280,

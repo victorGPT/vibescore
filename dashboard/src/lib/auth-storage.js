@@ -1,5 +1,6 @@
 const STORAGE_KEY = "vibeusage.dashboard.auth.v1";
 const SESSION_EXPIRED_KEY = "vibeusage.dashboard.session_expired.v1";
+const SESSION_SOFT_EXPIRED_KEY = "vibeusage.dashboard.session_soft_expired.v1";
 const AUTH_EVENT_NAME = "vibeusage:auth-storage";
 
 function emitAuthStorageChange() {
@@ -69,12 +70,47 @@ export function loadSessionExpired() {
   }
 }
 
+export function loadSessionSoftExpired() {
+  try {
+    const storage = getStorage();
+    if (!storage || typeof storage.getItem !== "function") return false;
+    const raw = storage.getItem(SESSION_SOFT_EXPIRED_KEY);
+    if (!raw) return false;
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.expiredAt === "string") {
+        return true;
+      }
+    } catch (_e) {
+      return raw === "true";
+    }
+    return raw === "true";
+  } catch (_e) {
+    return false;
+  }
+}
+
 export function setSessionExpired() {
   try {
     const storage = getStorage();
     if (!storage || typeof storage.setItem !== "function") return;
     storage.setItem(
       SESSION_EXPIRED_KEY,
+      JSON.stringify({ expiredAt: new Date().toISOString() })
+    );
+  } catch (_e) {
+    // ignore storage errors
+  } finally {
+    emitAuthStorageChange();
+  }
+}
+
+export function setSessionSoftExpired() {
+  try {
+    const storage = getStorage();
+    if (!storage || typeof storage.setItem !== "function") return;
+    storage.setItem(
+      SESSION_SOFT_EXPIRED_KEY,
       JSON.stringify({ expiredAt: new Date().toISOString() })
     );
   } catch (_e) {
@@ -96,9 +132,25 @@ export function clearSessionExpired() {
   }
 }
 
+export function clearSessionSoftExpired() {
+  try {
+    const storage = getStorage();
+    if (!storage || typeof storage.removeItem !== "function") return;
+    storage.removeItem(SESSION_SOFT_EXPIRED_KEY);
+  } catch (_e) {
+    // ignore storage errors
+  } finally {
+    emitAuthStorageChange();
+  }
+}
+
 export function markSessionExpired() {
   setSessionExpired();
   clearAuthStorage();
+}
+
+export function markSessionSoftExpired() {
+  setSessionSoftExpired();
 }
 
 export function subscribeAuthStorage(handler) {
@@ -109,6 +161,7 @@ export function subscribeAuthStorage(handler) {
     handler({
       auth: loadAuthFromStorage(),
       sessionExpired: loadSessionExpired(),
+      sessionSoftExpired: loadSessionSoftExpired(),
     });
   };
   window.addEventListener(AUTH_EVENT_NAME, onChange);
@@ -121,6 +174,17 @@ export function subscribeSessionExpired(handler) {
   }
   const onChange = () => {
     handler(loadSessionExpired());
+  };
+  window.addEventListener(AUTH_EVENT_NAME, onChange);
+  return () => window.removeEventListener(AUTH_EVENT_NAME, onChange);
+}
+
+export function subscribeSessionSoftExpired(handler) {
+  if (typeof window === "undefined" || !window.addEventListener) {
+    return () => {};
+  }
+  const onChange = () => {
+    handler(loadSessionSoftExpired());
   };
   window.addEventListener(AUTH_EVENT_NAME, onChange);
   return () => window.removeEventListener(AUTH_EVENT_NAME, onChange);

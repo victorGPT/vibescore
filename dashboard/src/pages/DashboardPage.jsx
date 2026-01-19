@@ -107,7 +107,7 @@ export function DashboardPage({
   baseUrl,
   auth,
   signedIn,
-  sessionExpired,
+  sessionSoftExpired,
   signOut,
   publicMode = false,
   publicToken = null,
@@ -1131,8 +1131,8 @@ export function DashboardPage({
     return <BootScreen onSkip={() => setBooted(true)} />;
   }
 
-  const showExpiredGate = sessionExpired && !publicMode;
-  const requireAuthGate = !signedIn && !mockEnabled && !sessionExpired;
+  const showExpiredGate = sessionSoftExpired && !publicMode;
+  const requireAuthGate = !signedIn && !mockEnabled && !sessionSoftExpired;
   const showAuthGate = requireAuthGate && !publicMode;
 
   return (

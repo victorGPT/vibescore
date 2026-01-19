@@ -1,6 +1,7 @@
 import { createInsforgeClient } from "./insforge-client.js";
-import { clearSessionExpired, markSessionExpired } from "./auth-storage.js";
+import { clearSessionSoftExpired, markSessionSoftExpired } from "./auth-storage.js";
 import { formatDateLocal } from "./date-range.js";
+import { insforgeAuthClient } from "./insforge-auth-client.js";
 import {
   getMockUsageDaily,
   getMockUsageHourly,
@@ -30,6 +31,11 @@ const PATHS = {
 
 const FUNCTION_PREFIX = "/functions";
 const LEGACY_FUNCTION_PREFIX = "/api/functions";
+const REQUEST_KIND = {
+  business: "business",
+  probe: "probe",
+};
+let refreshInFlight = null;
 
 async function resolveAccessToken(accessToken) {
   if (!accessToken) return null;
@@ -55,6 +61,7 @@ export async function probeBackend({ baseUrl, accessToken, signal } = {}) {
     params: { from: today, to: today },
     fetchOptions: { cache: "no-store", signal },
     retry: false,
+    requestKind: REQUEST_KIND.probe,
   });
   return { status: 200 };
 }
@@ -299,15 +306,18 @@ async function requestJson({
   fetchOptions,
   errorPrefix,
   retry,
+  requestKind = REQUEST_KIND.business,
+  skipSessionExpiry = false,
+  allowRefresh = true,
 }) {
-  const resolvedAccessToken = await resolveAccessToken(accessToken);
-  const client = createInsforgeClient({
+  let activeAccessToken = await resolveAccessToken(accessToken);
+  let hadAccessToken = hasAccessTokenValue(activeAccessToken);
+  let http = createInsforgeClient({
     baseUrl,
-    accessToken: resolvedAccessToken,
-  });
-  const http = client.getHttpClient();
+    accessToken: activeAccessToken,
+  }).getHttpClient();
   const retryOptions = normalizeRetryOptions(retry, "GET");
-  const hadAccessToken = hasAccessTokenValue(resolvedAccessToken);
+  const normalizedRequestKind = skipSessionExpiry ? REQUEST_KIND.probe : requestKind;
   let attempt = 0;
   const { primaryPath, fallbackPath } = buildFunctionPaths(slug);
 
@@ -320,17 +330,88 @@ async function requestJson({
         params,
         fetchOptions,
       });
-      clearSessionExpiredIfNeeded({
+      clearSessionSoftExpiredIfNeeded({
         hadAccessToken,
-        accessToken: resolvedAccessToken,
+        accessToken: activeAccessToken,
       });
       return result;
     } catch (e) {
       if (e?.name === "AbortError") throw e;
-      const err = normalizeSdkError(e, {
+      let err = null;
+      const status = e?.statusCode ?? e?.status;
+      if (
+        allowRefresh &&
+        shouldAttemptSessionRefresh({
+          status,
+          requestKind: normalizedRequestKind,
+          hadAccessToken,
+          accessToken: activeAccessToken,
+        })
+      ) {
+        const refreshedSession = await refreshSessionOnce();
+        const refreshedToken = refreshedSession?.accessToken ?? null;
+        if (hasAccessTokenValue(refreshedToken)) {
+          const retryClient = createInsforgeClient({
+            baseUrl,
+            accessToken: refreshedToken,
+          });
+          const retryHttp = retryClient.getHttpClient();
+          activeAccessToken = refreshedToken;
+          hadAccessToken = true;
+          http = retryHttp;
+          try {
+            const retryResult = await requestWithFallback({
+              http: retryHttp,
+              primaryPath,
+              fallbackPath,
+              params,
+              fetchOptions,
+            });
+            clearSessionSoftExpiredIfNeeded({
+              hadAccessToken: true,
+              accessToken: refreshedToken,
+            });
+            return retryResult;
+          } catch (retryErr) {
+            const retryStatus = retryErr?.statusCode ?? retryErr?.status;
+            if (
+              shouldMarkSessionSoftExpired({
+                status: retryStatus,
+                hadAccessToken: true,
+                accessToken: refreshedToken,
+                skipSessionExpiry: normalizedRequestKind === REQUEST_KIND.probe,
+              })
+            ) {
+              markSessionSoftExpired();
+            }
+            err = normalizeSdkError(retryErr, {
+              errorPrefix,
+              hadAccessToken: true,
+              accessToken: refreshedToken,
+              skipSessionExpiry: true,
+            });
+          }
+        } else if (
+          canSetSessionSoftExpired({
+            hadAccessToken,
+            accessToken: activeAccessToken,
+            skipSessionExpiry: normalizedRequestKind === REQUEST_KIND.probe,
+          })
+        ) {
+          markSessionSoftExpired();
+        }
+        err ??= normalizeSdkError(e, {
+          errorPrefix,
+          hadAccessToken,
+          accessToken: activeAccessToken,
+          skipSessionExpiry: true,
+        });
+      }
+      err ??= normalizeSdkError(e, {
         errorPrefix,
         hadAccessToken,
-        accessToken: resolvedAccessToken,
+        accessToken: activeAccessToken,
+        skipSessionExpiry: normalizedRequestKind === REQUEST_KIND.probe,
       });
       if (!shouldRetry({ err, attempt, retryOptions })) throw err;
       const delayMs = computeRetryDelayMs({ retryOptions, attempt });
@@ -348,15 +429,18 @@ async function requestPostJson({
   fetchOptions,
   errorPrefix,
   retry,
+  requestKind = REQUEST_KIND.business,
+  skipSessionExpiry = false,
+  allowRefresh = true,
 }) {
-  const resolvedAccessToken = await resolveAccessToken(accessToken);
-  const client = createInsforgeClient({
+  let activeAccessToken = await resolveAccessToken(accessToken);
+  let hadAccessToken = hasAccessTokenValue(activeAccessToken);
+  let http = createInsforgeClient({
     baseUrl,
-    accessToken: resolvedAccessToken,
-  });
-  const http = client.getHttpClient();
+    accessToken: activeAccessToken,
+  }).getHttpClient();
   const retryOptions = normalizeRetryOptions(retry, "POST");
-  const hadAccessToken = hasAccessTokenValue(resolvedAccessToken);
+  const normalizedRequestKind = skipSessionExpiry ? REQUEST_KIND.probe : requestKind;
   let attempt = 0;
   const { primaryPath, fallbackPath } = buildFunctionPaths(slug);
 
@@ -369,17 +453,88 @@ async function requestPostJson({
         body,
         fetchOptions,
       });
-      clearSessionExpiredIfNeeded({
+      clearSessionSoftExpiredIfNeeded({
         hadAccessToken,
-        accessToken: resolvedAccessToken,
+        accessToken: activeAccessToken,
       });
       return result;
     } catch (e) {
       if (e?.name === "AbortError") throw e;
-      const err = normalizeSdkError(e, {
+      let err = null;
+      const status = e?.statusCode ?? e?.status;
+      if (
+        allowRefresh &&
+        shouldAttemptSessionRefresh({
+          status,
+          requestKind: normalizedRequestKind,
+          hadAccessToken,
+          accessToken: activeAccessToken,
+        })
+      ) {
+        const refreshedSession = await refreshSessionOnce();
+        const refreshedToken = refreshedSession?.accessToken ?? null;
+        if (hasAccessTokenValue(refreshedToken)) {
+          const retryClient = createInsforgeClient({
+            baseUrl,
+            accessToken: refreshedToken,
+          });
+          const retryHttp = retryClient.getHttpClient();
+          activeAccessToken = refreshedToken;
+          hadAccessToken = true;
+          http = retryHttp;
+          try {
+            const retryResult = await requestWithFallbackPost({
+              http: retryHttp,
+              primaryPath,
+              fallbackPath,
+              body,
+              fetchOptions,
+            });
+            clearSessionSoftExpiredIfNeeded({
+              hadAccessToken: true,
+              accessToken: refreshedToken,
+            });
+            return retryResult;
+          } catch (retryErr) {
+            const retryStatus = retryErr?.statusCode ?? retryErr?.status;
+            if (
+              shouldMarkSessionSoftExpired({
+                status: retryStatus,
+                hadAccessToken: true,
+                accessToken: refreshedToken,
+                skipSessionExpiry: normalizedRequestKind === REQUEST_KIND.probe,
+              })
+            ) {
+              markSessionSoftExpired();
+            }
+            err = normalizeSdkError(retryErr, {
+              errorPrefix,
+              hadAccessToken: true,
+              accessToken: refreshedToken,
+              skipSessionExpiry: true,
+            });
+          }
+        } else if (
+          canSetSessionSoftExpired({
+            hadAccessToken,
+            accessToken: activeAccessToken,
+            skipSessionExpiry: normalizedRequestKind === REQUEST_KIND.probe,
+          })
+        ) {
+          markSessionSoftExpired();
+        }
+        err ??= normalizeSdkError(e, {
+          errorPrefix,
+          hadAccessToken,
+          accessToken: activeAccessToken,
+          skipSessionExpiry: true,
+        });
+      }
+      err ??= normalizeSdkError(e, {
         errorPrefix,
         hadAccessToken,
-        accessToken: resolvedAccessToken,
+        accessToken: activeAccessToken,
+        skipSessionExpiry: normalizedRequestKind === REQUEST_KIND.probe,
       });
       if (!shouldRetry({ err, attempt, retryOptions })) throw err;
       const delayMs = computeRetryDelayMs({ retryOptions, attempt });
@@ -463,14 +618,24 @@ function shouldFallbackToLegacy(error, primaryPath) {
   return status === 404;
 }
 
-function normalizeSdkError(error, { errorPrefix, hadAccessToken, accessToken } = {}) {
+function normalizeSdkError(
+  error,
+  { errorPrefix, hadAccessToken, accessToken, skipSessionExpiry } = {}
+) {
   const raw = error?.message || String(error || "Unknown error");
   const msg = normalizeBackendErrorMessage(raw);
   const err = new Error(errorPrefix ? `${errorPrefix}: ${msg}` : msg);
   err.cause = error;
   const status = error?.statusCode ?? error?.status;
-  if (shouldMarkSessionExpired({ status, hadAccessToken, accessToken })) {
-    markSessionExpired();
+  if (
+    shouldMarkSessionSoftExpired({
+      status,
+      hadAccessToken,
+      accessToken,
+      skipSessionExpiry,
+    })
+  ) {
+    markSessionSoftExpired();
   }
   if (typeof status === "number") {
     err.status = status;
@@ -483,22 +648,34 @@ function normalizeSdkError(error, { errorPrefix, hadAccessToken, accessToken } =
   return err;
 }
 
-function shouldMarkSessionExpired({ status, hadAccessToken, accessToken } = {}) {
+function canSetSessionSoftExpired({
+  hadAccessToken,
+  accessToken,
+  skipSessionExpiry,
+} = {}) {
+  if (skipSessionExpiry) return false;
+  if (!hadAccessToken) return false;
+  if (!hasAccessTokenValue(accessToken)) return false;
+  return isJwtAccessToken(accessToken);
+}
+
+function shouldMarkSessionSoftExpired({
+  status,
+  hadAccessToken,
+  accessToken,
+  skipSessionExpiry,
+} = {}) {
   if (status !== 401) return false;
-  if (!hadAccessToken) return false;
-  if (!hasAccessTokenValue(accessToken)) return false;
-  return isJwtAccessToken(accessToken);
+  return canSetSessionSoftExpired({ hadAccessToken, accessToken, skipSessionExpiry });
 }
 
-function shouldClearSessionExpired({ hadAccessToken, accessToken } = {}) {
-  if (!hadAccessToken) return false;
-  if (!hasAccessTokenValue(accessToken)) return false;
-  return isJwtAccessToken(accessToken);
+function shouldClearSessionSoftExpired({ hadAccessToken, accessToken } = {}) {
+  return canSetSessionSoftExpired({ hadAccessToken, accessToken });
 }
 
-function clearSessionExpiredIfNeeded({ hadAccessToken, accessToken } = {}) {
-  if (!shouldClearSessionExpired({ hadAccessToken, accessToken })) return;
-  clearSessionExpired();
+function clearSessionSoftExpiredIfNeeded({ hadAccessToken, accessToken } = {}) {
+  if (!shouldClearSessionSoftExpired({ hadAccessToken, accessToken })) return;
+  clearSessionSoftExpired();
 }
 
 function normalizeBackendErrorMessage(message) {
@@ -516,6 +693,29 @@ function isBackendRuntimeDownMessage(message) {
   if (s.includes("upstream") && (s.includes("deno") || s.includes("connect")))
     return true;
   return false;
+}
+
+function shouldAttemptSessionRefresh({
+  status,
+  requestKind,
+  hadAccessToken,
+  accessToken,
+} = {}) {
+  if (status !== 401) return false;
+  if (requestKind !== REQUEST_KIND.business) return false;
+  return canSetSessionSoftExpired({ hadAccessToken, accessToken });
+}
+
+async function refreshSessionOnce() {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = insforgeAuthClient.auth
+    .getCurrentSession()
+    .then(({ data }) => data?.session ?? null)
+    .catch(() => null)
+    .finally(() => {
+      refreshInFlight = null;
+    });
+  return refreshInFlight;
 }
 
 function isRetryableStatus(status) {

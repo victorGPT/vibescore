@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 
 import { useAuth as useInsforgeAuth } from "@insforge/react-router";
 
@@ -10,8 +10,9 @@ import { fetchLatestTrackerVersion } from "./lib/npm-version.js";
 import {
   clearAuthStorage,
   clearSessionExpired,
-  loadSessionExpired,
-  subscribeSessionExpired,
+  clearSessionSoftExpired,
+  loadSessionSoftExpired,
+  subscribeSessionSoftExpired,
 } from "./lib/auth-storage.js";
 import {
   buildRedirectUrl,
@@ -20,7 +21,6 @@ import {
   stripRedirectParam,
 } from "./lib/auth-redirect.js";
 import { insforgeAuthClient } from "./lib/insforge-auth-client.js";
-import { probeBackend } from "./lib/vibeusage-api.js";
 
 import { UpgradeAlertModal } from "./ui/matrix-a/components/UpgradeAlertModal.jsx";
 
@@ -40,8 +40,9 @@ export default function App() {
   const mockEnabled = isMockEnabled();
   const [latestVersion, setLatestVersion] = useState(null);
   const [insforgeSession, setInsforgeSession] = useState(null);
-  const [sessionExpired, setSessionExpired] = useState(() => loadSessionExpired());
-  const lastProbeTokenRef = useRef(null);
+  const [sessionSoftExpired, setSessionSoftExpired] = useState(() =>
+    loadSessionSoftExpired()
+  );
 
   useEffect(() => {
     let active = true;
@@ -85,8 +86,8 @@ export default function App() {
   }, [insforgeLoaded, insforgeSignedIn]);
 
   useEffect(() => {
-    return subscribeSessionExpired((next) => {
-      setSessionExpired(Boolean(next));
+    return subscribeSessionSoftExpired((next) => {
+      setSessionSoftExpired(Boolean(next));
     });
   }, []);
 
@@ -97,26 +98,42 @@ export default function App() {
   }, [insforgeSignedIn]);
 
   useEffect(() => {
-    if (!sessionExpired) {
-      lastProbeTokenRef.current = null;
-      return;
-    }
-    if (!insforgeSignedIn) {
-      lastProbeTokenRef.current = null;
-      return;
-    }
+    if (!sessionSoftExpired) return () => {};
+    if (!insforgeSignedIn) return () => {};
     let active = true;
-    (async () => {
-      const token = await getInsforgeAccessToken();
+    const revalidate = async () => {
       if (!active) return;
-      if (!token || token === lastProbeTokenRef.current) return;
-      lastProbeTokenRef.current = token;
-      probeBackend({ baseUrl, accessToken: token }).catch(() => {});
-    })();
+      if (document.visibilityState && document.visibilityState !== "visible") {
+        return;
+      }
+      try {
+        const { data } = await insforgeAuthClient.auth.getCurrentSession();
+        if (!active) return;
+        if (data?.session?.accessToken) {
+          clearSessionSoftExpired();
+        }
+      } catch (_e) {
+        // ignore refresh errors
+      }
+    };
+    const onVisibilityChange = () => {
+      if (!active) return;
+      if (document.visibilityState === "visible") {
+        revalidate();
+      }
+    };
+    const onFocus = () => {
+      revalidate();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onFocus);
+    revalidate();
     return () => {
       active = false;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onFocus);
     };
-  }, [baseUrl, getInsforgeAccessToken, insforgeSignedIn, sessionExpired]);
+  }, [insforgeSignedIn, sessionSoftExpired]);
 
   const insforgeAuth = useMemo(() => {
     if (!insforgeSession?.accessToken) return null;
@@ -155,12 +172,11 @@ export default function App() {
   const useInsforge = insforgeLoaded && insforgeSignedIn;
   const hasInsforgeSession = Boolean(insforgeSession);
   const hasInsforgeIdentity = Boolean(insforgeSession?.user);
-  const signedIn =
-    useInsforge && hasInsforgeSession && hasInsforgeIdentity && !sessionExpired;
+  const signedIn = useInsforge && hasInsforgeSession && hasInsforgeIdentity;
   const auth = useMemo(() => {
-    if (!useInsforge || sessionExpired || !hasInsforgeIdentity) return null;
+    if (!useInsforge || !hasInsforgeIdentity) return null;
     return insforgeAuth;
-  }, [hasInsforgeIdentity, insforgeAuth, sessionExpired, useInsforge]);
+  }, [hasInsforgeIdentity, insforgeAuth, useInsforge]);
   const signOut = useMemo(() => {
     return async () => {
       if (useInsforge) {
@@ -168,6 +184,7 @@ export default function App() {
       }
       clearAuthStorage();
       clearSessionExpired();
+      clearSessionSoftExpired();
     };
   }, [insforgeSignOut, useInsforge]);
 
@@ -181,7 +198,7 @@ export default function App() {
 
   const loadingShell = <div className="min-h-screen bg-[#050505]" />;
   let content = null;
-  if (!publicMode && !signedIn && !mockEnabled && !sessionExpired) {
+  if (!publicMode && !signedIn && !mockEnabled && !sessionSoftExpired) {
     content = <LandingPage signInUrl={signInUrl} signUpUrl={signUpUrl} />;
   } else {
     content = (
@@ -191,7 +208,7 @@ export default function App() {
           baseUrl={baseUrl}
           auth={auth}
           signedIn={signedIn}
-          sessionExpired={sessionExpired}
+          sessionSoftExpired={sessionSoftExpired}
           signOut={signOut}
           publicMode={publicMode}
           publicToken={publicToken}
