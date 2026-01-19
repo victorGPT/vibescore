@@ -8,15 +8,15 @@ function read(rel) {
   return fs.readFileSync(path.join(__dirname, "..", rel), "utf8");
 }
 
-test("auth storage exposes session expired helpers", () => {
+test("auth storage exposes session soft expired helpers", () => {
   const src = read("dashboard/src/lib/auth-storage.js");
-  assert.match(src, /SESSION_EXPIRED_KEY/);
-  assert.match(src, /loadSessionExpired/);
-  assert.match(src, /setSessionExpired/);
-  assert.match(src, /clearSessionExpired/);
-  assert.match(src, /markSessionExpired/);
+  assert.match(src, /SESSION_SOFT_EXPIRED_KEY/);
+  assert.match(src, /loadSessionSoftExpired/);
+  assert.match(src, /setSessionSoftExpired/);
+  assert.match(src, /clearSessionSoftExpired/);
+  assert.match(src, /markSessionSoftExpired/);
   assert.match(src, /subscribeAuthStorage/);
-  assert.match(src, /subscribeSessionExpired/);
+  assert.match(src, /subscribeSessionSoftExpired/);
 });
 
 test("App does not use legacy auth hook", () => {
@@ -58,7 +58,7 @@ test("App routes LandingPage when signed out", () => {
   const src = read("dashboard/src/App.jsx");
   assert.match(
     src,
-    /!publicMode\s*&&\s*!signedIn\s*&&\s*!mockEnabled\s*&&\s*!sessionExpired/
+    /!publicMode\s*&&\s*!signedIn\s*&&\s*!mockEnabled/
   );
 });
 
@@ -68,20 +68,17 @@ test("App uses InsForge auth hook for signed-in gating", () => {
   assert.match(src, /useInsforgeAuth/);
 });
 
-test("App derives signedIn from sessionExpired gate", () => {
+test("App derives signedIn from InsForge session state", () => {
   const src = read("dashboard/src/App.jsx");
   assert.match(
     src,
-    /const signedIn\s*=\s*useInsforge\s*&&\s*hasInsforgeSession\s*&&\s*hasInsforgeIdentity\s*&&\s*!sessionExpired/
+    /const signedIn\s*=\s*useInsforge\s*&&\s*hasInsforgeSession\s*&&\s*hasInsforgeIdentity/
   );
 });
 
-test("App disables auth when session expired", () => {
+test("App keeps auth while session is soft-expired", () => {
   const src = read("dashboard/src/App.jsx");
-  const match = src.match(
-    /useMemo\([\s\S]*?\n\s*if\s*\([^)]+sessionExpired[^)]*\)\s*return\s*null;/
-  );
-  assert.ok(match, "expected auth guard for sessionExpired");
+  assert.doesNotMatch(src, /sessionSoftExpired[^;]*return\s+null/);
 });
 
 test("App provides InsForge access token resolver", () => {
@@ -96,19 +93,19 @@ test("App prefers InsForge profile name for identity", () => {
   assert.match(src, /user\?\.name/);
 });
 
-test("App subscribes to sessionExpired state", () => {
+test("App subscribes to sessionSoftExpired state", () => {
   const src = read("dashboard/src/App.jsx");
-  assert.match(src, /loadSessionExpired/);
-  assert.match(src, /subscribeSessionExpired/);
+  assert.match(src, /loadSessionSoftExpired/);
+  assert.match(src, /subscribeSessionSoftExpired/);
 });
 
 test("App declares getInsforgeAccessToken before revalidate effect", () => {
   const src = read("dashboard/src/App.jsx");
   const tokenIndex = src.indexOf("const getInsforgeAccessToken");
-  const probeIndex = src.indexOf("probeBackend({ baseUrl");
+  const authMemoIndex = src.indexOf("const auth = useMemo");
   assert.ok(tokenIndex !== -1, "expected getInsforgeAccessToken declaration");
-  assert.ok(probeIndex !== -1, "expected probeBackend call");
-  assert.ok(tokenIndex < probeIndex);
+  assert.ok(authMemoIndex !== -1, "expected auth memo");
+  assert.ok(tokenIndex < authMemoIndex);
 });
 
 test("App requires InsForge identity before signedIn", () => {
@@ -125,11 +122,11 @@ test("App does not use legacy safe redirects", () => {
   assert.doesNotMatch(src, /LOCAL_REDIRECT_HOSTS/);
 });
 
-test("App probes backend to revalidate expired sessions", () => {
+test("App registers visibility revalidate for soft-expired sessions", () => {
   const src = read("dashboard/src/App.jsx");
-  assert.match(src, /probeBackend/);
-  assert.match(src, /sessionExpired/);
-  assert.match(src, /getInsforgeAccessToken\(\)[\s\S]*probeBackend/);
+  assert.match(src, /visibilitychange/);
+  assert.match(src, /sessionSoftExpired/);
+  assert.match(src, /getCurrentSession/);
 });
 
 test("vibeusage-api resolves access token providers", () => {
@@ -145,9 +142,9 @@ test("App avoids legacy auth fallback before InsForge is ready", () => {
 
 test("DashboardPage shows session expired banner and bypasses auth gate", () => {
   const src = read("dashboard/src/pages/DashboardPage.jsx");
-  assert.match(src, /sessionExpired/);
+  assert.match(src, /sessionSoftExpired/);
   assert.match(src, /dashboard\.session_expired\.title/);
-  assert.match(src, /requireAuthGate\s*=\s*!signedIn\s*&&\s*!mockEnabled\s*&&\s*!sessionExpired/);
+  assert.match(src, /requireAuthGate\s*=\s*!signedIn\s*&&\s*!mockEnabled\s*&&\s*!sessionSoftExpired/);
 });
 
 test("DashboardPage disables auth access token when session expired", () => {
@@ -164,24 +161,32 @@ test("DashboardPage uses hosted auth routes", () => {
   assert.ok(!src.includes("/auth/callback"));
 });
 
-test("vibeusage-api marks session expired only for jwt access tokens", () => {
+test("vibeusage-api marks session soft expired only for jwt access tokens", () => {
   const src = read("dashboard/src/lib/vibeusage-api.js");
-  assert.match(src, /markSessionExpired/);
+  assert.match(src, /markSessionSoftExpired/);
   assert.match(src, /isJwtAccessToken/);
-  const match = src.match(/function shouldMarkSessionExpired[\s\S]*?\n}/);
-  assert.ok(match, "expected shouldMarkSessionExpired helper");
-  assert.match(match[0], /status\s*(?:===|!==)\s*401/);
-  assert.match(match[0], /hasAccessTokenValue/);
-  assert.match(match[0], /isJwtAccessToken\(/);
+  const markMatch = src.match(
+    /function shouldMarkSessionSoftExpired\([\s\S]*?\)\s*\{[\s\S]*?\n\}/
+  );
+  assert.ok(markMatch, "expected shouldMarkSessionSoftExpired helper");
+  assert.match(markMatch[0], /status\s*!==\s*401/);
+  assert.match(markMatch[0], /canSetSessionSoftExpired/);
+  const guardMatch = src.match(
+    /function canSetSessionSoftExpired\([\s\S]*?\)\s*\{[\s\S]*?\n\}/
+  );
+  assert.ok(guardMatch, "expected canSetSessionSoftExpired helper");
+  assert.match(guardMatch[0], /hasAccessTokenValue/);
+  assert.match(guardMatch[0], /isJwtAccessToken\(/);
 });
 
-test("vibeusage-api clears session expired after successful jwt responses", () => {
+test("vibeusage-api clears session soft expired after successful jwt responses", () => {
   const src = read("dashboard/src/lib/vibeusage-api.js");
-  assert.match(src, /clearSessionExpired/);
-  const match = src.match(/function shouldClearSessionExpired[\s\S]*?\n}/);
-  assert.ok(match, "expected shouldClearSessionExpired helper");
-  assert.match(match[0], /hasAccessTokenValue/);
-  assert.match(match[0], /isJwtAccessToken\(/);
+  assert.match(src, /clearSessionSoftExpired/);
+  const match = src.match(
+    /function shouldClearSessionSoftExpired\([\s\S]*?\)\s*\{[\s\S]*?\n\}/
+  );
+  assert.ok(match, "expected shouldClearSessionSoftExpired helper");
+  assert.match(match[0], /canSetSessionSoftExpired/);
 });
 
 test("copy registry includes session expired strings", () => {
@@ -219,10 +224,10 @@ test("auth storage skips localStorage when window is undefined", async () => {
     __dirname,
     "../dashboard/src/lib/auth-storage.js"
   );
-  const { setSessionExpired } = await import(pathToFileURL(modulePath).href);
+  const { setSessionSoftExpired } = await import(pathToFileURL(modulePath).href);
 
   assert.doesNotThrow(() => {
-    setSessionExpired();
+    setSessionSoftExpired();
   });
   assert.equal(setItemCalls, 0);
 
@@ -233,7 +238,7 @@ test("auth storage skips localStorage when window is undefined", async () => {
 
 test("DashboardPage gates expired UI", () => {
   const src = read("dashboard/src/pages/DashboardPage.jsx");
-  assert.match(src, /const showExpiredGate\s*=\s*sessionExpired\s*&&\s*!publicMode/);
+  assert.match(src, /const showExpiredGate\s*=\s*sessionSoftExpired\s*&&\s*!publicMode/);
   assert.match(src, /showExpiredGate\s*\?\s*\(/);
 });
 

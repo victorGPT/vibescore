@@ -11,3 +11,11 @@
     - `usage summary prefers /functions and falls back on 404`
     - `usage summary does not fall back on 401`
     - `link code init posts to /functions`
+  - Command: `node --test test/dashboard-session-expired-banner.test.js`
+  - Result: **pass**
+  - Command: `node --test test/build-insforge-functions-cleanup.test.js`
+  - Result: **pass**
+  - Command: `node --test test/dashboard-function-path.test.js`
+  - Result: **pass**
+  - Command: `npm test`
+  - Result: **pass**

@@ -423,7 +423,7 @@
     {
       "id": "test_dashboard-session-expired-banner_test_12598be7",
       "type": "text",
-      "text": "**dashboard-session-expired-banner.test**\n`test/dashboard-session-expired-banner.test.js`\n\nTest module.\n\n包含：\n- dashboard-session-expired-banner.test (244 行)\n- read (1 个参数)\n\n依赖：1 个模块\n被依赖：0 次",
+      "text": "**dashboard-session-expired-banner.test**\n`test/dashboard-session-expired-banner.test.js`\n\nTest module.\n\n包含：\n- dashboard-session-expired-banner.test (249 行)\n- read (1 个参数)\n\n依赖：1 个模块\n被依赖：0 次",
       "x": 820,
       "y": 10492,
       "width": 280,
@@ -2558,7 +2558,7 @@
     {
       "id": "entry_App_50b6270d",
       "type": "text",
-      "text": "**App**\n`dashboard/src/App.jsx`\n\nEntry module.\n\n包含：\n- App (173 行)\n- App (0 个参数)\n\n依赖：5 个模块\n被依赖：1 次",
+      "text": "**App**\n`dashboard/src/App.jsx`\n\nEntry module.\n\n包含：\n- App (190 行)\n- App (0 个参数)\n\n依赖：5 个模块\n被依赖：1 次",
       "x": 100,
       "y": 632,
       "width": 280,
@@ -3187,7 +3187,7 @@
     {
       "id": "utils_auth-storage_f3bd6b20",
       "type": "text",
-      "text": "**auth-storage**\n`dashboard/src/lib/auth-storage.js`\n\nShared utilities.\n\n包含：\n- auth-storage (128 行)\n- emitAuthStorageChange (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**auth-storage**\n`dashboard/src/lib/auth-storage.js`\n\nShared utilities.\n\n包含：\n- auth-storage (192 行)\n- emitAuthStorageChange (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 460,
       "y": 992,
       "width": 280,
@@ -3493,7 +3493,7 @@
     {
       "id": "utils_vibeusage-api_a0f50cf4",
       "type": "text",
-      "text": "**vibeusage-api**\n`dashboard/src/lib/vibeusage-api.js`\n\nShared utilities.\n\n包含：\n- vibeusage-api (596 行)\n- resolveAccessToken (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibeusage-api**\n`dashboard/src/lib/vibeusage-api.js`\n\nShared utilities.\n\n包含：\n- vibeusage-api (792 行)\n- resolveAccessToken (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 460,
       "y": 1712,
       "width": 280,
