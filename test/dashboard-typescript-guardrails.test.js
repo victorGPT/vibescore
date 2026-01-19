@@ -16,6 +16,25 @@ async function read(pathname) {
   return fs.readFile(pathname, "utf8");
 }
 
+function getTscCommand() {
+  const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+  return {
+    cmd: npmCmd,
+    args: [
+      "--prefix",
+      "dashboard",
+      "exec",
+      "tsc",
+      "--",
+      "--noEmit",
+      "--pretty",
+      "false",
+      "-p",
+      "dashboard/tsconfig.json",
+    ],
+  };
+}
+
 test("dashboard has tsconfig", async () => {
   await read(tsconfigPath);
 });
@@ -78,11 +97,14 @@ test("lib layer is fully migrated to TS", async () => {
   }
 });
 
+test("tsc command uses npm exec", () => {
+  const { cmd, args } = getTscCommand();
+  assert.ok(cmd.includes("npm"), "expected npm command");
+  assert.ok(args.includes("exec"), "expected npm exec usage");
+  assert.ok(args.includes("tsc"), "expected tsc in args");
+});
+
 test("tsc validates migrated TS files", async () => {
-  const tscPath = path.join(repoRoot, "dashboard/node_modules/.bin/tsc");
-  await execFileAsync(
-    tscPath,
-    ["--noEmit", "--pretty", "false", "-p", "dashboard/tsconfig.json"],
-    { cwd: repoRoot }
-  );
+  const { cmd, args } = getTscCommand();
+  await execFileAsync(cmd, args, { cwd: repoRoot });
 });

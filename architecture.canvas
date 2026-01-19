@@ -491,7 +491,7 @@
     {
       "id": "test_dashboard-typescript-guardrails_test_e8047a0",
       "type": "text",
-      "text": "**dashboard-typescript-guardrails.test**\n`test/dashboard-typescript-guardrails.test.js`\n\nTest module.\n\n包含：\n- dashboard-typescript-guardrails.test (89 行)\n- read (1 个参数)\n\n依赖：1 个模块\n被依赖：0 次",
+      "text": "**dashboard-typescript-guardrails.test**\n`test/dashboard-typescript-guardrails.test.js`\n\nTest module.\n\n包含：\n- dashboard-typescript-guardrails.test (111 行)\n- read (1 个参数)\n\n依赖：1 个模块\n被依赖：0 次",
       "x": 2260,
       "y": 10492,
       "width": 280,
