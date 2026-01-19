@@ -14,6 +14,20 @@
 - Cold regression step:
 - Synthetic acceptance:
 
+## 2026-01-19-release-0.2.14
+- Date: 2026-01-19
+- Scope: CLI publish (vibeusage@0.2.14) + ops workflow endpoint cleanup
+- Change ID: N/A (release)
+- CI workflow run: 21134700364
+- Release workflow run: 21134700364
+- Preflight: `node scripts/acceptance/model-identity-alias-table.cjs` (pass)
+- npm publish: vibeusage@0.2.14 (published)
+- Vercel check: skipped (no dashboard changes)
+- MCP deploy: skipped (no functions changes)
+- Freeze artifact: CLI package `vibeusage@0.2.14`
+- Cold regression step: `npm test` (pass)
+- Synthetic acceptance: `VIBEUSAGE_RUN_NPX=1 node scripts/acceptance/npm-install-smoke.cjs` (pass)
+
 ## 2026-01-17-release-0.2.13
 - Date: 2026-01-17
 - Scope: CLI publish (vibeusage@0.2.13) + Release gate fix
