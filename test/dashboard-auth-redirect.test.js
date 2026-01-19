@@ -102,6 +102,21 @@ test("storeRedirectFromSearch clears stale storage when save fails", async () =>
   assert.equal(consumeRedirectFromStorage(storage), null);
 });
 
+test("resolveRedirectTarget uses memory fallback when storage fails and query is gone", async () => {
+  const { storeRedirectFromSearch, resolveRedirectTarget } =
+    await loadRedirectModule();
+  const storage = {
+    getItem: () => null,
+    setItem: () => {
+      throw new Error("quota exceeded");
+    },
+    removeItem: () => {},
+  };
+  storeRedirectFromSearch("?redirect=http://127.0.0.1:4242/callback", storage);
+  assert.equal(resolveRedirectTarget("", storage), "http://127.0.0.1:4242/callback");
+  assert.equal(resolveRedirectTarget("", storage), null);
+});
+
 test("saveRedirectToStorage returns false when storage setItem throws", async () => {
   const { saveRedirectToStorage } = await loadRedirectModule();
   const storage = {

@@ -1,4 +1,5 @@
 const REDIRECT_STORAGE_KEY = "vibeusage.dashboard.redirect.v1";
+let memoryRedirect = null;
 
 function getRedirectStorage() {
   if (typeof window === "undefined") return null;
@@ -101,7 +102,11 @@ export function storeRedirectFromSearch(search, storage = getRedirectStorage()) 
   const valid = validateLoopbackHttpRedirect(raw);
   const saved = valid ? saveRedirectToStorage(valid, storage) : false;
   if (valid && !saved) {
+    memoryRedirect = valid;
     clearRedirectFromStorage(storage);
+  }
+  if (saved) {
+    memoryRedirect = null;
   }
   return { raw, valid, saved };
 }
@@ -110,13 +115,23 @@ export function resolveRedirectTarget(search, storage = getRedirectStorage()) {
   const raw = parseRedirectParam(search);
   const fromQuery = validateLoopbackHttpRedirect(raw);
   if (fromQuery) {
+    memoryRedirect = null;
     consumeRedirectFromStorage(storage);
     return fromQuery;
+  }
+  if (memoryRedirect) {
+    const value = memoryRedirect;
+    memoryRedirect = null;
+    consumeRedirectFromStorage(storage);
+    return value;
   }
   const stored = consumeRedirectFromStorage(storage);
   if (stored) {
     const validated = validateLoopbackHttpRedirect(stored);
-    if (validated) return validated;
+    if (validated) {
+      memoryRedirect = null;
+      return validated;
+    }
   }
   return null;
 }
