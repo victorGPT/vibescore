@@ -12,16 +12,12 @@ async function readAppSource() {
 
 test("App.jsx imports useRef from react", async () => {
   const source = await readAppSource();
-  const reactImportMatch = source.match(
-    /import\s+React\s*,\s*\{([^}]+)\}\s+from\s+["']react["']\s*;/
-  );
-  assert.ok(reactImportMatch, "expected React named imports in App.jsx");
-  const namedImports = reactImportMatch[1]
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
+  const hasUseRefImport =
+    /import\s+[^;]*\{\s*[^}]*\buseRef\b[^}]*\}\s+from\s+["']react["']\s*;/.test(
+      source
+    );
   assert.ok(
-    namedImports.includes("useRef"),
+    hasUseRefImport,
     "expected useRef to be imported from react in App.jsx"
   );
 });
