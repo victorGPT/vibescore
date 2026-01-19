@@ -46,6 +46,16 @@ export function saveRedirectToStorage(target, storage = getRedirectStorage()) {
   }
 }
 
+export function clearRedirectFromStorage(storage = getRedirectStorage()) {
+  if (!storage || typeof storage.removeItem !== "function") return false;
+  try {
+    storage.removeItem(REDIRECT_STORAGE_KEY);
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
 export function consumeRedirectFromStorage(storage = getRedirectStorage()) {
   if (!storage || typeof storage.getItem !== "function") return null;
   const value = storage.getItem(REDIRECT_STORAGE_KEY);
@@ -90,15 +100,23 @@ export function storeRedirectFromSearch(search, storage = getRedirectStorage()) 
   const raw = parseRedirectParam(search);
   const valid = validateLoopbackHttpRedirect(raw);
   const saved = valid ? saveRedirectToStorage(valid, storage) : false;
+  if (valid && !saved) {
+    clearRedirectFromStorage(storage);
+  }
   return { raw, valid, saved };
 }
 
 export function resolveRedirectTarget(search, storage = getRedirectStorage()) {
+  const raw = parseRedirectParam(search);
+  const fromQuery = validateLoopbackHttpRedirect(raw);
+  if (fromQuery) {
+    consumeRedirectFromStorage(storage);
+    return fromQuery;
+  }
   const stored = consumeRedirectFromStorage(storage);
   if (stored) {
     const validated = validateLoopbackHttpRedirect(stored);
     if (validated) return validated;
   }
-  const raw = parseRedirectParam(search);
-  return validateLoopbackHttpRedirect(raw);
+  return null;
 }

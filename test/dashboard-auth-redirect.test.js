@@ -85,6 +85,23 @@ test("storeRedirectFromSearch reports when redirect is not saved", async () => {
   assert.equal(result.saved, false);
 });
 
+test("storeRedirectFromSearch clears stale storage when save fails", async () => {
+  const { storeRedirectFromSearch, consumeRedirectFromStorage } =
+    await loadRedirectModule();
+  const store = new Map([["vibeusage.dashboard.redirect.v1", "http://127.0.0.1:1/old"]]);
+  const storage = {
+    getItem: (key) => (store.has(key) ? store.get(key) : null),
+    setItem: () => {
+      throw new Error("quota exceeded");
+    },
+    removeItem: (key) => {
+      store.delete(key);
+    },
+  };
+  storeRedirectFromSearch("?redirect=http://127.0.0.1:5555/callback", storage);
+  assert.equal(consumeRedirectFromStorage(storage), null);
+});
+
 test("saveRedirectToStorage returns false when storage setItem throws", async () => {
   const { saveRedirectToStorage } = await loadRedirectModule();
   const storage = {
@@ -111,7 +128,7 @@ test("storeRedirectFromSearch saves loopback redirect when storage is available"
   assert.equal(consumeRedirectFromStorage(storage), result.valid);
 });
 
-test("resolveRedirectTarget prefers stored redirect over query param", async () => {
+test("resolveRedirectTarget prefers query redirect over stored value", async () => {
   const { resolveRedirectTarget, saveRedirectToStorage } =
     await loadRedirectModule();
   const storage = createStorage();
@@ -121,7 +138,7 @@ test("resolveRedirectTarget prefers stored redirect over query param", async () 
     "?redirect=http://127.0.0.1:9999/callback",
     storage
   );
-  assert.equal(result, stored);
+  assert.equal(result, "http://127.0.0.1:9999/callback");
 });
 
 test("resolveRedirectTarget ignores stored redirect when invalid", async () => {
@@ -133,6 +150,16 @@ test("resolveRedirectTarget ignores stored redirect when invalid", async () => {
     storage
   );
   assert.equal(result, "http://127.0.0.1:7777/callback");
+});
+
+test("resolveRedirectTarget uses stored redirect when query missing", async () => {
+  const { resolveRedirectTarget, saveRedirectToStorage } =
+    await loadRedirectModule();
+  const storage = createStorage();
+  const stored = "http://127.0.0.1:6060/callback";
+  saveRedirectToStorage(stored, storage);
+  const result = resolveRedirectTarget("", storage);
+  assert.equal(result, stored);
 });
 
 test("resolveRedirectTarget falls back to valid query redirect", async () => {
