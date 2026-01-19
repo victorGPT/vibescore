@@ -95,7 +95,10 @@ export function storeRedirectFromSearch(search, storage = getRedirectStorage()) 
 
 export function resolveRedirectTarget(search, storage = getRedirectStorage()) {
   const stored = consumeRedirectFromStorage(storage);
-  if (stored) return stored;
+  if (stored) {
+    const validated = validateLoopbackHttpRedirect(stored);
+    if (validated) return validated;
+  }
   const raw = parseRedirectParam(search);
   return validateLoopbackHttpRedirect(raw);
 }

@@ -124,6 +124,17 @@ test("resolveRedirectTarget prefers stored redirect over query param", async () 
   assert.equal(result, stored);
 });
 
+test("resolveRedirectTarget ignores stored redirect when invalid", async () => {
+  const { resolveRedirectTarget } = await loadRedirectModule();
+  const storage = createStorage();
+  storage.setItem("vibeusage.dashboard.redirect.v1", "http://example.com/bad");
+  const result = resolveRedirectTarget(
+    "?redirect=http://127.0.0.1:7777/callback",
+    storage
+  );
+  assert.equal(result, "http://127.0.0.1:7777/callback");
+});
+
 test("resolveRedirectTarget falls back to valid query redirect", async () => {
   const { resolveRedirectTarget } = await loadRedirectModule();
   const storage = createStorage();
