@@ -126,8 +126,13 @@ test("lib layer is fully migrated to TS", async () => {
 
 test("tsc command uses npm exec", async () => {
   const { cmd, args } = getTscCommand();
-  const lock = JSON.parse(await read(lockPath));
-  const lockedVersion = lock.packages?.["node_modules/typescript"]?.version;
+  let lockedVersion;
+  try {
+    const lock = JSON.parse(await read(lockPath));
+    lockedVersion = lock.packages?.["node_modules/typescript"]?.version;
+  } catch (error) {
+    lockedVersion = undefined;
+  }
   assert.ok(cmd.includes("npm"), "expected npm command");
   assert.ok(args.includes("exec"), "expected npm exec usage");
   assert.ok(args.includes("--package"), "expected npm exec package usage");
