@@ -1,6 +1,7 @@
 const assert = require("node:assert/strict");
 const { execFile } = require("node:child_process");
 const fs = require("node:fs/promises");
+const fsSync = require("node:fs");
 const path = require("node:path");
 const { test } = require("node:test");
 const { promisify } = require("node:util");
@@ -10,21 +11,40 @@ const execFileAsync = promisify(execFile);
 const repoRoot = path.join(__dirname, "..");
 const tsconfigPath = path.join(repoRoot, "dashboard/tsconfig.json");
 const pkgPath = path.join(repoRoot, "dashboard/package.json");
+const lockPath = path.join(repoRoot, "dashboard/package-lock.json");
 const eslintPath = path.join(repoRoot, "dashboard/.eslintrc.cjs");
-const dashboardPackage = require(pkgPath);
 
 async function read(pathname) {
   return fs.readFile(pathname, "utf8");
 }
 
+function getTypescriptSpecifier() {
+  try {
+    const lock = JSON.parse(fsSync.readFileSync(lockPath, "utf8"));
+    const lockedVersion = lock.packages?.["node_modules/typescript"]?.version;
+    if (lockedVersion) {
+      return `typescript@${lockedVersion}`;
+    }
+  } catch (error) {
+    // Fall back to package.json spec if lockfile is unavailable.
+  }
+
+  try {
+    const pkg = JSON.parse(fsSync.readFileSync(pkgPath, "utf8"));
+    const version = pkg.devDependencies?.typescript ?? pkg.dependencies?.typescript;
+    if (version) {
+      return `typescript@${version}`;
+    }
+  } catch (error) {
+    // Fall back to bare package spec if package.json can't be read.
+  }
+
+  return "typescript";
+}
+
 function getTscCommand() {
   const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
-  const typescriptVersion =
-    dashboardPackage.devDependencies?.typescript ??
-    dashboardPackage.dependencies?.typescript;
-  const typescriptSpecifier = typescriptVersion
-    ? `typescript@${typescriptVersion}`
-    : "typescript";
+  const typescriptSpecifier = getTypescriptSpecifier();
   return {
     cmd: npmCmd,
     args: [
@@ -104,8 +124,10 @@ test("lib layer is fully migrated to TS", async () => {
   }
 });
 
-test("tsc command uses npm exec", () => {
+test("tsc command uses npm exec", async () => {
   const { cmd, args } = getTscCommand();
+  const lock = JSON.parse(await read(lockPath));
+  const lockedVersion = lock.packages?.["node_modules/typescript"]?.version;
   assert.ok(cmd.includes("npm"), "expected npm command");
   assert.ok(args.includes("exec"), "expected npm exec usage");
   assert.ok(args.includes("--package"), "expected npm exec package usage");
@@ -113,6 +135,12 @@ test("tsc command uses npm exec", () => {
     args.some((arg) => arg.startsWith("typescript")),
     "expected typescript package specifier",
   );
+  if (lockedVersion) {
+    assert.ok(
+      args.includes(`typescript@${lockedVersion}`),
+      "expected locked typescript version",
+    );
+  }
   assert.ok(args.includes("tsc"), "expected tsc in args");
 });
 
