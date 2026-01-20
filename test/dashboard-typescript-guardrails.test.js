@@ -11,6 +11,7 @@ const repoRoot = path.join(__dirname, "..");
 const tsconfigPath = path.join(repoRoot, "dashboard/tsconfig.json");
 const pkgPath = path.join(repoRoot, "dashboard/package.json");
 const eslintPath = path.join(repoRoot, "dashboard/.eslintrc.cjs");
+const dashboardPackage = require(pkgPath);
 
 async function read(pathname) {
   return fs.readFile(pathname, "utf8");
@@ -18,12 +19,18 @@ async function read(pathname) {
 
 function getTscCommand() {
   const npmCmd = process.platform === "win32" ? "npm.cmd" : "npm";
+  const typescriptVersion =
+    dashboardPackage.devDependencies?.typescript ??
+    dashboardPackage.dependencies?.typescript;
+  const typescriptSpecifier = typescriptVersion
+    ? `typescript@${typescriptVersion}`
+    : "typescript";
   return {
     cmd: npmCmd,
     args: [
-      "--prefix",
-      "dashboard",
       "exec",
+      "--package",
+      typescriptSpecifier,
       "tsc",
       "--",
       "--noEmit",
@@ -101,6 +108,11 @@ test("tsc command uses npm exec", () => {
   const { cmd, args } = getTscCommand();
   assert.ok(cmd.includes("npm"), "expected npm command");
   assert.ok(args.includes("exec"), "expected npm exec usage");
+  assert.ok(args.includes("--package"), "expected npm exec package usage");
+  assert.ok(
+    args.some((arg) => arg.startsWith("typescript")),
+    "expected typescript package specifier",
+  );
   assert.ok(args.includes("tsc"), "expected tsc in args");
 });
 
