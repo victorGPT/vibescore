@@ -131,6 +131,9 @@ test("tsc command uses npm exec", async () => {
     const lock = JSON.parse(await read(lockPath));
     lockedVersion = lock.packages?.["node_modules/typescript"]?.version;
   } catch (error) {
+    if (error?.code !== "ENOENT") {
+      throw error;
+    }
     lockedVersion = undefined;
   }
   assert.ok(cmd.includes("npm"), "expected npm command");
