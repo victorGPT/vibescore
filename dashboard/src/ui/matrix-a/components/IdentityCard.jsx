@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 
-import { copy } from "../../../lib/copy.js";
+import { copy } from "../../../lib/copy";
 import { AsciiBox } from "./AsciiBox.jsx";
 import { MatrixAvatar } from "./MatrixAvatar.jsx";
 import { ScrambleText } from "./ScrambleText.jsx";

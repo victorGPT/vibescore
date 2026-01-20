@@ -1,6 +1,6 @@
 import React from "react";
 
-import { copy } from "../../../lib/copy.js";
+import { copy } from "../../../lib/copy";
 
 export function SystemHeader({
   title = copy("system.header.title_default"),

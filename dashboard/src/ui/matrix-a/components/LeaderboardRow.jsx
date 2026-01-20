@@ -1,6 +1,6 @@
 import React from "react";
 
-import { copy } from "../../../lib/copy.js";
+import { copy } from "../../../lib/copy";
 import { MatrixAvatar } from "./MatrixAvatar.jsx";
 
 function formatRank(rank) {

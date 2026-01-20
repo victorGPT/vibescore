@@ -1,9 +1,21 @@
-import { formatDateLocal, formatDateUTC } from "./date-range.js";
+import { formatDateLocal, formatDateUTC } from "./date-range";
 import {
   buildActivityHeatmap,
   computeActiveStreakDays,
   getHeatmapRangeLocal,
-} from "./activity-heatmap.js";
+} from "./activity-heatmap";
+
+type AnyRecord = Record<string, any>;
+type HourRow = {
+  hour: string;
+  total_tokens: number;
+  billable_total_tokens: number;
+  input_tokens: number;
+  output_tokens: number;
+  cached_input_tokens: number;
+  reasoning_output_tokens: number;
+  missing?: boolean;
+};
 
 const DEFAULT_MOCK_SEED = "vibeusage";
 
@@ -37,7 +49,7 @@ function readMockNowRaw() {
   return "";
 }
 
-function parseMockNow(raw) {
+function parseMockNow(raw: any) {
   if (!raw) return null;
   const trimmed = String(raw).trim();
   if (!trimmed) return null;
@@ -86,12 +98,12 @@ function readMockMissingCount() {
   return 0;
 }
 
-function toSeed(seed) {
+function toSeed(seed: any) {
   const raw = seed == null ? readMockSeed() : String(seed);
   return raw.trim() || DEFAULT_MOCK_SEED;
 }
 
-function hashString(value) {
+function hashString(value: any) {
   let hash = 2166136261;
   for (let i = 0; i < value.length; i += 1) {
     hash ^= value.charCodeAt(i);
@@ -100,7 +112,7 @@ function hashString(value) {
   return hash >>> 0;
 }
 
-function parseUtcDate(yyyyMmDd) {
+function parseUtcDate(yyyyMmDd: any) {
   if (typeof yyyyMmDd !== "string") return null;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(yyyyMmDd.trim());
   if (!m) return null;
@@ -112,21 +124,21 @@ function parseUtcDate(yyyyMmDd) {
   return formatDateUTC(dt) === yyyyMmDd.trim() ? dt : null;
 }
 
-function addUtcDays(date, days) {
+function addUtcDays(date: Date, days: number) {
   return new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days)
   );
 }
 
-function addUtcMonths(date, months) {
+function addUtcMonths(date: Date, months: number) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
 }
 
-function formatMonthKey(date) {
+function formatMonthKey(date: Date) {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
-function buildDailyRows({ from, to, seed }) {
+function buildDailyRows({ from, to, seed }: AnyRecord) {
   const today = parseUtcDate(formatDateLocal(new Date())) || new Date();
   const start = parseUtcDate(from) || today;
   const end = parseUtcDate(to) || start;
@@ -168,11 +180,11 @@ function buildDailyRows({ from, to, seed }) {
   return rows;
 }
 
-function buildHourlyRows({ day, seed }) {
+function buildHourlyRows({ day, seed }: AnyRecord) {
   const base = parseUtcDate(day) || parseUtcDate(formatDateLocal(new Date())) || new Date();
   const dayKey = formatDateUTC(base);
   const seedValue = toSeed(seed);
-  const rows = Array.from({ length: 48 }, (_, index) => {
+  const rows: HourRow[] = Array.from({ length: 48 }, (_, index) => {
     const hour = Math.floor(index / 2);
     const minute = index % 2 === 0 ? 0 : 30;
     const hash = hashString(`${seedValue}:${dayKey}:${hour}:${minute}`);
@@ -206,18 +218,19 @@ function buildHourlyRows({ day, seed }) {
         const ts = Date.parse(row.hour);
         return Number.isFinite(ts) && ts <= nowMs ? { index, ts } : null;
       })
-      .filter(Boolean);
+      .filter(Boolean) as Array<{ index: number; ts: number }>;
     const sliceStart = Math.max(0, candidates.length - missingCount);
     const targets = candidates.slice(sliceStart);
     for (const target of targets) {
-      rows[target.index] = { ...rows[target.index], missing: true };
+      const row = rows[target.index];
+      if (row) rows[target.index] = { ...row, missing: true };
     }
   }
 
   return rows;
 }
 
-function buildMonthlyRows({ months = 24, to, seed }) {
+function buildMonthlyRows({ months = 24, to, seed }: AnyRecord) {
   const end = parseUtcDate(to) || parseUtcDate(formatDateLocal(new Date())) || new Date();
   const endMonth = new Date(Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), 1));
   const seedValue = toSeed(seed);
@@ -251,9 +264,9 @@ function buildMonthlyRows({ months = 24, to, seed }) {
   return rows;
 }
 
-function sumDailyRows(rows) {
+function sumDailyRows(rows: AnyRecord[]) {
   return rows.reduce(
-    (acc, row) => {
+    (acc: AnyRecord, row: AnyRecord) => {
       acc.total_tokens += Number(row.total_tokens || 0);
       acc.billable_total_tokens += Number(row.billable_total_tokens || row.total_tokens || 0);
       acc.input_tokens += Number(row.input_tokens || 0);
@@ -269,18 +282,18 @@ function sumDailyRows(rows) {
       output_tokens: 0,
       cached_input_tokens: 0,
       reasoning_output_tokens: 0,
-    }
+    } as AnyRecord
   );
 }
 
-function formatUsdFromTokens(totalTokens, ratePerMillion = 1.75) {
+function formatUsdFromTokens(totalTokens: any, ratePerMillion = 1.75) {
   const tokens = Number(totalTokens || 0);
   if (!Number.isFinite(tokens) || tokens <= 0) return "0.000000";
   const cost = (tokens * ratePerMillion) / 1_000_000;
   return cost.toFixed(6);
 }
 
-function scaleTotals(totals, weight) {
+function scaleTotals(totals: any, weight: number) {
   const safeWeight = Number.isFinite(weight) ? weight : 0;
   return {
     total_tokens: Math.max(0, Math.round(totals.total_tokens * safeWeight)),
@@ -301,26 +314,26 @@ function scaleTotals(totals, weight) {
   };
 }
 
-function withCost(totals) {
+function withCost(totals: any) {
   return {
     ...totals,
     total_cost_usd: formatUsdFromTokens(totals.total_tokens),
   };
 }
 
-export function getMockUsageDaily({ from, to, seed } = {}) {
+export function getMockUsageDaily({ from, to, seed }: AnyRecord = {}) {
   const rows = buildDailyRows({ from, to, seed });
   return { from, to, data: rows };
 }
 
-export function getMockUsageHourly({ day, seed } = {}) {
+export function getMockUsageHourly({ day, seed }: AnyRecord = {}) {
   const base = parseUtcDate(day) || new Date();
   const dayKey = formatDateUTC(base);
   const rows = buildHourlyRows({ day: dayKey, seed });
   return { day: dayKey, data: rows };
 }
 
-export function getMockUsageMonthly({ months = 24, to, seed } = {}) {
+export function getMockUsageMonthly({ months = 24, to, seed }: AnyRecord = {}) {
   const end = parseUtcDate(to) || parseUtcDate(formatDateLocal(new Date())) || new Date();
   const endDay = formatDateUTC(end);
   const rows = buildMonthlyRows({ months, to: endDay, seed });
@@ -331,7 +344,7 @@ export function getMockUsageMonthly({ months = 24, to, seed } = {}) {
   return { from: formatDateUTC(startMonth), to: endDay, months, data: rows };
 }
 
-export function getMockUsageSummary({ from, to, seed } = {}) {
+export function getMockUsageSummary({ from, to, seed }: AnyRecord = {}) {
   const rows = buildDailyRows({ from, to, seed });
   const totals = sumDailyRows(rows);
   const totalsWithCost = withCost(totals);
@@ -343,7 +356,12 @@ export function getMockUsageSummary({ from, to, seed } = {}) {
   };
 }
 
-export function getMockUsageHeatmap({ weeks = 52, to, weekStartsOn = "sun", seed } = {}) {
+export function getMockUsageHeatmap({
+  weeks = 52,
+  to,
+  weekStartsOn = "sun",
+  seed,
+}: AnyRecord = {}) {
   const range = getHeatmapRangeLocal({
     weeks,
     now: parseUtcDate(to) || parseUtcDate(formatDateLocal(new Date())) || new Date(),
@@ -360,12 +378,14 @@ export function getMockUsageHeatmap({ weeks = 52, to, weekStartsOn = "sun", seed
   return {
     ...heatmap,
     week_starts_on: weekStartsOn,
-    active_days: rows.filter((r) => Number(r.billable_total_tokens ?? r.total_tokens) > 0).length,
+    active_days: rows.filter(
+      (r: any) => Number(r.billable_total_tokens ?? r.total_tokens) > 0
+    ).length,
     streak_days: computeActiveStreakDays({ dailyRows: rows, to: range.to }),
   };
 }
 
-export function getMockUsageModelBreakdown({ from, to, seed } = {}) {
+export function getMockUsageModelBreakdown({ from, to, seed }: AnyRecord = {}) {
   const rows = buildDailyRows({ from, to, seed });
   const totals = sumDailyRows(rows);
 

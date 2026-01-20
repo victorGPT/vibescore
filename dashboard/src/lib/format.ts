@@ -1,4 +1,4 @@
-export function toDisplayNumber(value) {
+export function toDisplayNumber(value: any) {
   if (value == null) return "-";
   try {
     if (typeof value === "bigint") return new Intl.NumberFormat().format(value);
@@ -12,13 +12,13 @@ export function toDisplayNumber(value) {
 }
 
 export function formatCompactNumber(
-  value,
+  value: any,
   {
     thousandSuffix = "K",
     millionSuffix = "M",
     billionSuffix = "B",
     decimals = 1,
-  } = {}
+  }: { thousandSuffix?: string; millionSuffix?: string; billionSuffix?: string; decimals?: number } = {}
 ) {
   const n = Number(String(value));
   if (!Number.isFinite(n)) return "-";
@@ -28,13 +28,13 @@ export function formatCompactNumber(
 
   if (abs < 1000) return `${sign}${String(abs)}`;
 
-  const formatWithSuffix = (val, suffix) => {
+  const formatWithSuffix = (val: number, suffix: string) => {
     const fixed = val.toFixed(safeDecimals);
     const normalized = Number(fixed).toString();
     return `${sign}${normalized}${suffix}`;
   };
 
-  const formatWithCarry = (val, suffix, nextSuffix) => {
+  const formatWithCarry = (val: number, suffix: string, nextSuffix?: string) => {
     const fixed = val.toFixed(safeDecimals);
     const normalized = Number(fixed);
     if (nextSuffix && normalized >= 1000) {
@@ -59,12 +59,15 @@ export function formatCompactNumber(
   return formatWithSuffix(roundedK, thousandSuffix);
 }
 
-export function toFiniteNumber(value) {
+export function toFiniteNumber(value: any) {
   const n = Number(String(value));
   return Number.isFinite(n) ? n : null;
 }
 
-export function formatUsdCurrency(value, { decimals = 2 } = {}) {
+export function formatUsdCurrency(
+  value: any,
+  { decimals = 2 }: { decimals?: number } = {}
+) {
   if (value == null) return "-";
   const raw = String(value).trim();
   if (!raw) return "-";

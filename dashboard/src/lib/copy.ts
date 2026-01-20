@@ -2,11 +2,13 @@ import copyRaw from "../content/copy.csv?raw";
 
 const REQUIRED_COLUMNS = ["key", "module", "page", "component", "slot", "text"];
 
-let cachedRegistry = null;
+type AnyRecord = Record<string, any>;
 
-function parseCsv(raw) {
-  const rows = [];
-  let row = [];
+let cachedRegistry: any = null;
+
+function parseCsv(raw: any) {
+  const rows: any[] = [];
+  let row: any[] = [];
   let field = "";
   let inQuotes = false;
 
@@ -64,11 +66,11 @@ function parseCsv(raw) {
   return rows;
 }
 
-function buildRegistry(raw) {
+function buildRegistry(raw: any) {
   const rows = parseCsv(raw || "");
   if (!rows.length) return { map: new Map(), rows: [] };
 
-  const header = rows[0].map((cell) => cell.trim());
+  const header = rows[0].map((cell: any) => String(cell).trim());
   const missing = REQUIRED_COLUMNS.filter((col) => !header.includes(col));
   if (missing.length) {
     if (import.meta?.env?.DEV) {
@@ -78,11 +80,13 @@ function buildRegistry(raw) {
     return { map: new Map(), rows: [] };
   }
 
-  const idx = Object.fromEntries(header.map((col, index) => [col, index]));
-  const entries = [];
+  const idx = Object.fromEntries(
+    header.map((col: any, index: number) => [col, index])
+  );
+  const entries: any[] = [];
   const map = new Map();
 
-  rows.slice(1).forEach((cells, rowIndex) => {
+  rows.slice(1).forEach((cells: any[], rowIndex: number) => {
     const record = {
       key: String(cells[idx.key] || "").trim(),
       module: String(cells[idx.module] || "").trim(),
@@ -113,19 +117,19 @@ function getRegistry() {
   return cachedRegistry;
 }
 
-function interpolate(text, params) {
+function interpolate(text: any, params?: AnyRecord) {
   if (!params) return text;
-  return text.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+  return text.replace(/\{\{(\w+)\}\}/g, (match: string, key: string) => {
     if (params[key] == null) return match;
     return String(params[key]);
   });
 }
 
-function normalizeText(text) {
+function normalizeText(text: any) {
   return String(text).replace(/\\n/g, "\n");
 }
 
-export function copy(key, params) {
+export function copy(key: any, params?: AnyRecord) {
   const registry = getRegistry();
   const record = registry.map.get(key);
   const value = record?.text || key;

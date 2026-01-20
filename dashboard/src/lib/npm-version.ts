@@ -1,15 +1,15 @@
-import { safeGetItem, safeSetItem } from "./safe-browser.js";
+import { safeGetItem, safeSetItem } from "./safe-browser";
 
 const VERSION_CACHE_KEY = "vibeusage.latest_tracker_version";
 const VERSION_CACHE_AT_KEY = "vibeusage.latest_tracker_version_at";
 const VERSION_TTL_MS = 6 * 60 * 60 * 1000;
 const REGISTRY_URL = "https://registry.npmjs.org/vibeusage/latest";
 
-function isValidVersion(value) {
+function isValidVersion(value: any) {
   return typeof value === "string" && /^\d+\.\d+\.\d+/.test(value);
 }
 
-function readCachedVersion(nowMs) {
+function readCachedVersion(nowMs: number) {
   const cached = safeGetItem(VERSION_CACHE_KEY);
   if (!isValidVersion(cached)) return null;
   const cachedAtRaw = safeGetItem(VERSION_CACHE_AT_KEY);
@@ -24,7 +24,7 @@ function readStaleVersion() {
   return isValidVersion(cached) ? cached : null;
 }
 
-function writeCachedVersion(version, nowMs) {
+function writeCachedVersion(version: any, nowMs: number) {
   safeSetItem(VERSION_CACHE_KEY, version);
   safeSetItem(VERSION_CACHE_AT_KEY, String(nowMs));
 }
@@ -38,8 +38,8 @@ export async function fetchLatestTrackerVersion({ allowStale = true } = {}) {
     return allowStale ? readStaleVersion() : null;
   }
 
-  let timeoutId = null;
-  let controller = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let controller: AbortController | null = null;
   const scheduleTimeout =
     typeof window !== "undefined" && window.setTimeout
       ? window.setTimeout
@@ -49,8 +49,9 @@ export async function fetchLatestTrackerVersion({ allowStale = true } = {}) {
       ? window.clearTimeout
       : clearTimeout;
   if (typeof AbortController !== "undefined") {
-    controller = new AbortController();
-    timeoutId = scheduleTimeout(() => controller.abort(), 2500);
+    const localController = new AbortController();
+    controller = localController;
+    timeoutId = scheduleTimeout(() => localController.abort(), 2500);
   }
 
   try {

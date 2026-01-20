@@ -36,7 +36,7 @@ export function loadAuthFromStorage() {
   }
 }
 
-export function saveAuthToStorage(auth) {
+export function saveAuthToStorage(auth: any) {
   const storage = getStorage();
   if (!storage || typeof storage.setItem !== "function") return;
   storage.setItem(STORAGE_KEY, JSON.stringify(auth));
@@ -153,7 +153,7 @@ export function markSessionSoftExpired() {
   setSessionSoftExpired();
 }
 
-export function subscribeAuthStorage(handler) {
+export function subscribeAuthStorage(handler: any) {
   if (typeof window === "undefined" || !window.addEventListener) {
     return () => {};
   }
@@ -168,7 +168,7 @@ export function subscribeAuthStorage(handler) {
   return () => window.removeEventListener(AUTH_EVENT_NAME, onChange);
 }
 
-export function subscribeSessionExpired(handler) {
+export function subscribeSessionExpired(handler: any) {
   if (typeof window === "undefined" || !window.addEventListener) {
     return () => {};
   }
@@ -179,7 +179,7 @@ export function subscribeSessionExpired(handler) {
   return () => window.removeEventListener(AUTH_EVENT_NAME, onChange);
 }
 
-export function subscribeSessionSoftExpired(handler) {
+export function subscribeSessionSoftExpired(handler: any) {
   if (typeof window === "undefined" || !window.addEventListener) {
     return () => {};
   }

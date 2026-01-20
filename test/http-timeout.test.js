@@ -1,18 +1,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const path = require("node:path");
-const { pathToFileURL } = require("node:url");
+const { loadDashboardModule } = require("./helpers/load-dashboard-module");
 
 async function loadModule() {
-  const modulePath = path.join(
-    __dirname,
-    "..",
-    "dashboard",
-    "src",
-    "lib",
-    "http-timeout.js"
-  );
-  return import(pathToFileURL(modulePath).href);
+  return loadDashboardModule("dashboard/src/lib/http-timeout.ts");
 }
 
 function createAbortableFetch(label) {

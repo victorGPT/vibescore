@@ -2,12 +2,19 @@ export const DEFAULT_PROBE_INTERVAL_MS = 120_000;
 export const DEFAULT_PROBE_MAX_INTERVAL_MS = 300_000;
 export const DEFAULT_PROBE_FAILURE_RETRY_MS = 10_000;
 
+type ProbeCadenceConfig = {
+  intervalMs?: number;
+  maxIntervalMs?: number;
+  failureRetryMs?: number;
+  backoffStepMs?: number;
+};
+
 export function resolveProbeCadenceConfig({
   intervalMs = DEFAULT_PROBE_INTERVAL_MS,
   maxIntervalMs = DEFAULT_PROBE_MAX_INTERVAL_MS,
   failureRetryMs = DEFAULT_PROBE_FAILURE_RETRY_MS,
   backoffStepMs,
-} = {}) {
+}: ProbeCadenceConfig = {}) {
   const baseIntervalMs = normalizePositiveInt(intervalMs, DEFAULT_PROBE_INTERVAL_MS);
   const maxIntervalCandidate = normalizePositiveInt(
     maxIntervalMs,
@@ -33,7 +40,7 @@ export function resolveProbeCadenceConfig({
   };
 }
 
-export function createProbeCadence(config = {}) {
+export function createProbeCadence(config: ProbeCadenceConfig = {}) {
   const resolved = resolveProbeCadenceConfig(config);
   let successStreak = 0;
   let nextDelayMs = resolved.baseIntervalMs;
@@ -89,14 +96,14 @@ export function createProbeCadence(config = {}) {
   };
 }
 
-function normalizePositiveInt(value, fallback) {
+function normalizePositiveInt(value: any, fallback: number) {
   const n = Number(value);
   if (!Number.isFinite(n)) return fallback;
   if (n <= 0) return fallback;
   return Math.floor(n);
 }
 
-function clampDelay(value, min, max) {
+function clampDelay(value: any, min: number, max: number) {
   const n = normalizePositiveInt(value, min);
   if (n < min) return min;
   if (n > max) return max;

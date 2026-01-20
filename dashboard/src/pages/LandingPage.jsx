@@ -2,7 +2,7 @@ import React, { Suspense, useEffect, useMemo, useState } from "react";
 import { DecodingText } from "../ui/matrix-a/components/DecodingText.jsx";
 import { GithubStar } from "../ui/matrix-a/components/GithubStar.jsx";
 import { MatrixButton } from "../ui/matrix-a/components/MatrixButton.jsx";
-import { copy } from "../lib/copy.js";
+import { copy } from "../lib/copy";
 
 const MatrixRain = React.lazy(() =>
   import("../ui/matrix-a/components/MatrixRain.jsx").then((mod) => ({

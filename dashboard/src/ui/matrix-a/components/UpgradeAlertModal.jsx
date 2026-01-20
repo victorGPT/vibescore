@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { copy } from "../../../lib/copy.js";
+import { copy } from "../../../lib/copy";
 import {
   safeGetItem,
   safeSetItem,
   safeWriteClipboard,
-} from "../../../lib/safe-browser.js";
+} from "../../../lib/safe-browser";
 
 export function UpgradeAlertModal({ requiredVersion, installCommand, onClose }) {
   const normalizedRequired =

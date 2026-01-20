@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-import { copy } from "../../../lib/copy.js";
+import { copy } from "../../../lib/copy";
 
 /**
  * 实时演示组件 - 日志流

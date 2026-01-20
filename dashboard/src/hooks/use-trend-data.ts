@@ -4,12 +4,13 @@ import {
   getUsageDaily,
   getUsageHourly,
   getUsageMonthly,
-} from "../lib/vibeusage-api.js";
-import { formatDateLocal, formatDateUTC } from "../lib/date-range.js";
-import { isMockEnabled } from "../lib/mock-data.js";
-import { getLocalDayKey, getTimeZoneCacheKey } from "../lib/timezone.js";
+} from "../lib/vibeusage-api";
+import { formatDateLocal, formatDateUTC } from "../lib/date-range";
+import { isMockEnabled } from "../lib/mock-data";
+import { getLocalDayKey, getTimeZoneCacheKey } from "../lib/timezone";
 
 const DEFAULT_MONTHS = 24;
+type AnyRecord = Record<string, any>;
 
 export function useTrendData({
   baseUrl,
@@ -24,13 +25,13 @@ export function useTrendData({
   now,
   sharedRows,
   sharedRange,
-} = {}) {
-  const [rows, setRows] = useState([]);
-  const [range, setRange] = useState(() => ({ from, to }));
-  const [source, setSource] = useState("edge");
-  const [fetchedAt, setFetchedAt] = useState(null);
+}: any = {}) {
+  const [rows, setRows] = useState<any[]>([]);
+  const [range, setRange] = useState<{ from?: any; to?: any }>(() => ({ from, to }));
+  const [source, setSource] = useState<string>("edge");
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const mockEnabled = isMockEnabled();
   const sharedEnabled = Array.isArray(sharedRows);
   const sharedFrom = sharedRange?.from || from;
@@ -72,7 +73,7 @@ export function useTrendData({
   }, [storageKey]);
 
   const writeCache = useCallback(
-    (payload) => {
+    (payload: any) => {
       if (!storageKey || typeof window === "undefined") return;
       try {
         window.localStorage.setItem(storageKey, JSON.stringify(payload));
@@ -199,7 +200,8 @@ export function useTrendData({
         setRange({ from, to });
         setSource("edge");
         setFetchedAt(null);
-        setError(e?.message || String(e));
+        const err = e as any;
+        setError(err?.message || String(err));
       }
     } finally {
       setLoading(false);
@@ -289,7 +291,7 @@ export function useTrendData({
   };
 }
 
-function safeHost(baseUrl) {
+function safeHost(baseUrl: any) {
   try {
     const u = new URL(baseUrl);
     return u.host;
@@ -298,7 +300,7 @@ function safeHost(baseUrl) {
   }
 }
 
-function parseUtcDate(yyyyMmDd) {
+function parseUtcDate(yyyyMmDd: any) {
   if (!yyyyMmDd) return null;
   const raw = String(yyyyMmDd).trim();
   const parts = raw.split("-");
@@ -314,13 +316,18 @@ function parseUtcDate(yyyyMmDd) {
   return formatDateUTC(dt) === raw ? dt : null;
 }
 
-function addUtcDays(date, days) {
+function addUtcDays(date: Date, days: number) {
   return new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days)
   );
 }
 
-function fillDailyGaps(rows, from, to, { timeZone, offsetMinutes, now } = {}) {
+function fillDailyGaps(
+  rows: any[],
+  from: any,
+  to: any,
+  { timeZone, offsetMinutes, now }: any = {}
+) {
   const start = parseUtcDate(from);
   const end = parseUtcDate(to);
   if (!start || !end || end < start) return Array.isArray(rows) ? rows : [];
@@ -361,7 +368,7 @@ function fillDailyGaps(rows, from, to, { timeZone, offsetMinutes, now } = {}) {
   return filled;
 }
 
-function markHourlyFuture(rows, { timeZone, offsetMinutes, now } = {}) {
+function markHourlyFuture(rows: any[], { timeZone, offsetMinutes, now }: any = {}) {
   if (!Array.isArray(rows)) return [];
   const nowParts = getNowParts({ timeZone, offsetMinutes, now });
   if (!nowParts) return rows;
@@ -379,7 +386,7 @@ function markHourlyFuture(rows, { timeZone, offsetMinutes, now } = {}) {
   });
 }
 
-function markMonthlyFuture(rows, { timeZone, offsetMinutes, now } = {}) {
+function markMonthlyFuture(rows: any[], { timeZone, offsetMinutes, now }: any = {}) {
   if (!Array.isArray(rows)) return [];
   const nowParts = getNowParts({ timeZone, offsetMinutes, now });
   if (!nowParts) return rows;
@@ -397,7 +404,7 @@ function markMonthlyFuture(rows, { timeZone, offsetMinutes, now } = {}) {
   });
 }
 
-function getNowParts({ timeZone, offsetMinutes, now } = {}) {
+function getNowParts({ timeZone, offsetMinutes, now }: any = {}) {
   const baseDate =
     now instanceof Date && Number.isFinite(now.getTime()) ? now : new Date();
   if (timeZone && typeof Intl !== "undefined" && Intl.DateTimeFormat) {
@@ -412,10 +419,10 @@ function getNowParts({ timeZone, offsetMinutes, now } = {}) {
         hourCycle: "h23",
       });
       const parts = formatter.formatToParts(baseDate);
-      const values = parts.reduce((acc, part) => {
+      const values = parts.reduce((acc: AnyRecord, part: any) => {
         if (part.type && part.value) acc[part.type] = part.value;
         return acc;
-      }, {});
+      }, {} as AnyRecord);
       const year = Number(values.year);
       const month = Number(values.month);
       const day = Number(values.day);
@@ -480,7 +487,7 @@ function getNowParts({ timeZone, offsetMinutes, now } = {}) {
   };
 }
 
-function parseHourLabel(label) {
+function parseHourLabel(label: any) {
   if (!label) return null;
   const raw = String(label).trim();
   const [datePart, timePart] = raw.split("T");
@@ -505,7 +512,7 @@ function parseHourLabel(label) {
   };
 }
 
-function parseMonthLabel(label) {
+function parseMonthLabel(label: any) {
   if (!label) return null;
   const raw = String(label).trim();
   const parts = raw.split("-");

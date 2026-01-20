@@ -24,8 +24,8 @@ test("dashboard package defines lint script", async () => {
     "expected dashboard package.json to define a lint script"
   );
   assert.ok(
-    pkg.scripts.lint.includes("src/App.jsx"),
-    "expected dashboard lint script to target src/App.jsx"
+    pkg.scripts.lint.includes("src/**/*.{js,jsx,ts,tsx}"),
+    "expected dashboard lint script to target src/**/*.{js,jsx,ts,tsx}"
   );
 });
 

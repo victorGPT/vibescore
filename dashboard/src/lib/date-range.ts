@@ -1,12 +1,18 @@
-import { getLocalDateParts } from "./timezone.js";
+import { getLocalDateParts } from "./timezone";
 
-export function formatDateUTC(d) {
+type DateRangeOptions = {
+  timeZone?: string;
+  offsetMinutes?: number;
+  now?: Date;
+};
+
+export function formatDateUTC(d: Date) {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
     .toISOString()
     .slice(0, 10);
 }
 
-export function formatDateLocal(d) {
+export function formatDateLocal(d: any) {
   const date = d instanceof Date ? d : new Date(d);
   if (!Number.isFinite(date.getTime())) return "";
   const y = date.getFullYear();
@@ -15,7 +21,7 @@ export function formatDateLocal(d) {
   return `${y}-${m}-${day}`;
 }
 
-function parseDateString(yyyyMmDd) {
+function parseDateString(yyyyMmDd: any) {
   if (!yyyyMmDd) return null;
   const raw = String(yyyyMmDd).trim();
   const parts = raw.split("-");
@@ -31,7 +37,7 @@ function parseDateString(yyyyMmDd) {
   return formatDateUTC(dt) === raw ? dt : null;
 }
 
-function formatDateParts(parts) {
+function formatDateParts(parts: any) {
   if (!parts) return "";
   const y = parts.year;
   const m = String(parts.month).padStart(2, "0");
@@ -41,8 +47,8 @@ function formatDateParts(parts) {
 }
 
 export function getRangeForPeriod(
-  period,
-  { timeZone, offsetMinutes, now } = {}
+  period: any,
+  { timeZone, offsetMinutes, now }: DateRangeOptions = {}
 ) {
   const baseDate = now instanceof Date && Number.isFinite(now.getTime()) ? now : new Date();
   const parts = getLocalDateParts({ timeZone, offsetMinutes, date: baseDate });
@@ -92,7 +98,7 @@ export function getDefaultRange() {
   return { from, to };
 }
 
-function addUtcDays(date, days) {
+function addUtcDays(date: Date, days: number) {
   return new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days)
   );

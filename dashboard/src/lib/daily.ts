@@ -1,5 +1,5 @@
-import { copy } from "./copy.js";
-import { isDetailDateKey, sortDetailRows } from "./detail-sort.js";
+import { copy } from "./copy";
+import { isDetailDateKey, sortDetailRows } from "./detail-sort";
 
 export const DAILY_SORT_COLUMNS = [
   {
@@ -34,13 +34,15 @@ export const DAILY_SORT_COLUMNS = [
   },
 ];
 
-export function getDetailsSortColumns(dateKey) {
+type AnyRecord = Record<string, any>;
+
+export function getDetailsSortColumns(dateKey: any) {
   const key = isDetailDateKey(dateKey) ? dateKey : "day";
   return DAILY_SORT_COLUMNS.map((col, index) =>
     index === 0 ? { ...col, key } : col
   );
 }
 
-export function sortDailyRows(rows, { key, dir }) {
+export function sortDailyRows(rows: any, { key, dir }: AnyRecord) {
   return sortDetailRows(rows, { key, dir });
 }
