@@ -5,6 +5,7 @@ const repoRoot = path.join(__dirname, "..", "..");
 
 async function loadDashboardModule(relativePath) {
   const entryPoint = path.join(repoRoot, relativePath);
+  const requireShim = `import { createRequire } from "node:module"; const require = createRequire(${JSON.stringify(entryPoint)});`;
   const result = await build({
     entryPoints: [entryPoint],
     bundle: true,
@@ -12,6 +13,7 @@ async function loadDashboardModule(relativePath) {
     platform: "node",
     sourcemap: "inline",
     write: false,
+    banner: { js: requireShim },
   });
 
   const source = result.outputFiles[0]?.text ?? "";
