@@ -136,6 +136,13 @@ const jobs = [
     height: 900,
     dpr: 2,
   },
+  {
+    name: "share-desktop",
+    url: `${baseUrl}/share/baseline?screenshot=1&${mock}`,
+    width: 1440,
+    height: 900,
+    dpr: 2,
+  },
 ];
 
 const outDir = path.resolve("docs/screenshots/baselines/2026-01-23");
