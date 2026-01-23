@@ -4,7 +4,7 @@ import { promisify } from "node:util";
 
 const exec = promisify(execFile);
 
-const baseUrl = "http://localhost:5173";
+const baseUrl = process.env.BASELINE_BASE_URL || "http://localhost:5173";
 const mock = "mock=1&mock_seed=baseline&mock_today=2025-12-31&mock_now=2025-12-31T12:00:00Z";
 
 const jobs = [
