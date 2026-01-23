@@ -1,9 +1,9 @@
 import React from "react";
 
-import { MatrixAvatar } from "../ui/foundation/MatrixAvatar.jsx";
-import { LiveSniffer } from "../ui/matrix-a/components/LiveSniffer.jsx";
-import { SignalBox } from "../ui/foundation/SignalBox.jsx";
-import { copy } from "../lib/copy.js";
+import { MatrixAvatar } from "../../foundation/MatrixAvatar.jsx";
+import { LiveSniffer } from "./LiveSniffer.jsx";
+import { SignalBox } from "../../foundation/SignalBox.jsx";
+import { copy } from "../../../lib/copy.js";
 
 export function LandingExtras({
   handle,
