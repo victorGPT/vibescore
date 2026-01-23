@@ -109,7 +109,10 @@ test("public view panel does not render share link text", () => {
 
 test("public view hides upgrade banner", () => {
   const src = read("dashboard/src/App.jsx");
-  assert.match(src, /\{\s*!publicMode\s*\?\s*<UpgradeAlertModal/);
+  assert.match(
+    src,
+    /\{!publicMode\s*&&\s*!screenshotMode\s*\?\s*\(/
+  );
 });
 
 test("public share header shows login entry", () => {
@@ -161,7 +164,7 @@ test("public view fetches profile avatar url", () => {
 });
 
 test("public view identity card uses pixel avatar", () => {
-  const src = read("dashboard/src/pages/DashboardPage.jsx");
+  const src = read("dashboard/src/ui/matrix-a/views/DashboardView.jsx");
   assert.match(src, /<IdentityCard[\s\S]*avatarUrl=\{null\}/);
 });
 
