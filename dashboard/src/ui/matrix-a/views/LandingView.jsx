@@ -10,7 +10,7 @@ const MatrixRain = React.lazy(() =>
   }))
 );
 const LandingExtras = React.lazy(() =>
-  import("../../../pages/LandingExtras.jsx").then((mod) => ({
+  import("../components/LandingExtras.jsx").then((mod) => ({
     default: mod.LandingExtras,
   }))
 );
