@@ -44,5 +44,8 @@
   },
   "dependencies": {
     "@insforge/sdk": "^1.0.4"
-  }
+  },
+  "bundledDependencies": [
+    "@insforge/sdk"
+  ]
 }
