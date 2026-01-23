@@ -1322,10 +1322,27 @@
       }
     },
     {
+      "id": "test_visual-baselines_test_941c47e2",
+      "type": "text",
+      "text": "**visual-baselines.test**\n`test/visual-baselines.test.js`\n\nTest module.\n\n包含：\n- visual-baselines.test (17 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "x": 460,
+      "y": 12652,
+      "width": 280,
+      "height": 232,
+      "color": "2",
+      "meta": {
+        "relPath": "test/visual-baselines.test.js",
+        "category": "test",
+        "group": "test",
+        "side": "right",
+        "layerIndex": 6
+      }
+    },
+    {
       "id": "test_wrapped-entry_test_be8968af",
       "type": "text",
       "text": "**wrapped-entry.test**\n`test/wrapped-entry.test.js`\n\nTest module.\n\n包含：\n- wrapped-entry.test (33 行)\n- read (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
-      "x": 460,
+      "x": 820,
       "y": 12652,
       "width": 280,
       "height": 232,
@@ -3775,23 +3792,6 @@
         "layerIndex": 4
       },
       "externalService": "Anthropic"
-    },
-    {
-      "id": "frontend_ui_foundation_20260123",
-      "type": "text",
-      "text": "**UI Foundation (Proposed)**\n`dashboard/src/ui/foundation/*`\n\nRole: Consolidate UI primitives and shared layout while preserving visuals.\nStatus: Proposed\nNotes: Replace ad-hoc UI internals with stable primitives; no visual changes.",
-      "x": 420,
-      "y": 632,
-      "width": 320,
-      "height": 220,
-      "color": "6",
-      "meta": {
-        "relPath": "dashboard/src/ui/foundation",
-        "category": "frontend",
-        "group": "frontend",
-        "side": "left",
-        "layerIndex": 1
-      }
     }
   ],
   "edges": [
@@ -4144,13 +4144,6 @@
       "fromSide": "bottom",
       "toNode": "utils_copy_ca6c3319",
       "toSide": "top"
-    },
-    {
-      "id": "edge_entry_App_to_ui_foundation_20260123",
-      "fromNode": "entry_App_50b6270d",
-      "fromSide": "right",
-      "toNode": "frontend_ui_foundation_20260123",
-      "toSide": "left"
     }
   ]
 }

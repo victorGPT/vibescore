@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const pagePath = path.join(
+const containerPath = path.join(
   __dirname,
   "..",
   "dashboard",
@@ -25,7 +25,7 @@ function readFile(filePath) {
 }
 
 test("DashboardPage places TrendMonitor above heatmap in left column", () => {
-  const src = readFile(pagePath);
+  const src = readFile(containerPath);
   const leftStart = src.indexOf("lg:col-span-4");
   const rightStart = src.indexOf("lg:col-span-8", leftStart + 1);
   assert.ok(leftStart !== -1, "expected left column markup");
@@ -43,31 +43,31 @@ test("DashboardPage places TrendMonitor above heatmap in left column", () => {
 });
 
 test("DashboardPage gates install panel by active days", () => {
-  const src = readFile(pagePath);
+  const containerSrc = readFile(containerPath);
   assert.ok(
-    src.includes("const shouldShowInstall"),
+    containerSrc.includes("const shouldShowInstall"),
     "expected shouldShowInstall gate"
   );
   assert.ok(
-    src.includes("activeDays === 0"),
+    containerSrc.includes("activeDays === 0"),
     "expected activeDays gate"
   );
   assert.ok(
-    src.includes("accessEnabled"),
+    containerSrc.includes("accessEnabled"),
     "expected accessEnabled gate"
   );
   assert.ok(
-    src.includes("heatmapLoading"),
+    containerSrc.includes("heatmapLoading"),
     "expected heatmapLoading gate"
   );
   assert.ok(
-    src.includes("shouldShowInstall ? ("),
+    containerSrc.includes("shouldShowInstall ? ("),
     "expected install panel to use shouldShowInstall"
   );
 });
 
 test("DashboardPage removes heatmap range label", () => {
-  const src = readFile(pagePath);
+  const src = readFile(containerPath);
   assert.ok(
     !src.includes("dashboard.activity.range"),
     "expected heatmap range label removed"
@@ -89,7 +89,7 @@ test("copy registry removes unused install steps and range label", () => {
 });
 
 test("DashboardPage lets TrendMonitor auto-size", () => {
-  const src = readFile(pagePath);
+  const src = readFile(containerPath);
   assert.ok(
     !src.includes('className="min-h-[240px]"'),
     "expected TrendMonitor min height removed"
@@ -123,7 +123,7 @@ test("TrendMonitor root does not force full height", () => {
 });
 
 test("DashboardPage supports force_install preview", () => {
-  const src = readFile(pagePath);
+  const src = readFile(containerPath);
   assert.ok(
     src.includes("force_install"),
     "expected force_install query param support"
