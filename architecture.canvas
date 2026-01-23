@@ -253,7 +253,7 @@
     {
       "id": "test_compact-number_test_7da4bcfa",
       "type": "text",
-      "text": "**compact-number.test**\n`test/compact-number.test.js`\n\nTest module.\n\n包含：\n- compact-number.test (22 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**compact-number.test**\n`test/compact-number.test.js`\n\nTest module.\n\n包含：\n- compact-number.test (21 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 460,
       "y": 10132,
       "width": 280,
@@ -304,7 +304,7 @@
     {
       "id": "test_dashboard-auth-redirect_test_120ecd85",
       "type": "text",
-      "text": "**dashboard-auth-redirect.test**\n`test/dashboard-auth-redirect.test.js`\n\nTest module.\n\n包含：\n- dashboard-auth-redirect.test (184 行)\n- loadRedirectModule (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**dashboard-auth-redirect.test**\n`test/dashboard-auth-redirect.test.js`\n\nTest module.\n\n包含：\n- dashboard-auth-redirect.test (189 行)\n- loadRedirectModule (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1540,
       "y": 10132,
       "width": 280,
@@ -355,7 +355,7 @@
     {
       "id": "test_dashboard-function-path_test_670b7fb8",
       "type": "text",
-      "text": "**dashboard-function-path.test**\n`test/dashboard-function-path.test.js`\n\nTest module.\n\n包含：\n- dashboard-function-path.test (131 行)\n- jsonResponse (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**dashboard-function-path.test**\n`test/dashboard-function-path.test.js`\n\nTest module.\n\n包含：\n- dashboard-function-path.test (136 行)\n- jsonResponse (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2620,
       "y": 10132,
       "width": 280,
@@ -525,7 +525,7 @@
     {
       "id": "test_details-sort_test_da4ba0e6",
       "type": "text",
-      "text": "**details-sort.test**\n`test/details-sort.test.js`\n\nTest module.\n\n包含：\n- details-sort.test (32 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**details-sort.test**\n`test/details-sort.test.js`\n\nTest module.\n\n包含：\n- details-sort.test (31 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2980,
       "y": 10492,
       "width": 280,
@@ -644,7 +644,7 @@
     {
       "id": "test_http-timeout_test_d4be419d",
       "type": "text",
-      "text": "**http-timeout.test**\n`test/http-timeout.test.js`\n\nTest module.\n\n包含：\n- http-timeout.test (157 行)\n- loadModule (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**http-timeout.test**\n`test/http-timeout.test.js`\n\nTest module.\n\n包含：\n- http-timeout.test (166 行)\n- loadModule (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2260,
       "y": 10852,
       "width": 280,
@@ -882,7 +882,7 @@
     {
       "id": "test_mock-data_test_4e891264",
       "type": "text",
-      "text": "**mock-data.test**\n`test/mock-data.test.js`\n\nTest module.\n\n包含：\n- mock-data.test (25 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**mock-data.test**\n`test/mock-data.test.js`\n\nTest module.\n\n包含：\n- mock-data.test (24 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 820,
       "y": 11572,
       "width": 280,
@@ -899,7 +899,7 @@
     {
       "id": "test_model-breakdown_test_8dda311c",
       "type": "text",
-      "text": "**model-breakdown.test**\n`test/model-breakdown.test.js`\n\nTest module.\n\n包含：\n- model-breakdown.test (128 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**model-breakdown.test**\n`test/model-breakdown.test.js`\n\nTest module.\n\n包含：\n- model-breakdown.test (127 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1180,
       "y": 11572,
       "width": 280,
@@ -1086,7 +1086,7 @@
     {
       "id": "test_safe-browser_test_3daea783",
       "type": "text",
-      "text": "**safe-browser.test**\n`test/safe-browser.test.js`\n\nTest module.\n\n包含：\n- safe-browser.test (67 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**safe-browser.test**\n`test/safe-browser.test.js`\n\nTest module.\n\n包含：\n- safe-browser.test (66 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1900,
       "y": 11932,
       "width": 280,
@@ -3775,6 +3775,23 @@
         "layerIndex": 4
       },
       "externalService": "Anthropic"
+    },
+    {
+      "id": "frontend_ui_foundation_20260123",
+      "type": "text",
+      "text": "**UI Foundation (Proposed)**\n`dashboard/src/ui/foundation/*`\n\nRole: Consolidate UI primitives and shared layout while preserving visuals.\nStatus: Proposed\nNotes: Replace ad-hoc UI internals with stable primitives; no visual changes.",
+      "x": 420,
+      "y": 632,
+      "width": 320,
+      "height": 220,
+      "color": "6",
+      "meta": {
+        "relPath": "dashboard/src/ui/foundation",
+        "category": "frontend",
+        "group": "frontend",
+        "side": "left",
+        "layerIndex": 1
+      }
     }
   ],
   "edges": [
@@ -4127,6 +4144,13 @@
       "fromSide": "bottom",
       "toNode": "utils_copy_ca6c3319",
       "toSide": "top"
+    },
+    {
+      "id": "edge_entry_App_to_ui_foundation_20260123",
+      "fromNode": "entry_App_50b6270d",
+      "fromSide": "right",
+      "toNode": "frontend_ui_foundation_20260123",
+      "toSide": "left"
     }
   ]
 }
