@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 
-import { copy } from "../../../lib/copy.js";
+import { copy } from "../../lib/copy.js";
 
 function hashCode(value) {
   let hash = 0;

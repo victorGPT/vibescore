@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-import { isScreenshotModeEnabled } from "../../../lib/screenshot-mode.js";
+import { isScreenshotModeEnabled } from "../../lib/screenshot-mode.js";
 import { shouldScrambleText } from "../matrix-a/util/should-scramble.js";
 
 const DEFAULT_CHARS = "01XYZA@#$%";
