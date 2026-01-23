@@ -141,10 +141,14 @@ test("App avoids legacy auth fallback before InsForge is ready", () => {
 });
 
 test("DashboardPage shows session expired banner and bypasses auth gate", () => {
-  const src = read("dashboard/src/pages/DashboardPage.jsx");
-  assert.match(src, /sessionSoftExpired/);
-  assert.match(src, /dashboard\.session_expired\.title/);
-  assert.match(src, /requireAuthGate\s*=\s*!signedIn\s*&&\s*!mockEnabled\s*&&\s*!sessionSoftExpired/);
+  const pageSrc = read("dashboard/src/pages/DashboardPage.jsx");
+  const viewSrc = read("dashboard/src/ui/matrix-a/views/DashboardView.jsx");
+  assert.match(pageSrc, /sessionSoftExpired/);
+  assert.match(viewSrc, /dashboard\.session_expired\.title/);
+  assert.match(
+    pageSrc,
+    /requireAuthGate\s*=\s*!signedIn\s*&&\s*!mockEnabled\s*&&\s*!sessionSoftExpired/
+  );
 });
 
 test("DashboardPage disables auth access token when session expired", () => {
@@ -254,9 +258,13 @@ test("auth storage skips localStorage when window is undefined", async () => {
 });
 
 test("DashboardPage gates expired UI", () => {
-  const src = read("dashboard/src/pages/DashboardPage.jsx");
-  assert.match(src, /const showExpiredGate\s*=\s*sessionSoftExpired\s*&&\s*!publicMode/);
-  assert.match(src, /showExpiredGate\s*\?\s*\(/);
+  const pageSrc = read("dashboard/src/pages/DashboardPage.jsx");
+  const viewSrc = read("dashboard/src/ui/matrix-a/views/DashboardView.jsx");
+  assert.match(
+    pageSrc,
+    /const showExpiredGate\s*=\s*sessionSoftExpired\s*&&\s*!publicMode/
+  );
+  assert.match(viewSrc, /showExpiredGate\s*\?\s*\(/);
 });
 
 test("DashboardPage disables backend status when signed out or expired", () => {

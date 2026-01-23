@@ -23,10 +23,10 @@ import {
 } from "../lib/vibeusage-api";
 import { buildFleetData, buildTopModels } from "../lib/model-breakdown";
 import { safeWriteClipboard, safeWriteClipboardImage } from "../lib/safe-browser";
-import { useActivityHeatmap } from "../hooks/use-activity-heatmap";
-import { useTrendData } from "../hooks/use-trend-data";
-import { useUsageData } from "../hooks/use-usage-data";
-import { useUsageModelBreakdown } from "../hooks/use-usage-model-breakdown";
+import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
+import { useTrendData } from "../hooks/use-trend-data.js";
+import { useUsageData } from "../hooks/use-usage-data.js";
+import { useUsageModelBreakdown } from "../hooks/use-usage-model-breakdown.js";
 import {
   formatTimeZoneLabel,
   formatTimeZoneShortLabel,
@@ -35,19 +35,14 @@ import {
   getLocalDayKey,
 } from "../lib/timezone";
 import { BackendStatus } from "../components/BackendStatus.jsx";
-import { AsciiBox } from "../ui/matrix-a/components/AsciiBox.jsx";
+import { AsciiBox } from "../ui/foundation/AsciiBox.jsx";
+import { MatrixButton } from "../ui/foundation/MatrixButton.jsx";
 import { ActivityHeatmap } from "../ui/matrix-a/components/ActivityHeatmap.jsx";
 import { BootScreen } from "../ui/matrix-a/components/BootScreen.jsx";
-import { IdentityCard } from "../ui/matrix-a/components/IdentityCard.jsx";
-import { MatrixButton } from "../ui/matrix-a/components/MatrixButton.jsx";
-import { TopModelsPanel } from "../ui/matrix-a/components/TopModelsPanel.jsx";
-import { TrendMonitor } from "../ui/matrix-a/components/TrendMonitor.jsx";
-import { UsagePanel } from "../ui/matrix-a/components/UsagePanel.jsx";
-import { NeuralDivergenceMap } from "../ui/matrix-a/components/NeuralDivergenceMap.jsx";
-import { CostAnalysisModal } from "../ui/matrix-a/components/CostAnalysisModal.jsx";
-import { MatrixShell } from "../ui/matrix-a/layout/MatrixShell.jsx";
 import { GithubStar } from "../ui/matrix-a/components/GithubStar.jsx";
+import { DashboardView } from "../ui/matrix-a/views/DashboardView.jsx";
 import { getMockNow, isMockEnabled } from "../lib/mock-data";
+import { isScreenshotModeEnabled } from "../lib/screenshot-mode";
 
 const PERIODS = ["day", "week", "month", "total"];
 const DETAILS_DATE_KEYS = new Set(["day", "hour", "month"]);
@@ -88,12 +83,6 @@ function isProductionHost(hostname) {
   return hostname === "www.vibeusage.cc";
 }
 
-function isScreenshotModeEnabled() {
-  if (typeof window === "undefined") return false;
-  const params = new URLSearchParams(window.location.search);
-  const raw = String(params.get("screenshot") || "").toLowerCase();
-  return raw === "1" || raw === "true";
-}
 
 function isForceInstallEnabled() {
   if (typeof window === "undefined") return false;
@@ -133,7 +122,10 @@ export function DashboardPage({
     if (typeof window === "undefined" || !window.matchMedia) return false;
     return window.matchMedia("(max-width: 640px)").matches;
   });
-  const screenshotMode = useMemo(() => isScreenshotModeEnabled(), []);
+  const screenshotMode = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return isScreenshotModeEnabled(window.location.search);
+  }, []);
   const forceInstall = useMemo(() => isForceInstallEnabled(), []);
   const [isCapturing, setIsCapturing] = useState(false);
   const identityScrambleDurationMs = 2200;
@@ -1136,451 +1128,100 @@ export function DashboardPage({
   const showAuthGate = requireAuthGate && !publicMode;
 
   return (
-    <>
-      <MatrixShell
-        hideHeader={screenshotMode}
-        headerStatus={headerStatus}
-        headerRight={headerRight}
-        footerLeft={
-          footerLeftContent ? <span>{footerLeftContent}</span> : null
-        }
-        footerRight={
-          <span className="font-bold">{copy("dashboard.footer.right")}</span>
-        }
-        contentClassName=""
-        rootClassName={screenshotMode ? "screenshot-mode" : ""}
-      >
-        {publicViewInvalid ? (
-          <div className="mb-6">
-            <AsciiBox
-              title={publicViewInvalidTitle}
-              className="border-[#00FF41]/40"
-            >
-              <p className="text-[10px] opacity-50 mt-0">
-                {publicViewInvalidBody}
-              </p>
-            </AsciiBox>
-          </div>
-        ) : null}
-        {showExpiredGate ? (
-          <div className="mb-6">
-            <AsciiBox
-              title={copy("dashboard.session_expired.title")}
-              subtitle={copy("dashboard.session_expired.subtitle")}
-              className="border-[#00FF41]/40"
-            >
-              <p className="text-[10px] mt-0 flex flex-wrap items-center gap-2">
-                <span className="opacity-50">
-                  {copy("dashboard.session_expired.body")}
-                </span>
-                <MatrixButton
-                  className="px-2 py-1 text-[9px] normal-case"
-                  onClick={handleCopySessionExpired}
-                >
-                  {sessionExpiredCopied
-                    ? sessionExpiredCopiedLabel
-                    : sessionExpiredCopyLabel}
-                </MatrixButton>
-                <span className="opacity-50">
-                  {copy("dashboard.session_expired.body_tail")}
-                </span>
-              </p>
-              <div className="flex flex-wrap gap-3 mt-4">
-                <MatrixButton as="a" primary href={signInUrl}>
-                  {copy("shared.button.sign_in")}
-                </MatrixButton>
-                <MatrixButton as="a" href={signUpUrl}>
-                  {copy("shared.button.sign_up")}
-                </MatrixButton>
-              </div>
-            </AsciiBox>
-          </div>
-        ) : showAuthGate ? (
-          <div className="flex items-center justify-center">
-            <AsciiBox
-              title={copy("dashboard.auth_required.title")}
-              subtitle={copy("dashboard.auth_required.subtitle")}
-              className="w-full max-w-2xl"
-            >
-              <p className="text-[10px] opacity-50 mt-0">
-                {copy("dashboard.auth_required.body")}
-              </p>
-
-              <div className="flex flex-wrap gap-3 mt-4">
-                <MatrixButton as="a" primary href={signInUrl}>
-                  {copy("shared.button.sign_in")}
-                </MatrixButton>
-                <MatrixButton as="a" href={signUpUrl}>
-                  {copy("shared.button.sign_up")}
-                </MatrixButton>
-              </div>
-            </AsciiBox>
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-4 flex flex-col gap-6 min-w-0">
-              {screenshotMode ? (
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex flex-col gap-1">
-                    <span className="text-3xl md:text-4xl font-black text-white tracking-[-0.03em] leading-none glow-text">
-                      {screenshotTitleLine1}
-                    </span>
-                    <span className="text-2xl md:text-3xl font-black text-white tracking-[-0.03em] leading-none glow-text">
-                      {screenshotTitleLine2}
-                    </span>
-                  </div>
-                </div>
-              ) : null}
-              <IdentityCard
-                title={copy("dashboard.identity.title")}
-                subtitle={copy("dashboard.identity.subtitle")}
-                name={identityDisplayName}
-                avatarUrl={null}
-                isPublic
-                rankLabel={identityStartDate ?? copy("identity_card.rank_placeholder")}
-                streakDays={activeDays}
-                animateTitle={false}
-                scrambleDurationMs={identityScrambleDurationMs}
-              />
-
-              <TopModelsPanel rows={topModels} />
-
-              {!screenshotMode && !signedIn && !publicMode ? (
-                <AsciiBox
-                  title={copy("dashboard.auth_optional.title")}
-                  subtitle={copy("dashboard.auth_optional.subtitle")}
-                >
-                  <p className="text-[10px] opacity-50 mt-0">
-                    {copy("dashboard.auth_optional.body")}
-                  </p>
-                  <div className="flex flex-wrap gap-3 mt-4">
-                    <MatrixButton as="a" primary href={signInUrl}>
-                      {copy("shared.button.sign_in")}
-                    </MatrixButton>
-                    <MatrixButton as="a" href={signUpUrl}>
-                      {copy("shared.button.sign_up")}
-                    </MatrixButton>
-                  </div>
-                </AsciiBox>
-              ) : null}
-
-              {shouldShowInstall ? (
-                <AsciiBox
-                  title={copy("dashboard.install.title")}
-                  subtitle={copy("dashboard.install.subtitle")}
-                  className="relative"
-                >
-                  <div className="text-[12px] tracking-[0.16em] font-semibold text-[#00FF41]/90">
-                    {installPrompt}
-                  </div>
-                  <div className="mt-3 flex flex-col gap-2">
-                    <MatrixButton
-                      onClick={handleCopyInstall}
-                      aria-label={installCopied ? installCopiedLabel : installCopyLabel}
-                      title={installCopied ? installCopiedLabel : installCopyLabel}
-                      className="w-full justify-between gap-3 normal-case px-3"
-                    >
-                      <span className="font-mono text-[11px] md:text-[12px] tracking-[0.02em] normal-case text-left">
-                        {installInitCmdDisplay}
-                      </span>
-                      <span className="inline-flex items-center justify-center w-7 h-7 border border-[#00FF41]/30 bg-black/30">
-                        {installCopied ? (
-                          <svg
-                            viewBox="0 0 16 16"
-                            className="w-4 h-4 text-[#00FF41]"
-                            fill="currentColor"
-                            aria-hidden="true"
-                          >
-                            <path d="M6.4 11.2 3.2 8l1.1-1.1 2.1 2.1 5-5L12.5 5z" />
-                          </svg>
-                        ) : (
-                          <svg
-                            viewBox="0 0 16 16"
-                            className="w-4 h-4 text-[#00FF41]"
-                            fill="currentColor"
-                            aria-hidden="true"
-                          >
-                            <path d="M11 1H4a1 1 0 0 0-1 1v9h1V2h7V1z" />
-                            <path d="M5 4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4zm1 0v9h6V4H6z" />
-                          </svg>
-                        )}
-                      </span>
-                    </MatrixButton>
-                    {linkCodeLoading ? (
-                      <span className="text-[12px] opacity-40">
-                        {copy("dashboard.install.link_code.loading")}
-                      </span>
-                    ) : linkCodeError ? (
-                      <span className="text-[12px] opacity-40">
-                        {copy("dashboard.install.link_code.failed")}
-                      </span>
-                    ) : null}
-                  </div>
-                </AsciiBox>
-              ) : null}
-
-              {!screenshotMode && signedIn && !publicMode ? (
-                <AsciiBox
-                  title={publicViewTitle}
-                  className="relative"
-                >
-                  <div className="flex flex-col gap-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={handleTogglePublicView}
-                          disabled={publicViewBusy}
-                          aria-pressed={publicViewEnabled}
-                          aria-label={publicViewToggleLabel}
-                          title={publicViewToggleLabel}
-                          className={`relative inline-flex h-6 w-11 items-center border px-[3px] transition-colors ${
-                            publicViewEnabled
-                              ? "border-[#00FF41] bg-[#00FF41]/10"
-                              : "border-[#00FF41]/40 bg-black/40"
-                          } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                          <span
-                            aria-hidden="true"
-                            className={`inline-block h-3.5 w-3.5 bg-[#00FF41] transition-transform ${
-                              publicViewEnabled
-                                ? "translate-x-[18px]"
-                                : "translate-x-0"
-                            }`}
-                          />
-                        </button>
-                        <span className="text-[10px] uppercase tracking-[0.2em] text-[#00FF41]/80">
-                          {publicViewStatusLabel}
-                        </span>
-                      </div>
-                      <MatrixButton
-                        onClick={handleCopyPublicView}
-                        disabled={!publicViewEnabled || publicViewBusy}
-                        className="px-3 py-2 text-[9px] normal-case"
-                      >
-                        {publicViewCopyButtonLabel}
-                      </MatrixButton>
-                    </div>
-                  </div>
-                </AsciiBox>
-              ) : null}
-
-              {!screenshotMode ? (
-                <TrendMonitor
-                  rows={trendRowsForDisplay}
-                  from={trendFromForDisplay}
-                  to={trendToForDisplay}
-                  period={period}
-                  timeZoneLabel={trendTimeZoneLabel}
-                  showTimeZoneLabel={false}
-                  className="h-auto min-h-[280px]"
-                />
-              ) : null}
-
-              {activityHeatmapBlock}
-              {screenshotMode ? (
-                <div
-                  className="mt-4 flex flex-col items-center gap-2"
-                  data-screenshot-exclude="true"
-                  style={isCapturing ? { display: "none" } : undefined}
-                >
-                  <MatrixButton
-                    type="button"
-                    onClick={handleShareToX}
-                    aria-label={screenshotTwitterLabel}
-                    title={screenshotTwitterLabel}
-                    className="h-12 md:h-14 px-6 text-base tracking-[0.25em]"
-                    primary
-                    disabled={isCapturing}
-                  >
-                    {screenshotTwitterButton}
-                  </MatrixButton>
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-matrix-muted">
-                    {screenshotTwitterHint}
-                  </span>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="lg:col-span-8 flex flex-col gap-6 min-w-0">
-              <UsagePanel
-                title={copy("usage.panel.title")}
-                period={period}
-                periods={periodsForDisplay}
-                onPeriodChange={setSelectedPeriod}
-                metrics={metricsRows}
-                showSummary={period === "total"}
-                useSummaryLayout
-                summaryLabel={summaryLabel}
-                summaryValue={summaryValue}
-                summaryCostValue={summaryCostValue}
-                onCostInfo={costInfoEnabled ? openCostModal : null}
-                breakdownCollapsed={
-                  allowBreakdownToggle ? coreIndexCollapsed : true
-                }
-                onToggleBreakdown={
-                  allowBreakdownToggle
-                    ? () => setCoreIndexCollapsed((value) => !value)
-                    : null
-                }
-                collapseLabel={
-                  allowBreakdownToggle ? coreIndexCollapseLabel : undefined
-                }
-                expandLabel={
-                  allowBreakdownToggle ? coreIndexExpandLabel : undefined
-                }
-                collapseAriaLabel={
-                  allowBreakdownToggle ? coreIndexCollapseAria : undefined
-                }
-                expandAriaLabel={
-                  allowBreakdownToggle ? coreIndexExpandAria : undefined
-                }
-                onRefresh={screenshotMode ? null : refreshAll}
-                loading={usageLoadingState}
-                error={usageError}
-                rangeLabel={screenshotMode ? null : rangeLabel}
-                rangeTimeZoneLabel={timeZoneRangeLabel}
-                statusLabel={screenshotMode ? null : usageSourceLabel}
-                summaryScrambleDurationMs={identityScrambleDurationMs}
-                summaryAnimate={false}
-              />
-
-              <NeuralDivergenceMap
-                fleetData={fleetData}
-                className="min-w-0"
-                footer={null}
-              />
-
-              {!screenshotMode ? (
-                <AsciiBox
-                  title={copy("dashboard.daily.title")}
-                  subtitle={copy("dashboard.daily.subtitle")}
-                >
-                  {!hasDetailsActual ? (
-                    <div className="text-[10px] opacity-40 mb-2">
-                      {dailyEmptyPrefix}
-                      <code className="px-1 py-0.5 bg-black/40 border border-[#00FF41]/20">
-                        {installSyncCmd}
-                      </code>
-                      {dailyEmptySuffix}
-                    </div>
-                  ) : null}
-                  <div
-                    className="overflow-auto max-h-[520px] border border-[#00FF41]/10"
-                    role="region"
-                    aria-label={copy("daily.table.aria_label")}
-                    tabIndex={0}
-                  >
-                    <table className="w-full border-collapse">
-                      <thead className="sticky top-0 bg-black/90">
-                        <tr className="border-b border-[#00FF41]/10">
-                          {detailsColumns.map((c) => (
-                            <th
-                              key={c.key}
-                              aria-sort={ariaSortFor(c.key)}
-                              className="text-left p-0"
-                            >
-                              <button
-                                type="button"
-                                onClick={() => toggleSort(c.key)}
-                                title={c.title}
-                                className="w-full px-3 py-2 text-left text-[9px] uppercase tracking-widest font-black opacity-70 hover:opacity-100 hover:bg-[#00FF41]/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00FF41]/30 flex items-center justify-start"
-                              >
-                                <span className="inline-flex items-center gap-2">
-                                  <span>{c.label}</span>
-                                  <span className="opacity-40">
-                                    {sortIconFor(c.key)}
-                                  </span>
-                                </span>
-                              </button>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {pagedDetails.map((r) => (
-                          <tr
-                            key={String(
-                              r?.[detailsDateKey] ||
-                                r?.day ||
-                                r?.hour ||
-                                r?.month ||
-                                ""
-                            )}
-                            className={`border-b border-[#00FF41]/5 hover:bg-[#00FF41]/5 ${
-                              r.missing
-                                ? "text-[#00FF41]/50"
-                                : r.future
-                                ? "text-[#00FF41]/30"
-                                : ""
-                            }`}
-                          >
-                            <td className="px-3 py-2 text-[12px] opacity-80 font-mono">
-                              {renderDetailDate(r)}
-                            </td>
-                            <td className="px-3 py-2 text-[12px] font-mono">
-                              {renderDetailCell(r, "total_tokens")}
-                            </td>
-                            <td className="px-3 py-2 text-[12px] font-mono">
-                              {renderDetailCell(r, "input_tokens")}
-                            </td>
-                            <td className="px-3 py-2 text-[12px] font-mono">
-                              {renderDetailCell(r, "output_tokens")}
-                            </td>
-                            <td className="px-3 py-2 text-[12px] font-mono">
-                              {renderDetailCell(r, "cached_input_tokens")}
-                            </td>
-                            <td className="px-3 py-2 text-[12px] font-mono">
-                              {renderDetailCell(r, "reasoning_output_tokens")}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {DETAILS_PAGED_PERIODS.has(period) && detailsPageCount > 1 ? (
-                    <div className="flex items-center justify-between mt-3 text-[9px] uppercase tracking-widest font-black">
-                      <MatrixButton
-                        type="button"
-                        onClick={() =>
-                          setDetailsPage((prev) => Math.max(0, prev - 1))
-                        }
-                        disabled={detailsPage === 0}
-                      >
-                        {copy("details.pagination.prev")}
-                      </MatrixButton>
-                      <span className="opacity-50">
-                        {copy("details.pagination.page", {
-                          page: detailsPage + 1,
-                          total: detailsPageCount,
-                        })}
-                      </span>
-                      <MatrixButton
-                        type="button"
-                        onClick={() =>
-                          setDetailsPage((prev) =>
-                            Math.min(detailsPageCount - 1, prev + 1)
-                          )
-                        }
-                        disabled={detailsPage + 1 >= detailsPageCount}
-                      >
-                        {copy("details.pagination.next")}
-                      </MatrixButton>
-                    </div>
-                  ) : null}
-                </AsciiBox>
-              ) : null}
-            </div>
-          </div>
-          </>
-        )}
-      </MatrixShell>
-      <CostAnalysisModal
-        isOpen={costModalOpen}
-        onClose={closeCostModal}
-        fleetData={fleetData}
-      />
-    </>
+    <DashboardView
+      copy={copy}
+      headerStatus={headerStatus}
+      headerRight={headerRight}
+      footerLeftContent={footerLeftContent}
+      screenshotMode={screenshotMode}
+      publicViewInvalid={publicViewInvalid}
+      publicViewInvalidTitle={publicViewInvalidTitle}
+      publicViewInvalidBody={publicViewInvalidBody}
+      showExpiredGate={showExpiredGate}
+      showAuthGate={showAuthGate}
+      sessionExpiredCopied={sessionExpiredCopied}
+      sessionExpiredCopiedLabel={sessionExpiredCopiedLabel}
+      sessionExpiredCopyLabel={sessionExpiredCopyLabel}
+      handleCopySessionExpired={handleCopySessionExpired}
+      signInUrl={signInUrl}
+      signUpUrl={signUpUrl}
+      screenshotTitleLine1={screenshotTitleLine1}
+      screenshotTitleLine2={screenshotTitleLine2}
+      identityDisplayName={identityDisplayName}
+      identityStartDate={identityStartDate}
+      activeDays={activeDays}
+      identityScrambleDurationMs={identityScrambleDurationMs}
+      topModels={topModels}
+      signedIn={signedIn}
+      publicMode={publicMode}
+      shouldShowInstall={shouldShowInstall}
+      installPrompt={installPrompt}
+      handleCopyInstall={handleCopyInstall}
+      installCopied={installCopied}
+      installCopiedLabel={installCopiedLabel}
+      installCopyLabel={installCopyLabel}
+      installInitCmdDisplay={installInitCmdDisplay}
+      linkCodeLoading={linkCodeLoading}
+      linkCodeError={linkCodeError}
+      publicViewTitle={publicViewTitle}
+      handleTogglePublicView={handleTogglePublicView}
+      publicViewBusy={publicViewBusy}
+      publicViewEnabled={publicViewEnabled}
+      publicViewToggleLabel={publicViewToggleLabel}
+      publicViewStatusLabel={publicViewStatusLabel}
+      publicViewCopyButtonLabel={publicViewCopyButtonLabel}
+      handleCopyPublicView={handleCopyPublicView}
+      trendRowsForDisplay={trendRowsForDisplay}
+      trendFromForDisplay={trendFromForDisplay}
+      trendToForDisplay={trendToForDisplay}
+      period={period}
+      trendTimeZoneLabel={trendTimeZoneLabel}
+      activityHeatmapBlock={activityHeatmapBlock}
+      isCapturing={isCapturing}
+      handleShareToX={handleShareToX}
+      screenshotTwitterLabel={screenshotTwitterLabel}
+      screenshotTwitterButton={screenshotTwitterButton}
+      screenshotTwitterHint={screenshotTwitterHint}
+      periodsForDisplay={periodsForDisplay}
+      setSelectedPeriod={setSelectedPeriod}
+      metricsRows={metricsRows}
+      summaryLabel={summaryLabel}
+      summaryValue={summaryValue}
+      summaryCostValue={summaryCostValue}
+      costInfoEnabled={costInfoEnabled}
+      openCostModal={openCostModal}
+      allowBreakdownToggle={allowBreakdownToggle}
+      coreIndexCollapsed={coreIndexCollapsed}
+      setCoreIndexCollapsed={setCoreIndexCollapsed}
+      coreIndexCollapseLabel={coreIndexCollapseLabel}
+      coreIndexExpandLabel={coreIndexExpandLabel}
+      coreIndexCollapseAria={coreIndexCollapseAria}
+      coreIndexExpandAria={coreIndexExpandAria}
+      refreshAll={refreshAll}
+      usageLoadingState={usageLoadingState}
+      usageError={usageError}
+      rangeLabel={rangeLabel}
+      timeZoneRangeLabel={timeZoneRangeLabel}
+      usageSourceLabel={usageSourceLabel}
+      fleetData={fleetData}
+      hasDetailsActual={hasDetailsActual}
+      dailyEmptyPrefix={dailyEmptyPrefix}
+      installSyncCmd={installSyncCmd}
+      dailyEmptySuffix={dailyEmptySuffix}
+      detailsColumns={detailsColumns}
+      ariaSortFor={ariaSortFor}
+      toggleSort={toggleSort}
+      sortIconFor={sortIconFor}
+      pagedDetails={pagedDetails}
+      detailsDateKey={detailsDateKey}
+      renderDetailDate={renderDetailDate}
+      renderDetailCell={renderDetailCell}
+      DETAILS_PAGED_PERIODS={DETAILS_PAGED_PERIODS}
+      detailsPageCount={detailsPageCount}
+      detailsPage={detailsPage}
+      setDetailsPage={setDetailsPage}
+      costModalOpen={costModalOpen}
+      closeCostModal={closeCostModal}
+    />
   );
 }

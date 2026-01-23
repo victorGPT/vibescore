@@ -12,7 +12,7 @@ test("TrendMonitor root padding matches standard panel spacing", () => {
     "utf8"
   );
 
-  assert.ok(src.includes('from "./AsciiBox.jsx"'));
+  assert.ok(src.includes('from "../../foundation/AsciiBox.jsx"'));
   assert.ok(src.includes("<AsciiBox"));
   assert.ok(!src.includes("ASCII_CHARS"));
 });

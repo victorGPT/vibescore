@@ -14,6 +14,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { LandingPage } from "./pages/LandingPage.jsx";
 import { isMockEnabled } from "./lib/mock-data";
 import { fetchLatestTrackerVersion } from "./lib/npm-version";
+import { isScreenshotModeEnabled } from "./lib/screenshot-mode";
 import {
   clearAuthStorage,
   clearSessionExpired,
@@ -47,6 +48,10 @@ export default function App() {
     signOut: insforgeSignOut,
   } = useInsforgeAuth();
   const mockEnabled = isMockEnabled();
+  const screenshotMode = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return isScreenshotModeEnabled(window.location.search);
+  }, []);
   const [latestVersion, setLatestVersion] = useState(null);
   const [insforgeSession, setInsforgeSession] = useState(null);
   const [sessionExpired, setSessionExpired] = useState(() =>
@@ -221,7 +226,9 @@ export default function App() {
   } else {
     content = (
       <Suspense fallback={loadingShell}>
-        {!publicMode ? <UpgradeAlertModal requiredVersion={latestVersion} /> : null}
+        {!publicMode && !screenshotMode ? (
+          <UpgradeAlertModal requiredVersion={latestVersion} />
+        ) : null}
         <DashboardPage
           baseUrl={baseUrl}
           auth={auth}

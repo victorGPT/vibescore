@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 import { copy } from "../../../lib/copy";
-import { AsciiBox } from "./AsciiBox.jsx";
+import { AsciiBox } from "../../foundation/AsciiBox.jsx";
 
 // --- Trend Monitor (NeuralFluxMonitor v2.0) ---
 // Industrial TUI style: independent axes, precise grid, physical partitions.

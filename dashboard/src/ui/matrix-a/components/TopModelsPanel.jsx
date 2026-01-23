@@ -1,7 +1,7 @@
 import React from "react";
 
 import { copy } from "../../../lib/copy";
-import { AsciiBox } from "./AsciiBox.jsx";
+import { AsciiBox } from "../../foundation/AsciiBox.jsx";
 
 export const TopModelsPanel = React.memo(function TopModelsPanel({
   rows = [],

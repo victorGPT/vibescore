@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 
 import { copy } from "../../../lib/copy";
 import { formatUsdCurrency, toFiniteNumber } from "../../../lib/format";
-import { AsciiBox } from "./AsciiBox.jsx";
+import { AsciiBox } from "../../foundation/AsciiBox.jsx";
 
 function formatUsdValue(value) {
   if (!Number.isFinite(value)) return copy("shared.placeholder.short");

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 
+import { shouldFetchGithubStars } from "../util/should-fetch-github-stars.js";
+
 /**
  * Matrix-themed GitHub Star Component
  */
@@ -11,6 +13,17 @@ export const GithubStar = ({
   const [stars, setStars] = useState(null);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const prefersReducedMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const screenshotCapture =
+      typeof document !== "undefined" &&
+      (document.documentElement?.classList.contains("screenshot-capture") ||
+        document.body?.classList.contains("screenshot-capture"));
+    if (!shouldFetchGithubStars({ prefersReducedMotion, screenshotCapture })) {
+      return;
+    }
     // Attempt to fetch stars from GitHub API
     // Note: This might hit rate limits if not authenticated, but standard for non-sensitive data
     fetch(`https://api.github.com/repos/${repo}`)
@@ -54,9 +67,7 @@ export const GithubStar = ({
 
       {/* Label & Counter */}
       <div className="flex items-center gap-2 leading-none">
-        <span className="text-matrix-primary">
-          STAR
-        </span>
+        <span className="text-matrix-primary">STAR</span>
         <span className="text-matrix-bright tabular-nums tracking-normal">
           {stars !== null ? stars : "---"}
         </span>

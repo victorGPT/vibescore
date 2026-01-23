@@ -1,9 +1,9 @@
 import React from "react";
 
 import { copy } from "../../../lib/copy";
-import { AsciiBox } from "./AsciiBox.jsx";
-import { MatrixButton } from "./MatrixButton.jsx";
-import { ScrambleText } from "./ScrambleText.jsx";
+import { AsciiBox } from "../../foundation/AsciiBox.jsx";
+import { MatrixButton } from "../../foundation/MatrixButton.jsx";
+import { ScrambleText } from "../../foundation/ScrambleText.jsx";
 
 function normalizePeriods(periods) {
   if (!Array.isArray(periods)) return [];
