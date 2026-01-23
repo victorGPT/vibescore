@@ -37,7 +37,7 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=18"
+    "node": "20.x"
   },
   "devDependencies": {
     "esbuild": "0.27.2"
