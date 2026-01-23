@@ -10,7 +10,15 @@ export const GithubStar = ({
 }) => {
   const [stars, setStars] = useState(null);
 
+  function isScreenshotMode() {
+    if (typeof window === "undefined") return false;
+    const params = new URLSearchParams(window.location.search);
+    const raw = String(params.get("screenshot") || "").toLowerCase();
+    return raw === "1" || raw === "true";
+  }
+
   useEffect(() => {
+    if (isScreenshotMode()) return;
     // Attempt to fetch stars from GitHub API
     // Note: This might hit rate limits if not authenticated, but standard for non-sensitive data
     fetch(`https://api.github.com/repos/${repo}`)
