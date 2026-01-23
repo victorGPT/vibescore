@@ -24,7 +24,7 @@ const jobs = [
   },
   {
     name: "landing-desktop",
-    url: `${baseUrl}/?${mock}`,
+    url: `${baseUrl}/?screenshot=1`,
     width: 1440,
     height: 900,
     dpr: 2,
