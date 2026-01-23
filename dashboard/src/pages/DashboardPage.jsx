@@ -1,28 +1,28 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
-import { copy } from "../lib/copy.js";
-import { getRangeForPeriod } from "../lib/date-range.js";
-import { getDetailsSortColumns, sortDailyRows } from "../lib/daily.js";
+import { copy } from "../lib/copy";
+import { getRangeForPeriod } from "../lib/date-range";
+import { getDetailsSortColumns, sortDailyRows } from "../lib/daily";
 import {
   DETAILS_PAGE_SIZE,
   paginateRows,
   trimLeadingZeroMonths,
-} from "../lib/details.js";
+} from "../lib/details";
 import {
   formatCompactNumber,
   formatUsdCurrency,
   toDisplayNumber,
   toFiniteNumber,
-} from "../lib/format.js";
+} from "../lib/format";
 import {
   getPublicViewProfile,
   getPublicViewStatus,
   issuePublicViewToken,
   requestInstallLinkCode,
   revokePublicViewToken,
-} from "../lib/vibeusage-api.js";
-import { buildFleetData, buildTopModels } from "../lib/model-breakdown.js";
-import { safeWriteClipboard, safeWriteClipboardImage } from "../lib/safe-browser.js";
+} from "../lib/vibeusage-api";
+import { buildFleetData, buildTopModels } from "../lib/model-breakdown";
+import { safeWriteClipboard, safeWriteClipboardImage } from "../lib/safe-browser";
 import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
 import { useTrendData } from "../hooks/use-trend-data.js";
 import { useUsageData } from "../hooks/use-usage-data.js";
@@ -33,7 +33,7 @@ import {
   getBrowserTimeZone,
   getBrowserTimeZoneOffsetMinutes,
   getLocalDayKey,
-} from "../lib/timezone.js";
+} from "../lib/timezone";
 import { BackendStatus } from "../components/BackendStatus.jsx";
 import { AsciiBox } from "../ui/foundation/AsciiBox.jsx";
 import { MatrixButton } from "../ui/foundation/MatrixButton.jsx";
@@ -41,8 +41,8 @@ import { ActivityHeatmap } from "../ui/matrix-a/components/ActivityHeatmap.jsx";
 import { BootScreen } from "../ui/matrix-a/components/BootScreen.jsx";
 import { GithubStar } from "../ui/matrix-a/components/GithubStar.jsx";
 import { DashboardView } from "../ui/matrix-a/views/DashboardView.jsx";
-import { getMockNow, isMockEnabled } from "../lib/mock-data.js";
-import { isScreenshotModeEnabled } from "../lib/screenshot-mode.js";
+import { getMockNow, isMockEnabled } from "../lib/mock-data";
+import { isScreenshotModeEnabled } from "../lib/screenshot-mode";
 
 const PERIODS = ["day", "week", "month", "total"];
 const DETAILS_DATE_KEYS = new Set(["day", "hour", "month"]);

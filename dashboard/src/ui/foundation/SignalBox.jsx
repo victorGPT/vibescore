@@ -1,6 +1,6 @@
 import React from "react";
 import { DecodingText } from "./DecodingText.jsx";
-import { copy } from "../../lib/copy.js";
+import { copy } from "../../lib/copy";
 
 /**
  * Landing Page 专用的 AsciiBox 变体

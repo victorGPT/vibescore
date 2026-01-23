@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { copy } from "../lib/copy.js";
-import { isScreenshotModeEnabled } from "../lib/screenshot-mode.js";
+import { copy } from "../lib/copy";
+import { isScreenshotModeEnabled } from "../lib/screenshot-mode";
 import { LandingView } from "../ui/matrix-a/views/LandingView.jsx";
 import { shouldDeferMount } from "./should-defer-mount.js";
 

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { getUsageDaily, getUsageSummary } from "../lib/vibeusage-api.js";
-import { formatDateLocal, formatDateUTC } from "../lib/date-range.js";
-import { isMockEnabled } from "../lib/mock-data.js";
-import { getLocalDayKey, getTimeZoneCacheKey } from "../lib/timezone.js";
+import { getUsageDaily, getUsageSummary } from "../lib/vibeusage-api";
+import { formatDateLocal, formatDateUTC } from "../lib/date-range";
+import { isMockEnabled } from "../lib/mock-data";
+import { getLocalDayKey, getTimeZoneCacheKey } from "../lib/timezone";
 
 export function useUsageData({
   baseUrl,
@@ -15,13 +15,13 @@ export function useUsageData({
   timeZone,
   tzOffsetMinutes,
   now,
-} = {}) {
-  const [daily, setDaily] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const [source, setSource] = useState("edge");
-  const [fetchedAt, setFetchedAt] = useState(null);
+}: any = {}) {
+  const [daily, setDaily] = useState<any[]>([]);
+  const [summary, setSummary] = useState<any | null>(null);
+  const [source, setSource] = useState<string>("edge");
+  const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const mockEnabled = isMockEnabled();
 
   const storageKey = (() => {
@@ -46,7 +46,7 @@ export function useUsageData({
   }, [storageKey]);
 
   const writeCache = useCallback(
-    (payload) => {
+    (payload: any) => {
       if (!storageKey || typeof window === "undefined") return;
       try {
         window.localStorage.setItem(storageKey, JSON.stringify(payload));
@@ -125,7 +125,8 @@ export function useUsageData({
         setFetchedAt(cached.fetchedAt || null);
         setError(null);
       } else {
-        setError(e?.message || String(e));
+        const err = e as any;
+        setError(err?.message || String(err));
         setDaily([]);
         setSummary(null);
         setSource("edge");
@@ -189,7 +190,7 @@ export function useUsageData({
   };
 }
 
-function safeHost(baseUrl) {
+function safeHost(baseUrl: any) {
   try {
     const u = new URL(baseUrl);
     return u.host;
@@ -198,7 +199,7 @@ function safeHost(baseUrl) {
   }
 }
 
-function parseUtcDate(yyyyMmDd) {
+function parseUtcDate(yyyyMmDd: any) {
   if (!yyyyMmDd) return null;
   const raw = String(yyyyMmDd).trim();
   const parts = raw.split("-");
@@ -214,13 +215,18 @@ function parseUtcDate(yyyyMmDd) {
   return formatDateUTC(dt) === raw ? dt : null;
 }
 
-function addUtcDays(date, days) {
+function addUtcDays(date: Date, days: number) {
   return new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days)
   );
 }
 
-function fillDailyGaps(rows, from, to, { timeZone, offsetMinutes, now } = {}) {
+function fillDailyGaps(
+  rows: any[],
+  from: any,
+  to: any,
+  { timeZone, offsetMinutes, now }: any = {}
+) {
   const start = parseUtcDate(from);
   const end = parseUtcDate(to);
   if (!start || !end || end < start) return Array.isArray(rows) ? rows : [];

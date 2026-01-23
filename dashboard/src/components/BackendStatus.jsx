@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 
-import { useBackendStatus } from "../hooks/use-backend-status.js";
-import { copy } from "../lib/copy.js";
+import { useBackendStatus } from "../hooks/use-backend-status";
+import { copy } from "../lib/copy";
 import { ConnectionStatus } from "../ui/matrix-a/components/ConnectionStatus.jsx";
 export function BackendStatus({
   baseUrl,

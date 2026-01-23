@@ -1,8 +1,8 @@
 import React from "react";
 
-import { copy } from "../../../lib/copy.js";
-import { formatCompactNumber } from "../../../lib/format.js";
-import { TEXTURES } from "./MatrixConstants.js";
+import { copy } from "../../../lib/copy";
+import { formatCompactNumber } from "../../../lib/format";
+import { TEXTURES } from "./MatrixConstants";
 
 export const NeuralAdaptiveFleet = React.memo(function NeuralAdaptiveFleet({
   label,

@@ -9,12 +9,12 @@ import React, {
 
 import { useAuth as useInsforgeAuth } from "@insforge/react-router";
 
-import { getInsforgeBaseUrl } from "./lib/config.js";
+import { getInsforgeBaseUrl } from "./lib/config";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
 import { LandingPage } from "./pages/LandingPage.jsx";
-import { isMockEnabled } from "./lib/mock-data.js";
-import { fetchLatestTrackerVersion } from "./lib/npm-version.js";
-import { isScreenshotModeEnabled } from "./lib/screenshot-mode.js";
+import { isMockEnabled } from "./lib/mock-data";
+import { fetchLatestTrackerVersion } from "./lib/npm-version";
+import { isScreenshotModeEnabled } from "./lib/screenshot-mode";
 import {
   clearAuthStorage,
   clearSessionExpired,
@@ -23,14 +23,14 @@ import {
   loadSessionSoftExpired,
   subscribeSessionExpired,
   subscribeSessionSoftExpired,
-} from "./lib/auth-storage.js";
+} from "./lib/auth-storage";
 import {
   buildRedirectUrl,
   resolveRedirectTarget,
   storeRedirectFromSearch,
   stripRedirectParam,
-} from "./lib/auth-redirect.js";
-import { insforgeAuthClient } from "./lib/insforge-auth-client.js";
+} from "./lib/auth-redirect";
+import { insforgeAuthClient } from "./lib/insforge-auth-client";
 
 import { UpgradeAlertModal } from "./ui/matrix-a/components/UpgradeAlertModal.jsx";
 

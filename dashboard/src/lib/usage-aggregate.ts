@@ -1,4 +1,4 @@
-function toBigIntValue(value) {
+function toBigIntValue(value: any) {
   if (typeof value === "bigint") return value;
   if (typeof value === "number") {
     if (!Number.isFinite(value)) return 0n;
@@ -14,7 +14,7 @@ function toBigIntValue(value) {
   }
 }
 
-export function sumDailyRowsToTotals(rows) {
+export function sumDailyRowsToTotals(rows: any) {
   const totals = {
     total_tokens: 0n,
     billable_total_tokens: 0n,

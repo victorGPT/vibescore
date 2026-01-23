@@ -1,0 +1,4 @@
+- Task 1: `node --test test/dashboard-typescript-guardrails.test.js` -> PASS
+- Task 2: `./dashboard/node_modules/.bin/tsc --noEmit --pretty false -p dashboard/tsconfig.json` -> PASS; `node --test test/dashboard-typescript-guardrails.test.js` -> PASS
+- Task 2 (guardrail fix): `node --test test/dashboard-typescript-guardrails.test.js` -> PASS
+- Task 2 (npm exec tsc): `node --test test/dashboard-typescript-guardrails.test.js` -> PASS

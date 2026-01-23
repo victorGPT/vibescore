@@ -6,8 +6,8 @@ import React, {
   useState,
 } from "react";
 
-import { buildActivityHeatmap } from "../../../lib/activity-heatmap.js";
-import { copy } from "../../../lib/copy.js";
+import { buildActivityHeatmap } from "../../../lib/activity-heatmap";
+import { copy } from "../../../lib/copy";
 
 const OPACITY_BY_LEVEL = [0.12, 0.32, 0.5, 0.7, 1];
 const CELL_SIZE = 12;

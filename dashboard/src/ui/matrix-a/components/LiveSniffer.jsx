@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
-import { copy } from "../../../lib/copy.js";
-import { isScreenshotModeEnabled } from "../../../lib/screenshot-mode.js";
+import { copy } from "../../../lib/copy";
+import { isScreenshotModeEnabled } from "../../../lib/screenshot-mode";
 import { shouldRunLiveSniffer } from "../util/should-run-live-sniffer.js";
 
 function usePrefersReducedMotion() {

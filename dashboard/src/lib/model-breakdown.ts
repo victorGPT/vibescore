@@ -1,34 +1,36 @@
-import { toFiniteNumber } from "./format.js";
+import { toFiniteNumber } from "./format";
 
-function normalizeModelId(value) {
+type AnyRecord = Record<string, any>;
+
+function normalizeModelId(value: any) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
   return trimmed.toLowerCase();
 }
 
-function resolveModelId(model) {
+function resolveModelId(model: any) {
   const id = normalizeModelId(model?.model_id);
   if (id) return id;
   return null;
 }
 
-function resolveModelName(model, fallback) {
+function resolveModelName(model: any, fallback: any) {
   if (model?.model) return String(model.model);
   return fallback;
 }
 
-export function buildFleetData(modelBreakdown, { copyFn } = {}) {
-  const safeCopy = typeof copyFn === "function" ? copyFn : (key) => key;
-  const sources = Array.isArray(modelBreakdown?.sources)
+export function buildFleetData(modelBreakdown: any, { copyFn }: AnyRecord = {}) {
+  const safeCopy = typeof copyFn === "function" ? copyFn : (key: string) => key;
+  const sources: any[] = Array.isArray(modelBreakdown?.sources)
     ? modelBreakdown.sources
     : [];
   const normalizedSources = sources
-    .map((entry) => {
+    .map((entry: any) => {
       const totalTokens = toFiniteNumber(
         entry?.totals?.billable_total_tokens ?? entry?.totals?.total_tokens
-      );
-      const totalCost = toFiniteNumber(entry?.totals?.total_cost_usd);
+      ) ?? 0;
+      const totalCost = toFiniteNumber(entry?.totals?.total_cost_usd) ?? 0;
       return {
         source: entry?.source,
         totalTokens: Number.isFinite(totalTokens) ? totalTokens : 0,
@@ -51,8 +53,8 @@ export function buildFleetData(modelBreakdown, { copyFn } = {}) {
 
   return normalizedSources
     .slice()
-    .sort((a, b) => b.totalTokens - a.totalTokens)
-    .map((entry) => {
+    .sort((a: any, b: any) => b.totalTokens - a.totalTokens)
+    .map((entry: any) => {
       const label = entry.source
         ? String(entry.source).toUpperCase()
         : safeCopy("shared.placeholder.short");
@@ -62,10 +64,10 @@ export function buildFleetData(modelBreakdown, { copyFn } = {}) {
         ? totalPercentRaw.toFixed(1)
         : "0.0";
       const models = entry.models
-        .map((model) => {
+        .map((model: any) => {
           const modelTokens = toFiniteNumber(
             model?.totals?.billable_total_tokens ?? model?.totals?.total_tokens
-          );
+          ) ?? 0;
           if (!Number.isFinite(modelTokens) || modelTokens <= 0) return null;
           const share =
             entry.totalTokens > 0
@@ -86,9 +88,12 @@ export function buildFleetData(modelBreakdown, { copyFn } = {}) {
     });
 }
 
-export function buildTopModels(modelBreakdown, { limit = 3, copyFn } = {}) {
-  const safeCopy = typeof copyFn === "function" ? copyFn : (key) => key;
-  const sources = Array.isArray(modelBreakdown?.sources)
+export function buildTopModels(
+  modelBreakdown: any,
+  { limit = 3, copyFn }: AnyRecord = {}
+) {
+  const safeCopy = typeof copyFn === "function" ? copyFn : (key: string) => key;
+  const sources: any[] = Array.isArray(modelBreakdown?.sources)
     ? modelBreakdown.sources
     : [];
   if (!sources.length) return [];
@@ -99,9 +104,9 @@ export function buildTopModels(modelBreakdown, { limit = 3, copyFn } = {}) {
   let totalTokensAll = 0;
 
   for (const source of sources) {
-    const models = Array.isArray(source?.models) ? source.models : [];
+    const models: any[] = Array.isArray(source?.models) ? source.models : [];
     for (const model of models) {
-      const tokens = toFiniteNumber(model?.totals?.billable_total_tokens);
+      const tokens = toFiniteNumber(model?.totals?.billable_total_tokens) ?? 0;
       if (!Number.isFinite(tokens) || tokens <= 0) continue;
       totalTokensAll += tokens;
       const name = resolveModelName(model, safeCopy("shared.placeholder.short"));

@@ -1,7 +1,6 @@
 const assert = require('node:assert/strict');
 const { test, beforeEach, afterEach } = require('node:test');
-const path = require('node:path');
-const { pathToFileURL } = require('node:url');
+const { loadDashboardModule } = require('./helpers/load-dashboard-module');
 
 const ORIGINAL_FETCH = globalThis.fetch;
 
@@ -13,11 +12,7 @@ function jsonResponse(payload, status) {
 }
 
 async function loadVibescoreApi() {
-  const modulePath = path.resolve(
-    __dirname,
-    '../dashboard/src/lib/vibeusage-api.js'
-  );
-  return import(pathToFileURL(modulePath).href);
+  return loadDashboardModule('dashboard/src/lib/vibeusage-api.ts');
 }
 
 beforeEach(() => {

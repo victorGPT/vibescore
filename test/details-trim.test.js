@@ -1,8 +1,9 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
+const { loadDashboardModule } = require("./helpers/load-dashboard-module");
 
 test("trimLeadingZeroMonths removes leading zero months and keeps later zeros", async () => {
-  const mod = await import("../dashboard/src/lib/details.js");
+  const mod = await loadDashboardModule("dashboard/src/lib/details.ts");
   const { trimLeadingZeroMonths } = mod;
 
   const rows = [
@@ -47,7 +48,7 @@ test("trimLeadingZeroMonths removes leading zero months and keeps later zeros", 
 });
 
 test("trimLeadingZeroMonths keeps all rows when no non-zero months", async () => {
-  const mod = await import("../dashboard/src/lib/details.js");
+  const mod = await loadDashboardModule("dashboard/src/lib/details.ts");
   const { trimLeadingZeroMonths } = mod;
 
   const rows = [

@@ -1,8 +1,9 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
+const { loadDashboardModule } = require("./helpers/load-dashboard-module");
 
 test("sortDetailRows sorts day/hour/month keys by time", async () => {
-  const mod = await import("../dashboard/src/lib/detail-sort.js");
+  const mod = await loadDashboardModule("dashboard/src/lib/detail-sort.ts");
   const sortDetailRows = mod.sortDetailRows;
 
   const dayRows = [
