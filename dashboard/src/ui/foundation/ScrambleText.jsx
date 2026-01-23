@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 
+import { isScreenshotModeEnabled } from "../../../lib/screenshot-mode.js";
+import { shouldScrambleText } from "../matrix-a/util/should-scramble.js";
+
 const DEFAULT_CHARS = "01XYZA@#$%";
 
 function usePrefersReducedMotion() {
@@ -30,9 +33,19 @@ export function ScrambleText({
   respectReducedMotion = true,
 }) {
   const reduceMotion = usePrefersReducedMotion();
+  const screenshotMode = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return isScreenshotModeEnabled(window.location.search);
+  }, []);
+  const shouldScramble = shouldScrambleText({
+    scrambleRespectReducedMotion: respectReducedMotion,
+    prefersReducedMotion: reduceMotion,
+    screenshotMode,
+  });
   const [display, setDisplay] = useState(() => {
     if (!active || !startScrambled || !text) return text || "";
     if (typeof window === "undefined") return text || "";
+    if (!shouldScramble) return text || "";
     return scrambleValue(text, chars);
   });
 
@@ -41,7 +54,7 @@ export function ScrambleText({
       setDisplay(text || "");
       return undefined;
     }
-    if ((respectReducedMotion && reduceMotion) || typeof window === "undefined") {
+    if (!shouldScramble || typeof window === "undefined") {
       setDisplay(text || "");
       return undefined;
     }
@@ -112,8 +125,7 @@ export function ScrambleText({
     fps,
     loop,
     loopDelayMs,
-    reduceMotion,
-    respectReducedMotion,
+    shouldScramble,
     startScrambled,
     text,
   ]);

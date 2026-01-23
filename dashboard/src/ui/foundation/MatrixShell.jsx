@@ -1,6 +1,6 @@
 import React from "react";
 
-import { MatrixRain } from "../components/MatrixRain.jsx";
+import { MatrixRain } from "../matrix-a/components/MatrixRain.jsx";
 import { copy } from "../../../lib/copy.js";
 
 export function MatrixShell({

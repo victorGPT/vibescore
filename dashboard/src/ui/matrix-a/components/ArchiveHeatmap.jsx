@@ -2,7 +2,7 @@ import React from "react";
 
 import { copy } from "../../../lib/copy.js";
 import { ActivityHeatmap } from "./ActivityHeatmap.jsx";
-import { AsciiBox } from "./AsciiBox.jsx";
+import { AsciiBox } from "../../foundation/AsciiBox.jsx";
 
 export function ArchiveHeatmap({
   heatmap,

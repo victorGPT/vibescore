@@ -1,7 +1,7 @@
 import React from "react";
 
 import { copy } from "../../../lib/copy.js";
-import { AsciiBox } from "./AsciiBox.jsx";
+import { AsciiBox } from "../../foundation/AsciiBox.jsx";
 import { NeuralAdaptiveFleet } from "./NeuralAdaptiveFleet.jsx";
 
 export const NeuralDivergenceMap = React.memo(function NeuralDivergenceMap({
