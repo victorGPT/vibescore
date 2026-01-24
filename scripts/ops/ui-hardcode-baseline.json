@@ -1,0 +1,106 @@
+{
+  "generatedAt": "2026-01-24T18:22:49.422Z",
+  "root": "dashboard/src",
+  "rules": {
+    "colors": "hex/rgb(a) literals",
+    "rawText": "JSX text nodes containing letters"
+  },
+  "totals": {
+    "colors": 75,
+    "rawText": 10
+  },
+  "files": {
+    "dashboard/src/App.jsx": {
+      "colors": 1,
+      "rawText": 0
+    },
+    "dashboard/src/components/ErrorBoundary.jsx": {
+      "colors": 6,
+      "rawText": 0
+    },
+    "dashboard/src/components/Sparkline.jsx": {
+      "colors": 2,
+      "rawText": 1
+    },
+    "dashboard/src/pages/DashboardPage.jsx": {
+      "colors": 2,
+      "rawText": 2
+    },
+    "dashboard/src/ui/foundation/MatrixAvatar.jsx": {
+      "colors": 6,
+      "rawText": 0
+    },
+    "dashboard/src/ui/foundation/MatrixShell.jsx": {
+      "colors": 4,
+      "rawText": 0
+    },
+    "dashboard/src/ui/matrix-a/components/ActivityHeatmap.jsx": {
+      "colors": 5,
+      "rawText": 0
+    },
+    "dashboard/src/ui/matrix-a/components/CostAnalysisModal.jsx": {
+      "colors": 1,
+      "rawText": 1
+    },
+    "dashboard/src/ui/matrix-a/components/GithubStar.jsx": {
+      "colors": 1,
+      "rawText": 1
+    },
+    "dashboard/src/ui/matrix-a/components/IdentityCard.jsx": {
+      "colors": 0,
+      "rawText": 1
+    },
+    "dashboard/src/ui/matrix-a/components/IdentityPanel.jsx": {
+      "colors": 1,
+      "rawText": 0
+    },
+    "dashboard/src/ui/matrix-a/components/MatrixConstants.ts": {
+      "colors": 3,
+      "rawText": 0
+    },
+    "dashboard/src/ui/matrix-a/components/MatrixRain.jsx": {
+      "colors": 2,
+      "rawText": 0
+    },
+    "dashboard/src/ui/matrix-a/components/NeuralAdaptiveFleet.jsx": {
+      "colors": 1,
+      "rawText": 0
+    },
+    "dashboard/src/ui/matrix-a/components/NeuralDivergenceMap.jsx": {
+      "colors": 0,
+      "rawText": 1
+    },
+    "dashboard/src/ui/matrix-a/components/SystemHeader.jsx": {
+      "colors": 1,
+      "rawText": 0
+    },
+    "dashboard/src/ui/matrix-a/components/TrendChart.jsx": {
+      "colors": 1,
+      "rawText": 0
+    },
+    "dashboard/src/ui/matrix-a/components/TrendMonitor.jsx": {
+      "colors": 7,
+      "rawText": 0
+    },
+    "dashboard/src/ui/matrix-a/components/UpgradeAlertModal.jsx": {
+      "colors": 2,
+      "rawText": 0
+    },
+    "dashboard/src/ui/matrix-a/components/UsagePanel.jsx": {
+      "colors": 1,
+      "rawText": 0
+    },
+    "dashboard/src/ui/matrix-a/components/VersionBadge.jsx": {
+      "colors": 1,
+      "rawText": 0
+    },
+    "dashboard/src/ui/matrix-a/views/DashboardView.jsx": {
+      "colors": 20,
+      "rawText": 2
+    },
+    "dashboard/src/ui/matrix-a/views/LandingView.jsx": {
+      "colors": 7,
+      "rawText": 1
+    }
+  }
+}
