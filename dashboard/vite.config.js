@@ -23,6 +23,18 @@ const COPY_REQUIRED_KEYS = [
 
 const ROOT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const COPY_PATH = path.join(ROOT_DIR, 'src', 'content', 'copy.csv');
+const PACKAGE_JSON_PATH = path.resolve(ROOT_DIR, '..', 'package.json');
+
+function loadAppVersion() {
+  try {
+    const raw = fs.readFileSync(PACKAGE_JSON_PATH, 'utf8');
+    const parsed = JSON.parse(raw);
+    return String(parsed?.version || '').trim() || null;
+  } catch (error) {
+    console.warn('[vibeusage] Failed to read package.json version:', error.message);
+    return null;
+  }
+}
 
 function parseCsv(raw) {
   const rows = [];
@@ -187,6 +199,9 @@ function richLinkMetaPlugin() {
 
 export default defineConfig({
   plugins: [react(), richLinkMetaPlugin()],
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(loadAppVersion())
+  },
   build: {
     rollupOptions: {
       input: {
