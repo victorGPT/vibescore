@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -23,6 +23,18 @@ const COPY_REQUIRED_KEYS = [
 
 const ROOT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const COPY_PATH = path.join(ROOT_DIR, 'src', 'content', 'copy.csv');
+const PACKAGE_JSON_PATH = path.resolve(ROOT_DIR, '..', 'package.json');
+
+function loadAppVersion() {
+  try {
+    const raw = fs.readFileSync(PACKAGE_JSON_PATH, 'utf8');
+    const parsed = JSON.parse(raw);
+    return String(parsed?.version || '').trim() || null;
+  } catch (error) {
+    console.warn('[vibeusage] Failed to read package.json version:', error.message);
+    return null;
+  }
+}
 
 function parseCsv(raw) {
   const rows = [];
@@ -185,20 +197,31 @@ function richLinkMetaPlugin() {
   };
 }
 
-export default defineConfig({
-  plugins: [react(), richLinkMetaPlugin()],
-  build: {
-    rollupOptions: {
-      input: {
-        main: path.resolve(ROOT_DIR, 'index.html'),
-        share: path.resolve(ROOT_DIR, 'share.html'),
-        wrapped: path.resolve(ROOT_DIR, 'wrapped-2025.html')
-      }
-    }
-  },
-  server: {
-    port: 5173,
-    // Prefer 5173 for local CLI integration, but don't fail if already in use.
-    strictPort: false
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, ROOT_DIR, 'VITE_');
+  const fallbackVersion = loadAppVersion();
+  const define = {};
+
+  if (!env.VITE_APP_VERSION && fallbackVersion) {
+    define['import.meta.env.VITE_APP_VERSION'] = JSON.stringify(fallbackVersion);
   }
+
+  return {
+    plugins: [react(), richLinkMetaPlugin()],
+    ...(Object.keys(define).length ? { define } : {}),
+    build: {
+      rollupOptions: {
+        input: {
+          main: path.resolve(ROOT_DIR, 'index.html'),
+          share: path.resolve(ROOT_DIR, 'share.html'),
+          wrapped: path.resolve(ROOT_DIR, 'wrapped-2025.html')
+        }
+      }
+    },
+    server: {
+      port: 5173,
+      // Prefer 5173 for local CLI integration, but don't fail if already in use.
+      strictPort: false
+    }
+  };
 });

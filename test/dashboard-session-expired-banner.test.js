@@ -56,10 +56,8 @@ test("App passes hosted auth routes to DashboardPage", () => {
 
 test("App routes LandingPage when signed out", () => {
   const src = read("dashboard/src/App.jsx");
-  assert.match(
-    src,
-    /!publicMode\s*&&\s*!signedIn\s*&&\s*!mockEnabled\s*&&\s*!sessionSoftExpired/
-  );
+  assert.match(src, /resolveAuthGate/);
+  assert.match(src, /gate\s*===\s*["']landing["']/);
 });
 
 test("App uses InsForge auth hook for signed-in gating", () => {
