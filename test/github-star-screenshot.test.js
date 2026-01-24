@@ -18,7 +18,8 @@ test("GithubStar skips fetch in screenshot mode", () => {
     "utf8"
   );
 
-  assert.match(src, /URLSearchParams/);
-  assert.match(src, /screenshot/);
-  assert.ok(src.includes("if (isScreenshotMode()) return;"));
+  assert.match(src, /shouldFetchGithubStars/);
+  assert.match(src, /prefersReducedMotion/);
+  assert.match(src, /screenshot-capture/);
+  assert.match(src, /shouldFetchGithubStars\(\{[^}]*screenshotCapture[^}]*\}\)/s);
 });
