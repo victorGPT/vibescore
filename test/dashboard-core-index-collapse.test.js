@@ -25,9 +25,11 @@ test("UsagePanel supports breakdown collapse toggle", () => {
 
 test("DashboardPage wires CORE_INDEX collapse state", () => {
   const pageSrc = read("dashboard/src/pages/DashboardPage.jsx");
+  const viewSrc = read("dashboard/src/ui/matrix-a/views/DashboardView.jsx");
   assert.ok(pageSrc.includes("coreIndexCollapsed"));
+  assert.match(pageSrc, /coreIndexCollapsed=\{coreIndexCollapsed\}/);
   assert.match(
-    pageSrc,
+    viewSrc,
     /breakdownCollapsed=\{\s*allowBreakdownToggle\s*\?\s*coreIndexCollapsed\s*:\s*true\s*\}/
   );
 });

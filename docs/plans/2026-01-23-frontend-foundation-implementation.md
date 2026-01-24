@@ -8,7 +8,6 @@
 
 **Tech Stack:** React, Vite, 现有 CSS/Matrix UI A 组件体系，Playwright 截图脚本（已有）。
 
-
 **Scope:**
 - Frontend only (`dashboard/`).
 - No API changes, no new UI copy.
@@ -16,196 +15,44 @@
 
 ---
 
-### Task 1: 创建隔离工作区（工作流要求）
+### Task 1: 创建隔离工作区（工作流要求）【Done】
 
 **Files:**
 - Modify: `.gitignore`（若 worktree 目录未忽略）
 
-**Step 1: 确认 worktree 目录策略**
-Run:
-```bash
-git rev-parse --show-toplevel
-ls -d .worktrees 2>/dev/null || ls -d worktrees 2>/dev/null
-```
-Expected: 看到 `.worktrees/` 或 `worktrees/`，若不存在则新建 `.worktrees/`。
-
-**Step 2: 确保 worktree 被忽略**
-Run:
-```bash
-git check-ignore -q .worktrees 2>/dev/null || git check-ignore -q worktrees 2>/dev/null
-```
-Expected: 退出码 0。若非 0，追加到 `.gitignore`。
-
-**Step 3: 创建 worktree**
-Run:
-```bash
-branch=feat/frontend-foundation-refactor
-path=.worktrees/$branch
-mkdir -p .worktrees
-
-git worktree add "$path" -b "$branch"
-cd "$path"
-```
-Expected: 新分支 worktree 创建成功。
-
-**Step 4: 安装依赖**
-Run:
-```bash
-npm install
-```
-Expected: 依赖安装成功。
-
-**Step 5: 提交 .gitignore（若修改）**
-```bash
-git add .gitignore
-git commit -m "chore: ignore worktrees directory"
-```
+**Steps:**
+1. 确认 worktree 目录策略。
+2. 确保 worktree 目录被忽略。
+3. 创建 worktree 并安装依赖。
 
 ---
 
-### Task 2: 视觉基线的“存在性”测试（TDD 起点）
+### Task 2: 视觉基线“存在性”测试（TDD 起点）【Done】
 
 **Files:**
 - Create: `test/visual-baselines.test.js`
 
-**Step 1: 写一个会失败的测试（基线文件尚不存在）**
-```js
-import test from "node:test";
-import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-
-const required = [
-  path.resolve("docs/screenshots/baselines/2026-01-23/dashboard-desktop.png"),
-  path.resolve("docs/screenshots/baselines/2026-01-23/dashboard-mobile.png"),
-  path.resolve("docs/screenshots/baselines/2026-01-23/landing-desktop.png"),
-];
-
-test("visual baselines exist", () => {
-  for (const file of required) {
-    assert.ok(fs.existsSync(file), `missing baseline: ${file}`);
-  }
-});
-```
-
-**Step 2: 运行测试，确认失败**
-Run:
-```bash
-node --test test/visual-baselines.test.js
-```
-Expected: FAIL，提示缺少 baseline 文件。
+**Steps:**
+1. 写失败测试（基线文件缺失）。
+2. 运行测试，确认失败。
 
 ---
 
-### Task 3: 生成视觉基线截图（使用现有 Playwright 脚本）
+### Task 3: 生成视觉基线截图（基础脚本）【Done】
 
 **Files:**
 - Create: `dashboard/scripts/capture-visual-baselines.mjs`
-- Modify: `docs/screenshots/baselines/2026-01-23/*.png`（生成）
+- Modify: `docs/screenshots/baselines/2026-01-23/*.png`
 
-**Step 1: 新增批量截图脚本**
-```js
-import path from "node:path";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-
-const exec = promisify(execFile);
-
-const baseUrl = process.env.BASELINE_BASE_URL || "http://localhost:5173";
-const mock = "mock=1&mock_seed=baseline&mock_today=2025-12-31&mock_now=2025-12-31T12:00:00Z";
-
-const jobs = [
-  {
-    name: "dashboard-desktop",
-    url: `${baseUrl}/?screenshot=1&${mock}`,
-    width: 1512,
-    height: 997,
-    dpr: 2,
-  },
-  {
-    name: "dashboard-mobile",
-    url: `${baseUrl}/?screenshot=1&${mock}`,
-    width: 390,
-    height: 844,
-    dpr: 2,
-  },
-  {
-    name: "landing-desktop",
-    url: `${baseUrl}/?screenshot=1`,
-    width: 1440,
-    height: 900,
-    dpr: 2,
-  },
-  {
-    name: "share-desktop",
-    url: `${baseUrl}/share/baseline?screenshot=1&${mock}`,
-    width: 1440,
-    height: 900,
-    dpr: 2,
-  },
-];
-
-const outDir = path.resolve("docs/screenshots/baselines/2026-01-23");
-const script = path.resolve("dashboard/scripts/capture-dashboard-screenshot.mjs");
-
-async function run() {
-  for (const job of jobs) {
-    const out = path.join(outDir, `${job.name}.png`);
-    await exec("node", [
-      script,
-      "--url",
-      job.url,
-      "--out",
-      out,
-      "--width",
-      String(job.width),
-      "--height",
-      String(job.height),
-      "--dpr",
-      String(job.dpr),
-      "--wait",
-      "1200",
-    ]);
-    console.log(`Captured ${job.name}: ${out}`);
-  }
-}
-
-run().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
-```
-
-**Step 2: 启动 dev server（mock）**
-Run:
-```bash
-npm --prefix dashboard run dev
-```
-Expected: 服务器运行于 `http://localhost:5173`。
-
-**Step 3: 生成 baseline**
-Run:
-```bash
-node dashboard/scripts/capture-visual-baselines.mjs
-```
-Expected: 生成三张 baseline PNG。
-
-**Step 4: 运行测试（应通过）**
-Run:
-```bash
-node --test test/visual-baselines.test.js
-```
-Expected: PASS。
-
-**Step 5: 提交基线与脚本**
-```bash
-git add test/visual-baselines.test.js dashboard/scripts/capture-visual-baselines.mjs docs/screenshots/baselines/2026-01-23/*.png
-git commit -m "test: add visual baselines for frontend refactor"
-```
+**Steps:**
+1. 新增批量截图脚本。
+2. 启动 dev server。
+3. 生成基线截图。
+4. 运行存在性测试，确保通过。
 
 ---
 
-### Task 4: 建立可复现的基线配置（Deterministic Baselines）
+### Task 4: 建立可复现的基线配置（Deterministic Baselines）【Done】
 
 **Files:**
 - Create: `dashboard/src/lib/screenshot-mode.js`
@@ -224,7 +71,7 @@ git commit -m "test: add visual baselines for frontend refactor"
 
 ---
 
-### Task 5: 禁用截图期间的非确定性 UI 行为
+### Task 5: 禁用截图期间的非确定性 UI 行为【Done】
 
 **Files:**
 - Modify: `dashboard/src/ui/matrix-a/components/ScrambleText.jsx`
@@ -242,71 +89,22 @@ git commit -m "test: add visual baselines for frontend refactor"
 
 ---
 
-### Task 6: 建立 UI Foundation 目录与基础导出
-
-**Files:**
-- Create: `dashboard/src/ui/foundation/index.js`
-- Create: `dashboard/src/ui/foundation/README.md`
-
-**Step 1: 添加基础目录与说明**
-```md
-# UI Foundation
-
-Purpose: UI 原语层（布局 / 输入 /装饰）。只负责视图，不包含业务逻辑或数据请求。
-```
-
-**Step 2: 导出占位 index**
-```js
-export * from "./AsciiBox.jsx";
-export * from "./MatrixButton.jsx";
-export * from "./MatrixInput.jsx";
-export * from "./MatrixAvatar.jsx";
-export * from "./SignalBox.jsx";
-```
-
-**Step 3: 提交**
-```bash
-git add dashboard/src/ui/foundation
- git commit -m "chore: add ui foundation scaffold"
-```
-
----
-
-### Task 7: 迁移基础 UI 原语（第 1 批）
+### Task 6: 迁移基础 UI 原语（第 1 批）【Done】
 
 **Files:**
 - Move: `dashboard/src/ui/matrix-a/components/AsciiBox.jsx` → `dashboard/src/ui/foundation/AsciiBox.jsx`
 - Move: `dashboard/src/ui/matrix-a/components/MatrixButton.jsx` → `dashboard/src/ui/foundation/MatrixButton.jsx`
 - Move: `dashboard/src/ui/matrix-a/components/MatrixInput.jsx` → `dashboard/src/ui/foundation/MatrixInput.jsx`
 - Modify: 所有引用以上组件的文件
+- Add: `dashboard/src/ui/foundation/index.js`
 
-**Step 1: 移动文件并更新导入**
-- 将文件移动到 `ui/foundation`。
-- 更新所有 import 路径。
-
-**Step 2: 运行视觉基线脚本（验证不变）**
-Run:
-```bash
-node dashboard/scripts/capture-visual-baselines.mjs
-```
-Expected: 输出覆盖同名文件（后续用 git diff 校验）。
-
-**Step 3: 校验视觉差异**
-Run:
-```bash
-git diff --exit-code docs/screenshots/baselines/2026-01-23
-```
-Expected: 无 diff。
-
-**Step 4: 提交**
-```bash
-git add dashboard/src/ui/foundation dashboard/src/ui/matrix-a docs/screenshots/baselines/2026-01-23
-git commit -m "refactor: move basic ui primitives to foundation"
-```
+**Steps:**
+1. 迁移文件并更新 import。
+2. 运行基线脚本，确保视觉一致。
 
 ---
 
-### Task 8: 迁移基础 UI 原语（第 2 批）
+### Task 7: 迁移基础 UI 原语（第 2 批）【Done】
 
 **Files:**
 - Move: `dashboard/src/ui/matrix-a/components/MatrixAvatar.jsx` → `dashboard/src/ui/foundation/MatrixAvatar.jsx`
@@ -315,143 +113,62 @@ git commit -m "refactor: move basic ui primitives to foundation"
 - Move: `dashboard/src/ui/matrix-a/components/ScrambleText.jsx` → `dashboard/src/ui/foundation/ScrambleText.jsx`
 - Modify: 所有引用以上组件的文件
 
-**Step 1: 移动文件并更新导入**
-
-**Step 2: 运行 baseline 并检查 diff**
-```bash
-node dashboard/scripts/capture-visual-baselines.mjs
-git diff --exit-code docs/screenshots/baselines/2026-01-23
-```
-Expected: 无 diff。
-
-**Step 3: 提交**
-```bash
-git add dashboard/src/ui/foundation dashboard/src/ui/matrix-a docs/screenshots/baselines/2026-01-23
-git commit -m "refactor: move text/avatar primitives to foundation"
-```
+**Steps:**
+1. 迁移文件并更新 import。
+2. 运行基线脚本，确保视觉一致。
 
 ---
 
-### Task 9: Layout 组件迁移
+### Task 8: Layout 组件迁移【Done】
 
 **Files:**
 - Move: `dashboard/src/ui/matrix-a/layout/MatrixShell.jsx` → `dashboard/src/ui/foundation/MatrixShell.jsx`
 - Modify: 相关引用
 
-**Step 1: 移动文件并更新导入**
-
-**Step 2: 运行 baseline 并检查 diff**
-```bash
-node dashboard/scripts/capture-visual-baselines.mjs
-git diff --exit-code docs/screenshots/baselines/2026-01-23
-```
-Expected: 无 diff。
-
-**Step 3: 提交**
-```bash
-git add dashboard/src/ui/foundation dashboard/src/ui/matrix-a docs/screenshots/baselines/2026-01-23
-git commit -m "refactor: move matrix shell to foundation"
-```
+**Steps:**
+1. 迁移文件并更新 import。
+2. 运行基线脚本，确保视觉一致。
 
 ---
 
-### Task 10: 页面层容器 / 展示拆分（Dashboard）
+### Task 9: 页面层容器/展示拆分（Dashboard）【Done】
 
 **Files:**
 - Create: `dashboard/src/ui/matrix-a/views/DashboardView.jsx`
 - Modify: `dashboard/src/pages/DashboardPage.jsx`
 
-**Step 1: 新建 DashboardView（展示层）**
-- 从 `DashboardPage.jsx` 中移动纯渲染 JSX 到 `DashboardView.jsx`。
-- 仅接收 props（不调用 hooks / API）。
-
-**Step 2: DashboardPage 作为容器**
-- 保留数据获取与状态拼装。
-- 将数据作为 props 传入 `DashboardView`。
-
-**Step 3: baseline 校验**
-```bash
-node dashboard/scripts/capture-visual-baselines.mjs
-git diff --exit-code docs/screenshots/baselines/2026-01-23
-```
-Expected: 无 diff。
-
-**Step 4: 提交**
-```bash
-git add dashboard/src/pages/DashboardPage.jsx dashboard/src/ui/matrix-a/views/DashboardView.jsx docs/screenshots/baselines/2026-01-23
-git commit -m "refactor: split dashboard page container/view"
-```
+**Steps:**
+1. 将纯 JSX 展示部分抽到 `DashboardView`。
+2. `DashboardPage` 保留数据获取与状态拼装，传递 props。
+3. 运行基线脚本，确保视觉一致。
 
 ---
 
-### Task 11: 页面层容器 / 展示拆分（Landing）
+### Task 10: 页面层容器/展示拆分（Landing）【Done】
 
 **Files:**
 - Create: `dashboard/src/ui/matrix-a/views/LandingView.jsx`
 - Modify: `dashboard/src/pages/LandingPage.jsx`
 
-**Step 1: 新建 LandingView（展示层）**
-- 从 `LandingPage.jsx` 中移动纯渲染 JSX 到 `LandingView.jsx`。
-
-**Step 2: LandingPage 作为容器**
-- 保留必要的 hooks 与状态。
-
-**Step 3: baseline 校验**
-```bash
-node dashboard/scripts/capture-visual-baselines.mjs
-git diff --exit-code docs/screenshots/baselines/2026-01-23
-```
-Expected: 无 diff。
-
-**Step 4: 提交**
-```bash
-git add dashboard/src/pages/LandingPage.jsx dashboard/src/ui/matrix-a/views/LandingView.jsx docs/screenshots/baselines/2026-01-23
-git commit -m "refactor: split landing page container/view"
-```
+**Steps:**
+1. 将纯 JSX 展示部分抽到 `LandingView`。
+2. `LandingPage` 保留 hooks 与状态，传递 props。
+3. 运行基线脚本，确保视觉一致。
 
 ---
 
-### Task 12: 清理与最终回归
+### Task 11: 清理与最终回归【Done】
 
 **Files:**
-- Modify: `dashboard/src/ui/matrix-a/components/*`（删除已迁移项）
-- Modify: `architecture.canvas`（更新 Proposed → Implemented）
+- Modify/Delete: `dashboard/src/ui/matrix-a/components/*`（删除已迁移项）
+- Modify: `architecture.canvas`（更新状态）
 
-**Step 1: 清理旧路径**
-- 删除 `ui/matrix-a/components` 中已迁移文件。
-- 确保无残留 import。
-
-**Step 2: 运行测试与基线**
-```bash
-node --test test/visual-baselines.test.js
-node dashboard/scripts/capture-visual-baselines.mjs
-git diff --exit-code docs/screenshots/baselines/2026-01-23
-node --test test/landing-screenshot.test.js
-```
-Expected: 全部 PASS + 无 diff。
-
-**Step 3: 更新 Canvas**
-Run:
-```bash
-node scripts/ops/architecture-canvas.cjs
-```
-Then update `UI Foundation (Proposed)` → `Status: Implemented`。
-
-**Step 4: 提交最终清理**
-```bash
-git add dashboard/src/ui/matrix-a dashboard/src/ui/foundation architecture.canvas docs/screenshots/baselines/2026-01-23
-git commit -m "refactor: finalize ui foundation migration"
-```
+**Steps:**
+1. 清理旧路径与残留 import。
+2. 运行测试与基线核对。
+3. 更新 Canvas（`Proposed` → `Implemented`）。
 
 ---
-
-## Execution Handoff
-Plan 已保存到 `docs/plans/2026-01-23-frontend-foundation-implementation.md`。执行方式二选一：
-
-1. **Subagent-Driven (this session)** - 我在本会话逐任务执行并自检
-2. **Parallel Session (separate)** - 新会话使用 executing-plans 分阶段执行
-
-你选哪种？
 
 ## Verification
 

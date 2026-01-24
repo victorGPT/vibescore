@@ -1,7 +1,7 @@
 import React from "react";
 
-import { copy } from "../../../lib/copy.js";
-import { MatrixAvatar } from "./MatrixAvatar.jsx";
+import { copy } from "../../../lib/copy";
+import { MatrixAvatar } from "../../foundation/MatrixAvatar.jsx";
 
 function formatRank(rank) {
   const raw = Number(rank);

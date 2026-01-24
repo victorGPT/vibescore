@@ -1,8 +1,9 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
+const { loadDashboardModule } = require("./helpers/load-dashboard-module");
 
 test("formatCompactNumber rounds and carries", async () => {
-  const mod = await import("../dashboard/src/lib/format.js");
+  const mod = await loadDashboardModule("dashboard/src/lib/format.ts");
   const formatCompactNumber = mod.formatCompactNumber;
 
   assert.equal(typeof formatCompactNumber, "function");

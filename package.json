@@ -1,6 +1,6 @@
 {
   "name": "vibeusage",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "description": "Codex CLI token usage tracker (macOS-first, notify-driven).",
   "license": "MIT",
   "publishConfig": {
@@ -37,12 +37,15 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=18"
+    "node": "20.x"
   },
   "devDependencies": {
     "esbuild": "0.27.2"
   },
   "dependencies": {
     "@insforge/sdk": "^1.0.4"
-  }
+  },
+  "bundledDependencies": [
+    "@insforge/sdk"
+  ]
 }

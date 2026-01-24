@@ -11,6 +11,16 @@ const containerPath = path.join(
   "pages",
   "DashboardPage.jsx"
 );
+const viewPath = path.join(
+  __dirname,
+  "..",
+  "dashboard",
+  "src",
+  "ui",
+  "matrix-a",
+  "views",
+  "DashboardView.jsx"
+);
 const copyPath = path.join(
   __dirname,
   "..",
@@ -25,7 +35,7 @@ function readFile(filePath) {
 }
 
 test("DashboardPage places TrendMonitor above heatmap in left column", () => {
-  const src = readFile(containerPath);
+  const src = readFile(viewPath);
   const leftStart = src.indexOf("lg:col-span-4");
   const rightStart = src.indexOf("lg:col-span-8", leftStart + 1);
   assert.ok(leftStart !== -1, "expected left column markup");
@@ -44,6 +54,7 @@ test("DashboardPage places TrendMonitor above heatmap in left column", () => {
 
 test("DashboardPage gates install panel by active days", () => {
   const containerSrc = readFile(containerPath);
+  const viewSrc = readFile(viewPath);
   assert.ok(
     containerSrc.includes("const shouldShowInstall"),
     "expected shouldShowInstall gate"
@@ -61,13 +72,13 @@ test("DashboardPage gates install panel by active days", () => {
     "expected heatmapLoading gate"
   );
   assert.ok(
-    containerSrc.includes("shouldShowInstall ? ("),
+    viewSrc.includes("shouldShowInstall ? ("),
     "expected install panel to use shouldShowInstall"
   );
 });
 
 test("DashboardPage removes heatmap range label", () => {
-  const src = readFile(containerPath);
+  const src = readFile(viewPath);
   assert.ok(
     !src.includes("dashboard.activity.range"),
     "expected heatmap range label removed"
@@ -89,7 +100,7 @@ test("copy registry removes unused install steps and range label", () => {
 });
 
 test("DashboardPage lets TrendMonitor auto-size", () => {
-  const src = readFile(containerPath);
+  const src = readFile(viewPath);
   assert.ok(
     !src.includes('className="min-h-[240px]"'),
     "expected TrendMonitor min height removed"

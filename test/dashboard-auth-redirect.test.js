@@ -1,14 +1,9 @@
 const assert = require("node:assert/strict");
-const path = require("node:path");
 const { test } = require("node:test");
-const { pathToFileURL } = require("node:url");
-
-const moduleUrl = pathToFileURL(
-  path.resolve(__dirname, "../dashboard/src/lib/auth-redirect.js")
-).href;
+const { loadDashboardModule } = require("./helpers/load-dashboard-module");
 
 async function loadRedirectModule() {
-  return import(moduleUrl);
+  return loadDashboardModule("dashboard/src/lib/auth-redirect.ts");
 }
 
 function createStorage() {

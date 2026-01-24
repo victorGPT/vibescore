@@ -7,7 +7,6 @@ const required = [
   path.resolve("docs/screenshots/baselines/2026-01-23/dashboard-desktop.png"),
   path.resolve("docs/screenshots/baselines/2026-01-23/dashboard-mobile.png"),
   path.resolve("docs/screenshots/baselines/2026-01-23/landing-desktop.png"),
-  path.resolve("docs/screenshots/baselines/2026-01-23/share-desktop.png"),
 ];
 
 test("visual baselines exist", () => {

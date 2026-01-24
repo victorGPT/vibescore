@@ -1,8 +1,9 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
+const { loadDashboardModule } = require("./helpers/load-dashboard-module");
 
 test("buildFleetData keeps usage tokens for fleet rows", async () => {
-  const mod = await import("../dashboard/src/lib/model-breakdown.js");
+  const mod = await loadDashboardModule("dashboard/src/lib/model-breakdown.ts");
   const buildFleetData = mod.buildFleetData;
 
   const modelBreakdown = {
@@ -38,7 +39,7 @@ test("buildFleetData keeps usage tokens for fleet rows", async () => {
 });
 
 test("buildFleetData returns model ids for stable keys", async () => {
-  const mod = await import("../dashboard/src/lib/model-breakdown.js");
+  const mod = await loadDashboardModule("dashboard/src/lib/model-breakdown.ts");
   const buildFleetData = mod.buildFleetData;
 
   const modelBreakdown = {
@@ -64,7 +65,7 @@ test("buildFleetData returns model ids for stable keys", async () => {
 });
 
 test("buildTopModels aggregates by model name across sources", async () => {
-  const mod = await import("../dashboard/src/lib/model-breakdown.js");
+  const mod = await loadDashboardModule("dashboard/src/lib/model-breakdown.ts");
   const buildTopModels = mod.buildTopModels;
 
   const modelBreakdown = {
@@ -98,7 +99,7 @@ test("buildTopModels aggregates by model name across sources", async () => {
 });
 
 test("buildTopModels computes percent using billable tokens across all models", async () => {
-  const mod = await import("../dashboard/src/lib/model-breakdown.js");
+  const mod = await loadDashboardModule("dashboard/src/lib/model-breakdown.ts");
   const buildTopModels = mod.buildTopModels;
 
   const modelBreakdown = {
