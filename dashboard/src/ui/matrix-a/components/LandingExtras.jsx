@@ -3,7 +3,7 @@ import React from "react";
 import { MatrixAvatar } from "../../foundation/MatrixAvatar.jsx";
 import { LiveSniffer } from "./LiveSniffer.jsx";
 import { SignalBox } from "../../foundation/SignalBox.jsx";
-import { copy } from "../../../lib/copy";
+import { copy } from "../../../lib/copy.js";
 
 export function LandingExtras({
   handle,
