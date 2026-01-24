@@ -15,6 +15,8 @@ import { LandingPage } from "./pages/LandingPage.jsx";
 import { isMockEnabled } from "./lib/mock-data";
 import { fetchLatestTrackerVersion } from "./lib/npm-version";
 import { isScreenshotModeEnabled } from "./lib/screenshot-mode";
+import { getAppVersion } from "./lib/app-version";
+import { resolveAuthGate } from "./lib/auth-gate";
 import {
   clearAuthStorage,
   clearSessionExpired,
@@ -33,6 +35,7 @@ import {
 import { insforgeAuthClient } from "./lib/insforge-auth-client";
 
 import { UpgradeAlertModal } from "./ui/matrix-a/components/UpgradeAlertModal.jsx";
+import { VersionBadge } from "./ui/matrix-a/components/VersionBadge.jsx";
 
 const DashboardPage = React.lazy(() =>
   import("./pages/DashboardPage.jsx").then((mod) => ({
@@ -52,8 +55,9 @@ export default function App() {
     if (typeof window === "undefined") return false;
     return isScreenshotModeEnabled(window.location.search);
   }, []);
+  const appVersion = useMemo(() => getAppVersion(import.meta.env), []);
   const [latestVersion, setLatestVersion] = useState(null);
-  const [insforgeSession, setInsforgeSession] = useState(null);
+  const [insforgeSession, setInsforgeSession] = useState();
   const [sessionExpired, setSessionExpired] = useState(() =>
     loadSessionExpired()
   );
@@ -82,7 +86,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!insforgeLoaded) return;
+    if (!insforgeLoaded) {
+      setInsforgeSession(undefined);
+      return;
+    }
     let active = true;
     const refreshSession = () => {
       return insforgeAuthClient.auth
@@ -220,8 +227,23 @@ export default function App() {
   const signUpUrl = "/sign-up";
 
   const loadingShell = <div className="min-h-screen bg-[#050505]" />;
+  const authPending =
+    !publicMode &&
+    !mockEnabled &&
+    !sessionSoftExpired &&
+    (!insforgeLoaded ||
+      (insforgeLoaded && insforgeSignedIn && insforgeSession === undefined));
+  const gate = resolveAuthGate({
+    publicMode,
+    mockEnabled,
+    sessionSoftExpired,
+    signedIn,
+    authPending,
+  });
   let content = null;
-  if (!publicMode && !signedIn && !mockEnabled && !sessionSoftExpired) {
+  if (gate === "loading") {
+    content = loadingShell;
+  } else if (gate === "landing") {
     content = <LandingPage signInUrl={signInUrl} signUpUrl={signUpUrl} />;
   } else {
     content = (
@@ -244,5 +266,10 @@ export default function App() {
     );
   }
 
-  return <ErrorBoundary>{content}</ErrorBoundary>;
+  return (
+    <ErrorBoundary>
+      {content}
+      {!screenshotMode ? <VersionBadge version={appVersion} /> : null}
+    </ErrorBoundary>
+  );
 }
