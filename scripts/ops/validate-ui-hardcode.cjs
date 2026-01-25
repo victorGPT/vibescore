@@ -6,8 +6,7 @@ const SRC_ROOT = path.join(ROOT, "dashboard", "src");
 const BASELINE_PATH = path.join(__dirname, "ui-hardcode-baseline.json");
 
 const EXT_REGEX = /[.](js|jsx|ts|tsx)$/;
-const COLOR_REGEX = /#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})\b|rgba?\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}(?:\s*,\s*(?:0?\.\d+|1(?:\.0+)?))?\s*\)/g;
-const JSX_TEXT_REGEX = />[^<>{}]*[A-Za-z][^<>{}]*</g;
+const { diffAgainstBaseline, scanContent } = require("./validate-ui-hardcode-lib.cjs");
 
 function walk(dir, results = []) {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -27,13 +26,8 @@ function walk(dir, results = []) {
 
 function scanFile(filePath) {
   const content = fs.readFileSync(filePath, "utf8");
-  const colors = content.match(COLOR_REGEX) || [];
   const isJsx = /[.](jsx|tsx)$/.test(filePath);
-  const rawText = isJsx ? content.match(JSX_TEXT_REGEX) || [] : [];
-  return {
-    colors: colors.length,
-    rawText: rawText.length,
-  };
+  return scanContent({ content, isJsx });
 }
 
 function scanAll() {
@@ -57,33 +51,11 @@ function scanAll() {
     root: "dashboard/src",
     rules: {
       colors: "hex/rgb(a) literals",
-      rawText: "JSX text nodes containing letters",
+      rawText: "JSX text nodes containing letters or digits",
     },
     totals: { colors: totalColors, rawText: totalRawText },
     files: results,
   };
-}
-
-function diffAgainstBaseline(current, baseline) {
-  const errors = [];
-
-  for (const [file, counts] of Object.entries(current.files)) {
-    const base = baseline.files?.[file];
-    if (!base) {
-      errors.push(
-        `${file}: new hardcode usage detected (colors=${counts.colors}, rawText=${counts.rawText})`
-      );
-      continue;
-    }
-    if (counts.colors > base.colors) {
-      errors.push(`${file}: colors increased (${base.colors} -> ${counts.colors})`);
-    }
-    if (counts.rawText > base.rawText) {
-      errors.push(`${file}: rawText increased (${base.rawText} -> ${counts.rawText})`);
-    }
-  }
-
-  return errors;
 }
 
 function main() {

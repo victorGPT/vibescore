@@ -12,7 +12,7 @@ This overlay applies when using the `frontend-ui-functional` skill in this repos
 - **Tokens and styles:** Use the Tailwind tokens from `dashboard/tailwind.config.cjs` and shared styles in `dashboard/src/styles.css`.
 
 ## Mandatory Checks (Before PR)
-- **Hardcoded color audit:** run `rg -n "#[0-9a-fA-F]{3,6}|rgba\\(" dashboard/src` and replace matches with Tailwind tokens or CSS variables. If an exception is required, add a short comment explaining why.
+- **Hardcoded color audit:** run `rg -n "#[0-9a-fA-F]{3,6}|rgba?\\(" dashboard/src` and replace matches with Tailwind tokens or CSS variables. If an exception is required, add a short comment explaining why.
 - **Copy registry validation:** run `npm run validate:copy`.
 
 ## Notes
