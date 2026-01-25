@@ -7,6 +7,7 @@ import {
 } from "../lib/vibeusage-api";
 import { formatDateLocal, formatDateUTC } from "../lib/date-range";
 import { isMockEnabled } from "../lib/mock-data";
+import { isAccessTokenReady, resolveAuthAccessToken } from "../lib/auth-token";
 import { getLocalDayKey, getTimeZoneCacheKey } from "../lib/timezone";
 
 const DEFAULT_MONTHS = 24;
@@ -15,6 +16,7 @@ type AnyRecord = Record<string, any>;
 export function useTrendData({
   baseUrl,
   accessToken,
+  guestAllowed = false,
   period,
   from,
   to,
@@ -33,6 +35,8 @@ export function useTrendData({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mockEnabled = isMockEnabled();
+  const tokenReady = isAccessTokenReady(accessToken);
+  const cacheAllowed = !guestAllowed;
   const sharedEnabled = Array.isArray(sharedRows);
   const sharedFrom = sharedRange?.from || from;
   const sharedTo = sharedRange?.to || to;
@@ -84,6 +88,15 @@ export function useTrendData({
     [storageKey]
   );
 
+  const clearCache = useCallback(() => {
+    if (!storageKey || typeof window === "undefined") return;
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch (_e) {
+      // ignore remove errors
+    }
+  }, [storageKey]);
+
   const refresh = useCallback(async () => {
     if (sharedEnabled) {
       setRows(Array.isArray(sharedRows) ? sharedRows : []);
@@ -94,7 +107,8 @@ export function useTrendData({
       setError(null);
       return;
     }
-    if (!accessToken && !mockEnabled) return;
+    const resolvedToken = await resolveAuthAccessToken(accessToken);
+    if (!resolvedToken && !guestAllowed && !mockEnabled) return;
     setLoading(true);
     setError(null);
     try {
@@ -103,7 +117,7 @@ export function useTrendData({
         const day = to || from;
         response = await getUsageHourly({
           baseUrl,
-          accessToken,
+          accessToken: resolvedToken,
           day,
           timeZone,
           tzOffsetMinutes,
@@ -111,7 +125,7 @@ export function useTrendData({
       } else if (mode === "monthly") {
         response = await getUsageMonthly({
           baseUrl,
-          accessToken,
+          accessToken: resolvedToken,
           months,
           to,
           timeZone,
@@ -120,7 +134,7 @@ export function useTrendData({
       } else {
         response = await getUsageDaily({
           baseUrl,
-          accessToken,
+          accessToken: resolvedToken,
           from,
           to,
           timeZone,
@@ -157,26 +171,130 @@ export function useTrendData({
       setSource("edge");
       setFetchedAt(nowIso);
 
-      writeCache({
-        rows: nextRows,
-        from: nextFrom,
-        to: nextTo,
-        mode,
-        fetchedAt: nowIso,
-      });
+      if (cacheAllowed) {
+        writeCache({
+          rows: nextRows,
+          from: nextFrom,
+          to: nextTo,
+          mode,
+          fetchedAt: nowIso,
+        });
+      } else {
+        clearCache();
+      }
     } catch (e) {
+      if (cacheAllowed) {
+        const cached = readCache();
+        if (cached?.rows) {
+          let filledRows =
+            mode === "daily"
+              ? fillDailyGaps(cached.rows || [], cached.from || from, cached.to || to, {
+                  timeZone,
+                  offsetMinutes: tzOffsetMinutes,
+                  now,
+                })
+              : Array.isArray(cached.rows)
+              ? cached.rows
+              : [];
+          if (mode === "hourly") {
+            filledRows = markHourlyFuture(filledRows, {
+              timeZone,
+              offsetMinutes: tzOffsetMinutes,
+              now,
+            });
+          } else if (mode === "monthly") {
+            filledRows = markMonthlyFuture(filledRows, {
+              timeZone,
+              offsetMinutes: tzOffsetMinutes,
+              now,
+            });
+          }
+          setRows(filledRows);
+          setRange({ from: cached.from || from, to: cached.to || to });
+          setSource("cache");
+          setFetchedAt(cached.fetchedAt || null);
+          setError(null);
+        } else {
+          setRows([]);
+          setRange({ from, to });
+          setSource("edge");
+          setFetchedAt(null);
+          const err = e as any;
+          setError(err?.message || String(err));
+        }
+      } else {
+        setRows([]);
+        setRange({ from, to });
+        setSource("edge");
+        setFetchedAt(null);
+        const err = e as any;
+        setError(err?.message || String(err));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [
+    accessToken,
+    baseUrl,
+    from,
+    mockEnabled,
+    guestAllowed,
+    cacheAllowed,
+    mode,
+    months,
+    readCache,
+    tokenReady,
+    sharedEnabled,
+    sharedFrom,
+    sharedRows,
+    sharedTo,
+    timeZone,
+    to,
+    tzOffsetMinutes,
+    now,
+    clearCache,
+    writeCache,
+  ]);
+
+  useEffect(() => {
+    if (sharedEnabled) {
+      setRows(Array.isArray(sharedRows) ? sharedRows : []);
+      setRange({ from: sharedFrom, to: sharedTo });
+      setSource("shared");
+      setFetchedAt(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    if (!tokenReady && !guestAllowed && !mockEnabled) {
+      setRows([]);
+      setRange({ from, to });
+      setError(null);
+      setLoading(false);
+      setSource("edge");
+      setFetchedAt(null);
+      return;
+    }
+    if (!cacheAllowed) {
+      clearCache();
+      setRows([]);
+      setRange({ from, to });
+      setError(null);
+      setSource("edge");
+      setFetchedAt(null);
+    } else {
       const cached = readCache();
       if (cached?.rows) {
         let filledRows =
           mode === "daily"
-            ? fillDailyGaps(cached.rows || [], cached.from || from, cached.to || to, {
-                timeZone,
-                offsetMinutes: tzOffsetMinutes,
-                now,
-              })
-            : Array.isArray(cached.rows)
-            ? cached.rows
-            : [];
+          ? fillDailyGaps(cached.rows || [], cached.from || from, cached.to || to, {
+              timeZone,
+              offsetMinutes: tzOffsetMinutes,
+              now,
+            })
+          : Array.isArray(cached.rows)
+          ? cached.rows
+          : [];
         if (mode === "hourly") {
           filledRows = markHourlyFuture(filledRows, {
             timeZone,
@@ -194,88 +312,23 @@ export function useTrendData({
         setRange({ from: cached.from || from, to: cached.to || to });
         setSource("cache");
         setFetchedAt(cached.fetchedAt || null);
-        setError(null);
-      } else {
-        setRows([]);
-        setRange({ from, to });
-        setSource("edge");
-        setFetchedAt(null);
-        const err = e as any;
-        setError(err?.message || String(err));
       }
-    } finally {
-      setLoading(false);
     }
+    refresh();
   }, [
     accessToken,
-    baseUrl,
-    from,
     mockEnabled,
-    mode,
-    months,
     readCache,
+    refresh,
     sharedEnabled,
     sharedFrom,
     sharedRows,
     sharedTo,
-    timeZone,
-    to,
-    tzOffsetMinutes,
-    now,
-    writeCache,
+    tokenReady,
+    guestAllowed,
+    cacheAllowed,
+    clearCache,
   ]);
-
-  useEffect(() => {
-    if (sharedEnabled) {
-      setRows(Array.isArray(sharedRows) ? sharedRows : []);
-      setRange({ from: sharedFrom, to: sharedTo });
-      setSource("shared");
-      setFetchedAt(null);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-    if (!accessToken && !mockEnabled) {
-      setRows([]);
-      setRange({ from, to });
-      setError(null);
-      setLoading(false);
-      setSource("edge");
-      setFetchedAt(null);
-      return;
-    }
-    const cached = readCache();
-    if (cached?.rows) {
-      let filledRows =
-        mode === "daily"
-        ? fillDailyGaps(cached.rows || [], cached.from || from, cached.to || to, {
-            timeZone,
-            offsetMinutes: tzOffsetMinutes,
-            now,
-          })
-        : Array.isArray(cached.rows)
-        ? cached.rows
-        : [];
-      if (mode === "hourly") {
-        filledRows = markHourlyFuture(filledRows, {
-          timeZone,
-          offsetMinutes: tzOffsetMinutes,
-          now,
-        });
-      } else if (mode === "monthly") {
-        filledRows = markMonthlyFuture(filledRows, {
-          timeZone,
-          offsetMinutes: tzOffsetMinutes,
-          now,
-        });
-      }
-      setRows(filledRows);
-      setRange({ from: cached.from || from, to: cached.to || to });
-      setSource("cache");
-      setFetchedAt(cached.fetchedAt || null);
-    }
-    refresh();
-  }, [accessToken, mockEnabled, readCache, refresh, sharedEnabled, sharedFrom, sharedRows, sharedTo]);
 
   const normalizedSource = mockEnabled ? "mock" : source;
 

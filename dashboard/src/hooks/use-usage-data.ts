@@ -3,11 +3,13 @@ import { useCallback, useEffect, useState } from "react";
 import { getUsageDaily, getUsageSummary } from "../lib/vibeusage-api";
 import { formatDateLocal, formatDateUTC } from "../lib/date-range";
 import { isMockEnabled } from "../lib/mock-data";
+import { isAccessTokenReady, resolveAuthAccessToken } from "../lib/auth-token";
 import { getLocalDayKey, getTimeZoneCacheKey } from "../lib/timezone";
 
 export function useUsageData({
   baseUrl,
   accessToken,
+  guestAllowed = false,
   from,
   to,
   includeDaily = true,
@@ -23,6 +25,8 @@ export function useUsageData({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mockEnabled = isMockEnabled();
+  const tokenReady = isAccessTokenReady(accessToken);
+  const cacheAllowed = !guestAllowed;
 
   const storageKey = (() => {
     if (!cacheKey) return null;
@@ -57,17 +61,41 @@ export function useUsageData({
     [storageKey]
   );
 
+  const clearCache = useCallback(() => {
+    if (!storageKey || typeof window === "undefined") return;
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch (_e) {
+      // ignore remove errors (quota/private mode)
+    }
+  }, [storageKey]);
+
   const refresh = useCallback(async () => {
-    if (!accessToken && !mockEnabled) return;
+    const resolvedToken = await resolveAuthAccessToken(accessToken);
+    if (!resolvedToken && !guestAllowed && !mockEnabled) return;
     setLoading(true);
     setError(null);
     try {
       let dailyRes = null;
       let summaryRes = null;
       if (includeDaily) {
-        dailyRes = await getUsageDaily({ baseUrl, accessToken, from, to, timeZone, tzOffsetMinutes });
+        dailyRes = await getUsageDaily({
+          baseUrl,
+          accessToken: resolvedToken,
+          from,
+          to,
+          timeZone,
+          tzOffsetMinutes,
+        });
       } else {
-        summaryRes = await getUsageSummary({ baseUrl, accessToken, from, to, timeZone, tzOffsetMinutes });
+        summaryRes = await getUsageSummary({
+          baseUrl,
+          accessToken: resolvedToken,
+          from,
+          to,
+          timeZone,
+          tzOffsetMinutes,
+        });
       }
 
       let nextDaily =
@@ -83,11 +111,11 @@ export function useUsageData({
       if (includeDaily && !nextSummary) {
         const fallback = await getUsageSummary({
           baseUrl,
-          accessToken,
+          accessToken: resolvedToken,
           from,
           to,
           timeZone,
-          tzOffsetMinutes
+          tzOffsetMinutes,
         });
         nextSummary = fallback?.totals || null;
       }
@@ -98,7 +126,7 @@ export function useUsageData({
       setSource("edge");
       setFetchedAt(nowIso);
 
-      if (nextSummary) {
+      if (nextSummary && cacheAllowed) {
         writeCache({
           summary: nextSummary,
           daily: nextDaily,
@@ -107,23 +135,34 @@ export function useUsageData({
           includeDaily,
           fetchedAt: nowIso,
         });
+      } else if (!cacheAllowed) {
+        clearCache();
       }
     } catch (e) {
-      const cached = readCache();
-      if (cached?.summary) {
-        setSummary(cached.summary);
-        const cachedDaily = Array.isArray(cached.daily) ? cached.daily : [];
-        const filledDaily = includeDaily
-          ? fillDailyGaps(cachedDaily, cached.from || from, cached.to || to, {
-              timeZone,
-              offsetMinutes: tzOffsetMinutes,
-              now,
-            })
-          : cachedDaily;
-        setDaily(filledDaily);
-        setSource("cache");
-        setFetchedAt(cached.fetchedAt || null);
-        setError(null);
+      if (cacheAllowed) {
+        const cached = readCache();
+        if (cached?.summary) {
+          setSummary(cached.summary);
+          const cachedDaily = Array.isArray(cached.daily) ? cached.daily : [];
+          const filledDaily = includeDaily
+            ? fillDailyGaps(cachedDaily, cached.from || from, cached.to || to, {
+                timeZone,
+                offsetMinutes: tzOffsetMinutes,
+                now,
+              })
+            : cachedDaily;
+          setDaily(filledDaily);
+          setSource("cache");
+          setFetchedAt(cached.fetchedAt || null);
+          setError(null);
+        } else {
+          const err = e as any;
+          setError(err?.message || String(err));
+          setDaily([]);
+          setSummary(null);
+          setSource("edge");
+          setFetchedAt(null);
+        }
       } else {
         const err = e as any;
         setError(err?.message || String(err));
@@ -141,16 +180,20 @@ export function useUsageData({
     from,
     includeDaily,
     mockEnabled,
+    guestAllowed,
+    cacheAllowed,
     now,
     readCache,
+    tokenReady,
     timeZone,
     to,
     tzOffsetMinutes,
+    clearCache,
     writeCache,
   ]);
 
   useEffect(() => {
-    if (!accessToken && !mockEnabled) {
+    if (!tokenReady && !guestAllowed && !mockEnabled) {
       setDaily([]);
       setSummary(null);
       setError(null);
@@ -159,23 +202,41 @@ export function useUsageData({
       setFetchedAt(null);
       return;
     }
-    const cached = readCache();
-    if (cached?.summary) {
-      setSummary(cached.summary);
-      const cachedDaily = Array.isArray(cached.daily) ? cached.daily : [];
-      const filledDaily = includeDaily
-        ? fillDailyGaps(cachedDaily, cached.from || from, cached.to || to, {
-            timeZone,
-            offsetMinutes: tzOffsetMinutes,
-            now,
-          })
-        : cachedDaily;
-      setDaily(filledDaily);
-      setSource("cache");
-      setFetchedAt(cached.fetchedAt || null);
+    if (!cacheAllowed) {
+      clearCache();
+      setDaily([]);
+      setSummary(null);
+      setError(null);
+      setSource("edge");
+      setFetchedAt(null);
+    } else {
+      const cached = readCache();
+      if (cached?.summary) {
+        setSummary(cached.summary);
+        const cachedDaily = Array.isArray(cached.daily) ? cached.daily : [];
+        const filledDaily = includeDaily
+          ? fillDailyGaps(cachedDaily, cached.from || from, cached.to || to, {
+              timeZone,
+              offsetMinutes: tzOffsetMinutes,
+              now,
+            })
+          : cachedDaily;
+        setDaily(filledDaily);
+        setSource("cache");
+        setFetchedAt(cached.fetchedAt || null);
+      }
     }
     refresh();
-  }, [accessToken, mockEnabled, readCache, refresh]);
+  }, [
+    accessToken,
+    mockEnabled,
+    readCache,
+    refresh,
+    tokenReady,
+    guestAllowed,
+    cacheAllowed,
+    clearCache,
+  ]);
 
   const normalizedSource = mockEnabled ? "mock" : source;
 
