@@ -182,6 +182,23 @@ test("Usage hooks resolve auth tokens per request and allow guest flow", () => {
   assert.match(breakdownSrc, /guestAllowed/);
 });
 
+function assertGuestCacheGuard(src) {
+  assert.match(src, /const\s+cacheAllowed\s*=\s*!guestAllowed/);
+  assert.match(src, /if\s*\(cacheAllowed\)[\s\S]*?readCache\(/);
+}
+
+test("Usage hooks skip cached data in guest mode", () => {
+  const usageSrc = read("dashboard/src/hooks/use-usage-data.ts");
+  const trendSrc = read("dashboard/src/hooks/use-trend-data.ts");
+  const heatmapSrc = read("dashboard/src/hooks/use-activity-heatmap.ts");
+  const breakdownSrc = read("dashboard/src/hooks/use-usage-model-breakdown.ts");
+
+  assertGuestCacheGuard(usageSrc);
+  assertGuestCacheGuard(trendSrc);
+  assertGuestCacheGuard(heatmapSrc);
+  assertGuestCacheGuard(breakdownSrc);
+});
+
 test("DashboardPage uses hosted auth routes", () => {
   const src = read("dashboard/src/pages/DashboardPage.jsx");
   assert.doesNotMatch(src, /buildAuthUrl/);

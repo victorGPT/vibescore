@@ -525,7 +525,7 @@
     {
       "id": "test_dashboard-session-expired-banner_test_12598be7",
       "type": "text",
-      "text": "**dashboard-session-expired-banner.test**\n`test/dashboard-session-expired-banner.test.js`\n\nTest module.\n\n包含：\n- dashboard-session-expired-banner.test (297 行)\n- read (1 个参数)\n\n依赖：1 个模块\n被依赖：0 次",
+      "text": "**dashboard-session-expired-banner.test**\n`test/dashboard-session-expired-banner.test.js`\n\nTest module.\n\n包含：\n- dashboard-session-expired-banner.test (314 行)\n- read (1 个参数)\n\n依赖：1 个模块\n被依赖：0 次",
       "x": 2260,
       "y": 10852,
       "width": 280,
@@ -4066,7 +4066,7 @@
     {
       "id": "undefined_use-activity-heatmap_2264973f",
       "type": "text",
-      "text": "**use-activity-heatmap**\n`dashboard/src/hooks/use-activity-heatmap.ts`\n\nGeneral module.\n\n包含：\n- use-activity-heatmap (260 行)\n- useActivityHeatmap (10 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**use-activity-heatmap**\n`dashboard/src/hooks/use-activity-heatmap.ts`\n\nGeneral module.\n\n包含：\n- use-activity-heatmap (307 行)\n- useActivityHeatmap (10 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1900,
       "y": 632,
       "width": 280,
@@ -4098,7 +4098,7 @@
     {
       "id": "undefined_use-trend-data_96a4250f",
       "type": "text",
-      "text": "**use-trend-data**\n`dashboard/src/hooks/use-trend-data.ts`\n\nGeneral module.\n\n包含：\n- use-trend-data (543 行)\n- useTrendData (14 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**use-trend-data**\n`dashboard/src/hooks/use-trend-data.ts`\n\nGeneral module.\n\n包含：\n- use-trend-data (579 行)\n- useTrendData (14 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2620,
       "y": 632,
       "width": 280,
@@ -4114,7 +4114,7 @@
     {
       "id": "undefined_use-usage-data_a20b2043",
       "type": "text",
-      "text": "**use-usage-data**\n`dashboard/src/hooks/use-usage-data.ts`\n\nGeneral module.\n\n包含：\n- use-usage-data (289 行)\n- useUsageData (11 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**use-usage-data**\n`dashboard/src/hooks/use-usage-data.ts`\n\nGeneral module.\n\n包含：\n- use-usage-data (330 行)\n- useUsageData (11 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2980,
       "y": 632,
       "width": 280,
@@ -4130,7 +4130,7 @@
     {
       "id": "undefined_use-usage-model-breakdown_f5d4627c",
       "type": "text",
-      "text": "**use-usage-model-breakdown**\n`dashboard/src/hooks/use-usage-model-breakdown.ts`\n\nGeneral module.\n\n包含：\n- use-usage-model-breakdown (140 行)\n- useUsageModelBreakdown (9 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**use-usage-model-breakdown**\n`dashboard/src/hooks/use-usage-model-breakdown.ts`\n\nGeneral module.\n\n包含：\n- use-usage-model-breakdown (177 行)\n- useUsageModelBreakdown (9 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 100,
       "y": 992,
       "width": 280,
