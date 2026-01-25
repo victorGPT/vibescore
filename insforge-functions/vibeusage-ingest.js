@@ -470,7 +470,7 @@ var require_source = __commonJS({
   "insforge-src/shared/source.js"(exports2, module2) {
     "use strict";
     var MAX_SOURCE_LENGTH = 64;
-    function normalizeSource2(value) {
+    function normalizeSource(value) {
       if (typeof value !== "string") return null;
       const normalized = value.trim().toLowerCase();
       if (!normalized) return null;
@@ -484,13 +484,13 @@ var require_source = __commonJS({
       const raw = url.searchParams.get("source");
       if (raw == null) return { ok: true, source: null };
       if (raw.trim() === "") return { ok: true, source: null };
-      const normalized = normalizeSource2(raw);
+      const normalized = normalizeSource(raw);
       if (!normalized) return { ok: false, error: "Invalid source" };
       return { ok: true, source: normalized };
     }
     module2.exports = {
       MAX_SOURCE_LENGTH,
-      normalizeSource: normalizeSource2,
+      normalizeSource,
       getSourceParam
     };
   }
@@ -505,7 +505,7 @@ var require_model = __commonJS({
       const trimmed = value.trim();
       return trimmed.length > 0 ? trimmed : null;
     }
-    function normalizeUsageModel2(value) {
+    function normalizeUsageModel(value) {
       const normalized = normalizeModel(value);
       if (!normalized) return null;
       const lowered = normalized.toLowerCase();
@@ -520,7 +520,7 @@ var require_model = __commonJS({
       const terms = [];
       const seen = /* @__PURE__ */ new Set();
       for (const model of models) {
-        const normalized = normalizeUsageModel2(model);
+        const normalized = normalizeUsageModel(model);
         if (!normalized) continue;
         const safe = escapeLike(normalized);
         const exact = `model.ilike.${safe}`;
@@ -539,13 +539,13 @@ var require_model = __commonJS({
       const raw = url.searchParams.get("model");
       if (raw == null) return { ok: true, model: null };
       if (raw.trim() === "") return { ok: true, model: null };
-      const normalized = normalizeUsageModel2(raw);
+      const normalized = normalizeUsageModel(raw);
       if (!normalized) return { ok: false, error: "Invalid model" };
       return { ok: true, model: normalized };
     }
     module2.exports = {
       normalizeModel,
-      normalizeUsageModel: normalizeUsageModel2,
+      normalizeUsageModel,
       applyUsageModelFilter,
       getModelParam
     };
@@ -605,12 +605,12 @@ var require_usage_billable = __commonJS({
   "insforge-src/shared/usage-billable.js"(exports2, module2) {
     "use strict";
     var { toBigInt } = require_numbers();
-    var { normalizeSource: normalizeSource2 } = require_source();
+    var { normalizeSource } = require_source();
     var BILLABLE_INPUT_OUTPUT_REASONING = /* @__PURE__ */ new Set(["codex", "every-code"]);
     var BILLABLE_ADD_ALL = /* @__PURE__ */ new Set(["claude", "opencode"]);
     var BILLABLE_TOTAL = /* @__PURE__ */ new Set(["gemini"]);
-    function computeBillableTotalTokens2({ source, totals } = {}) {
-      const normalizedSource = normalizeSource2(source) || "unknown";
+    function computeBillableTotalTokens({ source, totals } = {}) {
+      const normalizedSource = normalizeSource(source) || "unknown";
       const input = toBigInt(totals?.input_tokens);
       const cached = toBigInt(totals?.cached_input_tokens);
       const output = toBigInt(totals?.output_tokens);
@@ -624,7 +624,204 @@ var require_usage_billable = __commonJS({
       return input + output + reasoning;
     }
     module2.exports = {
-      computeBillableTotalTokens: computeBillableTotalTokens2
+      computeBillableTotalTokens
+    };
+  }
+});
+
+// insforge-src/shared/core/ingest.js
+var require_ingest = __commonJS({
+  "insforge-src/shared/core/ingest.js"(exports2, module2) {
+    "use strict";
+    var { normalizeSource } = require_source();
+    var { normalizeUsageModel } = require_model();
+    var { computeBillableTotalTokens } = require_usage_billable();
+    var DEFAULT_MODEL = "unknown";
+    var BILLABLE_RULE_VERSION2 = 1;
+    function normalizeHourlyPayload2(data) {
+      if (Array.isArray(data)) return data;
+      if (data && typeof data === "object") {
+        if (Array.isArray(data.hourly)) return data.hourly;
+        if (Array.isArray(data.data)) return data.data;
+        if (data.data && typeof data.data === "object" && Array.isArray(data.data.hourly)) {
+          return data.data.hourly;
+        }
+      }
+      return null;
+    }
+    function parseUtcHalfHourStart(value) {
+      if (typeof value !== "string" || value.trim() === "") return null;
+      const dt = new Date(value);
+      if (!Number.isFinite(dt.getTime())) return null;
+      const minutes = dt.getUTCMinutes();
+      if (minutes !== 0 && minutes !== 30 || dt.getUTCSeconds() !== 0 || dt.getUTCMilliseconds() !== 0) {
+        return null;
+      }
+      const hourStart = new Date(
+        Date.UTC(
+          dt.getUTCFullYear(),
+          dt.getUTCMonth(),
+          dt.getUTCDate(),
+          dt.getUTCHours(),
+          minutes >= 30 ? 30 : 0,
+          0,
+          0
+        )
+      );
+      return hourStart.toISOString();
+    }
+    function toNonNegativeInt2(n) {
+      if (typeof n !== "number") return null;
+      if (!Number.isFinite(n)) return null;
+      if (!Number.isInteger(n)) return null;
+      if (n < 0) return null;
+      return n;
+    }
+    function parseHourlyBucket(raw) {
+      if (!raw || typeof raw !== "object") return { ok: false, error: "Invalid half-hour bucket" };
+      const hourStart = parseUtcHalfHourStart(raw.hour_start);
+      if (!hourStart) {
+        return { ok: false, error: "hour_start must be an ISO timestamp at UTC half-hour boundary" };
+      }
+      const source = normalizeSource(raw.source);
+      const model = normalizeUsageModel(raw.model) || DEFAULT_MODEL;
+      const input = toNonNegativeInt2(raw.input_tokens);
+      const cached = toNonNegativeInt2(raw.cached_input_tokens);
+      const output = toNonNegativeInt2(raw.output_tokens);
+      const reasoning = toNonNegativeInt2(raw.reasoning_output_tokens);
+      const total = toNonNegativeInt2(raw.total_tokens);
+      if ([input, cached, output, reasoning, total].some((n) => n == null)) {
+        return { ok: false, error: "Token fields must be non-negative integers" };
+      }
+      return {
+        ok: true,
+        value: {
+          source,
+          model,
+          hour_start: hourStart,
+          input_tokens: input,
+          cached_input_tokens: cached,
+          output_tokens: output,
+          reasoning_output_tokens: reasoning,
+          total_tokens: total
+        }
+      };
+    }
+    function buildRows2({ hourly, tokenRow, nowIso, billableRuleVersion = BILLABLE_RULE_VERSION2 }) {
+      const byHour = /* @__PURE__ */ new Map();
+      for (const raw of hourly) {
+        const parsed = parseHourlyBucket(raw);
+        if (!parsed.ok) return { error: parsed.error, data: [] };
+        const source = parsed.value.source || "codex";
+        const model = parsed.value.model || DEFAULT_MODEL;
+        const dedupeKey = `${parsed.value.hour_start}::${source}::${model}`;
+        byHour.set(dedupeKey, { ...parsed.value, source, model });
+      }
+      const rows = [];
+      for (const bucket of byHour.values()) {
+        const billable = computeBillableTotalTokens({ source: bucket.source, totals: bucket });
+        rows.push({
+          user_id: tokenRow.user_id,
+          device_id: tokenRow.device_id,
+          device_token_id: tokenRow.id,
+          source: bucket.source,
+          model: bucket.model,
+          hour_start: bucket.hour_start,
+          input_tokens: bucket.input_tokens,
+          cached_input_tokens: bucket.cached_input_tokens,
+          output_tokens: bucket.output_tokens,
+          reasoning_output_tokens: bucket.reasoning_output_tokens,
+          total_tokens: bucket.total_tokens,
+          billable_total_tokens: billable.toString(),
+          billable_rule_version: billableRuleVersion,
+          updated_at: nowIso
+        });
+      }
+      return { error: null, data: rows };
+    }
+    function deriveMetricsSource2(rows) {
+      if (!Array.isArray(rows) || rows.length === 0) return null;
+      const sources = /* @__PURE__ */ new Set();
+      for (const row of rows) {
+        const source = typeof row?.source === "string" ? row.source.trim() : "";
+        if (source) sources.add(source);
+      }
+      if (sources.size === 1) return Array.from(sources)[0];
+      if (sources.size > 1) return "mixed";
+      return null;
+    }
+    module2.exports = {
+      DEFAULT_MODEL,
+      BILLABLE_RULE_VERSION: BILLABLE_RULE_VERSION2,
+      normalizeHourlyPayload: normalizeHourlyPayload2,
+      parseUtcHalfHourStart,
+      toNonNegativeInt: toNonNegativeInt2,
+      parseHourlyBucket,
+      buildRows: buildRows2,
+      deriveMetricsSource: deriveMetricsSource2
+    };
+  }
+});
+
+// insforge-src/shared/db/records.js
+var require_records = __commonJS({
+  "insforge-src/shared/db/records.js"(exports2, module2) {
+    "use strict";
+    function buildAuthHeaders2({ anonKey, tokenHash }) {
+      return {
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+        "x-vibeusage-device-token-hash": tokenHash
+      };
+    }
+    async function readApiJson2(res) {
+      const text = await res.text();
+      if (!text) return { data: null, error: null, code: null };
+      try {
+        const parsed = JSON.parse(text);
+        return { data: parsed, error: parsed?.message || parsed?.error || null, code: parsed?.code || null };
+      } catch (_e) {
+        return { data: null, error: text.slice(0, 300), code: null };
+      }
+    }
+    function normalizeRows2(data) {
+      if (Array.isArray(data)) return data;
+      if (data && typeof data === "object" && Array.isArray(data.data)) return data.data;
+      return null;
+    }
+    function isUpsertUnsupported2(result) {
+      const status = Number(result?.status || 0);
+      if (status !== 400 && status !== 404 && status !== 405 && status !== 409 && status !== 422) return false;
+      const msg = String(result?.error || "").toLowerCase();
+      if (!msg) return false;
+      return msg.includes("on_conflict") || msg.includes("resolution") || msg.includes("prefer") || msg.includes("unknown") || msg.includes("invalid");
+    }
+    async function recordsUpsert2({ url, anonKey, tokenHash, rows, onConflict, prefer, resolution, select, fetcher }) {
+      const target = new URL(url.toString());
+      if (onConflict) target.searchParams.set("on_conflict", onConflict);
+      if (select) target.searchParams.set("select", select);
+      const preferParts = [];
+      if (prefer) preferParts.push(prefer);
+      if (resolution) preferParts.push(`resolution=${resolution}`);
+      const preferHeader = preferParts.filter(Boolean).join(",");
+      const res = await (fetcher || fetch)(target.toString(), {
+        method: "POST",
+        headers: {
+          ...buildAuthHeaders2({ anonKey, tokenHash }),
+          ...preferHeader ? { Prefer: preferHeader } : {},
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(rows)
+      });
+      const { data, error, code } = await readApiJson2(res);
+      return { ok: res.ok, status: res.status, data, error, code };
+    }
+    module2.exports = {
+      buildAuthHeaders: buildAuthHeaders2,
+      readApiJson: readApiJson2,
+      normalizeRows: normalizeRows2,
+      isUpsertUnsupported: isUpsertUnsupported2,
+      recordsUpsert: recordsUpsert2
     };
   }
 });
@@ -636,12 +833,21 @@ var { createConcurrencyGuard } = require_concurrency();
 var { getBearerToken } = require_auth();
 var { getAnonKey, getBaseUrl, getServiceRoleKey } = require_env();
 var { sha256Hex } = require_crypto();
-var { normalizeSource } = require_source();
-var { normalizeUsageModel } = require_model();
-var { computeBillableTotalTokens } = require_usage_billable();
+var {
+  BILLABLE_RULE_VERSION,
+  buildRows,
+  deriveMetricsSource,
+  normalizeHourlyPayload,
+  toNonNegativeInt
+} = require_ingest();
+var {
+  buildAuthHeaders,
+  isUpsertUnsupported,
+  normalizeRows,
+  readApiJson,
+  recordsUpsert
+} = require_records();
 var MAX_BUCKETS = 500;
-var DEFAULT_MODEL = "unknown";
-var BILLABLE_RULE_VERSION = 1;
 var ingestGuard = createConcurrencyGuard({
   name: "vibeusage-ingest",
   envKey: ["VIBEUSAGE_INGEST_MAX_INFLIGHT"],
@@ -680,13 +886,13 @@ module.exports = withRequestLogging("vibeusage-ingest", async function(request, 
     if (!tokenRow) return json({ error: "Unauthorized" }, 401);
     const body = await readJson(request);
     if (body.error) return json({ error: body.error }, body.status);
-    const hourly = normalizeHourly(body.data);
+    const hourly = normalizeHourlyPayload(body.data);
     if (!Array.isArray(hourly)) {
       return json({ error: "Invalid payload: expected {hourly:[...]} or [...]" }, 400);
     }
     if (hourly.length > MAX_BUCKETS) return json({ error: `Too many buckets (max ${MAX_BUCKETS})` }, 413);
     const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-    const rows = buildRows({ hourly, tokenRow, nowIso });
+    const rows = buildRows({ hourly, tokenRow, nowIso, billableRuleVersion: BILLABLE_RULE_VERSION });
     if (rows.error) return json({ error: rows.error }, 400);
     if (rows.data.length === 0) {
       await recordIngestBatchMetrics({
@@ -738,49 +944,6 @@ module.exports = withRequestLogging("vibeusage-ingest", async function(request, 
     if (guard && typeof guard.release === "function") guard.release();
   }
 });
-function buildRows({ hourly, tokenRow, nowIso }) {
-  const byHour = /* @__PURE__ */ new Map();
-  for (const raw of hourly) {
-    const parsed = parseHourlyBucket(raw);
-    if (!parsed.ok) return { error: parsed.error, data: [] };
-    const source = parsed.value.source || "codex";
-    const model = parsed.value.model || DEFAULT_MODEL;
-    const dedupeKey = `${parsed.value.hour_start}::${source}::${model}`;
-    byHour.set(dedupeKey, { ...parsed.value, source, model });
-  }
-  const rows = [];
-  for (const bucket of byHour.values()) {
-    const billable = computeBillableTotalTokens({ source: bucket.source, totals: bucket });
-    rows.push({
-      user_id: tokenRow.user_id,
-      device_id: tokenRow.device_id,
-      device_token_id: tokenRow.id,
-      source: bucket.source,
-      model: bucket.model,
-      hour_start: bucket.hour_start,
-      input_tokens: bucket.input_tokens,
-      cached_input_tokens: bucket.cached_input_tokens,
-      output_tokens: bucket.output_tokens,
-      reasoning_output_tokens: bucket.reasoning_output_tokens,
-      total_tokens: bucket.total_tokens,
-      billable_total_tokens: billable.toString(),
-      billable_rule_version: BILLABLE_RULE_VERSION,
-      updated_at: nowIso
-    });
-  }
-  return { error: null, data: rows };
-}
-function deriveMetricsSource(rows) {
-  if (!Array.isArray(rows) || rows.length === 0) return null;
-  const sources = /* @__PURE__ */ new Set();
-  for (const row of rows) {
-    const source = typeof row?.source === "string" ? row.source.trim() : "";
-    if (source) sources.add(source);
-  }
-  if (sources.size === 1) return Array.from(sources)[0];
-  if (sources.size > 1) return "mixed";
-  return null;
-}
 async function getTokenRowWithServiceClient(serviceClient, tokenHash) {
   const { data: tokenRow, error: tokenErr } = await serviceClient.database.from("vibeusage_tracker_device_tokens").select("id,user_id,device_id,revoked_at,last_sync_at").eq("token_hash", tokenHash).maybeSingle();
   if (tokenErr) throw new Error(tokenErr.message);
@@ -795,7 +958,7 @@ async function getTokenRowWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher }) 
   url.searchParams.set("limit", "1");
   const res = await (fetcher || fetch)(url.toString(), {
     method: "GET",
-    headers: buildAnonHeaders({ anonKey, tokenHash })
+    headers: buildAuthHeaders({ anonKey, tokenHash })
   });
   const { data, error } = await readApiJson(res);
   if (!res.ok) throw new Error(error || `HTTP ${res.status}`);
@@ -904,7 +1067,7 @@ async function recordIngestBatchMetrics({
     const res = await (fetcher || fetch)(url.toString(), {
       method: "POST",
       headers: {
-        ...buildAnonHeaders({ anonKey, tokenHash }),
+        ...buildAuthHeaders({ anonKey, tokenHash }),
         "Content-Type": "application/json"
       },
       body: JSON.stringify(row)
@@ -935,55 +1098,13 @@ async function bestEffortTouchWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher
     await (fetcher || fetch)(url.toString(), {
       method: "POST",
       headers: {
-        ...buildAnonHeaders({ anonKey, tokenHash }),
+        ...buildAuthHeaders({ anonKey, tokenHash }),
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ min_interval_minutes: 30 })
     });
   } catch (_e) {
   }
-}
-function buildAnonHeaders({ anonKey, tokenHash }) {
-  return {
-    apikey: anonKey,
-    Authorization: `Bearer ${anonKey}`,
-    "x-vibeusage-device-token-hash": tokenHash
-  };
-}
-async function recordsUpsert({ url, anonKey, tokenHash, rows, onConflict, prefer, resolution, select, fetcher }) {
-  const target = new URL(url.toString());
-  if (onConflict) target.searchParams.set("on_conflict", onConflict);
-  if (select) target.searchParams.set("select", select);
-  const preferParts = [];
-  if (prefer) preferParts.push(prefer);
-  if (resolution) preferParts.push(`resolution=${resolution}`);
-  const preferHeader = preferParts.filter(Boolean).join(",");
-  const res = await (fetcher || fetch)(target.toString(), {
-    method: "POST",
-    headers: {
-      ...buildAnonHeaders({ anonKey, tokenHash }),
-      ...preferHeader ? { Prefer: preferHeader } : {},
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(rows)
-  });
-  const { data, error, code } = await readApiJson(res);
-  return { ok: res.ok, status: res.status, data, error, code };
-}
-async function readApiJson(res) {
-  const text = await res.text();
-  if (!text) return { data: null, error: null, code: null };
-  try {
-    const parsed = JSON.parse(text);
-    return { data: parsed, error: parsed?.message || parsed?.error || null, code: parsed?.code || null };
-  } catch (_e) {
-    return { data: null, error: text.slice(0, 300), code: null };
-  }
-}
-function normalizeRows(data) {
-  if (Array.isArray(data)) return data;
-  if (data && typeof data === "object" && Array.isArray(data.data)) return data.data;
-  return null;
 }
 function normalizeIso(value) {
   if (typeof value !== "string") return null;
@@ -996,80 +1117,4 @@ function isWithinInterval(lastSyncAt, minutes) {
   if (!Number.isFinite(lastMs)) return false;
   const windowMs = Math.max(0, minutes) * 60 * 1e3;
   return windowMs > 0 && Date.now() - lastMs < windowMs;
-}
-function isUpsertUnsupported(result) {
-  const status = Number(result?.status || 0);
-  if (status !== 400 && status !== 404 && status !== 405 && status !== 409 && status !== 422) return false;
-  const msg = String(result?.error || "").toLowerCase();
-  if (!msg) return false;
-  return msg.includes("on_conflict") || msg.includes("resolution") || msg.includes("prefer") || msg.includes("unknown") || msg.includes("invalid");
-}
-function normalizeHourly(data) {
-  if (Array.isArray(data)) return data;
-  if (data && typeof data === "object") {
-    if (Array.isArray(data.hourly)) return data.hourly;
-    if (Array.isArray(data.data)) return data.data;
-    if (data.data && typeof data.data === "object" && Array.isArray(data.data.hourly)) {
-      return data.data.hourly;
-    }
-  }
-  return null;
-}
-function parseHourlyBucket(raw) {
-  if (!raw || typeof raw !== "object") return { ok: false, error: "Invalid half-hour bucket" };
-  const hourStart = parseUtcHalfHourStart(raw.hour_start);
-  if (!hourStart) {
-    return { ok: false, error: "hour_start must be an ISO timestamp at UTC half-hour boundary" };
-  }
-  const source = normalizeSource(raw.source);
-  const model = normalizeUsageModel(raw.model) || DEFAULT_MODEL;
-  const input = toNonNegativeInt(raw.input_tokens);
-  const cached = toNonNegativeInt(raw.cached_input_tokens);
-  const output = toNonNegativeInt(raw.output_tokens);
-  const reasoning = toNonNegativeInt(raw.reasoning_output_tokens);
-  const total = toNonNegativeInt(raw.total_tokens);
-  if ([input, cached, output, reasoning, total].some((n) => n == null)) {
-    return { ok: false, error: "Token fields must be non-negative integers" };
-  }
-  return {
-    ok: true,
-    value: {
-      source,
-      model,
-      hour_start: hourStart,
-      input_tokens: input,
-      cached_input_tokens: cached,
-      output_tokens: output,
-      reasoning_output_tokens: reasoning,
-      total_tokens: total
-    }
-  };
-}
-function parseUtcHalfHourStart(value) {
-  if (typeof value !== "string" || value.trim() === "") return null;
-  const dt = new Date(value);
-  if (!Number.isFinite(dt.getTime())) return null;
-  const minutes = dt.getUTCMinutes();
-  if (minutes !== 0 && minutes !== 30 || dt.getUTCSeconds() !== 0 || dt.getUTCMilliseconds() !== 0) {
-    return null;
-  }
-  const hourStart = new Date(
-    Date.UTC(
-      dt.getUTCFullYear(),
-      dt.getUTCMonth(),
-      dt.getUTCDate(),
-      dt.getUTCHours(),
-      minutes >= 30 ? 30 : 0,
-      0,
-      0
-    )
-  );
-  return hourStart.toISOString();
-}
-function toNonNegativeInt(n) {
-  if (typeof n !== "number") return null;
-  if (!Number.isFinite(n)) return null;
-  if (!Number.isInteger(n)) return null;
-  if (n < 0) return null;
-  return n;
 }

@@ -12,13 +12,22 @@ const { createConcurrencyGuard } = require('../shared/concurrency');
 const { getBearerToken } = require('../shared/auth');
 const { getAnonKey, getBaseUrl, getServiceRoleKey } = require('../shared/env');
 const { sha256Hex } = require('../shared/crypto');
-const { normalizeSource } = require('../shared/source');
-const { normalizeUsageModel } = require('../shared/model');
-const { computeBillableTotalTokens } = require('../shared/usage-billable');
+const {
+  BILLABLE_RULE_VERSION,
+  buildRows,
+  deriveMetricsSource,
+  normalizeHourlyPayload,
+  toNonNegativeInt
+} = require('../shared/core/ingest');
+const {
+  buildAuthHeaders,
+  isUpsertUnsupported,
+  normalizeRows,
+  readApiJson,
+  recordsUpsert
+} = require('../shared/db/records');
 
 const MAX_BUCKETS = 500;
-const DEFAULT_MODEL = 'unknown';
-const BILLABLE_RULE_VERSION = 1;
 
 const ingestGuard = createConcurrencyGuard({
   name: 'vibeusage-ingest',
@@ -70,14 +79,14 @@ module.exports = withRequestLogging('vibeusage-ingest', async function(request, 
     const body = await readJson(request);
     if (body.error) return json({ error: body.error }, body.status);
 
-    const hourly = normalizeHourly(body.data);
+    const hourly = normalizeHourlyPayload(body.data);
     if (!Array.isArray(hourly)) {
       return json({ error: 'Invalid payload: expected {hourly:[...]} or [...]' }, 400);
     }
     if (hourly.length > MAX_BUCKETS) return json({ error: `Too many buckets (max ${MAX_BUCKETS})` }, 413);
 
     const nowIso = new Date().toISOString();
-    const rows = buildRows({ hourly, tokenRow, nowIso });
+    const rows = buildRows({ hourly, tokenRow, nowIso, billableRuleVersion: BILLABLE_RULE_VERSION });
     if (rows.error) return json({ error: rows.error }, 400);
 
     if (rows.data.length === 0) {
@@ -120,7 +129,7 @@ module.exports = withRequestLogging('vibeusage-ingest', async function(request, 
       bucketCount: rows.data.length,
       inserted: upsert.inserted,
       skipped: upsert.skipped,
-      source: deriveMetricsSource(rows.data),
+        source: deriveMetricsSource(rows.data),
       fetcher
     });
 
@@ -136,54 +145,6 @@ module.exports = withRequestLogging('vibeusage-ingest', async function(request, 
     if (guard && typeof guard.release === 'function') guard.release();
   }
 });
-
-function buildRows({ hourly, tokenRow, nowIso }) {
-  const byHour = new Map();
-
-  for (const raw of hourly) {
-    const parsed = parseHourlyBucket(raw);
-    if (!parsed.ok) return { error: parsed.error, data: [] };
-    const source = parsed.value.source || 'codex';
-    const model = parsed.value.model || DEFAULT_MODEL;
-    const dedupeKey = `${parsed.value.hour_start}::${source}::${model}`;
-    byHour.set(dedupeKey, { ...parsed.value, source, model });
-  }
-
-  const rows = [];
-  for (const bucket of byHour.values()) {
-    const billable = computeBillableTotalTokens({ source: bucket.source, totals: bucket });
-    rows.push({
-      user_id: tokenRow.user_id,
-      device_id: tokenRow.device_id,
-      device_token_id: tokenRow.id,
-      source: bucket.source,
-      model: bucket.model,
-      hour_start: bucket.hour_start,
-      input_tokens: bucket.input_tokens,
-      cached_input_tokens: bucket.cached_input_tokens,
-      output_tokens: bucket.output_tokens,
-      reasoning_output_tokens: bucket.reasoning_output_tokens,
-      total_tokens: bucket.total_tokens,
-      billable_total_tokens: billable.toString(),
-      billable_rule_version: BILLABLE_RULE_VERSION,
-      updated_at: nowIso
-    });
-  }
-
-  return { error: null, data: rows };
-}
-
-function deriveMetricsSource(rows) {
-  if (!Array.isArray(rows) || rows.length === 0) return null;
-  const sources = new Set();
-  for (const row of rows) {
-    const source = typeof row?.source === 'string' ? row.source.trim() : '';
-    if (source) sources.add(source);
-  }
-  if (sources.size === 1) return Array.from(sources)[0];
-  if (sources.size > 1) return 'mixed';
-  return null;
-}
 
 async function getTokenRowWithServiceClient(serviceClient, tokenHash) {
   const { data: tokenRow, error: tokenErr } = await serviceClient.database
@@ -205,7 +166,7 @@ async function getTokenRowWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher }) 
 
   const res = await (fetcher || fetch)(url.toString(), {
     method: 'GET',
-    headers: buildAnonHeaders({ anonKey, tokenHash })
+    headers: buildAuthHeaders({ anonKey, tokenHash })
   });
   const { data, error } = await readApiJson(res);
   if (!res.ok) throw new Error(error || `HTTP ${res.status}`);
@@ -327,7 +288,7 @@ async function recordIngestBatchMetrics({
     const res = await (fetcher || fetch)(url.toString(), {
       method: 'POST',
       headers: {
-        ...buildAnonHeaders({ anonKey, tokenHash }),
+        ...buildAuthHeaders({ anonKey, tokenHash }),
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(row)
@@ -365,60 +326,12 @@ async function bestEffortTouchWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher
     await (fetcher || fetch)(url.toString(), {
       method: 'POST',
       headers: {
-        ...buildAnonHeaders({ anonKey, tokenHash }),
+        ...buildAuthHeaders({ anonKey, tokenHash }),
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ min_interval_minutes: 30 })
     });
   } catch (_e) {}
-}
-
-function buildAnonHeaders({ anonKey, tokenHash }) {
-  return {
-    apikey: anonKey,
-    Authorization: `Bearer ${anonKey}`,
-    'x-vibeusage-device-token-hash': tokenHash
-  };
-}
-
-async function recordsUpsert({ url, anonKey, tokenHash, rows, onConflict, prefer, resolution, select, fetcher }) {
-  const target = new URL(url.toString());
-  if (onConflict) target.searchParams.set('on_conflict', onConflict);
-  if (select) target.searchParams.set('select', select);
-  const preferParts = [];
-  if (prefer) preferParts.push(prefer);
-  if (resolution) preferParts.push(`resolution=${resolution}`);
-  const preferHeader = preferParts.filter(Boolean).join(',');
-
-  const res = await (fetcher || fetch)(target.toString(), {
-    method: 'POST',
-    headers: {
-      ...buildAnonHeaders({ anonKey, tokenHash }),
-      ...(preferHeader ? { Prefer: preferHeader } : {}),
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(rows)
-  });
-
-  const { data, error, code } = await readApiJson(res);
-  return { ok: res.ok, status: res.status, data, error, code };
-}
-
-async function readApiJson(res) {
-  const text = await res.text();
-  if (!text) return { data: null, error: null, code: null };
-  try {
-    const parsed = JSON.parse(text);
-    return { data: parsed, error: parsed?.message || parsed?.error || null, code: parsed?.code || null };
-  } catch (_e) {
-    return { data: null, error: text.slice(0, 300), code: null };
-  }
-}
-
-function normalizeRows(data) {
-  if (Array.isArray(data)) return data;
-  if (data && typeof data === 'object' && Array.isArray(data.data)) return data.data;
-  return null;
 }
 
 function normalizeIso(value) {
@@ -433,95 +346,4 @@ function isWithinInterval(lastSyncAt, minutes) {
   if (!Number.isFinite(lastMs)) return false;
   const windowMs = Math.max(0, minutes) * 60 * 1000;
   return windowMs > 0 && Date.now() - lastMs < windowMs;
-}
-
-function isUpsertUnsupported(result) {
-  const status = Number(result?.status || 0);
-  if (status !== 400 && status !== 404 && status !== 405 && status !== 409 && status !== 422) return false;
-  const msg = String(result?.error || '').toLowerCase();
-  if (!msg) return false;
-  return (
-    msg.includes('on_conflict') ||
-    msg.includes('resolution') ||
-    msg.includes('prefer') ||
-    msg.includes('unknown') ||
-    msg.includes('invalid')
-  );
-}
-
-function normalizeHourly(data) {
-  if (Array.isArray(data)) return data;
-  if (data && typeof data === 'object') {
-    if (Array.isArray(data.hourly)) return data.hourly;
-    if (Array.isArray(data.data)) return data.data;
-    if (data.data && typeof data.data === 'object' && Array.isArray(data.data.hourly)) {
-      return data.data.hourly;
-    }
-  }
-  return null;
-}
-
-function parseHourlyBucket(raw) {
-  if (!raw || typeof raw !== 'object') return { ok: false, error: 'Invalid half-hour bucket' };
-
-  const hourStart = parseUtcHalfHourStart(raw.hour_start);
-  if (!hourStart) {
-    return { ok: false, error: 'hour_start must be an ISO timestamp at UTC half-hour boundary' };
-  }
-
-  const source = normalizeSource(raw.source);
-  const model = normalizeUsageModel(raw.model) || DEFAULT_MODEL;
-  const input = toNonNegativeInt(raw.input_tokens);
-  const cached = toNonNegativeInt(raw.cached_input_tokens);
-  const output = toNonNegativeInt(raw.output_tokens);
-  const reasoning = toNonNegativeInt(raw.reasoning_output_tokens);
-  const total = toNonNegativeInt(raw.total_tokens);
-
-  if ([input, cached, output, reasoning, total].some((n) => n == null)) {
-    return { ok: false, error: 'Token fields must be non-negative integers' };
-  }
-
-  return {
-    ok: true,
-    value: {
-      source,
-      model,
-      hour_start: hourStart,
-      input_tokens: input,
-      cached_input_tokens: cached,
-      output_tokens: output,
-      reasoning_output_tokens: reasoning,
-      total_tokens: total
-    }
-  };
-}
-
-function parseUtcHalfHourStart(value) {
-  if (typeof value !== 'string' || value.trim() === '') return null;
-  const dt = new Date(value);
-  if (!Number.isFinite(dt.getTime())) return null;
-  const minutes = dt.getUTCMinutes();
-  if ((minutes !== 0 && minutes !== 30) || dt.getUTCSeconds() !== 0 || dt.getUTCMilliseconds() !== 0) {
-    return null;
-  }
-  const hourStart = new Date(
-    Date.UTC(
-      dt.getUTCFullYear(),
-      dt.getUTCMonth(),
-      dt.getUTCDate(),
-      dt.getUTCHours(),
-      minutes >= 30 ? 30 : 0,
-      0,
-      0
-    )
-  );
-  return hourStart.toISOString();
-}
-
-function toNonNegativeInt(n) {
-  if (typeof n !== 'number') return null;
-  if (!Number.isFinite(n)) return null;
-  if (!Number.isInteger(n)) return null;
-  if (n < 0) return null;
-  return n;
 }

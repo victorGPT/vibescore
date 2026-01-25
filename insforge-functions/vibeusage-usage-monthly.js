@@ -284,7 +284,7 @@ var require_model = __commonJS({
       const trimmed = value.trim();
       return trimmed.length > 0 ? trimmed : null;
     }
-    function normalizeUsageModel2(value) {
+    function normalizeUsageModel(value) {
       const normalized = normalizeModel(value);
       if (!normalized) return null;
       const lowered = normalized.toLowerCase();
@@ -293,13 +293,13 @@ var require_model = __commonJS({
     function escapeLike(value) {
       return String(value).replace(/[\\%_]/g, "\\$&");
     }
-    function applyUsageModelFilter2(query, usageModels) {
+    function applyUsageModelFilter(query, usageModels) {
       if (!query || typeof query.or !== "function") return query;
       const models = Array.isArray(usageModels) ? usageModels : [];
       const terms = [];
       const seen = /* @__PURE__ */ new Set();
       for (const model of models) {
-        const normalized = normalizeUsageModel2(model);
+        const normalized = normalizeUsageModel(model);
         if (!normalized) continue;
         const safe = escapeLike(normalized);
         const exact = `model.ilike.${safe}`;
@@ -318,14 +318,14 @@ var require_model = __commonJS({
       const raw = url.searchParams.get("model");
       if (raw == null) return { ok: true, model: null };
       if (raw.trim() === "") return { ok: true, model: null };
-      const normalized = normalizeUsageModel2(raw);
+      const normalized = normalizeUsageModel(raw);
       if (!normalized) return { ok: false, error: "Invalid model" };
       return { ok: true, model: normalized };
     }
     module2.exports = {
       normalizeModel,
-      normalizeUsageModel: normalizeUsageModel2,
-      applyUsageModelFilter: applyUsageModelFilter2,
+      normalizeUsageModel,
+      applyUsageModelFilter,
       getModelParam: getModelParam2
     };
   }
@@ -455,26 +455,6 @@ var require_model_identity = __commonJS({
       applyModelIdentity,
       resolveModelIdentity,
       resolveUsageModelsForCanonical: resolveUsageModelsForCanonical2
-    };
-  }
-});
-
-// insforge-src/shared/canary.js
-var require_canary = __commonJS({
-  "insforge-src/shared/canary.js"(exports2, module2) {
-    "use strict";
-    function isCanaryTag(value) {
-      if (typeof value !== "string") return false;
-      return value.trim().toLowerCase() === "canary";
-    }
-    function applyCanaryFilter2(query, { source, model } = {}) {
-      if (!query || typeof query.neq !== "function") return query;
-      if (isCanaryTag(source) || isCanaryTag(model)) return query;
-      return query.neq("source", "canary").neq("model", "canary");
-    }
-    module2.exports = {
-      applyCanaryFilter: applyCanaryFilter2,
-      isCanaryTag
     };
   }
 });
@@ -780,7 +760,7 @@ var require_date = __commonJS({
 var require_numbers = __commonJS({
   "insforge-src/shared/numbers.js"(exports2, module2) {
     "use strict";
-    function toBigInt2(v) {
+    function toBigInt(v) {
       if (typeof v === "bigint") return v >= 0n ? v : 0n;
       if (typeof v === "number") {
         if (!Number.isFinite(v) || v <= 0) return 0n;
@@ -817,7 +797,7 @@ var require_numbers = __commonJS({
       return n == null ? 0 : n;
     }
     module2.exports = {
-      toBigInt: toBigInt2,
+      toBigInt,
       toPositiveInt,
       toPositiveIntOrNull: toPositiveIntOrNull2
     };
@@ -1059,7 +1039,7 @@ var require_model_alias_timeline = __commonJS({
     var { normalizeModel } = require_model();
     var { normalizeUsageModelKey } = require_model_identity();
     var DEFAULT_MODEL = "unknown";
-    function extractDateKey2(value) {
+    function extractDateKey(value) {
       if (value instanceof Date) return value.toISOString().slice(0, 10);
       if (typeof value === "string" && value.length >= 10) return value.slice(0, 10);
       return null;
@@ -1071,9 +1051,9 @@ var require_model_alias_timeline = __commonJS({
       date.setUTCDate(date.getUTCDate() + 1);
       return date.toISOString().slice(0, 10);
     }
-    function resolveIdentityAtDate2({ rawModel, usageKey, dateKey, timeline } = {}) {
+    function resolveIdentityAtDate({ rawModel, usageKey, dateKey, timeline } = {}) {
       const normalizedKey = usageKey || normalizeUsageModelKey(rawModel) || DEFAULT_MODEL;
-      const normalizedDateKey = extractDateKey2(dateKey) || dateKey || null;
+      const normalizedDateKey = extractDateKey(dateKey) || dateKey || null;
       const candidates = [];
       if (normalizedKey) candidates.push(normalizedKey);
       for (const key of candidates) {
@@ -1106,7 +1086,7 @@ var require_model_alias_timeline = __commonJS({
         if (!usageKey || !canonical) continue;
         if (normalized.size && !normalized.has(usageKey)) continue;
         const display = normalizeModel(row?.display_name) || canonical;
-        const effective = extractDateKey2(row?.effective_from || "");
+        const effective = extractDateKey(row?.effective_from || "");
         if (!effective) continue;
         const entry = {
           model_id: canonical,
@@ -1128,7 +1108,7 @@ var require_model_alias_timeline = __commonJS({
     async function fetchAliasRows2({ edgeClient, usageModels, effectiveDate } = {}) {
       const models = Array.isArray(usageModels) ? usageModels.map((model) => normalizeUsageModelKey(model)).filter(Boolean) : [];
       if (!models.length || !edgeClient || !edgeClient.database) return [];
-      const dateKey = extractDateKey2(effectiveDate) || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+      const dateKey = extractDateKey(effectiveDate) || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       const dateKeyNext = nextDateKey(dateKey) || dateKey;
       const query = edgeClient.database.from("vibeusage_model_aliases").select("usage_model,canonical_model,display_name,effective_from").eq("active", true).in("usage_model", models).lt("effective_from", dateKeyNext).order("effective_from", { ascending: true });
       const result = await query;
@@ -1137,8 +1117,8 @@ var require_model_alias_timeline = __commonJS({
       return data;
     }
     module2.exports = {
-      extractDateKey: extractDateKey2,
-      resolveIdentityAtDate: resolveIdentityAtDate2,
+      extractDateKey,
+      resolveIdentityAtDate,
       buildAliasTimeline: buildAliasTimeline2,
       fetchAliasRows: fetchAliasRows2
     };
@@ -1149,18 +1129,18 @@ var require_model_alias_timeline = __commonJS({
 var require_usage_billable = __commonJS({
   "insforge-src/shared/usage-billable.js"(exports2, module2) {
     "use strict";
-    var { toBigInt: toBigInt2 } = require_numbers();
+    var { toBigInt } = require_numbers();
     var { normalizeSource } = require_source();
     var BILLABLE_INPUT_OUTPUT_REASONING = /* @__PURE__ */ new Set(["codex", "every-code"]);
     var BILLABLE_ADD_ALL = /* @__PURE__ */ new Set(["claude", "opencode"]);
     var BILLABLE_TOTAL = /* @__PURE__ */ new Set(["gemini"]);
     function computeBillableTotalTokens({ source, totals } = {}) {
       const normalizedSource = normalizeSource(source) || "unknown";
-      const input = toBigInt2(totals?.input_tokens);
-      const cached = toBigInt2(totals?.cached_input_tokens);
-      const output = toBigInt2(totals?.output_tokens);
-      const reasoning = toBigInt2(totals?.reasoning_output_tokens);
-      const total = toBigInt2(totals?.total_tokens);
+      const input = toBigInt(totals?.input_tokens);
+      const cached = toBigInt(totals?.cached_input_tokens);
+      const output = toBigInt(totals?.output_tokens);
+      const reasoning = toBigInt(totals?.reasoning_output_tokens);
+      const total = toBigInt(totals?.total_tokens);
       const hasTotal = Boolean(totals && Object.prototype.hasOwnProperty.call(totals, "total_tokens"));
       if (BILLABLE_TOTAL.has(normalizedSource)) return total;
       if (BILLABLE_ADD_ALL.has(normalizedSource)) return input + cached + output + reasoning;
@@ -1174,12 +1154,32 @@ var require_usage_billable = __commonJS({
   }
 });
 
+// insforge-src/shared/canary.js
+var require_canary = __commonJS({
+  "insforge-src/shared/canary.js"(exports2, module2) {
+    "use strict";
+    function isCanaryTag(value) {
+      if (typeof value !== "string") return false;
+      return value.trim().toLowerCase() === "canary";
+    }
+    function applyCanaryFilter(query, { source, model } = {}) {
+      if (!query || typeof query.neq !== "function") return query;
+      if (isCanaryTag(source) || isCanaryTag(model)) return query;
+      return query.neq("source", "canary").neq("model", "canary");
+    }
+    module2.exports = {
+      applyCanaryFilter,
+      isCanaryTag
+    };
+  }
+});
+
 // insforge-src/shared/usage-rollup.js
 var require_usage_rollup = __commonJS({
   "insforge-src/shared/usage-rollup.js"(exports2, module2) {
     "use strict";
-    var { applyCanaryFilter: applyCanaryFilter2 } = require_canary();
-    var { toBigInt: toBigInt2 } = require_numbers();
+    var { applyCanaryFilter } = require_canary();
+    var { toBigInt } = require_numbers();
     var { forEachPage: forEachPage2 } = require_pagination();
     function createTotals() {
       return {
@@ -1193,12 +1193,12 @@ var require_usage_rollup = __commonJS({
     }
     function addRowTotals(target, row) {
       if (!target || !row) return;
-      target.total_tokens += toBigInt2(row?.total_tokens);
-      target.billable_total_tokens += toBigInt2(row?.billable_total_tokens);
-      target.input_tokens += toBigInt2(row?.input_tokens);
-      target.cached_input_tokens += toBigInt2(row?.cached_input_tokens);
-      target.output_tokens += toBigInt2(row?.output_tokens);
-      target.reasoning_output_tokens += toBigInt2(row?.reasoning_output_tokens);
+      target.total_tokens += toBigInt(row?.total_tokens);
+      target.billable_total_tokens += toBigInt(row?.billable_total_tokens);
+      target.input_tokens += toBigInt(row?.input_tokens);
+      target.cached_input_tokens += toBigInt(row?.cached_input_tokens);
+      target.output_tokens += toBigInt(row?.output_tokens);
+      target.reasoning_output_tokens += toBigInt(row?.reasoning_output_tokens);
     }
     async function fetchRollupRows({ edgeClient, userId, fromDay, toDay, source, model }) {
       const rows = [];
@@ -1207,7 +1207,7 @@ var require_usage_rollup = __commonJS({
           let query = edgeClient.database.from("vibeusage_tracker_daily_rollup").select("day,source,model,total_tokens,billable_total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", userId).gte("day", fromDay).lte("day", toDay);
           if (source) query = query.eq("source", source);
           if (model) query = query.eq("model", model);
-          query = applyCanaryFilter2(query, { source, model });
+          query = applyCanaryFilter(query, { source, model });
           return query.order("day", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
         },
         onPage: (pageRows) => {
@@ -1242,25 +1242,133 @@ var require_usage_rollup = __commonJS({
 var require_usage_aggregate = __commonJS({
   "insforge-src/shared/usage-aggregate.js"(exports2, module2) {
     "use strict";
-    var { toBigInt: toBigInt2 } = require_numbers();
+    var { toBigInt } = require_numbers();
     var { computeBillableTotalTokens } = require_usage_billable();
     var { addRowTotals } = require_usage_rollup();
-    function resolveBillableTotals2({ row, source, totals, billableField = "billable_total_tokens", hasStoredBillable } = {}) {
+    function resolveBillableTotals({ row, source, totals, billableField = "billable_total_tokens", hasStoredBillable } = {}) {
       const stored = typeof hasStoredBillable === "boolean" ? hasStoredBillable : Boolean(row && Object.prototype.hasOwnProperty.call(row, billableField) && row[billableField] != null);
       const resolvedTotals = totals || row;
-      const billable = stored ? toBigInt2(row?.[billableField]) : computeBillableTotalTokens({ source, totals: resolvedTotals });
+      const billable = stored ? toBigInt(row?.[billableField]) : computeBillableTotalTokens({ source, totals: resolvedTotals });
       return { billable, hasStoredBillable: stored };
     }
     function applyTotalsAndBillable({ totals, row, billable, hasStoredBillable } = {}) {
       if (!totals || !row) return;
       addRowTotals(totals, row);
       if (!hasStoredBillable) {
-        totals.billable_total_tokens += toBigInt2(billable);
+        totals.billable_total_tokens += toBigInt(billable);
       }
     }
     module2.exports = {
-      resolveBillableTotals: resolveBillableTotals2,
+      resolveBillableTotals,
       applyTotalsAndBillable
+    };
+  }
+});
+
+// insforge-src/shared/core/usage-monthly.js
+var require_usage_monthly = __commonJS({
+  "insforge-src/shared/core/usage-monthly.js"(exports2, module2) {
+    "use strict";
+    var { addDatePartsMonths: addDatePartsMonths2, getLocalParts: getLocalParts2 } = require_date();
+    var { toBigInt } = require_numbers();
+    var { normalizeUsageModel } = require_model();
+    var { extractDateKey, resolveIdentityAtDate } = require_model_alias_timeline();
+    var { resolveBillableTotals } = require_usage_aggregate();
+    function initMonthlyBuckets2({ startMonthParts, months }) {
+      const monthKeys = [];
+      const buckets = /* @__PURE__ */ new Map();
+      const count = Number.isFinite(months) ? months : 0;
+      for (let i = 0; i < count; i += 1) {
+        const parts = addDatePartsMonths2(startMonthParts, i);
+        const key = `${parts.year}-${String(parts.month).padStart(2, "0")}`;
+        monthKeys.push(key);
+        buckets.set(key, {
+          total: 0n,
+          billable: 0n,
+          input: 0n,
+          cached: 0n,
+          output: 0n,
+          reasoning: 0n
+        });
+      }
+      return { monthKeys, buckets };
+    }
+    function ingestMonthlyRow2({
+      buckets,
+      row,
+      tzContext,
+      source,
+      canonicalModel,
+      hasModelFilter,
+      aliasTimeline,
+      to
+    }) {
+      const ts = row?.hour_start;
+      if (!ts) return false;
+      const dt = new Date(ts);
+      if (!Number.isFinite(dt.getTime())) return false;
+      if (hasModelFilter) {
+        const rawModel = normalizeUsageModel(row?.model);
+        const dateKey = extractDateKey(ts) || to;
+        const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
+        const filterIdentity = resolveIdentityAtDate({
+          rawModel: canonicalModel,
+          usageKey: canonicalModel,
+          dateKey,
+          timeline: aliasTimeline
+        });
+        if (identity.model_id !== filterIdentity.model_id) return false;
+      }
+      const localParts = getLocalParts2(dt, tzContext);
+      const key = `${localParts.year}-${String(localParts.month).padStart(2, "0")}`;
+      const bucket = buckets?.get ? buckets.get(key) : null;
+      if (!bucket) return false;
+      bucket.total += toBigInt(row?.total_tokens);
+      const { billable } = resolveBillableTotals({ row, source: row?.source || source });
+      bucket.billable += billable;
+      bucket.input += toBigInt(row?.input_tokens);
+      bucket.cached += toBigInt(row?.cached_input_tokens);
+      bucket.output += toBigInt(row?.output_tokens);
+      bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
+      return true;
+    }
+    module2.exports = {
+      initMonthlyBuckets: initMonthlyBuckets2,
+      ingestMonthlyRow: ingestMonthlyRow2
+    };
+  }
+});
+
+// insforge-src/shared/db/usage-hourly.js
+var require_usage_hourly = __commonJS({
+  "insforge-src/shared/db/usage-hourly.js"(exports2, module2) {
+    "use strict";
+    var { applyUsageModelFilter } = require_model();
+    var { applyCanaryFilter } = require_canary();
+    function buildHourlyUsageQuery2({
+      edgeClient,
+      userId,
+      source,
+      usageModels,
+      canonicalModel,
+      startIso,
+      endIso,
+      select
+    } = {}) {
+      if (!edgeClient?.database?.from) return null;
+      let query = edgeClient.database.from("vibeusage_tracker_hourly").select(select || "hour_start,source,model,total_tokens");
+      query = query.eq("user_id", userId);
+      if (source) query = query.eq("source", source);
+      if (Array.isArray(usageModels) && usageModels.length > 0) {
+        query = applyUsageModelFilter(query, usageModels);
+      }
+      query = applyCanaryFilter(query, { source, model: canonicalModel });
+      if (startIso) query = query.gte("hour_start", startIso);
+      if (endIso) query = query.lt("hour_start", endIso);
+      return query.order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
+    }
+    module2.exports = {
+      buildHourlyUsageQuery: buildHourlyUsageQuery2
     };
   }
 });
@@ -1270,9 +1378,8 @@ var { handleOptions, json } = require_http();
 var { getBearerToken, getAccessContext } = require_auth();
 var { getBaseUrl } = require_env();
 var { getSourceParam } = require_source();
-var { getModelParam, applyUsageModelFilter, normalizeUsageModel } = require_model();
+var { getModelParam } = require_model();
 var { resolveUsageModelsForCanonical } = require_model_identity();
-var { applyCanaryFilter } = require_canary();
 var {
   addDatePartsDays,
   addDatePartsMonths,
@@ -1282,17 +1389,16 @@ var {
   localDatePartsToUtc,
   parseDateParts
 } = require_date();
-var { toBigInt, toPositiveIntOrNull } = require_numbers();
+var { toPositiveIntOrNull } = require_numbers();
 var { forEachPage } = require_pagination();
 var { logSlowQuery, withRequestLogging } = require_logging();
 var { isDebugEnabled, withSlowQueryDebugPayload } = require_debug();
+var { initMonthlyBuckets, ingestMonthlyRow } = require_usage_monthly();
+var { buildHourlyUsageQuery } = require_usage_hourly();
 var {
   buildAliasTimeline,
-  extractDateKey,
-  fetchAliasRows,
-  resolveIdentityAtDate
+  fetchAliasRows
 } = require_model_alias_timeline();
-var { resolveBillableTotals } = require_usage_aggregate();
 var MAX_MONTHS = 24;
 module.exports = withRequestLogging("vibeusage-usage-monthly", async function(request, logger) {
   const opt = handleOptions(request);
@@ -1355,65 +1461,36 @@ module.exports = withRequestLogging("vibeusage-usage-monthly", async function(re
     });
     aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
   }
-  const monthKeys = [];
-  const buckets = /* @__PURE__ */ new Map();
-  for (let i = 0; i < months; i += 1) {
-    const parts = addDatePartsMonths(startMonthParts, i);
-    const key = `${parts.year}-${String(parts.month).padStart(2, "0")}`;
-    monthKeys.push(key);
-    buckets.set(key, {
-      total: 0n,
-      billable: 0n,
-      input: 0n,
-      cached: 0n,
-      output: 0n,
-      reasoning: 0n
-    });
-  }
+  const { monthKeys, buckets } = initMonthlyBuckets({ startMonthParts, months });
   const queryStartMs = Date.now();
   let rowCount = 0;
   const { error } = await forEachPage({
     createQuery: () => {
-      let query = auth.edgeClient.database.from("vibeusage_tracker_hourly").select("hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
-      if (source) query = query.eq("source", source);
-      if (hasModelFilter) query = applyUsageModelFilter(query, usageModels);
-      query = applyCanaryFilter(query, { source, model: canonicalModel });
-      return query.gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
+      return buildHourlyUsageQuery({
+        edgeClient: auth.edgeClient,
+        userId: auth.userId,
+        source,
+        usageModels: hasModelFilter ? usageModels : [],
+        canonicalModel,
+        startIso,
+        endIso,
+        select: "hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens"
+      });
     },
     onPage: (rows) => {
       const pageRows = Array.isArray(rows) ? rows : [];
       rowCount += pageRows.length;
       for (const row of pageRows) {
-        const ts = row?.hour_start;
-        if (!ts) continue;
-        const dt = new Date(ts);
-        if (!Number.isFinite(dt.getTime())) continue;
-        if (hasModelFilter) {
-          const rawModel = normalizeUsageModel(row?.model);
-          const dateKey = extractDateKey(ts) || to;
-          const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
-          const filterIdentity = resolveIdentityAtDate({
-            rawModel: canonicalModel,
-            usageKey: canonicalModel,
-            dateKey,
-            timeline: aliasTimeline
-          });
-          if (identity.model_id !== filterIdentity.model_id) continue;
-        }
-        const localParts = getLocalParts(dt, tzContext);
-        const key = `${localParts.year}-${String(localParts.month).padStart(2, "0")}`;
-        const bucket = buckets.get(key);
-        if (!bucket) continue;
-        bucket.total += toBigInt(row?.total_tokens);
-        const { billable } = resolveBillableTotals({
+        ingestMonthlyRow({
+          buckets,
           row,
-          source: row?.source || source
+          tzContext,
+          source,
+          canonicalModel,
+          hasModelFilter,
+          aliasTimeline,
+          to
         });
-        bucket.billable += billable;
-        bucket.input += toBigInt(row?.input_tokens);
-        bucket.cached += toBigInt(row?.cached_input_tokens);
-        bucket.output += toBigInt(row?.output_tokens);
-        bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
       }
     }
   });
