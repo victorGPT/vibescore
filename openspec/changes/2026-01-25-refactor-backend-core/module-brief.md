@@ -8,7 +8,7 @@
 - Inputs: HTTP requests to `/functions/vibeusage-*`; DB tables `vibeusage_tracker_*`.
 - Outputs: 现有 API 响应 schema（除非明确 breaking 变更）。
 - Ownership: `insforge-src/shared/core/*` 为业务逻辑单一事实源。
-- DB access contract: `insforge-src/shared/db/*` 统一封装 records API + RPC + SDK。
+- DB access contract: `insforge-src/shared/db/*` 统一封装 records API + SDK（no RPC）。
 
 ## Data Flow and Constraints
 - handler 只负责解析/鉴权/调用 core。

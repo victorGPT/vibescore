@@ -8,7 +8,7 @@ The system SHALL centralize backend business rules in a shared core module, and 
 - **THEN** the handler delegates to the core module and does not implement business logic inline
 
 ### Requirement: Single DB Contract Surface
-The system SHALL route all database reads/writes through a single db access layer (covering records API, RPC, and SDK calls) and SHALL NOT bypass the contract with ad-hoc queries.
+The system SHALL route all database reads/writes through a single db access layer (covering records API and SDK calls; no RPC) and SHALL NOT bypass the contract with ad-hoc queries.
 
 #### Scenario: Query contract
 - **WHEN** a usage endpoint reads aggregates for a user

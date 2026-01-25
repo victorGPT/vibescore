@@ -1,7 +1,7 @@
 # Acceptance Criteria
 
 1. 所有 Edge Functions 处理器只负责鉴权/解析/调用 core，业务逻辑不在 handler 中实现。
-2. 所有数据库读写通过统一的 db 访问层进行（records API/RPC/SDK 统一封装），且查询条件覆盖索引前缀（例如 `user_id + hour_start`）。
+2. 所有数据库读写通过统一的 db 访问层进行（records API/SDK 统一封装，无 RPC），且查询条件覆盖索引前缀（例如 `user_id + hour_start`）。
 3. RLS 策略统一依赖单一 helper 函数（`vibeusage_device_token_allows_event_insert`），避免重复逻辑与分叉策略。
 4. device token issue 幂等：同 `user_id + device_id` 重放请求返回同一 token，不新增记录。
 5. `vibeusage_tracker_device_tokens` 存在 active token 唯一约束（`user_id + device_id` 且 `revoked_at IS NULL`）。
