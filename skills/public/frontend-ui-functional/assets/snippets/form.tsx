@@ -1,4 +1,4 @@
-import type { FormEvent } from "react";
+import { useId, type FormEvent } from "react";
 
 export type SimpleFormProps = {
   label: string;
@@ -13,6 +13,8 @@ export function SimpleForm({
   submitLabel,
   onSubmit,
 }: SimpleFormProps) {
+  const inputId = useId();
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = event.currentTarget;
@@ -23,11 +25,11 @@ export function SimpleForm({
 
   return (
     <form className="space-y-2" onSubmit={handleSubmit}>
-      <label className="block text-sm font-medium text-primary" htmlFor="value">
+      <label className="block text-sm font-medium text-primary" htmlFor={inputId}>
         {label}
       </label>
       <input
-        id="value"
+        id={inputId}
         name="value"
         type="text"
         className="w-full rounded-md border border-subtle bg-surface px-3 py-2 text-sm text-primary"
