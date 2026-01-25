@@ -1,8 +1,10 @@
 ## 1. Implementation
-- [ ] 1.1 Create shared core module boundaries (`insforge-src/shared/core/*`).
-- [ ] 1.2 Create db access layer (`insforge-src/shared/db/*`) with query builders + RPC wrappers.
-- [ ] 1.3 Migrate ingest + usage-summary to core/db.
+- [x] 1.1 Create shared core module boundaries (`insforge-src/shared/core/*`).
+- [x] 1.2 Create db access layer (`insforge-src/shared/db/*`) with query builders + records API wrappers (no RPC).
+- [x] 1.3 Migrate ingest + usage-summary to core/db.
 - [ ] 1.4 Migrate remaining Edge Functions to core/db.
+  - [x] usage-daily → core/db (partial)
+  - [x] usage-monthly → core/db (partial)
 - [ ] 1.5 Align RLS helper contract and policies to single helper.
 - [ ] 1.6 Review indexes for usage queries and adjust if needed.
 - [ ] 1.7 Add partial unique index for active device tokens (`user_id, device_id` WHERE `revoked_at IS NULL`) + UPSERT in device-token-issue using `ON CONFLICT (user_id, device_id) WHERE revoked_at IS NULL` to return existing token.
@@ -15,16 +17,18 @@
 - [ ] 1.10 Regenerate InsForge functions (`npm run build:insforge`).
 
 ## 2. Tests
-- [ ] 2.1 Add/adjust unit tests for core/db modules.
+- [x] 2.1 Add/adjust unit tests for core/db modules.
 - [ ] 2.2 Update integration tests for endpoints.
-- [ ] 2.3 Run regression suite (`node --test test/*.test.js`).
+- [x] 2.3 Run regression suite (`node --test test/*.test.js`).
 - [ ] 2.4 Add replay/idempotency checks for device token issue + ingest.
 
 ## 3. Docs
 - [ ] 3.1 Update `BACKEND_API.md` if contract changes.
-- [ ] 3.2 Record verification commands/results.
+- [x] 3.2 Record verification commands/results.
+  - Reported: `node --test test/insforge-src-core-db.test.js` (PASS)
+  - Reported: `node --test test/*.test.js` (PASS)
 
 ## Verification
 - [ ] `npm run build:insforge:check`
-- [ ] `node --test test/*.test.js`
+- [x] `node --test test/*.test.js`
 - [ ] `VIBEUSAGE_INSFORGE_BASE_URL=... VIBEUSAGE_SERVICE_ROLE_KEY=... node scripts/ops/insforge2-db-validate.cjs`
