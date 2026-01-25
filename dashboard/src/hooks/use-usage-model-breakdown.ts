@@ -2,11 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getUsageModelBreakdown } from "../lib/vibeusage-api";
 import { isMockEnabled } from "../lib/mock-data";
+import { isAccessTokenReady, resolveAuthAccessToken } from "../lib/auth-token";
 import { getTimeZoneCacheKey } from "../lib/timezone";
 
 export function useUsageModelBreakdown({
   baseUrl,
   accessToken,
+  guestAllowed = false,
   from,
   to,
   cacheKey,
@@ -18,6 +20,7 @@ export function useUsageModelBreakdown({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mockEnabled = isMockEnabled();
+  const tokenReady = isAccessTokenReady(accessToken);
 
   const storageKey = useMemo(() => {
     if (!cacheKey) return null;
@@ -52,13 +55,14 @@ export function useUsageModelBreakdown({
   );
 
   const refresh = useCallback(async () => {
-    if (!accessToken && !mockEnabled) return;
+    const resolvedToken = await resolveAuthAccessToken(accessToken);
+    if (!resolvedToken && !guestAllowed && !mockEnabled) return;
     setLoading(true);
     setError(null);
     try {
       const res = await getUsageModelBreakdown({
         baseUrl,
-        accessToken,
+        accessToken: resolvedToken,
         from,
         to,
         timeZone,
@@ -84,10 +88,22 @@ export function useUsageModelBreakdown({
     } finally {
       setLoading(false);
     }
-  }, [accessToken, baseUrl, from, mockEnabled, readCache, timeZone, to, tzOffsetMinutes, writeCache]);
+  }, [
+    accessToken,
+    baseUrl,
+    from,
+    mockEnabled,
+    guestAllowed,
+    readCache,
+    timeZone,
+    to,
+    tokenReady,
+    tzOffsetMinutes,
+    writeCache,
+  ]);
 
   useEffect(() => {
-    if (!accessToken && !mockEnabled) {
+    if (!tokenReady && !guestAllowed && !mockEnabled) {
       setBreakdown(null);
       setSource("edge");
       setError(null);
@@ -100,7 +116,7 @@ export function useUsageModelBreakdown({
       setSource("cache");
     }
     refresh();
-  }, [accessToken, mockEnabled, readCache, refresh]);
+  }, [accessToken, mockEnabled, readCache, refresh, tokenReady, guestAllowed]);
 
   const normalizedSource = mockEnabled ? "mock" : source;
 

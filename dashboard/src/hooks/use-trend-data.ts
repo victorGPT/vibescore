@@ -7,6 +7,7 @@ import {
 } from "../lib/vibeusage-api";
 import { formatDateLocal, formatDateUTC } from "../lib/date-range";
 import { isMockEnabled } from "../lib/mock-data";
+import { isAccessTokenReady, resolveAuthAccessToken } from "../lib/auth-token";
 import { getLocalDayKey, getTimeZoneCacheKey } from "../lib/timezone";
 
 const DEFAULT_MONTHS = 24;
@@ -15,6 +16,7 @@ type AnyRecord = Record<string, any>;
 export function useTrendData({
   baseUrl,
   accessToken,
+  guestAllowed = false,
   period,
   from,
   to,
@@ -33,6 +35,7 @@ export function useTrendData({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mockEnabled = isMockEnabled();
+  const tokenReady = isAccessTokenReady(accessToken);
   const sharedEnabled = Array.isArray(sharedRows);
   const sharedFrom = sharedRange?.from || from;
   const sharedTo = sharedRange?.to || to;
@@ -94,7 +97,8 @@ export function useTrendData({
       setError(null);
       return;
     }
-    if (!accessToken && !mockEnabled) return;
+    const resolvedToken = await resolveAuthAccessToken(accessToken);
+    if (!resolvedToken && !guestAllowed && !mockEnabled) return;
     setLoading(true);
     setError(null);
     try {
@@ -103,7 +107,7 @@ export function useTrendData({
         const day = to || from;
         response = await getUsageHourly({
           baseUrl,
-          accessToken,
+          accessToken: resolvedToken,
           day,
           timeZone,
           tzOffsetMinutes,
@@ -111,7 +115,7 @@ export function useTrendData({
       } else if (mode === "monthly") {
         response = await getUsageMonthly({
           baseUrl,
-          accessToken,
+          accessToken: resolvedToken,
           months,
           to,
           timeZone,
@@ -120,7 +124,7 @@ export function useTrendData({
       } else {
         response = await getUsageDaily({
           baseUrl,
-          accessToken,
+          accessToken: resolvedToken,
           from,
           to,
           timeZone,
@@ -211,9 +215,11 @@ export function useTrendData({
     baseUrl,
     from,
     mockEnabled,
+    guestAllowed,
     mode,
     months,
     readCache,
+    tokenReady,
     sharedEnabled,
     sharedFrom,
     sharedRows,
@@ -235,7 +241,7 @@ export function useTrendData({
       setError(null);
       return;
     }
-    if (!accessToken && !mockEnabled) {
+    if (!tokenReady && !guestAllowed && !mockEnabled) {
       setRows([]);
       setRange({ from, to });
       setError(null);
@@ -275,7 +281,18 @@ export function useTrendData({
       setFetchedAt(cached.fetchedAt || null);
     }
     refresh();
-  }, [accessToken, mockEnabled, readCache, refresh, sharedEnabled, sharedFrom, sharedRows, sharedTo]);
+  }, [
+    accessToken,
+    mockEnabled,
+    readCache,
+    refresh,
+    sharedEnabled,
+    sharedFrom,
+    sharedRows,
+    sharedTo,
+    tokenReady,
+    guestAllowed,
+  ]);
 
   const normalizedSource = mockEnabled ? "mock" : source;
 

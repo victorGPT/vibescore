@@ -3,11 +3,13 @@ import { useCallback, useEffect, useState } from "react";
 import { getUsageDaily, getUsageSummary } from "../lib/vibeusage-api";
 import { formatDateLocal, formatDateUTC } from "../lib/date-range";
 import { isMockEnabled } from "../lib/mock-data";
+import { isAccessTokenReady, resolveAuthAccessToken } from "../lib/auth-token";
 import { getLocalDayKey, getTimeZoneCacheKey } from "../lib/timezone";
 
 export function useUsageData({
   baseUrl,
   accessToken,
+  guestAllowed = false,
   from,
   to,
   includeDaily = true,
@@ -23,6 +25,7 @@ export function useUsageData({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mockEnabled = isMockEnabled();
+  const tokenReady = isAccessTokenReady(accessToken);
 
   const storageKey = (() => {
     if (!cacheKey) return null;
@@ -58,16 +61,31 @@ export function useUsageData({
   );
 
   const refresh = useCallback(async () => {
-    if (!accessToken && !mockEnabled) return;
+    const resolvedToken = await resolveAuthAccessToken(accessToken);
+    if (!resolvedToken && !guestAllowed && !mockEnabled) return;
     setLoading(true);
     setError(null);
     try {
       let dailyRes = null;
       let summaryRes = null;
       if (includeDaily) {
-        dailyRes = await getUsageDaily({ baseUrl, accessToken, from, to, timeZone, tzOffsetMinutes });
+        dailyRes = await getUsageDaily({
+          baseUrl,
+          accessToken: resolvedToken,
+          from,
+          to,
+          timeZone,
+          tzOffsetMinutes,
+        });
       } else {
-        summaryRes = await getUsageSummary({ baseUrl, accessToken, from, to, timeZone, tzOffsetMinutes });
+        summaryRes = await getUsageSummary({
+          baseUrl,
+          accessToken: resolvedToken,
+          from,
+          to,
+          timeZone,
+          tzOffsetMinutes,
+        });
       }
 
       let nextDaily =
@@ -83,11 +101,11 @@ export function useUsageData({
       if (includeDaily && !nextSummary) {
         const fallback = await getUsageSummary({
           baseUrl,
-          accessToken,
+          accessToken: resolvedToken,
           from,
           to,
           timeZone,
-          tzOffsetMinutes
+          tzOffsetMinutes,
         });
         nextSummary = fallback?.totals || null;
       }
@@ -141,8 +159,10 @@ export function useUsageData({
     from,
     includeDaily,
     mockEnabled,
+    guestAllowed,
     now,
     readCache,
+    tokenReady,
     timeZone,
     to,
     tzOffsetMinutes,
@@ -150,7 +170,7 @@ export function useUsageData({
   ]);
 
   useEffect(() => {
-    if (!accessToken && !mockEnabled) {
+    if (!tokenReady && !guestAllowed && !mockEnabled) {
       setDaily([]);
       setSummary(null);
       setError(null);
@@ -175,7 +195,7 @@ export function useUsageData({
       setFetchedAt(cached.fetchedAt || null);
     }
     refresh();
-  }, [accessToken, mockEnabled, readCache, refresh]);
+  }, [accessToken, mockEnabled, readCache, refresh, tokenReady, guestAllowed]);
 
   const normalizedSource = mockEnabled ? "mock" : source;
 

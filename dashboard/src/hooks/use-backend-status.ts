@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { probeBackend } from "../lib/vibeusage-api";
+import type { AuthTokenProvider } from "../lib/auth-token";
+import { resolveAuthAccessToken } from "../lib/auth-token";
 import {
   createProbeCadence,
   DEFAULT_PROBE_INTERVAL_MS,
@@ -8,7 +10,7 @@ import {
 
 type UseBackendStatusOptions = {
   baseUrl?: string;
-  accessToken?: string;
+  accessToken?: AuthTokenProvider;
   intervalMs?: number;
   timeoutMs?: number;
   retryDelayMs?: number;
@@ -96,6 +98,20 @@ export function useBackendStatus({
       return;
     }
 
+    const resolvedToken = await resolveAuthAccessToken(accessToken);
+    if (!resolvedToken) {
+      setStatus("unknown");
+      setChecking(false);
+      setHttpStatus(null);
+      setLastCheckedAt(new Date().toISOString());
+      setError(null);
+      applyCadence(outcome);
+      if (reschedule && scheduleNextRef.current) {
+        scheduleNextRef.current(nextDelayRef.current);
+      }
+      return;
+    }
+
     if (inFlightRef.current) {
       if (reschedule && scheduleNextRef.current) {
         scheduleNextRef.current(nextDelayRef.current);
@@ -109,7 +125,7 @@ export function useBackendStatus({
     try {
       const result = await probeWithRetry({
         baseUrl,
-        accessToken,
+        accessToken: resolvedToken,
         timeoutMs,
         retryDelayMs,
       });
@@ -219,7 +235,7 @@ async function probeWithRetry({
   retryDelayMs,
 }: {
   baseUrl: string;
-  accessToken?: string;
+  accessToken?: AuthTokenProvider;
   timeoutMs: number;
   retryDelayMs: number;
 }): Promise<ProbeResult> {
@@ -238,7 +254,7 @@ async function probeOnce({
   timeoutMs,
 }: {
   baseUrl: string;
-  accessToken?: string;
+  accessToken?: AuthTokenProvider;
   timeoutMs: number;
 }): Promise<ProbeResult> {
   const controller = new AbortController();

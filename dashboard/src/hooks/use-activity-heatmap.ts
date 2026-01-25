@@ -6,12 +6,14 @@ import {
   getHeatmapRangeLocal,
 } from "../lib/activity-heatmap";
 import { isMockEnabled } from "../lib/mock-data";
+import { isAccessTokenReady, resolveAuthAccessToken } from "../lib/auth-token";
 import { getUsageDaily, getUsageHeatmap } from "../lib/vibeusage-api";
 import { getTimeZoneCacheKey } from "../lib/timezone";
 
 export function useActivityHeatmap({
   baseUrl,
   accessToken,
+  guestAllowed = false,
   weeks = 52,
   weekStartsOn = "sun",
   cacheKey,
@@ -28,6 +30,7 @@ export function useActivityHeatmap({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mockEnabled = isMockEnabled();
+  const tokenReady = isAccessTokenReady(accessToken);
 
   const storageKey = useMemo(() => {
     if (!cacheKey) return null;
@@ -61,14 +64,15 @@ export function useActivityHeatmap({
   );
 
   const refresh = useCallback(async () => {
-    if (!accessToken && !mockEnabled) return;
+    const resolvedToken = await resolveAuthAccessToken(accessToken);
+    if (!resolvedToken && !guestAllowed && !mockEnabled) return;
     setLoading(true);
     setError(null);
     try {
       try {
         const res = await getUsageHeatmap({
           baseUrl,
-          accessToken,
+          accessToken: resolvedToken,
           weeks,
           to: range.to,
           weekStartsOn,
@@ -159,7 +163,7 @@ export function useActivityHeatmap({
 
       const dailyRes = await getUsageDaily({
         baseUrl,
-        accessToken,
+        accessToken: resolvedToken,
         from: range.from,
         to: range.to,
         timeZone,
@@ -215,9 +219,11 @@ export function useActivityHeatmap({
     accessToken,
     baseUrl,
     mockEnabled,
+    guestAllowed,
     range.from,
     range.to,
     readCache,
+    tokenReady,
     timeZone,
     tzOffsetMinutes,
     weekStartsOn,
@@ -226,7 +232,7 @@ export function useActivityHeatmap({
   ]);
 
   useEffect(() => {
-    if (!accessToken && !mockEnabled) {
+    if (!tokenReady && !guestAllowed && !mockEnabled) {
       setDaily([]);
       setLoading(false);
       setError(null);
@@ -241,7 +247,7 @@ export function useActivityHeatmap({
       setSource("cache");
     }
     refresh();
-  }, [accessToken, mockEnabled, readCache, refresh]);
+  }, [accessToken, mockEnabled, readCache, refresh, tokenReady, guestAllowed]);
 
   const normalizedSource = mockEnabled
     ? "mock"
