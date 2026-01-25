@@ -16,8 +16,7 @@ const {
   BILLABLE_RULE_VERSION,
   buildRows,
   deriveMetricsSource,
-  normalizeHourlyPayload,
-  toNonNegativeInt
+  normalizeHourlyPayload
 } = require('../shared/core/ingest');
 const {
   buildAuthHeaders,
@@ -129,7 +128,7 @@ module.exports = withRequestLogging('vibeusage-ingest', async function(request, 
       bucketCount: rows.data.length,
       inserted: upsert.inserted,
       skipped: upsert.skipped,
-        source: deriveMetricsSource(rows.data),
+      source: deriveMetricsSource(rows.data),
       fetcher
     });
 
