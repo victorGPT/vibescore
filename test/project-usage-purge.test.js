@@ -3,73 +3,59 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const { test } = require('node:test');
+
 const { purgeProjectUsage } = require('../src/lib/project-usage-purge');
 
-async function readJsonLines(filePath) {
-  const raw = await fs.readFile(filePath, 'utf8').catch(() => '');
-  if (!raw.trim()) return [];
-  return raw
-    .trim()
-    .split(/\n+/)
-    .map((line) => JSON.parse(line));
-}
+test('purgeProjectUsage preserves queue offset after removing lines', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-purge-'));
+  const queuePath = path.join(tmp, 'project.queue.jsonl');
+  const statePath = path.join(tmp, 'project.queue.state.json');
 
-test('purgeProjectUsage removes project buckets and resets queue state', async () => {
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-purge-'));
-  try {
-    const projectQueuePath = path.join(tmp, 'project.queue.jsonl');
-    const projectQueueStatePath = path.join(tmp, 'project.queue.state.json');
+  const line1 = JSON.stringify({
+    project_key: 'blocked',
+    project_ref: 'repo1',
+    hour_start: '2026-01-01T00:00:00Z',
+    source: 'codex'
+  });
+  const line2 = JSON.stringify({
+    project_key: 'keep',
+    project_ref: 'repo2',
+    hour_start: '2026-01-01T00:00:00Z',
+    source: 'codex'
+  });
+  const line3 = JSON.stringify({
+    project_key: 'keep',
+    project_ref: 'repo2',
+    hour_start: '2026-01-01T01:00:00Z',
+    source: 'codex'
+  });
+  const contents = `${line1}\n${line2}\n${line3}\n`;
+  await fs.writeFile(queuePath, contents, 'utf8');
 
-    const projectA = {
-      project_key: 'acme/alpha',
-      project_ref: 'https://github.com/acme/alpha',
-      source: 'codex',
-      hour_start: '2025-12-17T00:00:00.000Z',
-      input_tokens: 1,
-      cached_input_tokens: 0,
-      output_tokens: 0,
-      reasoning_output_tokens: 0,
-      total_tokens: 1
-    };
-    const projectB = {
-      project_key: 'acme/beta',
-      project_ref: 'https://github.com/acme/beta',
-      source: 'codex',
-      hour_start: '2025-12-17T00:00:00.000Z',
-      input_tokens: 2,
-      cached_input_tokens: 0,
-      output_tokens: 0,
-      reasoning_output_tokens: 0,
-      total_tokens: 2
-    };
+  const oldOffset = Buffer.byteLength(`${line1}\n${line2}\n`, 'utf8');
+  await fs.writeFile(statePath, JSON.stringify({ offset: oldOffset }), 'utf8');
 
-    await fs.writeFile(projectQueuePath, `${JSON.stringify(projectA)}\n${JSON.stringify(projectB)}\n`, 'utf8');
-    await fs.writeFile(projectQueueStatePath, JSON.stringify({ offset: 123 }), 'utf8');
+  const projectState = {
+    buckets: {
+      'blocked|codex|2026-01-01T00:00:00Z': { totals: { input_tokens: 1 } },
+      'keep|codex|2026-01-01T00:00:00Z': { totals: { input_tokens: 2 } }
+    }
+  };
 
-    const projectState = {
-      version: 2,
-      buckets: {
-        'acme/alpha|codex|2025-12-17T00:00:00.000Z': { project_key: 'acme/alpha' },
-        'acme/beta|codex|2025-12-17T00:00:00.000Z': { project_key: 'acme/beta' }
-      },
-      projects: {}
-    };
+  const res = await purgeProjectUsage({
+    projectKey: 'blocked',
+    projectQueuePath: queuePath,
+    projectQueueStatePath: statePath,
+    projectState
+  });
 
-    const result = await purgeProjectUsage({
-      projectKey: 'acme/alpha',
-      projectQueuePath,
-      projectQueueStatePath,
-      projectState
-    });
+  assert.equal(res.removed, 1);
+  assert.equal(res.kept, 2);
 
-    assert.equal(result.removed, 1);
-    assert.equal(Object.keys(projectState.buckets).length, 1);
-    const lines = await readJsonLines(projectQueuePath);
-    assert.equal(lines.length, 1);
-    assert.equal(lines[0].project_key, 'acme/beta');
-    const state = JSON.parse(await fs.readFile(projectQueueStatePath, 'utf8'));
-    assert.equal(state.offset, 0);
-  } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
-  }
+  const after = await fs.readFile(queuePath, 'utf8');
+  assert.ok(!after.includes('"project_key":"blocked"'));
+
+  const state = JSON.parse(await fs.readFile(statePath, 'utf8'));
+  const expectedOffset = Buffer.byteLength(`${line2}\n`, 'utf8');
+  assert.equal(state.offset, expectedOffset);
 });

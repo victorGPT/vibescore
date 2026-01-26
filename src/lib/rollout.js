@@ -1615,9 +1615,10 @@ async function readGitRemoteUrl(configPath) {
   const remotes = new Map();
   let current = null;
   for (const line of raw.split(/\r?\n/)) {
-    const sectionMatch = line.match(/^\s*\[remote\s+"([^"]+)"\]\s*$/i);
-    if (sectionMatch) {
-      current = sectionMatch[1];
+    const sectionHeader = line.match(/^\s*\[[^\]]+\]\s*$/);
+    if (sectionHeader) {
+      const sectionMatch = line.match(/^\s*\[remote\s+"([^"]+)"\]\s*$/i);
+      current = sectionMatch ? sectionMatch[1] : null;
       continue;
     }
     if (!current) continue;
