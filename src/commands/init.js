@@ -600,11 +600,36 @@ const trackerBinPath = ${JSON.stringify(trackerBinPath)};
 const fallbackPkg = ${JSON.stringify(fallbackPkg)};
 const selfPath = path.resolve(__filename);
 const home = os.homedir();
+const debugLogPath = path.join(trackerDir, 'notify.debug.jsonl');
+const debugEnabled = ['1', 'true'].includes((process.env.VIBEUSAGE_NOTIFY_DEBUG || '').toLowerCase());
+const debugMaxBytesRaw = Number.parseInt(process.env.VIBEUSAGE_NOTIFY_DEBUG_MAX_BYTES || '', 10);
+const debugMaxBytes = Number.isFinite(debugMaxBytesRaw) && debugMaxBytesRaw > 0
+  ? debugMaxBytesRaw
+  : 1_000_000;
 
 try {
   fs.mkdirSync(trackerDir, { recursive: true });
   fs.writeFileSync(signalPath, new Date().toISOString(), { encoding: 'utf8' });
 } catch (_) {}
+
+if (debugEnabled) {
+  try {
+    let size = 0;
+    try {
+      size = fs.statSync(debugLogPath).size;
+    } catch (err) {
+      if (err && err.code !== 'ENOENT') throw err;
+    }
+    if (size < debugMaxBytes) {
+      const entry = {
+        ts: new Date().toISOString(),
+        source,
+        cwd: process.cwd()
+      };
+      fs.appendFileSync(debugLogPath, JSON.stringify(entry) + os.EOL, 'utf8');
+    }
+  } catch (_) {}
+}
 
 // Throttle spawn: at most once per 20 seconds.
 try {

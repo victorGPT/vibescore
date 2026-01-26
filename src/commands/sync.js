@@ -24,6 +24,7 @@ const {
   recordUploadSuccess,
   recordUploadFailure
 } = require('../lib/upload-throttle');
+const { purgeProjectUsage } = require('../lib/project-usage-purge');
 const { resolveTrackerPaths } = require('../lib/tracker-paths');
 const { resolveRuntimeConfig } = require('../lib/runtime-config');
 
@@ -45,6 +46,8 @@ async function cmdSync(argv) {
     const cursorsPath = path.join(trackerDir, 'cursors.json');
     const queuePath = path.join(trackerDir, 'queue.jsonl');
     const queueStatePath = path.join(trackerDir, 'queue.state.json');
+    const projectQueuePath = path.join(trackerDir, 'project.queue.jsonl');
+    const projectQueueStatePath = path.join(trackerDir, 'project.queue.state.json');
     const uploadThrottlePath = path.join(trackerDir, 'upload.throttle.json');
 
     const config = await readJson(configPath);
@@ -85,6 +88,7 @@ async function cmdSync(argv) {
       rolloutFiles,
       cursors,
       queuePath,
+      projectQueuePath,
       onProgress: (p) => {
         if (!progress?.enabled) return;
         const pct = p.total > 0 ? p.index / p.total : 1;
@@ -106,6 +110,7 @@ async function cmdSync(argv) {
         projectFiles: claudeFiles,
         cursors,
         queuePath,
+        projectQueuePath,
         onProgress: (p) => {
           if (!progress?.enabled) return;
           const pct = p.total > 0 ? p.index / p.total : 1;
@@ -129,6 +134,7 @@ async function cmdSync(argv) {
         sessionFiles: geminiFiles,
         cursors,
         queuePath,
+        projectQueuePath,
         onProgress: (p) => {
           if (!progress?.enabled) return;
           const pct = p.total > 0 ? p.index / p.total : 1;
@@ -152,6 +158,7 @@ async function cmdSync(argv) {
         messageFiles: opencodeFiles,
         cursors,
         queuePath,
+        projectQueuePath,
         onProgress: (p) => {
           if (!progress?.enabled) return;
           const pct = p.total > 0 ? p.index / p.total : 1;
@@ -163,6 +170,21 @@ async function cmdSync(argv) {
         },
         source: 'opencode'
       });
+    }
+
+    if (cursors?.projectHourly?.projects && projectQueuePath && projectQueueStatePath) {
+      for (const [projectKey, meta] of Object.entries(cursors.projectHourly.projects)) {
+        if (!meta || typeof meta !== 'object') continue;
+        if (meta.status !== 'blocked' || !meta.purge_pending) continue;
+        await purgeProjectUsage({
+          projectKey,
+          projectQueuePath,
+          projectQueueStatePath,
+          projectState: cursors.projectHourly
+        });
+        meta.purge_pending = false;
+        meta.purged_at = new Date().toISOString();
+      }
     }
 
     cursors.updatedAt = new Date().toISOString();
@@ -178,8 +200,12 @@ async function cmdSync(argv) {
     let uploadAttempted = false;
     if (deviceToken) {
       const beforeState = (await readJson(queueStatePath)) || { offset: 0 };
+      const projectBeforeState = (await readJson(projectQueueStatePath)) || { offset: 0 };
       const queueSize = await safeStatSize(queuePath);
-      const pendingBytes = Math.max(0, queueSize - Number(beforeState.offset || 0));
+      const projectQueueSize = await safeStatSize(projectQueuePath);
+      const pendingBytes =
+        Math.max(0, queueSize - Number(beforeState.offset || 0)) +
+        Math.max(0, projectQueueSize - Number(projectBeforeState.offset || 0));
       let maxBatches = opts.auto ? 3 : opts.drain ? 10_000 : 10;
       let batchSize = UPLOAD_DEFAULTS.batchSize;
       let allowUpload = pendingBytes > 0;
@@ -208,9 +234,11 @@ async function cmdSync(argv) {
       }
 
       if (progress?.enabled && pendingBytes > 0 && allowUpload) {
-        const pct = queueSize > 0 ? Number(beforeState.offset || 0) / queueSize : 0;
+        const totalSize = queueSize + projectQueueSize;
+        const totalOffset = Number(beforeState.offset || 0) + Number(projectBeforeState.offset || 0);
+        const pct = totalSize > 0 ? totalOffset / totalSize : 0;
         progress.start(
-          `Uploading ${renderBar(pct)} ${formatBytes(Number(beforeState.offset || 0))}/${formatBytes(queueSize)} | inserted 0 skipped 0`
+          `Uploading ${renderBar(pct)} ${formatBytes(totalOffset)}/${formatBytes(totalSize)} | inserted 0 skipped 0`
         );
       }
 
@@ -222,6 +250,8 @@ async function cmdSync(argv) {
             deviceToken,
             queuePath,
             queueStatePath,
+            projectQueuePath,
+            projectQueueStatePath,
             maxBatches,
             batchSize,
             onProgress: (u) => {
@@ -267,7 +297,11 @@ async function cmdSync(argv) {
 
     const afterState = (await readJson(queueStatePath)) || { offset: 0 };
     const queueSize = await safeStatSize(queuePath);
-    const pendingBytes = Math.max(0, queueSize - Number(afterState.offset || 0));
+    const projectAfterState = (await readJson(projectQueueStatePath)) || { offset: 0 };
+    const projectQueueSize = await safeStatSize(projectQueuePath);
+    const pendingBytes =
+      Math.max(0, queueSize - Number(afterState.offset || 0)) +
+      Math.max(0, projectQueueSize - Number(projectAfterState.offset || 0));
 
     if (pendingBytes <= 0) {
       await clearAutoRetry(trackerDir);

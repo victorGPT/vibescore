@@ -671,6 +671,115 @@ test('vibeusage-ingest uses serviceRoleKey as edgeFunctionToken and ingests hour
   assert.equal(serviceClientCall.anonKey, ANON_KEY);
 });
 
+test('vibeusage-ingest ingests project_hourly buckets and upserts project registry', async () => {
+  const fn = require('../insforge-functions/vibeusage-ingest');
+
+  const calls = [];
+  const fetchCalls = [];
+
+  const tokenRow = {
+    id: 'token-id',
+    user_id: '33333333-3333-3333-3333-333333333333',
+    device_id: '44444444-4444-4444-4444-444444444444',
+    revoked_at: null
+  };
+
+  function from(table) {
+    if (table === 'vibeusage_tracker_device_tokens') {
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: tokenRow, error: null })
+          })
+        }),
+        update: () => ({ eq: async () => ({ error: null }) })
+      };
+    }
+
+    if (table === 'vibeusage_tracker_devices') {
+      return {
+        update: () => ({ eq: async () => ({ error: null }) })
+      };
+    }
+
+    throw new Error(`Unexpected table: ${table}`);
+  }
+
+  globalThis.createClient = (args) => {
+    calls.push(args);
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return { database: { from } };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  globalThis.fetch = async (url, init) => {
+    fetchCalls.push({ url, init });
+    const u = new URL(url);
+
+    if (u.pathname.endsWith('/api/database/records/vibeusage_project_usage_hourly')) {
+      return new Response(JSON.stringify([{ hour_start: '2025-12-17T00:00:00.000Z' }]), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (u.pathname.endsWith('/api/database/records/vibeusage_projects')) {
+      return new Response(JSON.stringify([{ project_key: 'https://github.com/acme/alpha' }]), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    return new Response('not found', { status: 404 });
+  };
+
+  const deviceToken = 'device_token_test';
+  const projectBucket = {
+    project_ref: 'https://github.com/acme/alpha',
+    project_key: 'https://github.com/acme/alpha',
+    source: 'claude',
+    hour_start: new Date('2025-12-17T00:00:00.000Z').toISOString(),
+    input_tokens: 3,
+    cached_input_tokens: 2,
+    output_tokens: 1,
+    reasoning_output_tokens: 0,
+    total_tokens: 6
+  };
+
+  const req = new Request('http://localhost/functions/vibeusage-ingest', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deviceToken}` },
+    body: JSON.stringify({ hourly: [], project_hourly: [projectBucket] })
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+
+  const data = await res.json();
+  assert.deepEqual(data, { success: true, inserted: 1, skipped: 0 });
+
+  const projectUsageCall = fetchCalls.find((call) =>
+    String(call.url).includes('/api/database/records/vibeusage_project_usage_hourly')
+  );
+  assert.ok(projectUsageCall, 'project usage upsert missing');
+  const usageUrl = new URL(projectUsageCall.url);
+  assert.equal(usageUrl.searchParams.get('on_conflict'), 'user_id,project_key,hour_start,source');
+
+  const usageRows = JSON.parse(projectUsageCall.init?.body || '[]');
+  assert.equal(usageRows.length, 1);
+  assert.equal(usageRows[0]?.project_ref, projectBucket.project_ref);
+  assert.equal(usageRows[0]?.project_key, projectBucket.project_key);
+  assert.equal(usageRows[0]?.billable_total_tokens, '6');
+
+  const projectRegistryCall = fetchCalls.find((call) =>
+    String(call.url).includes('/api/database/records/vibeusage_projects')
+  );
+  assert.ok(projectRegistryCall, 'project registry upsert missing');
+  const registryUrl = new URL(projectRegistryCall.url);
+  assert.equal(registryUrl.searchParams.get('on_conflict'), 'user_id,project_key');
+});
+
 test('vibeusage-ingest accepts wrapped payload with data.hourly', async () => {
   const fn = require('../insforge-functions/vibeusage-ingest');
 
