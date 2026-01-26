@@ -2834,6 +2834,107 @@ test('vibeusage-usage-summary returns rolling metrics when requested', () =>
     assert.equal(body.rolling.last_30d.window_days, 30);
   }));
 
+test('vibeusage-usage-summary clamps rolling windows to UTC yesterday', () =>
+  withRollupDisabled(async () => {
+    const fn = require('../insforge-functions/vibeusage-usage-summary');
+
+    const userId = '99999999-9999-9999-9999-999999999999';
+    const userJwt = 'user_jwt_test';
+
+    const rows = [
+      {
+        hour_start: '2025-12-19T12:00:00.000Z',
+        source: 'codex',
+        model: 'gpt-4o',
+        billable_total_tokens: '100',
+        total_tokens: '120',
+        input_tokens: '40',
+        cached_input_tokens: '10',
+        output_tokens: '50',
+        reasoning_output_tokens: '20'
+      },
+      {
+        hour_start: '2025-12-21T00:00:00.000Z',
+        source: 'codex',
+        model: 'gpt-4o',
+        billable_total_tokens: '50',
+        total_tokens: '60',
+        input_tokens: '20',
+        cached_input_tokens: '5',
+        output_tokens: '25',
+        reasoning_output_tokens: '10'
+      }
+    ];
+
+    globalThis.createClient = (args) => {
+      if (args && args.edgeFunctionToken === userJwt) {
+        return {
+          auth: {
+            getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+          },
+          database: {
+            from: (table) => {
+              if (table === 'vibeusage_tracker_hourly') {
+                const query = createQueryMock({ rows });
+                return { select: () => query };
+              }
+              if (table === 'vibeusage_model_aliases') {
+                return createQueryMock({ rows: [] });
+              }
+              if (table === 'vibeusage_pricing_profiles') {
+                return createQueryMock({ rows: [] });
+              }
+              if (table === 'vibeusage_pricing_model_aliases') {
+                return createQueryMock({ rows: [] });
+              }
+              throw new Error(`Unexpected table ${table}`);
+            }
+          }
+        };
+      }
+      throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+    };
+
+    const RealDate = globalThis.Date;
+    const fixedNow = new RealDate('2025-12-22T10:00:00.000Z');
+    globalThis.Date = class extends RealDate {
+      constructor(...args) {
+        if (args.length === 0) return new RealDate(fixedNow);
+        return new RealDate(...args);
+      }
+      static now() {
+        return fixedNow.getTime();
+      }
+      static UTC(...args) {
+        return RealDate.UTC(...args);
+      }
+      static parse(str) {
+        return RealDate.parse(str);
+      }
+    };
+
+    try {
+      const req = new Request(
+        'http://localhost/functions/vibeusage-usage-summary?from=2025-12-21&to=2025-12-25&rolling=1',
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${userJwt}` }
+        }
+      );
+
+      const res = await fn(req);
+      assert.equal(res.status, 200);
+      const body = await res.json();
+      assert.ok(body.rolling);
+      assert.equal(body.rolling.last_7d.to, '2025-12-21');
+      assert.equal(body.rolling.last_30d.to, '2025-12-21');
+      assert.equal(body.rolling.last_7d.from, '2025-12-15');
+      assert.equal(body.rolling.last_30d.from, '2025-11-22');
+    } finally {
+      globalThis.Date = RealDate;
+    }
+  }));
+
 test('vibeusage-usage-summary returns total_cost_usd and pricing metadata', () =>
   withRollupEnabled(async () => {
     const fn = require('../insforge-functions/vibeusage-usage-summary');
