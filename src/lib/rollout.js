@@ -137,7 +137,10 @@ async function parseRolloutIncremental({
       projectState,
       projectTouchedBuckets,
       projectRef,
-      projectKey
+      projectKey,
+      projectMetaCache,
+      publicRepoCache,
+      publicRepoResolver
     });
 
     cursors.files[key] = {
@@ -535,7 +538,10 @@ async function parseRolloutFile({
   projectState,
   projectTouchedBuckets,
   projectRef,
-  projectKey
+  projectKey,
+  projectMetaCache,
+  publicRepoCache,
+  publicRepoResolver
 }) {
   const st = await fs.stat(filePath);
   const endOffset = st.size;
@@ -548,12 +554,16 @@ async function parseRolloutFile({
 
   let model = typeof lastModel === 'string' ? lastModel : null;
   let totals = lastTotal && typeof lastTotal === 'object' ? lastTotal : null;
+  let currentCwd = null;
+  let currentProjectRef = projectRef || null;
+  let currentProjectKey = projectKey || null;
   let eventsAggregated = 0;
 
   for await (const line of rl) {
     if (!line) continue;
     const maybeTokenCount = line.includes('"token_count"');
-    const maybeTurnContext = !maybeTokenCount && line.includes('"turn_context"') && line.includes('"model"');
+    const maybeTurnContext =
+      !maybeTokenCount && line.includes('"turn_context"') && (line.includes('"model"') || line.includes('"cwd"'));
     if (!maybeTokenCount && !maybeTurnContext) continue;
 
     let obj;
@@ -563,8 +573,25 @@ async function parseRolloutFile({
       continue;
     }
 
-    if (obj?.type === 'turn_context' && obj?.payload && typeof obj.payload.model === 'string') {
-      model = obj.payload.model;
+    if (obj?.type === 'turn_context' && obj?.payload && typeof obj.payload === 'object') {
+      if (typeof obj.payload.model === 'string') {
+        model = obj.payload.model;
+      }
+      if (projectState && typeof obj.payload.cwd === 'string') {
+        const nextCwd = obj.payload.cwd.trim();
+        if (nextCwd && nextCwd !== currentCwd) {
+          const context = await resolveProjectContextForPath({
+            startDir: nextCwd,
+            projectMetaCache,
+            publicRepoCache,
+            publicRepoResolver,
+            projectState
+          });
+          currentCwd = nextCwd;
+          currentProjectRef = context?.projectRef || null;
+          currentProjectKey = context?.projectKey || null;
+        }
+      }
       continue;
     }
 
@@ -593,10 +620,16 @@ async function parseRolloutFile({
     const bucket = getHourlyBucket(hourlyState, source, model, bucketStart);
     addTotals(bucket.totals, delta);
     touchedBuckets.add(bucketKey(source, model, bucketStart));
-    if (projectKey && projectState && projectTouchedBuckets) {
-      const projectBucket = getProjectBucket(projectState, projectKey, source, bucketStart, projectRef);
+    if (currentProjectKey && projectState && projectTouchedBuckets) {
+      const projectBucket = getProjectBucket(
+        projectState,
+        currentProjectKey,
+        source,
+        bucketStart,
+        currentProjectRef
+      );
       addTotals(projectBucket.totals, delta);
-      projectTouchedBuckets.add(projectBucketKey(projectKey, source, bucketStart));
+      projectTouchedBuckets.add(projectBucketKey(currentProjectKey, source, bucketStart));
     }
     eventsAggregated += 1;
   }
@@ -1560,7 +1593,24 @@ async function resolveProjectContextForFile({
   projectState
 }) {
   if (!filePath) return null;
-  const projectMeta = await resolveProjectMetaForPath(path.dirname(filePath), projectMetaCache);
+  return resolveProjectContextForPath({
+    startDir: path.dirname(filePath),
+    projectMetaCache,
+    publicRepoCache,
+    publicRepoResolver,
+    projectState
+  });
+}
+
+async function resolveProjectContextForPath({
+  startDir,
+  projectMetaCache,
+  publicRepoCache,
+  publicRepoResolver,
+  projectState
+}) {
+  if (!startDir) return null;
+  const projectMeta = await resolveProjectMetaForPath(startDir, projectMetaCache);
   if (!projectMeta || !projectMeta.projectRef) return null;
   const resolver = typeof publicRepoResolver === 'function' ? publicRepoResolver : defaultPublicRepoResolver;
   const meta = await resolver({
