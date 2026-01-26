@@ -688,7 +688,7 @@
       "id": "test_fs-strict-json_test_5cb38eb5",
       "type": "text",
       "text": "**fs-strict-json.test**\n`test/fs-strict-json.test.js`\n\nTest module.\n\n包含：\n- fs-strict-json.test (29 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
-      "x": 2980,
+      "x": 1900,
       "y": 12104,
       "width": 280,
       "height": 232,
@@ -705,7 +705,7 @@
       "id": "test_github-star-header-typography_test_87f99f17",
       "type": "text",
       "text": "**github-star-header-typography.test**\n`test/github-star-header-typography.test.js`\n\nTest module.\n\n包含：\n- github-star-header-typography.test (42 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
-      "x": 3340,
+      "x": 2260,
       "y": 12104,
       "width": 280,
       "height": 232,
@@ -722,8 +722,8 @@
       "id": "test_github-star-screenshot_test_6a3d992e",
       "type": "text",
       "text": "**github-star-screenshot.test**\n`test/github-star-screenshot.test.js`\n\nTest module.\n\n包含：\n- github-star-screenshot.test (26 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
-      "x": 100,
-      "y": 12464,
+      "x": 2620,
+      "y": 12104,
       "width": 280,
       "height": 232,
       "color": "2",
@@ -738,9 +738,9 @@
     {
       "id": "test_graph-auto-index-config_test_b47062a9",
       "type": "text",
-      "text": "**graph-auto-index-config.test**\n`test/graph-auto-index-config.test.js`\n\nTest module.\n\n包含：\n- graph-auto-index-config.test (13 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
-      "x": 460,
-      "y": 12464,
+      "text": "**graph-auto-index-config.test**\n`test/graph-auto-index-config.test.js`\n\nTest module.\n\n包含：\n- graph-auto-index-config.test (19 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "x": 2980,
+      "y": 12104,
       "width": 280,
       "height": 232,
       "color": "2",
@@ -756,8 +756,8 @@
       "id": "test_graph-auto-index-domains_test_b44c2d50",
       "type": "text",
       "text": "**graph-auto-index-domains.test**\n`test/graph-auto-index-domains.test.js`\n\nTest module.\n\n包含：\n- graph-auto-index-domains.test (14 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
-      "x": 820,
-      "y": 12464,
+      "x": 3340,
+      "y": 12104,
       "width": 280,
       "height": 232,
       "color": "2",
@@ -770,10 +770,27 @@
       }
     },
     {
+      "id": "test_graph-auto-index-import_test_1e32c85e",
+      "type": "text",
+      "text": "**graph-auto-index-import.test**\n`test/graph-auto-index-import.test.js`\n\nTest module.\n\n包含：\n- graph-auto-index-import.test (18 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "x": 100,
+      "y": 12464,
+      "width": 280,
+      "height": 232,
+      "color": "2",
+      "meta": {
+        "relPath": "test/graph-auto-index-import.test.js",
+        "category": "test",
+        "group": "test",
+        "side": "right",
+        "layerIndex": 6
+      }
+    },
+    {
       "id": "test_graph-auto-index-metrics_test_e1f7ae54",
       "type": "text",
-      "text": "**graph-auto-index-metrics.test**\n`test/graph-auto-index-metrics.test.js`\n\nTest module.\n\n包含：\n- graph-auto-index-metrics.test (26 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
-      "x": 1180,
+      "text": "**graph-auto-index-metrics.test**\n`test/graph-auto-index-metrics.test.js`\n\nTest module.\n\n包含：\n- graph-auto-index-metrics.test (42 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "x": 460,
       "y": 12464,
       "width": 280,
       "height": 232,
@@ -787,10 +804,27 @@
       }
     },
     {
+      "id": "test_graph-auto-index-multi-scip_test_c3d2f82e",
+      "type": "text",
+      "text": "**graph-auto-index-multi-scip.test**\n`test/graph-auto-index-multi-scip.test.js`\n\nTest module.\n\n包含：\n- graph-auto-index-multi-scip.test (26 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "x": 820,
+      "y": 12464,
+      "width": 280,
+      "height": 232,
+      "color": "2",
+      "meta": {
+        "relPath": "test/graph-auto-index-multi-scip.test.js",
+        "category": "test",
+        "group": "test",
+        "side": "right",
+        "layerIndex": 6
+      }
+    },
+    {
       "id": "test_graph-auto-index-orchestrator_test_c78f0b0d",
       "type": "text",
-      "text": "**graph-auto-index-orchestrator.test**\n`test/graph-auto-index-orchestrator.test.js`\n\nTest module.\n\n包含：\n- graph-auto-index-orchestrator.test (14 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
-      "x": 1540,
+      "text": "**graph-auto-index-orchestrator.test**\n`test/graph-auto-index-orchestrator.test.js`\n\nTest module.\n\n包含：\n- graph-auto-index-orchestrator.test (21 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "x": 1180,
       "y": 12464,
       "width": 280,
       "height": 232,
@@ -806,8 +840,8 @@
     {
       "id": "test_graph-auto-index-plan_test_2733290",
       "type": "text",
-      "text": "**graph-auto-index-plan.test**\n`test/graph-auto-index-plan.test.js`\n\nTest module.\n\n包含：\n- graph-auto-index-plan.test (17 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
-      "x": 1900,
+      "text": "**graph-auto-index-plan.test**\n`test/graph-auto-index-plan.test.js`\n\nTest module.\n\n包含：\n- graph-auto-index-plan.test (14 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "x": 1540,
       "y": 12464,
       "width": 280,
       "height": 232,
@@ -823,14 +857,31 @@
     {
       "id": "test_graph-auto-index-split_test_e7d30af1",
       "type": "text",
-      "text": "**graph-auto-index-split.test**\n`test/graph-auto-index-split.test.js`\n\nTest module.\n\n包含：\n- graph-auto-index-split.test (44 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
-      "x": 2260,
+      "text": "**graph-auto-index-split.test**\n`test/graph-auto-index-split.test.js`\n\nTest module.\n\n包含：\n- graph-auto-index-split.test (12 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "x": 1900,
       "y": 12464,
       "width": 280,
       "height": 232,
       "color": "2",
       "meta": {
         "relPath": "test/graph-auto-index-split.test.js",
+        "category": "test",
+        "group": "test",
+        "side": "right",
+        "layerIndex": 6
+      }
+    },
+    {
+      "id": "test_graph-auto-index-validation_test_18160808",
+      "type": "text",
+      "text": "**graph-auto-index-validation.test**\n`test/graph-auto-index-validation.test.js`\n\nTest module.\n\n包含：\n- graph-auto-index-validation.test (16 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "x": 2260,
+      "y": 12464,
+      "width": 280,
+      "height": 232,
+      "color": "2",
+      "meta": {
+        "relPath": "test/graph-auto-index-validation.test.js",
         "category": "test",
         "group": "test",
         "side": "right",
@@ -1736,55 +1787,6 @@
         "group": "utils",
         "side": "right",
         "layerIndex": 5
-      }
-    },
-    {
-      "id": "entry_index_c871b6b6",
-      "type": "text",
-      "text": "**index**\n`test/fixtures/graph-auto-index/packages/core/index.ts`\n\nEntry module.\n\n包含：\n- index (7 行)\n- core (0 个参数)\n\n依赖：2 个模块\n被依赖：0 次",
-      "x": 2260,
-      "y": 12104,
-      "width": 280,
-      "height": 232,
-      "color": "1",
-      "meta": {
-        "relPath": "test/fixtures/graph-auto-index/packages/core/index.ts",
-        "category": "entry",
-        "group": "entry",
-        "side": "right",
-        "layerIndex": 0
-      }
-    },
-    {
-      "id": "undefined_local_e12fb25",
-      "type": "text",
-      "text": "**local**\n`test/fixtures/graph-auto-index/packages/core/local.ts`\n\nGeneral module.\n\n包含：\n- local (4 行)\n- local (0 个参数)\n\n依赖：0 个模块\n被依赖：1 次",
-      "x": 2620,
-      "y": 12104,
-      "width": 280,
-      "height": 232,
-      "color": "2",
-      "meta": {
-        "relPath": "test/fixtures/graph-auto-index/packages/core/local.ts",
-        "group": "misc",
-        "side": "right",
-        "layerIndex": 7
-      }
-    },
-    {
-      "id": "undefined_helper_cead50fe",
-      "type": "text",
-      "text": "**helper**\n`test/fixtures/graph-auto-index/apps/web/helper.ts`\n\nGeneral module.\n\n包含：\n- helper (4 行)\n- helper (0 个参数)\n\n依赖：0 个模块\n被依赖：1 次",
-      "x": 1900,
-      "y": 12104,
-      "width": 280,
-      "height": 232,
-      "color": "2",
-      "meta": {
-        "relPath": "test/fixtures/graph-auto-index/apps/web/helper.ts",
-        "group": "misc",
-        "side": "left",
-        "layerIndex": 7
       }
     },
     {
@@ -3937,7 +3939,7 @@
     {
       "id": "frontend_MatrixShell_37d7f79e",
       "type": "text",
-      "text": "**MatrixShell**\n`dashboard/src/ui/foundation/MatrixShell.jsx`\n\nUI component layer.\n\n包含：\n- MatrixShell (80 行)\n- MatrixShell (9 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**MatrixShell**\n`dashboard/src/ui/foundation/MatrixShell.jsx`\n\nUI component layer.\n\n包含：\n- MatrixShell (86 行)\n- MatrixShell (9 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 460,
       "y": 2432,
       "width": 280,
@@ -4208,7 +4210,7 @@
     {
       "id": "utils_copy_ca6c34c7",
       "type": "text",
-      "text": "**copy**\n`dashboard/src/lib/copy.ts`\n\nShared utilities.\n\n包含：\n- copy (149 行)\n- parseCsv (1 个参数)\n\n依赖：0 个模块\n被依赖：2 次",
+      "text": "**copy**\n`dashboard/src/lib/copy.ts`\n\nShared utilities.\n\n包含：\n- copy (149 行)\n- parseCsv (1 个参数)\n\n依赖：0 个模块\n被依赖：3 次",
       "x": 460,
       "y": 1352,
       "width": 280,
@@ -4513,7 +4515,7 @@
     {
       "id": "undefined_use-backend-status_f6637c26",
       "type": "text",
-      "text": "**use-backend-status**\n`dashboard/src/hooks/use-backend-status.ts`\n\nGeneral module.\n\n包含：\n- use-backend-status (289 行)\n- useBackendStatus (7 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**use-backend-status**\n`dashboard/src/hooks/use-backend-status.ts`\n\nGeneral module.\n\n包含：\n- use-backend-status (289 行)\n- useBackendStatus (7 个参数)\n\n依赖：0 个模块\n被依赖：1 次",
       "x": 2260,
       "y": 632,
       "width": 280,
@@ -4577,7 +4579,7 @@
     {
       "id": "frontend_BackendStatus_aa3fa02f",
       "type": "text",
-      "text": "**BackendStatus**\n`dashboard/src/components/BackendStatus.jsx`\n\nUI component layer.\n\n包含：\n- BackendStatus (64 行)\n- BackendStatus (5 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**BackendStatus**\n`dashboard/src/components/BackendStatus.jsx`\n\nUI component layer.\n\n包含：\n- BackendStatus (64 行)\n- BackendStatus (5 个参数)\n\n依赖：2 个模块\n被依赖：0 次",
       "x": 820,
       "y": 632,
       "width": 280,
@@ -5002,20 +5004,6 @@
       "toSide": "top"
     },
     {
-      "id": "edge_entry_index_c871b6b6_undefined_helper_cead50fe",
-      "fromNode": "entry_index_c871b6b6",
-      "fromSide": "bottom",
-      "toNode": "undefined_helper_cead50fe",
-      "toSide": "top"
-    },
-    {
-      "id": "edge_entry_index_c871b6b6_undefined_local_e12fb25",
-      "fromNode": "entry_index_c871b6b6",
-      "fromSide": "bottom",
-      "toNode": "undefined_local_e12fb25",
-      "toSide": "top"
-    },
-    {
       "id": "edge_entry_main_8ec1de27_entry_App_50b6270d",
       "fromNode": "entry_main_8ec1de27",
       "fromSide": "right",
@@ -5063,6 +5051,20 @@
       "fromSide": "right",
       "toNode": "frontend_AsciiBox_29bcf81f",
       "toSide": "left"
+    },
+    {
+      "id": "edge_frontend_BackendStatus_aa3fa02f_undefined_use-backend-status_f6637c26",
+      "fromNode": "frontend_BackendStatus_aa3fa02f",
+      "fromSide": "bottom",
+      "toNode": "undefined_use-backend-status_f6637c26",
+      "toSide": "top"
+    },
+    {
+      "id": "edge_frontend_BackendStatus_aa3fa02f_utils_copy_ca6c34c7",
+      "fromNode": "frontend_BackendStatus_aa3fa02f",
+      "fromSide": "bottom",
+      "toNode": "utils_copy_ca6c34c7",
+      "toSide": "top"
     }
   ]
 }
