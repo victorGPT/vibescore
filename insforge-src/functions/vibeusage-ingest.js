@@ -16,12 +16,16 @@ const {
   BILLABLE_RULE_VERSION,
   buildRows,
   deriveMetricsSource,
-  normalizeHourlyPayload
+  normalizeHourlyPayload,
+  normalizeProjectHourlyPayload,
+  buildProjectRows
 } = require('../shared/core/ingest');
 const {
   fetchDeviceTokenRow,
   recordIngestBatchMetrics,
-  upsertHourlyUsage
+  upsertHourlyUsage,
+  upsertProjectUsage,
+  upsertProjectRegistry
 } = require('../shared/db/ingest');
 
 const MAX_BUCKETS = 500;
@@ -75,14 +79,69 @@ module.exports = withRequestLogging('vibeusage-ingest', async function(request, 
     if (body.error) return json({ error: body.error }, body.status);
 
     const hourly = normalizeHourlyPayload(body.data);
-    if (!Array.isArray(hourly)) {
+    const projectHourly = normalizeProjectHourlyPayload(body.data);
+    if (!Array.isArray(hourly) && !Array.isArray(projectHourly)) {
       return json({ error: 'Invalid payload: expected {hourly:[...]} or [...]' }, 400);
     }
-    if (hourly.length > MAX_BUCKETS) return json({ error: `Too many buckets (max ${MAX_BUCKETS})` }, 413);
+    if (Array.isArray(hourly) && hourly.length > MAX_BUCKETS) {
+      return json({ error: `Too many buckets (max ${MAX_BUCKETS})` }, 413);
+    }
+    if (Array.isArray(projectHourly) && projectHourly.length > MAX_BUCKETS) {
+      return json({ error: `Too many buckets (max ${MAX_BUCKETS})` }, 413);
+    }
 
     const nowIso = new Date().toISOString();
-    const rows = buildRows({ hourly, tokenRow, nowIso, billableRuleVersion: BILLABLE_RULE_VERSION });
+    const rows = Array.isArray(hourly)
+      ? buildRows({ hourly, tokenRow, nowIso, billableRuleVersion: BILLABLE_RULE_VERSION })
+      : { error: null, data: [] };
     if (rows.error) return json({ error: rows.error }, 400);
+
+    const projectRows = Array.isArray(projectHourly)
+      ? buildProjectRows({ hourly: projectHourly, tokenRow, nowIso })
+      : { error: null, data: [] };
+    if (projectRows.error) return json({ error: projectRows.error }, 400);
+
+    let projectInserted = 0;
+    let projectSkipped = 0;
+
+    if (projectRows.data.length > 0) {
+      const registryByKey = new Map();
+      for (const row of projectRows.data) {
+        registryByKey.set(row.project_key, {
+          user_id: row.user_id,
+          project_key: row.project_key,
+          project_ref: row.project_ref,
+          updated_at: nowIso
+        });
+      }
+      const registryRows = Array.from(registryByKey.values());
+
+      const registryUpsert = await upsertProjectRegistry({
+        serviceClient,
+        baseUrl,
+        serviceRoleKey,
+        anonKey,
+        tokenHash,
+        rows: registryRows,
+        fetcher
+      });
+      if (!registryUpsert.ok) return json({ error: registryUpsert.error }, 500);
+
+      const projectUpsert = await upsertProjectUsage({
+        serviceClient,
+        baseUrl,
+        serviceRoleKey,
+        anonKey,
+        tokenHash,
+        tokenRow,
+        rows: projectRows.data,
+        nowIso,
+        fetcher
+      });
+      if (!projectUpsert.ok) return json({ error: projectUpsert.error }, 500);
+      projectInserted = projectUpsert.inserted;
+      projectSkipped = projectUpsert.skipped;
+    }
 
     if (rows.data.length === 0) {
       await recordIngestBatchMetrics({
@@ -97,7 +156,10 @@ module.exports = withRequestLogging('vibeusage-ingest', async function(request, 
         source: null,
         fetcher
       });
-      return json({ success: true, inserted: 0, skipped: 0 }, 200);
+      return json(
+        { success: true, inserted: 0, skipped: 0, project_inserted: projectInserted, project_skipped: projectSkipped },
+        200
+      );
     }
 
     const upsert = await upsertHourlyUsage({
@@ -131,7 +193,9 @@ module.exports = withRequestLogging('vibeusage-ingest', async function(request, 
       {
         success: true,
         inserted: upsert.inserted,
-        skipped: upsert.skipped
+        skipped: upsert.skipped,
+        project_inserted: projectInserted,
+        project_skipped: projectSkipped
       },
       200
     );

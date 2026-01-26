@@ -525,7 +525,7 @@ test('vibeusage-ingest uses serviceRoleKey as edgeFunctionToken and ingests hour
   assert.equal(res.status, 200);
 
   const data = await res.json();
-  assert.deepEqual(data, { success: true, inserted: 1, skipped: 0 });
+  assert.deepEqual(data, { success: true, inserted: 1, skipped: 0, project_inserted: 0, project_skipped: 0 });
   assert.equal(fetchCalls.length, 1);
   const postCall = fetchCalls[0];
   const postUrl = new URL(postCall.url);
@@ -627,7 +627,7 @@ test('vibeusage-ingest accepts wrapped payload with data.hourly', async () => {
   assert.equal(res.status, 200);
 
   const data = await res.json();
-  assert.deepEqual(data, { success: true, inserted: 1, skipped: 0 });
+  assert.deepEqual(data, { success: true, inserted: 1, skipped: 0, project_inserted: 0, project_skipped: 0 });
   assert.equal(fetchCalls.length, 1);
   const postCall = fetchCalls[0];
   assert.ok(String(postCall.url).includes('/api/database/records/vibeusage_tracker_hourly'));
@@ -637,6 +637,122 @@ test('vibeusage-ingest accepts wrapped payload with data.hourly', async () => {
 
   const serviceClientCall = calls.find((c) => c && c.edgeFunctionToken === SERVICE_ROLE_KEY);
   assert.ok(serviceClientCall, 'service client not created');
+});
+
+test('vibeusage-ingest accepts project_hourly alongside hourly payloads', async () => {
+  const fn = require('../insforge-functions/vibeusage-ingest');
+
+  const calls = [];
+  const fetchCalls = [];
+
+  const tokenRow = {
+    id: 'token-id',
+    user_id: '33333333-3333-3333-3333-333333333333',
+    device_id: '44444444-4444-4444-4444-444444444444',
+    revoked_at: null
+  };
+
+  function from(table) {
+    if (table === 'vibeusage_tracker_device_tokens') {
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: tokenRow, error: null })
+          })
+        }),
+        update: () => ({ eq: async () => ({ error: null }) })
+      };
+    }
+
+    if (table === 'vibeusage_tracker_devices') {
+      return {
+        update: () => ({ eq: async () => ({ error: null }) })
+      };
+    }
+
+    throw new Error(`Unexpected table: ${table}`);
+  }
+
+  globalThis.createClient = (args) => {
+    calls.push(args);
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return { database: { from } };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  globalThis.fetch = async (url, init) => {
+    fetchCalls.push({ url, init });
+    const u = new URL(url);
+
+    if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_hourly')) {
+      return new Response(JSON.stringify([{ hour_start: '2025-12-17T00:00:00.000Z' }]), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (u.pathname.endsWith('/api/database/records/vibeusage_project_usage_hourly')) {
+      return new Response(JSON.stringify([{ hour_start: '2025-12-17T00:30:00.000Z' }]), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (u.pathname.endsWith('/api/database/records/vibeusage_projects')) {
+      return new Response(JSON.stringify([{ project_key: 'proj_1' }]), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    return new Response('not found', { status: 404 });
+  };
+
+  const deviceToken = 'device_token_test';
+  const bucket = {
+    hour_start: new Date('2025-12-17T00:00:00.000Z').toISOString(),
+    input_tokens: 1,
+    cached_input_tokens: 0,
+    output_tokens: 2,
+    reasoning_output_tokens: 0,
+    total_tokens: 3
+  };
+
+  const projectBucket = {
+    hour_start: new Date('2025-12-17T00:30:00.000Z').toISOString(),
+    source: 'codex',
+    project_key: 'proj_1',
+    project_ref: 'https://github.com/victorGPT/vibeusage',
+    input_tokens: 1,
+    cached_input_tokens: 0,
+    output_tokens: 2,
+    reasoning_output_tokens: 0,
+    total_tokens: 3
+  };
+
+  const req = new Request('http://localhost/functions/vibeusage-ingest', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deviceToken}` },
+    body: JSON.stringify({ hourly: [bucket], project_hourly: [projectBucket] })
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+
+  const data = await res.json();
+  assert.deepEqual(data, { success: true, inserted: 1, skipped: 0, project_inserted: 1, project_skipped: 0 });
+
+  const projectUpsert = fetchCalls.find((call) =>
+    String(call.url).includes('/api/database/records/vibeusage_project_usage_hourly')
+  );
+  assert.ok(projectUpsert, 'project hourly upsert call not found');
+  const projectUrl = new URL(projectUpsert.url);
+  assert.equal(projectUrl.searchParams.get('on_conflict'), 'user_id,project_key,hour_start,source');
+  const projectBody = JSON.parse(projectUpsert.init?.body || '[]');
+  assert.equal(projectBody.length, 1);
+  assert.equal(projectBody[0]?.project_key, 'proj_1');
+  assert.equal(projectBody[0]?.project_ref, 'https://github.com/victorGPT/vibeusage');
 });
 
 test('vibeusage-ingest works without serviceRoleKey via anonKey records API', async () => {
@@ -701,7 +817,7 @@ test('vibeusage-ingest works without serviceRoleKey via anonKey records API', as
   assert.equal(res.status, 200);
 
   const data = await res.json();
-  assert.deepEqual(data, { success: true, inserted: 1, skipped: 0 });
+  assert.deepEqual(data, { success: true, inserted: 1, skipped: 0, project_inserted: 0, project_skipped: 0 });
 
   assert.equal(fetchCalls.length, 5);
   const getCall = fetchCalls.find((call) =>
