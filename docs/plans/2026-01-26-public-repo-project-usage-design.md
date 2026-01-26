@@ -25,6 +25,7 @@ Project-level usage is **only tracked and ingested for public GitHub repositorie
 2. **Public-first**: if not verified public, **do not track project usage**.
 3. **Project cleanup only**: non-public → delete `usage_projects` rows; **do not touch** system totals.
 4. **Pending is not counted**: pending state stores metadata only.
+5. **Repo-identity merge**: multiple local clones of the same `owner/repo` map to one project.
 
 ## Data Flow (Client)
 1. CLI runs → detect git root and parse remote to `owner/repo`.
@@ -43,6 +44,7 @@ Project-level usage is **only tracked and ingested for public GitHub repositorie
 - `usage_system_totals` (per-day or per-account): **always** accumulates.
 - `usage_projects`:
   - `repo_id` (owner/repo)
+  - `project_key` = canonical `repo_id` (GitHub `full_name`, lowercased)
   - `status` (public_verified | pending_public | blocked)
   - `blocked_reason` (non_public | rate_limit | invalid_remote | verification_timeout | error)
   - `usage_total_tokens`
