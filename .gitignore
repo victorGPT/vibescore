@@ -15,6 +15,7 @@ pnpm-debug.log*
 .code/
 .worktrees/
 codex-pr-review-loop.skill
+index.scip
 
 # Local-only snapshots and experiments
 /backups/

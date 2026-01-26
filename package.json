@@ -24,7 +24,8 @@
     "architecture:canvas:focus": "node scripts/ops/architecture-canvas.cjs --focus",
     "architecture:canvas:list-modules": "node scripts/ops/architecture-canvas.cjs --list-modules",
     "validate:guardrails": "node scripts/validate-architecture-guardrails.cjs",
-    "validate:insforge2-db": "node scripts/ops/insforge2-db-validate.cjs"
+    "validate:insforge2-db": "node scripts/ops/insforge2-db-validate.cjs",
+    "graph:scip": "node scripts/graph/generate-scip.cjs"
   },
   "bin": {
     "tracker": "bin/tracker.js",
@@ -41,6 +42,7 @@
     "node": "20.x"
   },
   "devDependencies": {
+    "@sourcegraph/scip-typescript": "^0.3.6",
     "esbuild": "0.27.2"
   },
   "dependencies": {
