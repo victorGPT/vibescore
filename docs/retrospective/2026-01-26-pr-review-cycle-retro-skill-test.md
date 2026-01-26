@@ -44,14 +44,24 @@ If any trigger matches, fill the addendum with rules/invariants, boundary matrix
 ### RED: Failure Rationale (Why This Fails a Project Postmortem)
 - Missing project-level impact (Baseline Output evidence): it never states user/customer/system impact or operational consequences.
   > Goal: Explain repeated @codex review cycles and attribute causes to development stages.
-- No acceptance criteria or outcomes (Baseline Output evidence): it lists stages and causes but never states what “success” was or what was accepted at merge.
+- No acceptance criteria or outcomes (Baseline Output evidence): it lists sections but never states what “success” was or what was accepted at merge.
+  > ## Scope
+  > ## Evidence Chain
   > ## Stage Attribution
-  > - Design: Missing explicit invariants for boundary conditions.
-  > - Implementation: Edge cases not handled consistently.
-  > - Testing: No regression coverage for the failing paths.
-  > - Review Packaging: PR context lacked minimal repro and expected behavior.
-- No timeline or narrative (Baseline Output evidence): it jumps straight to stage attribution with no “What happened / when / detection / resolution”.
+  > ## Cause Taxonomy
+  > ## Aggregation
+  > ## Preventive Actions
+  > ## Risk-Layer Gate Reminder
+  > (No Outcome/Acceptance section present)
+- No timeline or narrative (Baseline Output evidence): the section list does not include Timeline/Detection/Resolution.
+  > ## Scope
+  > ## Evidence Chain
   > ## Stage Attribution
+  > ## Cause Taxonomy
+  > ## Aggregation
+  > ## Preventive Actions
+  > ## Risk-Layer Gate Reminder
+  > (No Timeline/Detection/Resolution section present)
 - Churn-only framing (Baseline Output evidence): “Scope” and “Evidence Chain” are entirely about Codex review cycles, not project outcomes.
   > ## Scope
   > - Goal: Explain repeated @codex review cycles and attribute causes to development stages.
