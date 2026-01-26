@@ -2742,6 +2742,72 @@ test('vibeusage-usage-summary uses hourly when rollup disabled', () =>
     );
   }));
 
+test('vibeusage-usage-summary returns rolling metrics when requested', () =>
+  withRollupDisabled(async () => {
+    const fn = require('../insforge-functions/vibeusage-usage-summary');
+
+    const userId = '99999999-9999-9999-9999-999999999999';
+    const userJwt = 'user_jwt_test';
+
+    const rows = [
+      {
+        hour_start: '2025-12-21T00:00:00.000Z',
+        source: 'codex',
+        model: 'gpt-4o',
+        total_tokens: '10',
+        input_tokens: '4',
+        cached_input_tokens: '1',
+        output_tokens: '3',
+        reasoning_output_tokens: '2'
+      }
+    ];
+
+    globalThis.createClient = (args) => {
+      if (args && args.edgeFunctionToken === userJwt) {
+        return {
+          auth: {
+            getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+          },
+          database: {
+            from: (table) => {
+              if (table === 'vibeusage_tracker_hourly') {
+                const query = createQueryMock({ rows });
+                return { select: () => query };
+              }
+              if (table === 'vibeusage_model_aliases') {
+                return createQueryMock({ rows: [] });
+              }
+              if (table === 'vibeusage_pricing_profiles') {
+                return createQueryMock({ rows: [] });
+              }
+              if (table === 'vibeusage_pricing_model_aliases') {
+                return createQueryMock({ rows: [] });
+              }
+              throw new Error(`Unexpected table ${table}`);
+            }
+          }
+        };
+      }
+      throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+    };
+
+    const req = new Request(
+      'http://localhost/functions/vibeusage-usage-summary?from=2025-12-21&to=2025-12-21&rolling=1',
+      {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${userJwt}` }
+      }
+    );
+
+    const res = await fn(req);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.ok(body.rolling);
+    assert.ok(body.rolling.last_7d);
+    assert.ok(body.rolling.last_30d);
+    assert.equal(body.rolling.last_7d.active_days, 1);
+  }));
+
 test('vibeusage-usage-summary returns total_cost_usd and pricing metadata', () =>
   withRollupEnabled(async () => {
     const fn = require('../insforge-functions/vibeusage-usage-summary');
