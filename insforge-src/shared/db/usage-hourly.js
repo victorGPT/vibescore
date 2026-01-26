@@ -13,7 +13,9 @@ function buildHourlyUsageQuery({
   endIso,
   select
 } = {}) {
-  if (!edgeClient?.database?.from) return null;
+  if (!edgeClient?.database?.from) {
+    throw new Error('edgeClient is required');
+  }
   let query = edgeClient.database
     .from('vibeusage_tracker_hourly')
     .select(select || 'hour_start,source,model,total_tokens');

@@ -5,6 +5,7 @@
 - [ ] 1.4 Migrate remaining Edge Functions to core/db.
   - [x] usage-daily → core/db (partial)
   - [x] usage-monthly → core/db (partial)
+  - [x] vibeusage-ingest → core/db (no RPC)
 - [ ] 1.5 Align RLS helper contract and policies to single helper.
 - [ ] 1.6 Review indexes for usage queries and adjust if needed.
 - [ ] 1.7 Add partial unique index for active device tokens (`user_id, device_id` WHERE `revoked_at IS NULL`) + UPSERT in device-token-issue using `ON CONFLICT (user_id, device_id) WHERE revoked_at IS NULL` to return existing token.
@@ -29,6 +30,6 @@
   - Reported: `node --test test/*.test.js` (PASS)
 
 ## Verification
-- [ ] `npm run build:insforge:check`
+- [x] `npm run build:insforge:check`
 - [x] `node --test test/*.test.js`
 - [ ] `VIBEUSAGE_INSFORGE_BASE_URL=... VIBEUSAGE_SERVICE_ROLE_KEY=... node scripts/ops/insforge2-db-validate.cjs`

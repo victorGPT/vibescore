@@ -10,6 +10,7 @@ const usageMonthlyCore = require('../insforge-src/shared/core/usage-monthly');
 const usageDailyCore = require('../insforge-src/shared/core/usage-daily');
 const usageFilter = require('../insforge-src/shared/core/usage-filter');
 const usageHourlyDb = require('../insforge-src/shared/db/usage-hourly');
+const ingestDb = require('../insforge-src/shared/db/ingest');
 
 test('normalizeHourlyPayload accepts supported shapes', () => {
   assert.deepEqual(ingestCore.normalizeHourlyPayload([{}]), [{}]);
@@ -221,6 +222,60 @@ test('buildHourlyUsageQuery applies filters and ordering', () => {
   assert.ok(calls.find((call) => call[0] === 'order' && call[1] === 'hour_start'));
 });
 
+test('buildHourlyUsageQuery throws when edgeClient missing', () => {
+  assert.throws(() => usageHourlyDb.buildHourlyUsageQuery({}), /edgeClient/i);
+});
+
+test('fetchDeviceTokenRow uses records API and ignores revoked tokens', async () => {
+  const calls = [];
+  const fakeFetch = async (url, init) => {
+    calls.push({ url, init });
+    return {
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify([{ id: 't1', user_id: 'u1', device_id: 'd1', revoked_at: null, last_sync_at: null }])
+    };
+  };
+
+  const tokenRow = await ingestDb.fetchDeviceTokenRow({
+    baseUrl: 'https://example.com',
+    anonKey: 'anon',
+    tokenHash: 'hash',
+    fetcher: fakeFetch
+  });
+
+  assert.equal(tokenRow.id, 't1');
+  assert.equal(calls.length, 1);
+  assert.ok(calls[0].url.includes('/api/database/records/vibeusage_tracker_device_tokens'));
+  assert.ok(calls[0].url.includes('token_hash=eq.hash'));
+  assert.equal(calls[0].init.method, 'GET');
+  assert.equal(calls[0].init.headers.Authorization, 'Bearer anon');
+});
+
+test('touchDeviceTokenAndDevice updates last_sync_at only when interval elapsed', async () => {
+  const calls = [];
+  const fakeFetch = async (url, init) => {
+    calls.push({ url, init });
+    return { ok: true, status: 200, text: async () => '[]' };
+  };
+
+  await ingestDb.touchDeviceTokenAndDevice({
+    baseUrl: 'https://example.com',
+    anonKey: 'anon',
+    tokenHash: 'hash',
+    tokenRow: { id: 't1', device_id: 'd1', last_sync_at: '2026-01-25T00:00:00.000Z' },
+    nowIso: '2026-01-25T01:00:00.000Z',
+    fetcher: fakeFetch,
+    minIntervalMinutes: 30
+  });
+
+  assert.equal(calls.length, 2);
+  const tokenUpdate = JSON.parse(calls[0].init.body);
+  assert.equal(tokenUpdate.last_used_at, '2026-01-25T01:00:00.000Z');
+  assert.equal(tokenUpdate.last_sync_at, '2026-01-25T01:00:00.000Z');
+});
+
 test('shouldIncludeUsageRow matches canonical model when filter enabled', () => {
   const ok = usageFilter.shouldIncludeUsageRow({
     row: { hour_start: '2026-01-25T00:00:00.000Z', model: 'gpt-4o' },
@@ -297,4 +352,11 @@ test('usage-monthly imports getLocalParts from shared/date', () => {
   const filePath = path.join(__dirname, '..', 'insforge-src', 'functions', 'vibeusage-usage-monthly.js');
   const content = fs.readFileSync(filePath, 'utf8');
   assert.ok(content.includes('getLocalParts'));
+});
+
+test('vibeusage-ingest uses shared ingest db and avoids RPC', () => {
+  const filePath = path.join(__dirname, '..', 'insforge-src', 'functions', 'vibeusage-ingest.js');
+  const content = fs.readFileSync(filePath, 'utf8');
+  assert.ok(content.includes('shared/db/ingest'));
+  assert.equal(content.includes('/api/database/rpc/vibeusage_touch_device_token_sync'), false);
 });

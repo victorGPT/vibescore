@@ -48,4 +48,6 @@
   - Compute P95 from handler timing or DB timing logs; verify `≤ 2000ms`.
 
 ## Evidence
-- To be captured after implementation.
+- 2026-01-25: `node --test test/insforge-src-core-db.test.js` (PASS)
+- 2026-01-25: `node --test test/*.test.js` (PASS)
+- 2026-01-25: `npm run build:insforge:check` (PASS)

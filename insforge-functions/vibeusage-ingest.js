@@ -670,7 +670,7 @@ var require_ingest = __commonJS({
       );
       return hourStart.toISOString();
     }
-    function toNonNegativeInt2(n) {
+    function toNonNegativeInt(n) {
       if (typeof n !== "number") return null;
       if (!Number.isFinite(n)) return null;
       if (!Number.isInteger(n)) return null;
@@ -685,11 +685,11 @@ var require_ingest = __commonJS({
       }
       const source = normalizeSource(raw.source);
       const model = normalizeUsageModel(raw.model) || DEFAULT_MODEL;
-      const input = toNonNegativeInt2(raw.input_tokens);
-      const cached = toNonNegativeInt2(raw.cached_input_tokens);
-      const output = toNonNegativeInt2(raw.output_tokens);
-      const reasoning = toNonNegativeInt2(raw.reasoning_output_tokens);
-      const total = toNonNegativeInt2(raw.total_tokens);
+      const input = toNonNegativeInt(raw.input_tokens);
+      const cached = toNonNegativeInt(raw.cached_input_tokens);
+      const output = toNonNegativeInt(raw.output_tokens);
+      const reasoning = toNonNegativeInt(raw.reasoning_output_tokens);
+      const total = toNonNegativeInt(raw.total_tokens);
       if ([input, cached, output, reasoning, total].some((n) => n == null)) {
         return { ok: false, error: "Token fields must be non-negative integers" };
       }
@@ -755,7 +755,7 @@ var require_ingest = __commonJS({
       BILLABLE_RULE_VERSION: BILLABLE_RULE_VERSION2,
       normalizeHourlyPayload: normalizeHourlyPayload2,
       parseUtcHalfHourStart,
-      toNonNegativeInt: toNonNegativeInt2,
+      toNonNegativeInt,
       parseHourlyBucket,
       buildRows: buildRows2,
       deriveMetricsSource: deriveMetricsSource2
@@ -767,14 +767,14 @@ var require_ingest = __commonJS({
 var require_records = __commonJS({
   "insforge-src/shared/db/records.js"(exports2, module2) {
     "use strict";
-    function buildAuthHeaders2({ anonKey, tokenHash }) {
+    function buildAuthHeaders({ anonKey, tokenHash }) {
       return {
         apikey: anonKey,
         Authorization: `Bearer ${anonKey}`,
         "x-vibeusage-device-token-hash": tokenHash
       };
     }
-    async function readApiJson2(res) {
+    async function readApiJson(res) {
       const text = await res.text();
       if (!text) return { data: null, error: null, code: null };
       try {
@@ -784,19 +784,19 @@ var require_records = __commonJS({
         return { data: null, error: text.slice(0, 300), code: null };
       }
     }
-    function normalizeRows2(data) {
+    function normalizeRows(data) {
       if (Array.isArray(data)) return data;
       if (data && typeof data === "object" && Array.isArray(data.data)) return data.data;
       return null;
     }
-    function isUpsertUnsupported2(result) {
+    function isUpsertUnsupported(result) {
       const status = Number(result?.status || 0);
       if (status !== 400 && status !== 404 && status !== 405 && status !== 409 && status !== 422) return false;
       const msg = String(result?.error || "").toLowerCase();
       if (!msg) return false;
       return msg.includes("on_conflict") || msg.includes("resolution") || msg.includes("prefer") || msg.includes("unknown") || msg.includes("invalid");
     }
-    async function recordsUpsert2({ url, anonKey, tokenHash, rows, onConflict, prefer, resolution, select, fetcher }) {
+    async function recordsUpsert({ url, anonKey, tokenHash, rows, onConflict, prefer, resolution, select, fetcher }) {
       const target = new URL(url.toString());
       if (onConflict) target.searchParams.set("on_conflict", onConflict);
       if (select) target.searchParams.set("select", select);
@@ -807,21 +807,261 @@ var require_records = __commonJS({
       const res = await (fetcher || fetch)(target.toString(), {
         method: "POST",
         headers: {
-          ...buildAuthHeaders2({ anonKey, tokenHash }),
+          ...buildAuthHeaders({ anonKey, tokenHash }),
           ...preferHeader ? { Prefer: preferHeader } : {},
           "Content-Type": "application/json"
         },
         body: JSON.stringify(rows)
       });
-      const { data, error, code } = await readApiJson2(res);
+      const { data, error, code } = await readApiJson(res);
       return { ok: res.ok, status: res.status, data, error, code };
     }
     module2.exports = {
-      buildAuthHeaders: buildAuthHeaders2,
-      readApiJson: readApiJson2,
-      normalizeRows: normalizeRows2,
-      isUpsertUnsupported: isUpsertUnsupported2,
-      recordsUpsert: recordsUpsert2
+      buildAuthHeaders,
+      readApiJson,
+      normalizeRows,
+      isUpsertUnsupported,
+      recordsUpsert
+    };
+  }
+});
+
+// insforge-src/shared/db/ingest.js
+var require_ingest2 = __commonJS({
+  "insforge-src/shared/db/ingest.js"(exports2, module2) {
+    "use strict";
+    var {
+      buildAuthHeaders,
+      isUpsertUnsupported,
+      normalizeRows,
+      readApiJson,
+      recordsUpsert
+    } = require_records();
+    var DEVICE_TOKEN_SELECT = "id,user_id,device_id,revoked_at,last_sync_at";
+    function normalizeIso(value) {
+      if (typeof value !== "string") return null;
+      const dt = new Date(value);
+      if (!Number.isFinite(dt.getTime())) return null;
+      return dt.toISOString();
+    }
+    function isWithinInterval(lastSyncAt, minutes, nowIso) {
+      const lastMs = Date.parse(lastSyncAt);
+      if (!Number.isFinite(lastMs)) return false;
+      const windowMs = Math.max(0, minutes) * 60 * 1e3;
+      if (windowMs <= 0) return false;
+      const nowMs = nowIso ? Date.parse(nowIso) : Date.now();
+      if (!Number.isFinite(nowMs)) return false;
+      return nowMs - lastMs < windowMs;
+    }
+    function toNonNegativeInt(value) {
+      if (typeof value !== "number") return 0;
+      if (!Number.isFinite(value)) return 0;
+      if (!Number.isInteger(value)) return 0;
+      if (value < 0) return 0;
+      return value;
+    }
+    async function fetchDeviceTokenRow2({ serviceClient, baseUrl, anonKey, tokenHash, fetcher }) {
+      if (serviceClient?.database?.from) {
+        const { data: tokenRow2, error: error2 } = await serviceClient.database.from("vibeusage_tracker_device_tokens").select(DEVICE_TOKEN_SELECT).eq("token_hash", tokenHash).maybeSingle();
+        if (error2) throw new Error(error2.message);
+        if (!tokenRow2 || tokenRow2.revoked_at) return null;
+        return tokenRow2;
+      }
+      if (!baseUrl || !anonKey) throw new Error("Anon key missing");
+      const url = new URL("/api/database/records/vibeusage_tracker_device_tokens", baseUrl);
+      url.searchParams.set("select", DEVICE_TOKEN_SELECT);
+      url.searchParams.set("token_hash", `eq.${tokenHash}`);
+      url.searchParams.set("limit", "1");
+      const res = await (fetcher || fetch)(url.toString(), {
+        method: "GET",
+        headers: buildAuthHeaders({ anonKey, tokenHash })
+      });
+      const { data, error } = await readApiJson(res);
+      if (!res.ok) throw new Error(error || `HTTP ${res.status}`);
+      const rows = normalizeRows(data);
+      const tokenRow = rows?.[0] || null;
+      if (!tokenRow || tokenRow.revoked_at) return null;
+      return tokenRow;
+    }
+    async function updateRecord({ baseUrl, anonKey, tokenHash, table, match, values, fetcher }) {
+      const url = new URL(`/api/database/records/${table}`, baseUrl);
+      for (const [key, val] of Object.entries(match || {})) {
+        url.searchParams.set(key, `eq.${val}`);
+      }
+      const res = await (fetcher || fetch)(url.toString(), {
+        method: "PATCH",
+        headers: {
+          ...buildAuthHeaders({ anonKey, tokenHash }),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(values)
+      });
+      const { data, error, code } = await readApiJson(res);
+      return { ok: res.ok, status: res.status, data, error, code };
+    }
+    async function touchDeviceTokenAndDevice({
+      serviceClient,
+      baseUrl,
+      anonKey,
+      tokenHash,
+      tokenRow,
+      nowIso,
+      fetcher,
+      minIntervalMinutes = 30
+    }) {
+      if (!tokenRow) return;
+      const lastSyncAt = normalizeIso(tokenRow.last_sync_at);
+      const shouldUpdateSync = !lastSyncAt || !isWithinInterval(lastSyncAt, minIntervalMinutes, nowIso);
+      const tokenUpdate = shouldUpdateSync ? { last_used_at: nowIso, last_sync_at: nowIso } : { last_used_at: nowIso };
+      try {
+        if (serviceClient?.database?.from) {
+          await serviceClient.database.from("vibeusage_tracker_device_tokens").update(tokenUpdate).eq("id", tokenRow.id);
+        } else if (baseUrl && anonKey) {
+          await updateRecord({
+            baseUrl,
+            anonKey,
+            tokenHash,
+            table: "vibeusage_tracker_device_tokens",
+            match: { id: tokenRow.id },
+            values: tokenUpdate,
+            fetcher
+          });
+        }
+      } catch (_e) {
+      }
+      try {
+        if (serviceClient?.database?.from) {
+          await serviceClient.database.from("vibeusage_tracker_devices").update({ last_seen_at: nowIso }).eq("id", tokenRow.device_id);
+        } else if (baseUrl && anonKey) {
+          await updateRecord({
+            baseUrl,
+            anonKey,
+            tokenHash,
+            table: "vibeusage_tracker_devices",
+            match: { id: tokenRow.device_id },
+            values: { last_seen_at: nowIso },
+            fetcher
+          });
+        }
+      } catch (_e) {
+      }
+    }
+    async function upsertHourlyUsage2({
+      serviceClient,
+      baseUrl,
+      serviceRoleKey,
+      anonKey,
+      tokenHash,
+      tokenRow,
+      rows,
+      nowIso,
+      fetcher
+    }) {
+      if (serviceClient && serviceRoleKey && baseUrl) {
+        const url2 = new URL("/api/database/records/vibeusage_tracker_hourly", baseUrl);
+        const res2 = await recordsUpsert({
+          url: url2,
+          anonKey: serviceRoleKey,
+          tokenHash,
+          rows,
+          onConflict: "user_id,device_id,source,model,hour_start",
+          prefer: "return=representation",
+          resolution: "merge-duplicates",
+          select: "hour_start",
+          fetcher
+        });
+        if (res2.ok) {
+          const insertedRows = normalizeRows(res2.data);
+          const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+          await touchDeviceTokenAndDevice({ serviceClient, tokenRow, nowIso });
+          return { ok: true, inserted, skipped: 0 };
+        }
+        if (!isUpsertUnsupported(res2)) {
+          return { ok: false, error: res2.error || `HTTP ${res2.status}`, inserted: 0, skipped: 0 };
+        }
+      }
+      if (serviceClient?.database?.from) {
+        const { error } = await serviceClient.database.from("vibeusage_tracker_hourly").upsert(rows, { onConflict: "user_id,device_id,source,model,hour_start" });
+        if (error) return { ok: false, error: error.message, inserted: 0, skipped: 0 };
+        await touchDeviceTokenAndDevice({ serviceClient, tokenRow, nowIso });
+        return { ok: true, inserted: rows.length, skipped: 0 };
+      }
+      if (!anonKey || !baseUrl) {
+        return { ok: false, error: "Anon key missing", inserted: 0, skipped: 0 };
+      }
+      const url = new URL("/api/database/records/vibeusage_tracker_hourly", baseUrl);
+      const res = await recordsUpsert({
+        url,
+        anonKey,
+        tokenHash,
+        rows,
+        onConflict: "user_id,device_id,source,model,hour_start",
+        prefer: "return=representation",
+        resolution: "merge-duplicates",
+        select: "hour_start",
+        fetcher
+      });
+      if (res.ok) {
+        const insertedRows = normalizeRows(res.data);
+        const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+        await touchDeviceTokenAndDevice({ baseUrl, anonKey, tokenHash, tokenRow, nowIso, fetcher });
+        return { ok: true, inserted, skipped: 0 };
+      }
+      if (isUpsertUnsupported(res)) {
+        return { ok: false, error: res.error || "Half-hour upsert unsupported", inserted: 0, skipped: 0 };
+      }
+      return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
+    }
+    async function recordIngestBatchMetrics2({
+      serviceClient,
+      baseUrl,
+      anonKey,
+      tokenHash,
+      tokenRow,
+      bucketCount,
+      inserted,
+      skipped,
+      source,
+      fetcher
+    }) {
+      if (!tokenRow) return;
+      const row = {
+        user_id: tokenRow.user_id,
+        device_id: tokenRow.device_id,
+        device_token_id: tokenRow.id,
+        source: typeof source === "string" ? source : null,
+        bucket_count: toNonNegativeInt(bucketCount),
+        inserted: toNonNegativeInt(inserted),
+        skipped: toNonNegativeInt(skipped)
+      };
+      try {
+        if (serviceClient?.database?.from) {
+          const { error } = await serviceClient.database.from("vibeusage_tracker_ingest_batches").insert(row);
+          if (error) throw new Error(error.message);
+          return;
+        }
+        if (!anonKey || !baseUrl) return;
+        const url = new URL("/api/database/records/vibeusage_tracker_ingest_batches", baseUrl);
+        const res = await (fetcher || fetch)(url.toString(), {
+          method: "POST",
+          headers: {
+            ...buildAuthHeaders({ anonKey, tokenHash }),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(row)
+        });
+        if (!res.ok) {
+          const { error } = await readApiJson(res);
+          throw new Error(error || `HTTP ${res.status}`);
+        }
+      } catch (_e) {
+      }
+    }
+    module2.exports = {
+      fetchDeviceTokenRow: fetchDeviceTokenRow2,
+      touchDeviceTokenAndDevice,
+      upsertHourlyUsage: upsertHourlyUsage2,
+      recordIngestBatchMetrics: recordIngestBatchMetrics2
     };
   }
 });
@@ -837,16 +1077,13 @@ var {
   BILLABLE_RULE_VERSION,
   buildRows,
   deriveMetricsSource,
-  normalizeHourlyPayload,
-  toNonNegativeInt
+  normalizeHourlyPayload
 } = require_ingest();
 var {
-  buildAuthHeaders,
-  isUpsertUnsupported,
-  normalizeRows,
-  readApiJson,
-  recordsUpsert
-} = require_records();
+  fetchDeviceTokenRow,
+  recordIngestBatchMetrics,
+  upsertHourlyUsage
+} = require_ingest2();
 var MAX_BUCKETS = 500;
 var ingestGuard = createConcurrencyGuard({
   name: "vibeusage-ingest",
@@ -879,7 +1116,7 @@ module.exports = withRequestLogging("vibeusage-ingest", async function(request, 
     const tokenHash = await sha256Hex(deviceToken);
     let tokenRow = null;
     try {
-      tokenRow = serviceClient ? await getTokenRowWithServiceClient(serviceClient, tokenHash) : await getTokenRowWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher });
+      tokenRow = await fetchDeviceTokenRow({ serviceClient, baseUrl, anonKey, tokenHash, fetcher });
     } catch (e) {
       return json({ error: e?.message || "Internal error" }, 500);
     }
@@ -909,16 +1146,17 @@ module.exports = withRequestLogging("vibeusage-ingest", async function(request, 
       });
       return json({ success: true, inserted: 0, skipped: 0 }, 200);
     }
-    const upsert = serviceClient ? await upsertWithServiceClient({
+    const upsert = await upsertHourlyUsage({
       serviceClient,
+      baseUrl,
+      serviceRoleKey,
+      anonKey,
+      tokenHash,
       tokenRow,
       rows: rows.data,
       nowIso,
-      baseUrl,
-      serviceRoleKey,
-      tokenHash,
       fetcher
-    }) : await upsertWithAnonKey({ baseUrl, anonKey, tokenHash, tokenRow, rows: rows.data, nowIso, fetcher });
+    });
     if (!upsert.ok) return json({ error: upsert.error }, 500);
     await recordIngestBatchMetrics({
       serviceClient,
@@ -944,177 +1182,3 @@ module.exports = withRequestLogging("vibeusage-ingest", async function(request, 
     if (guard && typeof guard.release === "function") guard.release();
   }
 });
-async function getTokenRowWithServiceClient(serviceClient, tokenHash) {
-  const { data: tokenRow, error: tokenErr } = await serviceClient.database.from("vibeusage_tracker_device_tokens").select("id,user_id,device_id,revoked_at,last_sync_at").eq("token_hash", tokenHash).maybeSingle();
-  if (tokenErr) throw new Error(tokenErr.message);
-  if (!tokenRow || tokenRow.revoked_at) return null;
-  return tokenRow;
-}
-async function getTokenRowWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher }) {
-  if (!anonKey) throw new Error("Anon key missing");
-  const url = new URL("/api/database/records/vibeusage_tracker_device_tokens", baseUrl);
-  url.searchParams.set("select", "id,user_id,device_id,revoked_at,last_sync_at");
-  url.searchParams.set("token_hash", `eq.${tokenHash}`);
-  url.searchParams.set("limit", "1");
-  const res = await (fetcher || fetch)(url.toString(), {
-    method: "GET",
-    headers: buildAuthHeaders({ anonKey, tokenHash })
-  });
-  const { data, error } = await readApiJson(res);
-  if (!res.ok) throw new Error(error || `HTTP ${res.status}`);
-  const rows = normalizeRows(data);
-  const tokenRow = rows?.[0] || null;
-  if (!tokenRow || tokenRow.revoked_at) return null;
-  return tokenRow;
-}
-async function upsertWithServiceClient({
-  serviceClient,
-  tokenRow,
-  rows,
-  nowIso,
-  baseUrl,
-  serviceRoleKey,
-  tokenHash,
-  fetcher
-}) {
-  if (serviceRoleKey && baseUrl) {
-    const url = new URL("/api/database/records/vibeusage_tracker_hourly", baseUrl);
-    const res = await recordsUpsert({
-      url,
-      anonKey: serviceRoleKey,
-      tokenHash,
-      rows,
-      onConflict: "user_id,device_id,source,model,hour_start",
-      prefer: "return=representation",
-      resolution: "merge-duplicates",
-      select: "hour_start",
-      fetcher
-    });
-    if (res.ok) {
-      const insertedRows = normalizeRows(res.data);
-      const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
-      await bestEffortTouchWithServiceClient(serviceClient, tokenRow, nowIso);
-      return { ok: true, inserted, skipped: 0 };
-    }
-    if (!isUpsertUnsupported(res)) {
-      return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
-    }
-  }
-  const table = serviceClient.database.from("vibeusage_tracker_hourly");
-  if (typeof table?.upsert === "function") {
-    const { error } = await table.upsert(rows, { onConflict: "user_id,device_id,source,model,hour_start" });
-    if (error) return { ok: false, error: error.message, inserted: 0, skipped: 0 };
-    await bestEffortTouchWithServiceClient(serviceClient, tokenRow, nowIso);
-    return { ok: true, inserted: rows.length, skipped: 0 };
-  }
-  return { ok: false, error: "Half-hour upsert unsupported", inserted: 0, skipped: 0 };
-}
-async function upsertWithAnonKey({ baseUrl, anonKey, tokenHash, tokenRow, rows, nowIso, fetcher }) {
-  if (!anonKey) return { ok: false, error: "Anon key missing", inserted: 0, skipped: 0 };
-  const url = new URL("/api/database/records/vibeusage_tracker_hourly", baseUrl);
-  const res = await recordsUpsert({
-    url,
-    anonKey,
-    tokenHash,
-    rows,
-    onConflict: "user_id,device_id,source,model,hour_start",
-    prefer: "return=representation",
-    resolution: "merge-duplicates",
-    select: "hour_start",
-    fetcher
-  });
-  if (res.ok) {
-    const insertedRows = normalizeRows(res.data);
-    const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
-    await bestEffortTouchWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher });
-    return { ok: true, inserted, skipped: 0 };
-  }
-  if (isUpsertUnsupported(res)) {
-    return { ok: false, error: res.error || "Half-hour upsert unsupported", inserted: 0, skipped: 0 };
-  }
-  return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
-}
-async function recordIngestBatchMetrics({
-  serviceClient,
-  baseUrl,
-  anonKey,
-  tokenHash,
-  tokenRow,
-  bucketCount,
-  inserted,
-  skipped,
-  source,
-  fetcher
-}) {
-  if (!tokenRow) return;
-  const row = {
-    user_id: tokenRow.user_id,
-    device_id: tokenRow.device_id,
-    device_token_id: tokenRow.id,
-    source: typeof source === "string" ? source : null,
-    bucket_count: toNonNegativeInt(bucketCount) ?? 0,
-    inserted: toNonNegativeInt(inserted) ?? 0,
-    skipped: toNonNegativeInt(skipped) ?? 0
-  };
-  try {
-    if (serviceClient) {
-      const { error } = await serviceClient.database.from("vibeusage_tracker_ingest_batches").insert(row);
-      if (error) throw new Error(error.message);
-      return;
-    }
-    if (!anonKey || !baseUrl) return;
-    const url = new URL("/api/database/records/vibeusage_tracker_ingest_batches", baseUrl);
-    const res = await (fetcher || fetch)(url.toString(), {
-      method: "POST",
-      headers: {
-        ...buildAuthHeaders({ anonKey, tokenHash }),
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(row)
-    });
-    if (!res.ok) {
-      const { error } = await readApiJson(res);
-      throw new Error(error || `HTTP ${res.status}`);
-    }
-  } catch (_e) {
-  }
-}
-async function bestEffortTouchWithServiceClient(serviceClient, tokenRow, nowIso) {
-  const lastSyncAt = normalizeIso(tokenRow?.last_sync_at);
-  const shouldUpdateSync = !lastSyncAt || !isWithinInterval(lastSyncAt, 30);
-  try {
-    await serviceClient.database.from("vibeusage_tracker_device_tokens").update(shouldUpdateSync ? { last_used_at: nowIso, last_sync_at: nowIso } : { last_used_at: nowIso }).eq("id", tokenRow.id);
-  } catch (_e) {
-  }
-  try {
-    await serviceClient.database.from("vibeusage_tracker_devices").update({ last_seen_at: nowIso }).eq("id", tokenRow.device_id);
-  } catch (_e) {
-  }
-}
-async function bestEffortTouchWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher }) {
-  if (!anonKey) return;
-  try {
-    const url = new URL("/api/database/rpc/vibeusage_touch_device_token_sync", baseUrl);
-    await (fetcher || fetch)(url.toString(), {
-      method: "POST",
-      headers: {
-        ...buildAuthHeaders({ anonKey, tokenHash }),
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ min_interval_minutes: 30 })
-    });
-  } catch (_e) {
-  }
-}
-function normalizeIso(value) {
-  if (typeof value !== "string") return null;
-  const dt = new Date(value);
-  if (!Number.isFinite(dt.getTime())) return null;
-  return dt.toISOString();
-}
-function isWithinInterval(lastSyncAt, minutes) {
-  const lastMs = Date.parse(lastSyncAt);
-  if (!Number.isFinite(lastMs)) return false;
-  const windowMs = Math.max(0, minutes) * 60 * 1e3;
-  return windowMs > 0 && Date.now() - lastMs < windowMs;
-}

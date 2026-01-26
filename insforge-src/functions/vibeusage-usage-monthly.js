@@ -107,37 +107,43 @@ module.exports = withRequestLogging('vibeusage-usage-monthly', async function(re
 
   const queryStartMs = Date.now();
   let rowCount = 0;
-  const { error } = await forEachPage({
-    createQuery: () => {
-      return buildHourlyUsageQuery({
-        edgeClient: auth.edgeClient,
-        userId: auth.userId,
-        source,
-        usageModels: hasModelFilter ? usageModels : [],
-        canonicalModel,
-        startIso,
-        endIso,
-        select:
-          'hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens'
-      });
-    },
-    onPage: (rows) => {
-      const pageRows = Array.isArray(rows) ? rows : [];
-      rowCount += pageRows.length;
-      for (const row of pageRows) {
-        ingestMonthlyRow({
-          buckets,
-          row,
-          tzContext,
+  let pageResult;
+  try {
+    pageResult = await forEachPage({
+      createQuery: () => {
+        return buildHourlyUsageQuery({
+          edgeClient: auth.edgeClient,
+          userId: auth.userId,
           source,
+          usageModels: hasModelFilter ? usageModels : [],
           canonicalModel,
-          hasModelFilter,
-          aliasTimeline,
-          to
+          startIso,
+          endIso,
+          select:
+            'hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens'
         });
+      },
+      onPage: (rows) => {
+        const pageRows = Array.isArray(rows) ? rows : [];
+        rowCount += pageRows.length;
+        for (const row of pageRows) {
+          ingestMonthlyRow({
+            buckets,
+            row,
+            tzContext,
+            source,
+            canonicalModel,
+            hasModelFilter,
+            aliasTimeline,
+            to
+          });
+        }
       }
-    }
-  });
+    });
+  } catch (err) {
+    const queryDurationMs = Date.now() - queryStartMs;
+    return respond({ error: err?.message || 'Internal error' }, 500, queryDurationMs);
+  }
   const queryDurationMs = Date.now() - queryStartMs;
   logSlowQuery(logger, {
     query_label: 'usage_monthly',
@@ -150,7 +156,7 @@ module.exports = withRequestLogging('vibeusage-usage-monthly', async function(re
     tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
   });
 
-  if (error) return respond({ error: error.message }, 500, queryDurationMs);
+  if (pageResult?.error) return respond({ error: pageResult.error.message }, 500, queryDurationMs);
 
   const monthly = monthKeys.map((key) => {
     const bucket = buckets.get(key);
