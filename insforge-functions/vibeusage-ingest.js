@@ -681,14 +681,26 @@ module.exports = withRequestLogging("vibeusage-ingest", async function(request, 
     const body = await readJson(request);
     if (body.error) return json({ error: body.error }, body.status);
     const hourly = normalizeHourly(body.data);
-    if (!Array.isArray(hourly)) {
-      return json({ error: "Invalid payload: expected {hourly:[...]} or [...]" }, 400);
+    const projectHourly = normalizeProjectHourly(body.data);
+    const hourlyBuckets = Array.isArray(hourly) ? hourly : [];
+    const projectBuckets = Array.isArray(projectHourly) ? projectHourly : [];
+    if (!Array.isArray(hourly) && !Array.isArray(projectHourly)) {
+      return json({ error: "Invalid payload: expected {hourly:[...]} or {project_hourly:[...]}" }, 400);
     }
-    if (hourly.length > MAX_BUCKETS) return json({ error: `Too many buckets (max ${MAX_BUCKETS})` }, 413);
+    if (hourlyBuckets.length + projectBuckets.length > MAX_BUCKETS) {
+      return json({ error: `Too many buckets (max ${MAX_BUCKETS})` }, 413);
+    }
     const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-    const rows = buildRows({ hourly, tokenRow, nowIso });
+    const rows = buildRows({ hourly: hourlyBuckets, tokenRow, nowIso });
     if (rows.error) return json({ error: rows.error }, 400);
-    if (rows.data.length === 0) {
+    const projectRows = buildProjectRows({ projectHourly: projectBuckets, tokenRow, nowIso });
+    if (projectRows.error) return json({ error: projectRows.error }, 400);
+    const projectRegistryRows = buildProjectRegistryRows({
+      projectUsageRows: projectRows.data,
+      tokenRow,
+      nowIso
+    });
+    if (rows.data.length === 0 && projectRows.data.length === 0) {
       await recordIngestBatchMetrics({
         serviceClient,
         baseUrl,
@@ -707,12 +719,24 @@ module.exports = withRequestLogging("vibeusage-ingest", async function(request, 
       serviceClient,
       tokenRow,
       rows: rows.data,
+      projectRows: projectRows.data,
+      projectRegistryRows,
       nowIso,
       baseUrl,
       serviceRoleKey,
       tokenHash,
       fetcher
-    }) : await upsertWithAnonKey({ baseUrl, anonKey, tokenHash, tokenRow, rows: rows.data, nowIso, fetcher });
+    }) : await upsertWithAnonKey({
+      baseUrl,
+      anonKey,
+      tokenHash,
+      tokenRow,
+      rows: rows.data,
+      projectRows: projectRows.data,
+      projectRegistryRows,
+      nowIso,
+      fetcher
+    });
     if (!upsert.ok) return json({ error: upsert.error }, 500);
     await recordIngestBatchMetrics({
       serviceClient,
@@ -720,10 +744,10 @@ module.exports = withRequestLogging("vibeusage-ingest", async function(request, 
       anonKey,
       tokenHash,
       tokenRow,
-      bucketCount: rows.data.length,
+      bucketCount: rows.data.length + projectRows.data.length,
       inserted: upsert.inserted,
       skipped: upsert.skipped,
-      source: deriveMetricsSource(rows.data),
+      source: deriveMetricsSource(rows.data.length > 0 ? rows.data : projectRows.data),
       fetcher
     });
     return json(
@@ -770,6 +794,59 @@ function buildRows({ hourly, tokenRow, nowIso }) {
   }
   return { error: null, data: rows };
 }
+function buildProjectRows({ projectHourly, tokenRow, nowIso }) {
+  const byHour = /* @__PURE__ */ new Map();
+  for (const raw of projectHourly) {
+    const parsed = parseProjectBucket(raw);
+    if (!parsed.ok) return { error: parsed.error, data: [] };
+    const source = parsed.value.source || "codex";
+    const projectKey = parsed.value.project_key;
+    const dedupeKey = `${parsed.value.hour_start}::${source}::${projectKey}`;
+    byHour.set(dedupeKey, { ...parsed.value, source });
+  }
+  const rows = [];
+  for (const bucket of byHour.values()) {
+    const billable = computeBillableTotalTokens({ source: bucket.source, totals: bucket });
+    rows.push({
+      user_id: tokenRow.user_id,
+      device_id: tokenRow.device_id,
+      device_token_id: tokenRow.id,
+      project_key: bucket.project_key,
+      project_ref: bucket.project_ref,
+      source: bucket.source,
+      hour_start: bucket.hour_start,
+      input_tokens: bucket.input_tokens,
+      cached_input_tokens: bucket.cached_input_tokens,
+      output_tokens: bucket.output_tokens,
+      reasoning_output_tokens: bucket.reasoning_output_tokens,
+      total_tokens: bucket.total_tokens,
+      billable_total_tokens: billable.toString(),
+      billable_rule_version: BILLABLE_RULE_VERSION,
+      updated_at: nowIso
+    });
+  }
+  return { error: null, data: rows };
+}
+function buildProjectRegistryRows({ projectUsageRows, tokenRow, nowIso }) {
+  const byKey = /* @__PURE__ */ new Map();
+  const rows = Array.isArray(projectUsageRows) ? projectUsageRows : [];
+  for (const row of rows) {
+    const projectKey = typeof row?.project_key === "string" ? row.project_key : null;
+    const projectRef = typeof row?.project_ref === "string" ? row.project_ref : null;
+    if (!projectKey || !projectRef) continue;
+    if (byKey.has(projectKey)) continue;
+    byKey.set(projectKey, {
+      user_id: tokenRow.user_id,
+      device_id: tokenRow.device_id,
+      device_token_id: tokenRow.id,
+      project_key: projectKey,
+      project_ref: projectRef,
+      source: typeof row?.source === "string" ? row.source : "codex",
+      last_seen_at: nowIso
+    });
+  }
+  return Array.from(byKey.values());
+}
 function deriveMetricsSource(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return null;
   const sources = /* @__PURE__ */ new Set();
@@ -808,6 +885,125 @@ async function upsertWithServiceClient({
   serviceClient,
   tokenRow,
   rows,
+  projectRows,
+  projectRegistryRows,
+  nowIso,
+  baseUrl,
+  serviceRoleKey,
+  tokenHash,
+  fetcher
+}) {
+  let inserted = 0;
+  let skipped = 0;
+  const hourlyRows = Array.isArray(rows) ? rows : [];
+  if (hourlyRows.length > 0) {
+    const hourly = await upsertHourlyWithServiceClient({
+      serviceClient,
+      tokenRow,
+      rows: hourlyRows,
+      nowIso,
+      baseUrl,
+      serviceRoleKey,
+      tokenHash,
+      fetcher
+    });
+    if (!hourly.ok) return hourly;
+    inserted += hourly.inserted;
+    skipped += hourly.skipped;
+  }
+  const projectUsageRows = Array.isArray(projectRows) ? projectRows : [];
+  if (projectUsageRows.length > 0) {
+    const projectUsage = await upsertProjectUsageWithServiceClient({
+      serviceClient,
+      tokenRow,
+      rows: projectUsageRows,
+      nowIso,
+      baseUrl,
+      serviceRoleKey,
+      tokenHash,
+      fetcher
+    });
+    if (!projectUsage.ok) return projectUsage;
+    inserted += projectUsage.inserted;
+    skipped += projectUsage.skipped;
+  }
+  const registryRows = Array.isArray(projectRegistryRows) ? projectRegistryRows : [];
+  if (registryRows.length > 0) {
+    const registry = await upsertProjectRegistryWithServiceClient({
+      serviceClient,
+      rows: registryRows,
+      baseUrl,
+      serviceRoleKey,
+      tokenHash,
+      fetcher
+    });
+    if (!registry.ok) return registry;
+  }
+  if (hourlyRows.length > 0 || projectUsageRows.length > 0) {
+    await bestEffortTouchWithServiceClient(serviceClient, tokenRow, nowIso);
+  }
+  return { ok: true, inserted, skipped };
+}
+async function upsertWithAnonKey({
+  baseUrl,
+  anonKey,
+  tokenHash,
+  tokenRow,
+  rows,
+  projectRows,
+  projectRegistryRows,
+  nowIso,
+  fetcher
+}) {
+  if (!anonKey) return { ok: false, error: "Anon key missing", inserted: 0, skipped: 0 };
+  let inserted = 0;
+  let skipped = 0;
+  const hourlyRows = Array.isArray(rows) ? rows : [];
+  if (hourlyRows.length > 0) {
+    const hourly = await upsertHourlyWithAnonKey({
+      baseUrl,
+      anonKey,
+      tokenHash,
+      rows: hourlyRows,
+      fetcher
+    });
+    if (!hourly.ok) return hourly;
+    inserted += hourly.inserted;
+    skipped += hourly.skipped;
+  }
+  const projectUsageRows = Array.isArray(projectRows) ? projectRows : [];
+  if (projectUsageRows.length > 0) {
+    const projectUsage = await upsertProjectUsageWithAnonKey({
+      baseUrl,
+      anonKey,
+      tokenHash,
+      rows: projectUsageRows,
+      fetcher
+    });
+    if (!projectUsage.ok) return projectUsage;
+    inserted += projectUsage.inserted;
+    skipped += projectUsage.skipped;
+  }
+  const registryRows = Array.isArray(projectRegistryRows) ? projectRegistryRows : [];
+  if (registryRows.length > 0) {
+    const registry = await upsertProjectRegistryWithAnonKey({
+      baseUrl,
+      anonKey,
+      tokenHash,
+      rows: registryRows,
+      fetcher
+    });
+    if (!registry.ok) return registry;
+  }
+  if (hourlyRows.length > 0 || projectUsageRows.length > 0) {
+    await bestEffortTouchWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher });
+  }
+  return { ok: true, inserted, skipped };
+}
+async function upsertHourlyWithServiceClient({
+  serviceClient,
+  tokenRow,
+  rows,
   nowIso,
   baseUrl,
   serviceRoleKey,
@@ -830,7 +1026,6 @@ async function upsertWithServiceClient({
     if (res.ok) {
       const insertedRows = normalizeRows(res.data);
       const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
-      await bestEffortTouchWithServiceClient(serviceClient, tokenRow, nowIso);
       return { ok: true, inserted, skipped: 0 };
     }
     if (!isUpsertUnsupported(res)) {
@@ -841,13 +1036,11 @@ async function upsertWithServiceClient({
   if (typeof table?.upsert === "function") {
     const { error } = await table.upsert(rows, { onConflict: "user_id,device_id,source,model,hour_start" });
     if (error) return { ok: false, error: error.message, inserted: 0, skipped: 0 };
-    await bestEffortTouchWithServiceClient(serviceClient, tokenRow, nowIso);
     return { ok: true, inserted: rows.length, skipped: 0 };
   }
   return { ok: false, error: "Half-hour upsert unsupported", inserted: 0, skipped: 0 };
 }
-async function upsertWithAnonKey({ baseUrl, anonKey, tokenHash, tokenRow, rows, nowIso, fetcher }) {
-  if (!anonKey) return { ok: false, error: "Anon key missing", inserted: 0, skipped: 0 };
+async function upsertHourlyWithAnonKey({ baseUrl, anonKey, tokenHash, rows, fetcher }) {
   const url = new URL("/api/database/records/vibeusage_tracker_hourly", baseUrl);
   const res = await recordsUpsert({
     url,
@@ -863,13 +1056,117 @@ async function upsertWithAnonKey({ baseUrl, anonKey, tokenHash, tokenRow, rows, 
   if (res.ok) {
     const insertedRows = normalizeRows(res.data);
     const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
-    await bestEffortTouchWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher });
     return { ok: true, inserted, skipped: 0 };
   }
   if (isUpsertUnsupported(res)) {
     return { ok: false, error: res.error || "Half-hour upsert unsupported", inserted: 0, skipped: 0 };
   }
   return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
+}
+async function upsertProjectUsageWithServiceClient({
+  serviceClient,
+  rows,
+  baseUrl,
+  serviceRoleKey,
+  tokenHash,
+  fetcher
+}) {
+  if (serviceRoleKey && baseUrl) {
+    const url = new URL("/api/database/records/vibeusage_project_usage_hourly", baseUrl);
+    const res = await recordsUpsert({
+      url,
+      anonKey: serviceRoleKey,
+      tokenHash,
+      rows,
+      onConflict: "user_id,project_key,hour_start,source",
+      prefer: "return=representation",
+      resolution: "merge-duplicates",
+      select: "hour_start",
+      fetcher
+    });
+    if (res.ok) {
+      const insertedRows = normalizeRows(res.data);
+      const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+      return { ok: true, inserted, skipped: 0 };
+    }
+    if (!isUpsertUnsupported(res)) {
+      return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
+    }
+  }
+  const table = serviceClient.database.from("vibeusage_project_usage_hourly");
+  if (typeof table?.upsert === "function") {
+    const { error } = await table.upsert(rows, { onConflict: "user_id,project_key,hour_start,source" });
+    if (error) return { ok: false, error: error.message, inserted: 0, skipped: 0 };
+    return { ok: true, inserted: rows.length, skipped: 0 };
+  }
+  return { ok: false, error: "Project usage upsert unsupported", inserted: 0, skipped: 0 };
+}
+async function upsertProjectUsageWithAnonKey({ baseUrl, anonKey, tokenHash, rows, fetcher }) {
+  const url = new URL("/api/database/records/vibeusage_project_usage_hourly", baseUrl);
+  const res = await recordsUpsert({
+    url,
+    anonKey,
+    tokenHash,
+    rows,
+    onConflict: "user_id,project_key,hour_start,source",
+    prefer: "return=representation",
+    resolution: "merge-duplicates",
+    select: "hour_start",
+    fetcher
+  });
+  if (res.ok) {
+    const insertedRows = normalizeRows(res.data);
+    const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+    return { ok: true, inserted, skipped: 0 };
+  }
+  if (isUpsertUnsupported(res)) {
+    return { ok: false, error: res.error || "Project usage upsert unsupported", inserted: 0, skipped: 0 };
+  }
+  return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
+}
+async function upsertProjectRegistryWithServiceClient({ serviceClient, rows, baseUrl, serviceRoleKey, tokenHash, fetcher }) {
+  if (serviceRoleKey && baseUrl) {
+    const url = new URL("/api/database/records/vibeusage_projects", baseUrl);
+    const res = await recordsUpsert({
+      url,
+      anonKey: serviceRoleKey,
+      tokenHash,
+      rows,
+      onConflict: "user_id,project_key",
+      prefer: "return=representation",
+      resolution: "merge-duplicates",
+      select: "project_key",
+      fetcher
+    });
+    if (res.ok) return { ok: true };
+    if (!isUpsertUnsupported(res)) return { ok: false, error: res.error || `HTTP ${res.status}` };
+  }
+  const table = serviceClient.database.from("vibeusage_projects");
+  if (typeof table?.upsert === "function") {
+    const { error } = await table.upsert(rows, { onConflict: "user_id,project_key" });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  }
+  return { ok: false, error: "Project registry upsert unsupported" };
+}
+async function upsertProjectRegistryWithAnonKey({ baseUrl, anonKey, tokenHash, rows, fetcher }) {
+  const url = new URL("/api/database/records/vibeusage_projects", baseUrl);
+  const res = await recordsUpsert({
+    url,
+    anonKey,
+    tokenHash,
+    rows,
+    onConflict: "user_id,project_key",
+    prefer: "return=representation",
+    resolution: "merge-duplicates",
+    select: "project_key",
+    fetcher
+  });
+  if (res.ok) return { ok: true };
+  if (isUpsertUnsupported(res)) {
+    return { ok: false, error: res.error || "Project registry upsert unsupported" };
+  }
+  return { ok: false, error: res.error || `HTTP ${res.status}` };
 }
 async function recordIngestBatchMetrics({
   serviceClient,
@@ -1015,6 +1312,14 @@ function normalizeHourly(data) {
   }
   return null;
 }
+function normalizeProjectHourly(data) {
+  if (!data || typeof data !== "object") return null;
+  if (Array.isArray(data.project_hourly)) return data.project_hourly;
+  if (data.data && typeof data.data === "object" && Array.isArray(data.data.project_hourly)) {
+    return data.data.project_hourly;
+  }
+  return null;
+}
 function parseHourlyBucket(raw) {
   if (!raw || typeof raw !== "object") return { ok: false, error: "Invalid half-hour bucket" };
   const hourStart = parseUtcHalfHourStart(raw.hour_start);
@@ -1036,6 +1341,41 @@ function parseHourlyBucket(raw) {
     value: {
       source,
       model,
+      hour_start: hourStart,
+      input_tokens: input,
+      cached_input_tokens: cached,
+      output_tokens: output,
+      reasoning_output_tokens: reasoning,
+      total_tokens: total
+    }
+  };
+}
+function parseProjectBucket(raw) {
+  if (!raw || typeof raw !== "object") return { ok: false, error: "Invalid project bucket" };
+  const hourStart = parseUtcHalfHourStart(raw.hour_start);
+  if (!hourStart) {
+    return { ok: false, error: "hour_start must be an ISO timestamp at UTC half-hour boundary" };
+  }
+  const projectRef = typeof raw.project_ref === "string" ? raw.project_ref.trim() : "";
+  const projectKey = typeof raw.project_key === "string" ? raw.project_key.trim() : "";
+  if (!projectRef || !projectKey) {
+    return { ok: false, error: "project_ref and project_key are required" };
+  }
+  const source = normalizeSource(raw.source);
+  const input = toNonNegativeInt(raw.input_tokens);
+  const cached = toNonNegativeInt(raw.cached_input_tokens);
+  const output = toNonNegativeInt(raw.output_tokens);
+  const reasoning = toNonNegativeInt(raw.reasoning_output_tokens);
+  const total = toNonNegativeInt(raw.total_tokens);
+  if ([input, cached, output, reasoning, total].some((n) => n == null)) {
+    return { ok: false, error: "Token fields must be non-negative integers" };
+  }
+  return {
+    ok: true,
+    value: {
+      project_ref: projectRef,
+      project_key: projectKey,
+      source,
       hour_start: hourStart,
       input_tokens: input,
       cached_input_tokens: cached,
