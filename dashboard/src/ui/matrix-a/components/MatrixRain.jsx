@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from "react";
 
+import { isScreenshotModeEnabled } from "../../../lib/screenshot-mode.js";
+
 /**
  * Matrix rain background.
  */
@@ -10,6 +12,7 @@ export const MatrixRain = () => {
     if (!canvas) return;
     const ctx = canvas.getContext("2d", { alpha: true });
     if (!ctx) return;
+    const screenshotMode = isScreenshotModeEnabled(window.location.search);
 
     const prefersReducedMotion = Boolean(
       window.matchMedia &&
@@ -35,6 +38,7 @@ export const MatrixRain = () => {
     let fontSize = 12;
     let columnPitch = 16;
     let isVisible = document.visibilityState !== "hidden";
+    const random = screenshotMode ? createSeededRandom(42) : Math.random;
 
     const resize = () => {
       canvas.style.width = "100%";
@@ -47,7 +51,7 @@ export const MatrixRain = () => {
       fontSize = Math.max(8, Math.round(settings.baseFontSize * settings.scale));
       columnPitch = Math.max(10, Math.round(fontSize * settings.spacing));
       const columns = Math.ceil(canvas.width / columnPitch);
-      drops = Array.from({ length: columns }, () => Math.random() * -100);
+      drops = Array.from({ length: columns }, () => random() * -100);
 
       ctx.font = `${fontSize}px monospace`;
       ctx.textBaseline = "top";
@@ -65,14 +69,14 @@ export const MatrixRain = () => {
 
       for (let i = 0; i < drops.length; i++) {
         const char = characters.charAt(
-          Math.floor(Math.random() * characters.length)
+          Math.floor(random() * characters.length)
         );
         ctx.fillStyle =
-          Math.random() < settings.highlightChance ? "#E8FFE9" : "#00FF41";
+          random() < settings.highlightChance ? "#E8FFE9" : "#00FF41";
         ctx.fillText(char, i * columnPitch, drops[i] * fontSize);
         if (
           drops[i] * fontSize > canvas.height &&
-          Math.random() > settings.resetChance
+          random() > settings.resetChance
         ) {
           drops[i] = 0;
         }
@@ -112,6 +116,13 @@ export const MatrixRain = () => {
     };
 
     resize();
+    if (screenshotMode) {
+      drawFrame();
+      return () => {
+        if (resizeFrameId) cancelAnimationFrame(resizeFrameId);
+      };
+    }
+
     start();
 
     window.addEventListener("resize", handleResize);
@@ -131,3 +142,13 @@ export const MatrixRain = () => {
     />
   );
 };
+
+function createSeededRandom(seed) {
+  let t = seed;
+  return () => {
+    t += 0x6d2b79f5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}

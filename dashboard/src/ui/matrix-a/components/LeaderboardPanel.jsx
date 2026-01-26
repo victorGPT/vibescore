@@ -1,7 +1,7 @@
 import React from "react";
 
-import { copy } from "../../../lib/copy.js";
-import { AsciiBox } from "./AsciiBox.jsx";
+import { copy } from "../../../lib/copy";
+import { AsciiBox } from "../../foundation/AsciiBox.jsx";
 import { LeaderboardRow } from "./LeaderboardRow.jsx";
 
 const DEFAULT_PERIODS = [

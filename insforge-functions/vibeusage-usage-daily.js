@@ -670,7 +670,7 @@ var require_date = __commonJS({
         second: shifted.getUTCSeconds()
       };
     }
-    function formatLocalDateKey2(date, tzContext) {
+    function formatLocalDateKey(date, tzContext) {
       return formatDateParts(getLocalParts(date, tzContext));
     }
     function localDatePartsToUtc2(parts, tzContext) {
@@ -767,59 +767,11 @@ var require_date = __commonJS({
       isUtcTimeZone: isUtcTimeZone2,
       getTimeZoneOffsetMinutes,
       getLocalParts,
-      formatLocalDateKey: formatLocalDateKey2,
+      formatLocalDateKey,
       localDatePartsToUtc: localDatePartsToUtc2,
       normalizeDateRangeLocal: normalizeDateRangeLocal2,
       listDateStrings: listDateStrings2,
       getUsageMaxDays: getUsageMaxDays2
-    };
-  }
-});
-
-// insforge-src/shared/numbers.js
-var require_numbers = __commonJS({
-  "insforge-src/shared/numbers.js"(exports2, module2) {
-    "use strict";
-    function toBigInt2(v) {
-      if (typeof v === "bigint") return v >= 0n ? v : 0n;
-      if (typeof v === "number") {
-        if (!Number.isFinite(v) || v <= 0) return 0n;
-        return BigInt(Math.floor(v));
-      }
-      if (typeof v === "string") {
-        const s = v.trim();
-        if (!/^[0-9]+$/.test(s)) return 0n;
-        try {
-          return BigInt(s);
-        } catch (_e) {
-          return 0n;
-        }
-      }
-      return 0n;
-    }
-    function toPositiveIntOrNull(v) {
-      if (typeof v === "number" && Number.isInteger(v) && v > 0) return v;
-      if (typeof v === "string") {
-        const s = v.trim();
-        if (!/^[0-9]+$/.test(s)) return null;
-        const n = Number.parseInt(s, 10);
-        return Number.isFinite(n) && n > 0 ? n : null;
-      }
-      if (typeof v === "bigint") {
-        if (v <= 0n) return null;
-        const n = Number(v);
-        return Number.isFinite(n) && n > 0 ? n : null;
-      }
-      return null;
-    }
-    function toPositiveInt(v) {
-      const n = toPositiveIntOrNull(v);
-      return n == null ? 0 : n;
-    }
-    module2.exports = {
-      toBigInt: toBigInt2,
-      toPositiveInt,
-      toPositiveIntOrNull
     };
   }
 });
@@ -865,11 +817,351 @@ var require_pagination = __commonJS({
   }
 });
 
+// insforge-src/shared/numbers.js
+var require_numbers = __commonJS({
+  "insforge-src/shared/numbers.js"(exports2, module2) {
+    "use strict";
+    function toBigInt(v) {
+      if (typeof v === "bigint") return v >= 0n ? v : 0n;
+      if (typeof v === "number") {
+        if (!Number.isFinite(v) || v <= 0) return 0n;
+        return BigInt(Math.floor(v));
+      }
+      if (typeof v === "string") {
+        const s = v.trim();
+        if (!/^[0-9]+$/.test(s)) return 0n;
+        try {
+          return BigInt(s);
+        } catch (_e) {
+          return 0n;
+        }
+      }
+      return 0n;
+    }
+    function toPositiveIntOrNull(v) {
+      if (typeof v === "number" && Number.isInteger(v) && v > 0) return v;
+      if (typeof v === "string") {
+        const s = v.trim();
+        if (!/^[0-9]+$/.test(s)) return null;
+        const n = Number.parseInt(s, 10);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      }
+      if (typeof v === "bigint") {
+        if (v <= 0n) return null;
+        const n = Number(v);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      }
+      return null;
+    }
+    function toPositiveInt(v) {
+      const n = toPositiveIntOrNull(v);
+      return n == null ? 0 : n;
+    }
+    module2.exports = {
+      toBigInt,
+      toPositiveInt,
+      toPositiveIntOrNull
+    };
+  }
+});
+
+// insforge-src/shared/core/usage-daily.js
+var require_usage_daily = __commonJS({
+  "insforge-src/shared/core/usage-daily.js"(exports2, module2) {
+    "use strict";
+    var { formatLocalDateKey } = require_date();
+    var { toBigInt } = require_numbers();
+    function initDailyBuckets2(dayKeys) {
+      const buckets = new Map(
+        (Array.isArray(dayKeys) ? dayKeys : []).map((day) => [
+          day,
+          {
+            total: 0n,
+            billable: 0n,
+            input: 0n,
+            cached: 0n,
+            output: 0n,
+            reasoning: 0n
+          }
+        ])
+      );
+      return { buckets };
+    }
+    function applyDailyBucket2({ buckets, row, tzContext, billable }) {
+      const ts = row?.hour_start;
+      if (!ts) return false;
+      const dt = new Date(ts);
+      if (!Number.isFinite(dt.getTime())) return false;
+      const day = formatLocalDateKey(dt, tzContext);
+      const bucket = buckets?.get ? buckets.get(day) : null;
+      if (!bucket) return false;
+      bucket.total += toBigInt(row?.total_tokens);
+      bucket.billable += toBigInt(billable);
+      bucket.input += toBigInt(row?.input_tokens);
+      bucket.cached += toBigInt(row?.cached_input_tokens);
+      bucket.output += toBigInt(row?.output_tokens);
+      bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
+      return true;
+    }
+    module2.exports = {
+      initDailyBuckets: initDailyBuckets2,
+      applyDailyBucket: applyDailyBucket2
+    };
+  }
+});
+
+// insforge-src/shared/model-alias-timeline.js
+var require_model_alias_timeline = __commonJS({
+  "insforge-src/shared/model-alias-timeline.js"(exports2, module2) {
+    "use strict";
+    var { normalizeModel } = require_model();
+    var { normalizeUsageModelKey: normalizeUsageModelKey2 } = require_model_identity();
+    var DEFAULT_MODEL2 = "unknown";
+    function extractDateKey2(value) {
+      if (value instanceof Date) return value.toISOString().slice(0, 10);
+      if (typeof value === "string" && value.length >= 10) return value.slice(0, 10);
+      return null;
+    }
+    function nextDateKey(dateKey) {
+      if (!dateKey) return null;
+      const date = /* @__PURE__ */ new Date(`${dateKey}T00:00:00Z`);
+      if (Number.isNaN(date.getTime())) return null;
+      date.setUTCDate(date.getUTCDate() + 1);
+      return date.toISOString().slice(0, 10);
+    }
+    function resolveIdentityAtDate2({ rawModel, usageKey, dateKey, timeline } = {}) {
+      const normalizedKey = usageKey || normalizeUsageModelKey2(rawModel) || DEFAULT_MODEL2;
+      const normalizedDateKey = extractDateKey2(dateKey) || dateKey || null;
+      const candidates = [];
+      if (normalizedKey) candidates.push(normalizedKey);
+      for (const key of candidates) {
+        const entries = timeline && typeof timeline.get === "function" ? timeline.get(key) : null;
+        if (!Array.isArray(entries)) continue;
+        let match = null;
+        for (const entry of entries) {
+          if (entry.effective_from && normalizedDateKey && entry.effective_from <= normalizedDateKey) {
+            match = entry;
+          } else if (entry.effective_from && normalizedDateKey && entry.effective_from > normalizedDateKey) {
+            break;
+          }
+        }
+        if (match) {
+          return { model_id: match.model_id, model: match.model };
+        }
+      }
+      const display = normalizeModel(rawModel) || DEFAULT_MODEL2;
+      return { model_id: normalizedKey, model: display };
+    }
+    function buildAliasTimeline2({ usageModels, aliasRows } = {}) {
+      const normalized = new Set(
+        Array.isArray(usageModels) ? usageModels.map((model) => normalizeUsageModelKey2(model)).filter(Boolean) : []
+      );
+      const timeline = /* @__PURE__ */ new Map();
+      const rows = Array.isArray(aliasRows) ? aliasRows : [];
+      for (const row of rows) {
+        const usageKey = normalizeUsageModelKey2(row?.usage_model);
+        const canonical = normalizeUsageModelKey2(row?.canonical_model);
+        if (!usageKey || !canonical) continue;
+        if (normalized.size && !normalized.has(usageKey)) continue;
+        const display = normalizeModel(row?.display_name) || canonical;
+        const effective = extractDateKey2(row?.effective_from || "");
+        if (!effective) continue;
+        const entry = {
+          model_id: canonical,
+          model: display,
+          effective_from: effective
+        };
+        const list = timeline.get(usageKey);
+        if (list) {
+          list.push(entry);
+        } else {
+          timeline.set(usageKey, [entry]);
+        }
+      }
+      for (const list of timeline.values()) {
+        list.sort((a, b) => String(a.effective_from).localeCompare(String(b.effective_from)));
+      }
+      return timeline;
+    }
+    async function fetchAliasRows2({ edgeClient, usageModels, effectiveDate } = {}) {
+      const models = Array.isArray(usageModels) ? usageModels.map((model) => normalizeUsageModelKey2(model)).filter(Boolean) : [];
+      if (!models.length || !edgeClient || !edgeClient.database) return [];
+      const dateKey = extractDateKey2(effectiveDate) || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+      const dateKeyNext = nextDateKey(dateKey) || dateKey;
+      const query = edgeClient.database.from("vibeusage_model_aliases").select("usage_model,canonical_model,display_name,effective_from").eq("active", true).in("usage_model", models).lt("effective_from", dateKeyNext).order("effective_from", { ascending: true });
+      const result = await query;
+      const data = Array.isArray(result?.data) ? result.data : Array.isArray(query?.data) ? query.data : null;
+      if (!Array.isArray(data) || result?.error || query?.error) return [];
+      return data;
+    }
+    module2.exports = {
+      extractDateKey: extractDateKey2,
+      resolveIdentityAtDate: resolveIdentityAtDate2,
+      buildAliasTimeline: buildAliasTimeline2,
+      fetchAliasRows: fetchAliasRows2
+    };
+  }
+});
+
+// insforge-src/shared/core/usage-filter.js
+var require_usage_filter = __commonJS({
+  "insforge-src/shared/core/usage-filter.js"(exports2, module2) {
+    "use strict";
+    var { normalizeUsageModel: normalizeUsageModel2 } = require_model();
+    var { extractDateKey: extractDateKey2, resolveIdentityAtDate: resolveIdentityAtDate2 } = require_model_alias_timeline();
+    function shouldIncludeUsageRow2({ row, canonicalModel, hasModelFilter, aliasTimeline, to }) {
+      if (!hasModelFilter) return true;
+      const rawModel = normalizeUsageModel2(row?.model);
+      const dateKey = extractDateKey2(row?.hour_start || row?.day) || to;
+      const identity = resolveIdentityAtDate2({ rawModel, dateKey, timeline: aliasTimeline });
+      const filterIdentity = resolveIdentityAtDate2({
+        rawModel: canonicalModel,
+        usageKey: canonicalModel,
+        dateKey,
+        timeline: aliasTimeline
+      });
+      return identity.model_id === filterIdentity.model_id;
+    }
+    module2.exports = {
+      shouldIncludeUsageRow: shouldIncludeUsageRow2
+    };
+  }
+});
+
+// insforge-src/shared/usage-rollup.js
+var require_usage_rollup = __commonJS({
+  "insforge-src/shared/usage-rollup.js"(exports2, module2) {
+    "use strict";
+    var { applyCanaryFilter: applyCanaryFilter2 } = require_canary();
+    var { toBigInt } = require_numbers();
+    var { forEachPage: forEachPage2 } = require_pagination();
+    function createTotals2() {
+      return {
+        total_tokens: 0n,
+        billable_total_tokens: 0n,
+        input_tokens: 0n,
+        cached_input_tokens: 0n,
+        output_tokens: 0n,
+        reasoning_output_tokens: 0n
+      };
+    }
+    function addRowTotals2(target, row) {
+      if (!target || !row) return;
+      target.total_tokens += toBigInt(row?.total_tokens);
+      target.billable_total_tokens += toBigInt(row?.billable_total_tokens);
+      target.input_tokens += toBigInt(row?.input_tokens);
+      target.cached_input_tokens += toBigInt(row?.cached_input_tokens);
+      target.output_tokens += toBigInt(row?.output_tokens);
+      target.reasoning_output_tokens += toBigInt(row?.reasoning_output_tokens);
+    }
+    async function fetchRollupRows2({ edgeClient, userId, fromDay, toDay, source, model }) {
+      const rows = [];
+      const { error } = await forEachPage2({
+        createQuery: () => {
+          let query = edgeClient.database.from("vibeusage_tracker_daily_rollup").select("day,source,model,total_tokens,billable_total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", userId).gte("day", fromDay).lte("day", toDay);
+          if (source) query = query.eq("source", source);
+          if (model) query = query.eq("model", model);
+          query = applyCanaryFilter2(query, { source, model });
+          return query.order("day", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
+        },
+        onPage: (pageRows) => {
+          if (!Array.isArray(pageRows) || pageRows.length === 0) return;
+          rows.push(...pageRows);
+        }
+      });
+      if (error) return { ok: false, error };
+      return { ok: true, rows };
+    }
+    function sumRollupRows(rows) {
+      const totals = createTotals2();
+      for (const row of Array.isArray(rows) ? rows : []) {
+        addRowTotals2(totals, row);
+      }
+      return totals;
+    }
+    function isRollupEnabled2() {
+      return false;
+    }
+    module2.exports = {
+      createTotals: createTotals2,
+      addRowTotals: addRowTotals2,
+      fetchRollupRows: fetchRollupRows2,
+      sumRollupRows,
+      isRollupEnabled: isRollupEnabled2
+    };
+  }
+});
+
+// insforge-src/shared/core/usage-summary.js
+var require_usage_summary = __commonJS({
+  "insforge-src/shared/core/usage-summary.js"(exports2, module2) {
+    "use strict";
+    var { createTotals: createTotals2 } = require_usage_rollup();
+    function getSourceEntry2(map, source) {
+      if (map.has(source)) return map.get(source);
+      const entry = {
+        source,
+        totals: createTotals2()
+      };
+      map.set(source, entry);
+      return entry;
+    }
+    function resolveDisplayName2(identityMap, modelId) {
+      if (!modelId || !identityMap || typeof identityMap.values !== "function") return modelId || null;
+      for (const entry of identityMap.values()) {
+        if (entry?.model_id === modelId && entry?.model) return entry.model;
+      }
+      return modelId;
+    }
+    function buildPricingBucketKey2(sourceKey, usageKey, dateKey) {
+      return JSON.stringify([sourceKey || "", usageKey || "", dateKey || ""]);
+    }
+    function parsePricingBucketKey2(bucketKey, defaultDate) {
+      if (typeof bucketKey === "string" && bucketKey.startsWith("[")) {
+        try {
+          const parsed = JSON.parse(bucketKey);
+          if (Array.isArray(parsed)) {
+            const usageKey = parsed[1] ?? parsed[0] ?? "";
+            const dateKey = parsed[2] ?? defaultDate;
+            return {
+              usageKey: String(usageKey || ""),
+              dateKey: String(dateKey || defaultDate)
+            };
+          }
+        } catch (_e) {
+        }
+      }
+      if (typeof bucketKey === "string") {
+        const parts = bucketKey.split("::");
+        let usageKey = null;
+        let dateKey = null;
+        if (parts.length >= 3) {
+          usageKey = parts[1];
+          dateKey = parts[2];
+        } else if (parts.length === 2) {
+          usageKey = parts[0];
+          dateKey = parts[1];
+        } else {
+          usageKey = bucketKey;
+        }
+        return { usageKey, dateKey: dateKey || defaultDate };
+      }
+      return { usageKey: bucketKey, dateKey: defaultDate };
+    }
+    module2.exports = {
+      getSourceEntry: getSourceEntry2,
+      resolveDisplayName: resolveDisplayName2,
+      buildPricingBucketKey: buildPricingBucketKey2,
+      parsePricingBucketKey: parsePricingBucketKey2
+    };
+  }
+});
+
 // insforge-src/shared/pricing.js
 var require_pricing = __commonJS({
   "insforge-src/shared/pricing.js"(exports2, module2) {
     "use strict";
-    var { toBigInt: toBigInt2 } = require_numbers();
+    var { toBigInt } = require_numbers();
     var { normalizeModel } = require_model();
     var TOKENS_PER_MILLION = 1000000n;
     var MICROS_PER_DOLLAR = 1000000n;
@@ -977,11 +1269,11 @@ var require_pricing = __commonJS({
     }
     function computeUsageCost2(totals, profile) {
       const pricing = normalizeProfile(profile || DEFAULT_PROFILE);
-      const input = toBigInt2(totals?.input_tokens);
-      const cached = toBigInt2(totals?.cached_input_tokens);
-      const output = toBigInt2(totals?.output_tokens);
-      const reasoning = toBigInt2(totals?.reasoning_output_tokens);
-      const total = toBigInt2(totals?.total_tokens);
+      const input = toBigInt(totals?.input_tokens);
+      const cached = toBigInt(totals?.cached_input_tokens);
+      const output = toBigInt(totals?.output_tokens);
+      const reasoning = toBigInt(totals?.reasoning_output_tokens);
+      const total = toBigInt(totals?.total_tokens);
       const sumAdd = input + cached + output + reasoning;
       const sumOverlap = input + output;
       const canOverlap = cached <= input && reasoning <= output;
@@ -1068,86 +1360,22 @@ var require_pricing = __commonJS({
   }
 });
 
-// insforge-src/shared/usage-rollup.js
-var require_usage_rollup = __commonJS({
-  "insforge-src/shared/usage-rollup.js"(exports2, module2) {
-    "use strict";
-    var { applyCanaryFilter: applyCanaryFilter2 } = require_canary();
-    var { toBigInt: toBigInt2 } = require_numbers();
-    var { forEachPage: forEachPage2 } = require_pagination();
-    function createTotals2() {
-      return {
-        total_tokens: 0n,
-        billable_total_tokens: 0n,
-        input_tokens: 0n,
-        cached_input_tokens: 0n,
-        output_tokens: 0n,
-        reasoning_output_tokens: 0n
-      };
-    }
-    function addRowTotals2(target, row) {
-      if (!target || !row) return;
-      target.total_tokens += toBigInt2(row?.total_tokens);
-      target.billable_total_tokens += toBigInt2(row?.billable_total_tokens);
-      target.input_tokens += toBigInt2(row?.input_tokens);
-      target.cached_input_tokens += toBigInt2(row?.cached_input_tokens);
-      target.output_tokens += toBigInt2(row?.output_tokens);
-      target.reasoning_output_tokens += toBigInt2(row?.reasoning_output_tokens);
-    }
-    async function fetchRollupRows2({ edgeClient, userId, fromDay, toDay, source, model }) {
-      const rows = [];
-      const { error } = await forEachPage2({
-        createQuery: () => {
-          let query = edgeClient.database.from("vibeusage_tracker_daily_rollup").select("day,source,model,total_tokens,billable_total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", userId).gte("day", fromDay).lte("day", toDay);
-          if (source) query = query.eq("source", source);
-          if (model) query = query.eq("model", model);
-          query = applyCanaryFilter2(query, { source, model });
-          return query.order("day", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
-        },
-        onPage: (pageRows) => {
-          if (!Array.isArray(pageRows) || pageRows.length === 0) return;
-          rows.push(...pageRows);
-        }
-      });
-      if (error) return { ok: false, error };
-      return { ok: true, rows };
-    }
-    function sumRollupRows(rows) {
-      const totals = createTotals2();
-      for (const row of Array.isArray(rows) ? rows : []) {
-        addRowTotals2(totals, row);
-      }
-      return totals;
-    }
-    function isRollupEnabled2() {
-      return false;
-    }
-    module2.exports = {
-      createTotals: createTotals2,
-      addRowTotals: addRowTotals2,
-      fetchRollupRows: fetchRollupRows2,
-      sumRollupRows,
-      isRollupEnabled: isRollupEnabled2
-    };
-  }
-});
-
 // insforge-src/shared/usage-billable.js
 var require_usage_billable = __commonJS({
   "insforge-src/shared/usage-billable.js"(exports2, module2) {
     "use strict";
-    var { toBigInt: toBigInt2 } = require_numbers();
+    var { toBigInt } = require_numbers();
     var { normalizeSource: normalizeSource2 } = require_source();
     var BILLABLE_INPUT_OUTPUT_REASONING = /* @__PURE__ */ new Set(["codex", "every-code"]);
     var BILLABLE_ADD_ALL = /* @__PURE__ */ new Set(["claude", "opencode"]);
     var BILLABLE_TOTAL = /* @__PURE__ */ new Set(["gemini"]);
     function computeBillableTotalTokens({ source, totals } = {}) {
       const normalizedSource = normalizeSource2(source) || "unknown";
-      const input = toBigInt2(totals?.input_tokens);
-      const cached = toBigInt2(totals?.cached_input_tokens);
-      const output = toBigInt2(totals?.output_tokens);
-      const reasoning = toBigInt2(totals?.reasoning_output_tokens);
-      const total = toBigInt2(totals?.total_tokens);
+      const input = toBigInt(totals?.input_tokens);
+      const cached = toBigInt(totals?.cached_input_tokens);
+      const output = toBigInt(totals?.output_tokens);
+      const reasoning = toBigInt(totals?.reasoning_output_tokens);
+      const total = toBigInt(totals?.total_tokens);
       const hasTotal = Boolean(totals && Object.prototype.hasOwnProperty.call(totals, "total_tokens"));
       if (BILLABLE_TOTAL.has(normalizedSource)) return total;
       if (BILLABLE_ADD_ALL.has(normalizedSource)) return input + cached + output + reasoning;
@@ -1165,20 +1393,20 @@ var require_usage_billable = __commonJS({
 var require_usage_aggregate = __commonJS({
   "insforge-src/shared/usage-aggregate.js"(exports2, module2) {
     "use strict";
-    var { toBigInt: toBigInt2 } = require_numbers();
+    var { toBigInt } = require_numbers();
     var { computeBillableTotalTokens } = require_usage_billable();
     var { addRowTotals: addRowTotals2 } = require_usage_rollup();
     function resolveBillableTotals2({ row, source, totals, billableField = "billable_total_tokens", hasStoredBillable } = {}) {
       const stored = typeof hasStoredBillable === "boolean" ? hasStoredBillable : Boolean(row && Object.prototype.hasOwnProperty.call(row, billableField) && row[billableField] != null);
       const resolvedTotals = totals || row;
-      const billable = stored ? toBigInt2(row?.[billableField]) : computeBillableTotalTokens({ source, totals: resolvedTotals });
+      const billable = stored ? toBigInt(row?.[billableField]) : computeBillableTotalTokens({ source, totals: resolvedTotals });
       return { billable, hasStoredBillable: stored };
     }
     function applyTotalsAndBillable2({ totals, row, billable, hasStoredBillable } = {}) {
       if (!totals || !row) return;
       addRowTotals2(totals, row);
       if (!hasStoredBillable) {
-        totals.billable_total_tokens += toBigInt2(billable);
+        totals.billable_total_tokens += toBigInt(billable);
       }
     }
     module2.exports = {
@@ -1375,99 +1603,6 @@ var require_debug = __commonJS({
   }
 });
 
-// insforge-src/shared/model-alias-timeline.js
-var require_model_alias_timeline = __commonJS({
-  "insforge-src/shared/model-alias-timeline.js"(exports2, module2) {
-    "use strict";
-    var { normalizeModel } = require_model();
-    var { normalizeUsageModelKey: normalizeUsageModelKey2 } = require_model_identity();
-    var DEFAULT_MODEL2 = "unknown";
-    function extractDateKey2(value) {
-      if (value instanceof Date) return value.toISOString().slice(0, 10);
-      if (typeof value === "string" && value.length >= 10) return value.slice(0, 10);
-      return null;
-    }
-    function nextDateKey(dateKey) {
-      if (!dateKey) return null;
-      const date = /* @__PURE__ */ new Date(`${dateKey}T00:00:00Z`);
-      if (Number.isNaN(date.getTime())) return null;
-      date.setUTCDate(date.getUTCDate() + 1);
-      return date.toISOString().slice(0, 10);
-    }
-    function resolveIdentityAtDate2({ rawModel, usageKey, dateKey, timeline } = {}) {
-      const normalizedKey = usageKey || normalizeUsageModelKey2(rawModel) || DEFAULT_MODEL2;
-      const normalizedDateKey = extractDateKey2(dateKey) || dateKey || null;
-      const candidates = [];
-      if (normalizedKey) candidates.push(normalizedKey);
-      for (const key of candidates) {
-        const entries = timeline && typeof timeline.get === "function" ? timeline.get(key) : null;
-        if (!Array.isArray(entries)) continue;
-        let match = null;
-        for (const entry of entries) {
-          if (entry.effective_from && normalizedDateKey && entry.effective_from <= normalizedDateKey) {
-            match = entry;
-          } else if (entry.effective_from && normalizedDateKey && entry.effective_from > normalizedDateKey) {
-            break;
-          }
-        }
-        if (match) {
-          return { model_id: match.model_id, model: match.model };
-        }
-      }
-      const display = normalizeModel(rawModel) || DEFAULT_MODEL2;
-      return { model_id: normalizedKey, model: display };
-    }
-    function buildAliasTimeline2({ usageModels, aliasRows } = {}) {
-      const normalized = new Set(
-        Array.isArray(usageModels) ? usageModels.map((model) => normalizeUsageModelKey2(model)).filter(Boolean) : []
-      );
-      const timeline = /* @__PURE__ */ new Map();
-      const rows = Array.isArray(aliasRows) ? aliasRows : [];
-      for (const row of rows) {
-        const usageKey = normalizeUsageModelKey2(row?.usage_model);
-        const canonical = normalizeUsageModelKey2(row?.canonical_model);
-        if (!usageKey || !canonical) continue;
-        if (normalized.size && !normalized.has(usageKey)) continue;
-        const display = normalizeModel(row?.display_name) || canonical;
-        const effective = extractDateKey2(row?.effective_from || "");
-        if (!effective) continue;
-        const entry = {
-          model_id: canonical,
-          model: display,
-          effective_from: effective
-        };
-        const list = timeline.get(usageKey);
-        if (list) {
-          list.push(entry);
-        } else {
-          timeline.set(usageKey, [entry]);
-        }
-      }
-      for (const list of timeline.values()) {
-        list.sort((a, b) => String(a.effective_from).localeCompare(String(b.effective_from)));
-      }
-      return timeline;
-    }
-    async function fetchAliasRows2({ edgeClient, usageModels, effectiveDate } = {}) {
-      const models = Array.isArray(usageModels) ? usageModels.map((model) => normalizeUsageModelKey2(model)).filter(Boolean) : [];
-      if (!models.length || !edgeClient || !edgeClient.database) return [];
-      const dateKey = extractDateKey2(effectiveDate) || (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
-      const dateKeyNext = nextDateKey(dateKey) || dateKey;
-      const query = edgeClient.database.from("vibeusage_model_aliases").select("usage_model,canonical_model,display_name,effective_from").eq("active", true).in("usage_model", models).lt("effective_from", dateKeyNext).order("effective_from", { ascending: true });
-      const result = await query;
-      const data = Array.isArray(result?.data) ? result.data : Array.isArray(query?.data) ? query.data : null;
-      if (!Array.isArray(data) || result?.error || query?.error) return [];
-      return data;
-    }
-    module2.exports = {
-      extractDateKey: extractDateKey2,
-      resolveIdentityAtDate: resolveIdentityAtDate2,
-      buildAliasTimeline: buildAliasTimeline2,
-      fetchAliasRows: fetchAliasRows2
-    };
-  }
-});
-
 // insforge-src/functions/vibeusage-usage-daily.js
 var { handleOptions, json } = require_http();
 var { getBearerToken, getAccessContext } = require_auth();
@@ -1483,7 +1618,6 @@ var {
 var { applyCanaryFilter } = require_canary();
 var {
   addDatePartsDays,
-  formatLocalDateKey,
   getUsageMaxDays,
   getUsageTimeZoneContext,
   isUtcTimeZone,
@@ -1492,8 +1626,15 @@ var {
   normalizeDateRangeLocal,
   parseDateParts
 } = require_date();
-var { toBigInt } = require_numbers();
 var { forEachPage } = require_pagination();
+var { initDailyBuckets, applyDailyBucket } = require_usage_daily();
+var { shouldIncludeUsageRow } = require_usage_filter();
+var {
+  buildPricingBucketKey,
+  getSourceEntry,
+  parsePricingBucketKey,
+  resolveDisplayName
+} = require_usage_summary();
 var {
   buildPricingMetadata,
   computeUsageCost,
@@ -1516,7 +1657,6 @@ var {
   resolveIdentityAtDate
 } = require_model_alias_timeline();
 var DEFAULT_MODEL = "unknown";
-var PRICING_BUCKET_SEP = "::";
 module.exports = withRequestLogging("vibeusage-usage-daily", async function(request, logger) {
   const opt = handleOptions(request);
   if (opt) return opt;
@@ -1574,19 +1714,7 @@ module.exports = withRequestLogging("vibeusage-usage-daily", async function(requ
     });
     aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
   }
-  const buckets = new Map(
-    dayKeys.map((day) => [
-      day,
-      {
-        total: 0n,
-        billable: 0n,
-        input: 0n,
-        cached: 0n,
-        output: 0n,
-        reasoning: 0n
-      }
-    ])
-  );
+  const { buckets } = initDailyBuckets(dayKeys);
   let totals = createTotals();
   let sourcesMap = /* @__PURE__ */ new Map();
   let distinctModels = /* @__PURE__ */ new Set();
@@ -1642,28 +1770,9 @@ module.exports = withRequestLogging("vibeusage-usage-daily", async function(requ
           if (!ts) continue;
           const dt = new Date(ts);
           if (!Number.isFinite(dt.getTime())) continue;
-          if (hasModelFilter) {
-            const rawModel = normalizeUsageModel(row?.model);
-            const dateKey = extractDateKey(ts) || to;
-            const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
-            const filterIdentity = resolveIdentityAtDate({
-              rawModel: canonicalModel,
-              usageKey: canonicalModel,
-              dateKey,
-              timeline: aliasTimeline
-            });
-            if (identity.model_id !== filterIdentity.model_id) continue;
-          }
-          const day = formatLocalDateKey(dt, tzContext);
-          const bucket = buckets.get(day);
-          if (!bucket) continue;
-          bucket.total += toBigInt(row?.total_tokens);
+          if (!shouldIncludeUsageRow({ row, canonicalModel, hasModelFilter, aliasTimeline, to })) continue;
           const billable = ingestRow(row);
-          bucket.billable += billable;
-          bucket.input += toBigInt(row?.input_tokens);
-          bucket.cached += toBigInt(row?.cached_input_tokens);
-          bucket.output += toBigInt(row?.output_tokens);
-          bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
+          applyDailyBucket({ buckets, row, tzContext, billable });
         }
       }
     });
@@ -1696,25 +1805,11 @@ module.exports = withRequestLogging("vibeusage-usage-daily", async function(requ
         const day = row?.day;
         const bucket = buckets.get(day);
         if (!bucket) continue;
-        if (hasModelFilter) {
-          const rawModel = normalizeUsageModel(row?.model);
-          const dateKey = extractDateKey(day) || to;
-          const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
-          const filterIdentity = resolveIdentityAtDate({
-            rawModel: canonicalModel,
-            usageKey: canonicalModel,
-            dateKey,
-            timeline: aliasTimeline
-          });
-          if (identity.model_id !== filterIdentity.model_id) continue;
-        }
-        bucket.total += toBigInt(row?.total_tokens);
+        if (!shouldIncludeUsageRow({ row, canonicalModel, hasModelFilter, aliasTimeline, to })) continue;
+        const dayValue = row?.day;
+        const rowForBucket = row?.hour_start || !dayValue ? row : { ...row, hour_start: `${dayValue}T00:00:00.000Z` };
         const billable = ingestRow(row);
-        bucket.billable += billable;
-        bucket.input += toBigInt(row?.input_tokens);
-        bucket.cached += toBigInt(row?.cached_input_tokens);
-        bucket.output += toBigInt(row?.output_tokens);
-        bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
+        applyDailyBucket({ buckets, row: rowForBucket, tzContext, billable });
       }
       if (rows2.length === 0) {
         const hourlyCheck = await hasHourlyData(startIso, endIso);
@@ -1775,7 +1870,7 @@ module.exports = withRequestLogging("vibeusage-usage-daily", async function(requ
       const rangeCanonicalModels = /* @__PURE__ */ new Set();
       const profileCache = /* @__PURE__ */ new Map();
       const getProfile = async (modelId, dateKey) => {
-        const key = `${modelId || ""}${PRICING_BUCKET_SEP}${dateKey || ""}`;
+        const key = buildPricingBucketKey("profile", modelId || "", dateKey || "");
         if (profileCache.has(key)) return profileCache.get(key);
         const profile = await resolvePricingProfile({
           edgeClient: auth.edgeClient,
@@ -1866,54 +1961,3 @@ module.exports = withRequestLogging("vibeusage-usage-daily", async function(requ
     queryDurationMs
   );
 });
-function getSourceEntry(map, source) {
-  if (map.has(source)) return map.get(source);
-  const entry = {
-    source,
-    totals: createTotals()
-  };
-  map.set(source, entry);
-  return entry;
-}
-function resolveDisplayName(identityMap, modelId) {
-  if (!modelId || !identityMap || typeof identityMap.values !== "function") return modelId || null;
-  for (const entry of identityMap.values()) {
-    if (entry?.model_id === modelId && entry?.model) return entry.model;
-  }
-  return modelId;
-}
-function buildPricingBucketKey(sourceKey, usageKey, dateKey) {
-  return JSON.stringify([sourceKey || "", usageKey || "", dateKey || ""]);
-}
-function parsePricingBucketKey(bucketKey, defaultDate) {
-  if (typeof bucketKey === "string" && bucketKey.startsWith("[")) {
-    try {
-      const parsed = JSON.parse(bucketKey);
-      if (Array.isArray(parsed)) {
-        const usageKey = parsed[1] ?? parsed[0] ?? "";
-        const dateKey = parsed[2] ?? defaultDate;
-        return {
-          usageKey: String(usageKey || ""),
-          dateKey: String(dateKey || defaultDate)
-        };
-      }
-    } catch (_e) {
-    }
-  }
-  if (typeof bucketKey === "string") {
-    const parts = bucketKey.split(PRICING_BUCKET_SEP);
-    let usageKey = null;
-    let dateKey = null;
-    if (parts.length >= 3) {
-      usageKey = parts[1];
-      dateKey = parts[2];
-    } else if (parts.length === 2) {
-      usageKey = parts[0];
-      dateKey = parts[1];
-    } else {
-      usageKey = bucketKey;
-    }
-    return { usageKey, dateKey: dateKey || defaultDate };
-  }
-  return { usageKey: bucketKey, dateKey: defaultDate };
-}

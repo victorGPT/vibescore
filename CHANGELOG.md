@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.15] - 2026-01-23
+### Changed
+- Bundle @insforge/sdk with the CLI package to avoid missing dependency errors at runtime.
+
 ## [0.2.14] - 2026-01-19
 ### Changed
 - Maintenance release; no CLI behavior changes.

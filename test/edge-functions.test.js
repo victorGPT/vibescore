@@ -660,11 +660,22 @@ test('vibeusage-ingest works without serviceRoleKey via anonKey records API', as
     const u = new URL(url);
 
     if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_device_tokens')) {
+      if (init?.method === 'PATCH') {
+        return new Response(JSON.stringify([{ ok: true }]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
       return new Response(JSON.stringify([tokenRow]), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_devices')) {
+      return new Response(JSON.stringify([{ ok: true }]), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
     if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_hourly')) {
       return new Response(JSON.stringify([{ hour_start: '2025-12-17T00:00:00.000Z' }]), { status: 201, headers: { 'Content-Type': 'application/json' } });
+    }
+
+    if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_ingest_batches')) {
+      return new Response(JSON.stringify([{ ok: true }]), { status: 201, headers: { 'Content-Type': 'application/json' } });
     }
 
     return new Response('not found', { status: 404 });
@@ -692,15 +703,19 @@ test('vibeusage-ingest works without serviceRoleKey via anonKey records API', as
   const data = await res.json();
   assert.deepEqual(data, { success: true, inserted: 1, skipped: 0 });
 
-  assert.equal(fetchCalls.length, 4);
+  assert.equal(fetchCalls.length, 5);
   const getCall = fetchCalls.find((call) =>
     String(call.url).includes('/api/database/records/vibeusage_tracker_device_tokens')
   );
   const postCall = fetchCalls.find((call) =>
     String(call.url).includes('/api/database/records/vibeusage_tracker_hourly')
   );
-  const touchCall = fetchCalls.find((call) =>
-    String(call.url).includes('/api/database/rpc/vibeusage_touch_device_token_sync')
+  const touchTokenCall = fetchCalls.find((call) =>
+    String(call.url).includes('/api/database/records/vibeusage_tracker_device_tokens')
+    && call.init?.method === 'PATCH'
+  );
+  const touchDeviceCall = fetchCalls.find((call) =>
+    String(call.url).includes('/api/database/records/vibeusage_tracker_devices')
   );
   const metricsCall = fetchCalls.find((call) =>
     String(call.url).includes('/api/database/records/vibeusage_tracker_ingest_batches')
@@ -722,12 +737,18 @@ test('vibeusage-ingest works without serviceRoleKey via anonKey records API', as
   assert.equal(postUrl.searchParams.get('on_conflict'), 'user_id,device_id,source,model,hour_start');
   assert.equal(postUrl.searchParams.get('select'), 'hour_start');
 
-  assert.ok(touchCall, 'touch RPC call not found');
-  assert.ok(String(touchCall.url).includes('/api/database/rpc/vibeusage_touch_device_token_sync'));
-  assert.equal(touchCall.init?.method, 'POST');
-  assert.equal(touchCall.init?.headers?.apikey, ANON_KEY);
-  assert.equal(touchCall.init?.headers?.Authorization, `Bearer ${ANON_KEY}`);
-  assert.equal(typeof touchCall.init?.headers?.['x-vibeusage-device-token-hash'], 'string');
+  assert.ok(touchTokenCall, 'token touch call not found');
+  assert.ok(String(touchTokenCall.url).includes('/api/database/records/vibeusage_tracker_device_tokens'));
+  assert.equal(touchTokenCall.init?.method, 'PATCH');
+  assert.equal(touchTokenCall.init?.headers?.apikey, ANON_KEY);
+  assert.equal(touchTokenCall.init?.headers?.Authorization, `Bearer ${ANON_KEY}`);
+  assert.equal(typeof touchTokenCall.init?.headers?.['x-vibeusage-device-token-hash'], 'string');
+
+  assert.ok(touchDeviceCall, 'device touch call not found');
+  assert.ok(String(touchDeviceCall.url).includes('/api/database/records/vibeusage_tracker_devices'));
+  assert.equal(touchDeviceCall.init?.method, 'PATCH');
+  assert.equal(touchDeviceCall.init?.headers?.apikey, ANON_KEY);
+  assert.equal(touchDeviceCall.init?.headers?.Authorization, `Bearer ${ANON_KEY}`);
 
   assert.ok(metricsCall, 'ingest batch metrics call not found');
   assert.ok(String(metricsCall.url).includes('/api/database/records/vibeusage_tracker_ingest_batches'));

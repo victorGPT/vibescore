@@ -1,8 +1,8 @@
 import React, { useEffect } from "react";
 
-import { copy } from "../../../lib/copy.js";
-import { formatUsdCurrency, toFiniteNumber } from "../../../lib/format.js";
-import { AsciiBox } from "./AsciiBox.jsx";
+import { copy } from "../../../lib/copy";
+import { formatUsdCurrency, toFiniteNumber } from "../../../lib/format";
+import { AsciiBox } from "../../foundation/AsciiBox.jsx";
 
 function formatUsdValue(value) {
   if (!Number.isFinite(value)) return copy("shared.placeholder.short");

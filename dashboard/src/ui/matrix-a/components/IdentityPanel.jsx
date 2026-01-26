@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 
-import { copy } from "../../../lib/copy.js";
+import { copy } from "../../../lib/copy";
 
 function toHandle(auth) {
   const raw = auth?.name?.trim();

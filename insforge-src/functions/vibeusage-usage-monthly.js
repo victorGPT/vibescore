@@ -7,9 +7,8 @@ const { handleOptions, json } = require('../shared/http');
 const { getBearerToken, getAccessContext } = require('../shared/auth');
 const { getBaseUrl } = require('../shared/env');
 const { getSourceParam } = require('../shared/source');
-const { getModelParam, applyUsageModelFilter, normalizeUsageModel } = require('../shared/model');
+const { getModelParam } = require('../shared/model');
 const { resolveUsageModelsForCanonical } = require('../shared/model-identity');
-const { applyCanaryFilter } = require('../shared/canary');
 const {
   addDatePartsDays,
   addDatePartsMonths,
@@ -19,17 +18,16 @@ const {
   localDatePartsToUtc,
   parseDateParts
 } = require('../shared/date');
-const { toBigInt, toPositiveIntOrNull } = require('../shared/numbers');
+const { toPositiveIntOrNull } = require('../shared/numbers');
 const { forEachPage } = require('../shared/pagination');
 const { logSlowQuery, withRequestLogging } = require('../shared/logging');
 const { isDebugEnabled, withSlowQueryDebugPayload } = require('../shared/debug');
+const { initMonthlyBuckets, ingestMonthlyRow } = require('../shared/core/usage-monthly');
+const { buildHourlyUsageQuery } = require('../shared/db/usage-hourly');
 const {
   buildAliasTimeline,
-  extractDateKey,
-  fetchAliasRows,
-  resolveIdentityAtDate
+  fetchAliasRows
 } = require('../shared/model-alias-timeline');
-const { resolveBillableTotals } = require('../shared/usage-aggregate');
 
 const MAX_MONTHS = 24;
 
@@ -105,79 +103,47 @@ module.exports = withRequestLogging('vibeusage-usage-monthly', async function(re
     aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
   }
 
-  const monthKeys = [];
-  const buckets = new Map();
-
-  for (let i = 0; i < months; i += 1) {
-    const parts = addDatePartsMonths(startMonthParts, i);
-    const key = `${parts.year}-${String(parts.month).padStart(2, '0')}`;
-    monthKeys.push(key);
-    buckets.set(key, {
-      total: 0n,
-      billable: 0n,
-      input: 0n,
-      cached: 0n,
-      output: 0n,
-      reasoning: 0n
-    });
-  }
+  const { monthKeys, buckets } = initMonthlyBuckets({ startMonthParts, months });
 
   const queryStartMs = Date.now();
   let rowCount = 0;
-  const { error } = await forEachPage({
-    createQuery: () => {
-      let query = auth.edgeClient.database
-        .from('vibeusage_tracker_hourly')
-        .select('hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
-        .eq('user_id', auth.userId);
-      if (source) query = query.eq('source', source);
-      if (hasModelFilter) query = applyUsageModelFilter(query, usageModels);
-      query = applyCanaryFilter(query, { source, model: canonicalModel });
-      return query
-        .gte('hour_start', startIso)
-        .lt('hour_start', endIso)
-        .order('hour_start', { ascending: true })
-        .order('device_id', { ascending: true })
-        .order('source', { ascending: true })
-        .order('model', { ascending: true });
-    },
-    onPage: (rows) => {
-      const pageRows = Array.isArray(rows) ? rows : [];
-      rowCount += pageRows.length;
-      for (const row of pageRows) {
-        const ts = row?.hour_start;
-        if (!ts) continue;
-        const dt = new Date(ts);
-        if (!Number.isFinite(dt.getTime())) continue;
-        if (hasModelFilter) {
-          const rawModel = normalizeUsageModel(row?.model);
-          const dateKey = extractDateKey(ts) || to;
-          const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
-          const filterIdentity = resolveIdentityAtDate({
-            rawModel: canonicalModel,
-            usageKey: canonicalModel,
-            dateKey,
-            timeline: aliasTimeline
-          });
-          if (identity.model_id !== filterIdentity.model_id) continue;
-        }
-        const localParts = getLocalParts(dt, tzContext);
-        const key = `${localParts.year}-${String(localParts.month).padStart(2, '0')}`;
-        const bucket = buckets.get(key);
-        if (!bucket) continue;
-        bucket.total += toBigInt(row?.total_tokens);
-        const { billable } = resolveBillableTotals({
-          row,
-          source: row?.source || source
+  let pageResult;
+  try {
+    pageResult = await forEachPage({
+      createQuery: () => {
+        return buildHourlyUsageQuery({
+          edgeClient: auth.edgeClient,
+          userId: auth.userId,
+          source,
+          usageModels: hasModelFilter ? usageModels : [],
+          canonicalModel,
+          startIso,
+          endIso,
+          select:
+            'hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens'
         });
-        bucket.billable += billable;
-        bucket.input += toBigInt(row?.input_tokens);
-        bucket.cached += toBigInt(row?.cached_input_tokens);
-        bucket.output += toBigInt(row?.output_tokens);
-        bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
+      },
+      onPage: (rows) => {
+        const pageRows = Array.isArray(rows) ? rows : [];
+        rowCount += pageRows.length;
+        for (const row of pageRows) {
+          ingestMonthlyRow({
+            buckets,
+            row,
+            tzContext,
+            source,
+            canonicalModel,
+            hasModelFilter,
+            aliasTimeline,
+            to
+          });
+        }
       }
-    }
-  });
+    });
+  } catch (err) {
+    const queryDurationMs = Date.now() - queryStartMs;
+    return respond({ error: err?.message || 'Internal error' }, 500, queryDurationMs);
+  }
   const queryDurationMs = Date.now() - queryStartMs;
   logSlowQuery(logger, {
     query_label: 'usage_monthly',
@@ -190,7 +156,7 @@ module.exports = withRequestLogging('vibeusage-usage-monthly', async function(re
     tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
   });
 
-  if (error) return respond({ error: error.message }, 500, queryDurationMs);
+  if (pageResult?.error) return respond({ error: pageResult.error.message }, 500, queryDurationMs);
 
   const monthly = monthKeys.map((key) => {
     const bucket = buckets.get(key);

@@ -7,7 +7,7 @@ test("AsciiBox allows bodyClassName overrides for content padding", () => {
   const src = fs.readFileSync(
     path.join(
       __dirname,
-      "../dashboard/src/ui/matrix-a/components/AsciiBox.jsx"
+      "../dashboard/src/ui/foundation/AsciiBox.jsx"
     ),
     "utf8"
   );

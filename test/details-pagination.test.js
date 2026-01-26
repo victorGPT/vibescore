@@ -1,8 +1,9 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
+const { loadDashboardModule } = require("./helpers/load-dashboard-module");
 
 test("paginateRows slices detail rows by page size", async () => {
-  const mod = await import("../dashboard/src/lib/details.js");
+  const mod = await loadDashboardModule("dashboard/src/lib/details.ts");
   const { paginateRows } = mod;
 
   const rows = Array.from({ length: 25 }, (_v, i) => ({ id: i }));

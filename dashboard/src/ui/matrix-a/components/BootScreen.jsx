@@ -1,6 +1,6 @@
 import React from "react";
 
-import { copy } from "../../../lib/copy.js";
+import { copy } from "../../../lib/copy";
 
 export function BootScreen({ onSkip }) {
   const canSkip = Boolean(onSkip);
