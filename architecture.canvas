@@ -670,7 +670,7 @@
     {
       "id": "test_edge-functions_test_deffefcc",
       "type": "text",
-      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- edge-functions.test (6125 行)\n- toBase64Url (1 个参数)\n\n依赖：3 个模块\n被依赖：0 次",
+      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- edge-functions.test (6125 行)\n- toBase64Url (1 个参数)\n\n依赖：3 个模块\n被依赖：0 次\n\nStatus: Proposed\nNotes: Add rolling usage summary response tests.",
       "x": 1540,
       "y": 12104,
       "width": 280,
@@ -3093,7 +3093,7 @@
     {
       "id": "edge-function_vibeusage-usage-summary_a1100735",
       "type": "text",
-      "text": "**vibeusage-usage-summary**\n`insforge-src/functions/vibeusage-usage-summary.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-usage-summary (480 行)\n- respond (3 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibeusage-usage-summary**\n`insforge-src/functions/vibeusage-usage-summary.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-usage-summary (480 行)\n- respond (3 个参数)\n\n依赖：0 个模块\n被依赖：0 次\n\nStatus: Proposed\nNotes: Extend summary response with rolling metrics.",
       "x": 2260,
       "y": 5656,
       "width": 280,
@@ -3194,7 +3194,7 @@
     {
       "id": "frontend_DashboardView_7e0fcfdf",
       "type": "text",
-      "text": "**DashboardView**\n`dashboard/src/ui/matrix-a/views/DashboardView.jsx`\n\nUI component layer.\n\n包含：\n- DashboardView (559 行)\n- DashboardView (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**DashboardView**\n`dashboard/src/ui/matrix-a/views/DashboardView.jsx`\n\nUI component layer.\n\n包含：\n- DashboardView (559 行)\n- DashboardView (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次\n\nStatus: Proposed\nNotes: Render rolling usage panel module.",
       "x": 1900,
       "y": 3512,
       "width": 280,
@@ -4210,7 +4210,7 @@
     {
       "id": "utils_mock-data_85162df5",
       "type": "text",
-      "text": "**mock-data**\n`dashboard/src/lib/mock-data.ts`\n\nShared utilities.\n\n包含：\n- mock-data (452 行)\n- isMockEnabled (0 个参数)\n\n依赖：0 个模块\n被依赖：1 次",
+      "text": "**mock-data**\n`dashboard/src/lib/mock-data.ts`\n\nShared utilities.\n\n包含：\n- mock-data (452 行)\n- isMockEnabled (0 个参数)\n\n依赖：0 个模块\n被依赖：1 次\n\nStatus: Proposed\nNotes: Mock rolling summary metrics.",
       "x": 460,
       "y": 1712,
       "width": 280,
@@ -4329,7 +4329,7 @@
     {
       "id": "utils_vibeusage-api_a0f50eaa",
       "type": "text",
-      "text": "**vibeusage-api**\n`dashboard/src/lib/vibeusage-api.ts`\n\nShared utilities.\n\n包含：\n- vibeusage-api (796 行)\n- resolveAccessToken (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibeusage-api**\n`dashboard/src/lib/vibeusage-api.ts`\n\nShared utilities.\n\n包含：\n- vibeusage-api (796 行)\n- resolveAccessToken (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次\n\nStatus: Proposed\nNotes: Add rolling param support in usage summary call.",
       "x": 2980,
       "y": 1712,
       "width": 280,
@@ -4394,7 +4394,7 @@
     {
       "id": "undefined_use-usage-data_a20b2043",
       "type": "text",
-      "text": "**use-usage-data**\n`dashboard/src/hooks/use-usage-data.ts`\n\nGeneral module.\n\n包含：\n- use-usage-data (330 行)\n- useUsageData (11 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**use-usage-data**\n`dashboard/src/hooks/use-usage-data.ts`\n\nGeneral module.\n\n包含：\n- use-usage-data (330 行)\n- useUsageData (11 个参数)\n\n依赖：0 个模块\n被依赖：0 次\n\nStatus: Proposed\nNotes: Store full summary payload with rolling stats.",
       "x": 2980,
       "y": 632,
       "width": 280,
@@ -4706,6 +4706,91 @@
       "width": 360,
       "height": 200,
       "text": "**Project hourly ingest**\n`insforge-src/shared/core/ingest.js`\n`insforge-src/shared/db/ingest.js`\n`insforge-src/functions/vibeusage-ingest.js`\n\nRole: Ingest project_hourly payloads and upsert project usage.\nStatus: Implemented\nNotes: Half-hour idempotency by user_id, project_key, hour_start, source."
+    },
+    {
+      "id": "config_vitest_config_proposed",
+      "type": "text",
+      "text": "**vitest.config**\n`dashboard/vitest.config.ts`\n\nConfiguration module.\n\nStatus: Proposed\nNotes: Add Vitest config for dashboard tests.",
+      "x": 2980,
+      "y": 2752,
+      "width": 300,
+      "height": 220,
+      "color": "2",
+      "meta": {
+        "relPath": "dashboard/vitest.config.ts",
+        "category": "config",
+        "group": "infra",
+        "side": "left",
+        "layerIndex": 2
+      }
+    },
+    {
+      "id": "test_setup_tests_proposed",
+      "type": "text",
+      "text": "**setupTests**\n`dashboard/src/test/setupTests.ts`\n\nTest module.\n\nStatus: Proposed\nNotes: Register jest-dom matchers and test setup.",
+      "x": 2980,
+      "y": 3012,
+      "width": 300,
+      "height": 220,
+      "color": "2",
+      "meta": {
+        "relPath": "dashboard/src/test/setupTests.ts",
+        "category": "test",
+        "group": "test",
+        "side": "left",
+        "layerIndex": 2
+      }
+    },
+    {
+      "id": "test_utils_proposed",
+      "type": "text",
+      "text": "**test-utils**\n`dashboard/src/test/test-utils.tsx`\n\nTest module.\n\nStatus: Proposed\nNotes: Shared render helpers for component tests.",
+      "x": 2980,
+      "y": 3272,
+      "width": 300,
+      "height": 220,
+      "color": "2",
+      "meta": {
+        "relPath": "dashboard/src/test/test-utils.tsx",
+        "category": "test",
+        "group": "test",
+        "side": "left",
+        "layerIndex": 2
+      }
+    },
+    {
+      "id": "frontend_rolling_usage_panel_proposed",
+      "type": "text",
+      "text": "**RollingUsagePanel**\n`dashboard/src/ui/matrix-a/components/RollingUsagePanel.jsx`\n\nUI component layer.\n\nStatus: Proposed\nNotes: Display rolling usage metrics module.",
+      "x": 1820,
+      "y": 2752,
+      "width": 300,
+      "height": 220,
+      "color": "6",
+      "meta": {
+        "relPath": "dashboard/src/ui/matrix-a/components/RollingUsagePanel.jsx",
+        "category": "frontend",
+        "group": "frontend",
+        "side": "left",
+        "layerIndex": 1
+      }
+    },
+    {
+      "id": "test_matrix_button_proposed",
+      "type": "text",
+      "text": "**MatrixButton test**\n`dashboard/src/ui/foundation/__tests__/MatrixButton.test.jsx`\n\nTest module.\n\nStatus: Proposed\nNotes: Minimal interactive component test with user-event.",
+      "x": 1820,
+      "y": 3012,
+      "width": 300,
+      "height": 220,
+      "color": "2",
+      "meta": {
+        "relPath": "dashboard/src/ui/foundation/__tests__/MatrixButton.test.jsx",
+        "category": "test",
+        "group": "test",
+        "side": "left",
+        "layerIndex": 2
+      }
     }
   ],
   "edges": [
