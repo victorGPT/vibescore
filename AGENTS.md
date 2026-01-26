@@ -46,3 +46,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 # 工作流规则（Workflow）
 
 - 完成代码后仅执行本地提交（git commit），未经用户明确指示不得推送（git push）。
+
+# 部署规则（Deployment）
+
+- 所有函数都通过 Insforge2 MCP 部署。
