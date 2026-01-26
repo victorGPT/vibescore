@@ -13,6 +13,7 @@ Project-level usage is **only tracked and ingested for public GitHub repositorie
 ## Non-Goals
 - Scanning all folders on disk.
 - Inferring private repos by heuristics.
+- Supporting non-GitHub hosting (GitLab/Bitbucket) in this phase.
 - Uploading any usage for pending/blocked repos.
 
 ## Source of Truth
@@ -27,11 +28,12 @@ Project-level usage is **only tracked and ingested for public GitHub repositorie
 
 ## Data Flow (Client)
 1. CLI runs → detect git root and parse remote to `owner/repo`.
-2. If missing or non-GitHub remote → mark `pending_public` and skip project usage.
-3. Verify public via GitHub API `GET /repos/{owner}/{repo}`.
+2. If missing or non-GitHub remote → mark `blocked` with `invalid_remote` and **purge project usage**.
+3. Verify public via GitHub API `GET /repos/{owner}/{repo}`; on success, use response `full_name` as canonical `repo_id` (lowercased).
 4. If `private=false` → mark `public_verified` and allow project usage aggregation.
 5. If `404` or `private=true` → mark `blocked` and **purge project usage**.
 6. If `403` rate-limit or transient error → keep `pending_public`, retry with backoff.
+7. If pending exceeds max retries or timeout window → mark `blocked` with `verification_timeout` and **purge project usage**.
 
 ## Data Flow (Ingest)
 - Server accepts **only** `public_verified` project usage events.
@@ -42,17 +44,19 @@ Project-level usage is **only tracked and ingested for public GitHub repositorie
 - `usage_projects`:
   - `repo_id` (owner/repo)
   - `status` (public_verified | pending_public | blocked)
-  - `blocked_reason` (non_public | rate_limit | invalid_remote | error)
+  - `blocked_reason` (non_public | rate_limit | invalid_remote | verification_timeout | error)
   - `usage_total_tokens`
   - `last_verified_at`
   - `repo_root` (local path; not uploaded)
 
 ## Deletion Policy
 - On `blocked`, delete only the project usage rows and any project-level file usage. **Never delete** `usage_system_totals`.
+- Deletion scope is limited to repo-scoped tables (e.g., `usage_projects`, `usage_project_files`) and never touches system totals.
 
 ## UX
 - Silent by default.
 - Optional one-time notice when project usage is removed due to non-public status.
+- Optional one-time notice that only GitHub public repos are supported for project usage.
 - No repo name/path shown in UI for blocked projects.
 
 ## Error Handling
