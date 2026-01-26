@@ -4509,6 +4509,143 @@
         "layerIndex": 4
       },
       "externalService": "Anthropic"
+    },
+    {
+      "id": "group_graph_system",
+      "type": "group",
+      "x": 1800,
+      "y": -200,
+      "width": 1600,
+      "height": 1000,
+      "label": "Graph System (Phase 1)",
+      "color": "4"
+    },
+    {
+      "id": "graph_repo_source",
+      "type": "text",
+      "x": 1900,
+      "y": -120,
+      "width": 300,
+      "height": 140,
+      "text": "**repo source**\n`/Users/victor/Developer/vibeusage`\n\nRole: code to index\nStatus: Implemented\nNotes: TS/JS only",
+      "color": "2"
+    },
+    {
+      "id": "graph_scip_indexer",
+      "type": "text",
+      "x": 2250,
+      "y": -120,
+      "width": 320,
+      "height": 160,
+      "text": "**scip indexer**\n`scripts/graph/generate-scip.cjs`\n\nRole: generate index.scip\nStatus: Implemented\nNotes: scip-typescript",
+      "color": "2"
+    },
+    {
+      "id": "graph_scip_artifact",
+      "type": "text",
+      "x": 2600,
+      "y": -120,
+      "width": 300,
+      "height": 140,
+      "text": "**scip artifact**\n`index.scip`\n\nRole: portable index\nStatus: Implemented\nNotes: CI artifact",
+      "color": "2"
+    },
+    {
+      "id": "graph_scip_importer",
+      "type": "text",
+      "x": 2950,
+      "y": -120,
+      "width": 320,
+      "height": 160,
+      "text": "**scip importer**\n`tools/graph` (external)\n\nRole: load SCIP into SQLite\nStatus: Implemented\nNotes: manual runbook",
+      "color": "2"
+    },
+    {
+      "id": "graph_store_sqlite",
+      "type": "text",
+      "x": 3300,
+      "y": -120,
+      "width": 300,
+      "height": 140,
+      "text": "**graph store**\n`data/graph.sqlite`\n\nRole: query index\nStatus: Implemented\nNotes: local SQLite",
+      "color": "2"
+    },
+    {
+      "id": "graph_query_api",
+      "type": "text",
+      "x": 3300,
+      "y": 100,
+      "width": 300,
+      "height": 140,
+      "text": "**graph query API**\n`tools/graph` (external)\n\nRole: definitions/references\nStatus: Implemented\nNotes: phase 1",
+      "color": "2"
+    },
+    {
+      "id": "graph_index_orchestrator",
+      "type": "text",
+      "x": 2250,
+      "y": 180,
+      "width": 320,
+      "height": 160,
+      "text": "**index orchestrator**\nCI workflow\n\nRole: schedule indexing\nStatus: Implemented\nNotes: main/release",
+      "color": "2"
+    },
+    {
+      "id": "graph_manual_trigger",
+      "type": "text",
+      "x": 1900,
+      "y": 180,
+      "width": 300,
+      "height": 140,
+      "text": "**manual trigger**\noperator\n\nRole: run importer\nStatus: Implemented\nNotes: runbook",
+      "color": "2"
+    },
+    {
+      "id": "graph_llm_trigger",
+      "type": "text",
+      "x": 3300,
+      "y": 320,
+      "width": 300,
+      "height": 140,
+      "text": "**LLM trigger**\nN/A\n\nRole: deferred\nStatus: Proposed\nNotes: not in phase 1",
+      "color": "2"
+    },
+    {
+      "id": "group_graph_phase1",
+      "type": "group",
+      "x": 40,
+      "y": 40,
+      "width": 1120,
+      "height": 520,
+      "label": "Graph Phase 1",
+      "color": "4"
+    },
+    {
+      "id": "graph_scip_generator",
+      "type": "text",
+      "x": 80,
+      "y": 80,
+      "width": 320,
+      "height": 160,
+      "text": "**SCIP Generator**\n`scripts/graph/generate-scip.cjs`\n\nRole: Generate `index.scip` for repo.\nStatus: Implemented\nNotes: Uses `tsconfig.json` -> `tsconfig.scip.json`."
+    },
+    {
+      "id": "graph_scip_ci",
+      "type": "text",
+      "x": 440,
+      "y": 80,
+      "width": 320,
+      "height": 160,
+      "text": "**SCIP CI Workflow**\n`.github/workflows/graph-scip.yml`\n\nRole: Generate and upload `index.scip` on main/release.\nStatus: Implemented\nNotes: Artifact `scip-index`."
+    },
+    {
+      "id": "graph_import_runbook",
+      "type": "text",
+      "x": 80,
+      "y": 280,
+      "width": 360,
+      "height": 160,
+      "text": "**Import Runbook**\n`docs/graph/phase1-import.md`\n\nRole: Manual import steps.\nStatus: Implemented\nNotes: Uses external importer."
     }
   ],
   "edges": [
@@ -4868,6 +5005,71 @@
       "fromSide": "bottom",
       "toNode": "utils_ingest_8ef62e12",
       "toSide": "top"
+    },
+    {
+      "id": "edge_graph_repo_source_to_graph_scip_indexer",
+      "fromNode": "graph_repo_source",
+      "toNode": "graph_scip_indexer"
+    },
+    {
+      "id": "edge_graph_scip_indexer_to_graph_scip_artifact",
+      "fromNode": "graph_scip_indexer",
+      "toNode": "graph_scip_artifact"
+    },
+    {
+      "id": "edge_graph_scip_artifact_to_graph_scip_importer",
+      "fromNode": "graph_scip_artifact",
+      "toNode": "graph_scip_importer"
+    },
+    {
+      "id": "edge_graph_scip_importer_to_graph_store_sqlite",
+      "fromNode": "graph_scip_importer",
+      "toNode": "graph_store_sqlite"
+    },
+    {
+      "id": "edge_graph_query_api_to_graph_store_sqlite",
+      "fromNode": "graph_query_api",
+      "toNode": "graph_store_sqlite"
+    },
+    {
+      "id": "edge_graph_manual_trigger_to_graph_index_orchestrator",
+      "fromNode": "graph_manual_trigger",
+      "toNode": "graph_index_orchestrator"
+    },
+    {
+      "id": "edge_graph_index_orchestrator_to_graph_scip_indexer",
+      "fromNode": "graph_index_orchestrator",
+      "toNode": "graph_scip_indexer"
+    },
+    {
+      "id": "edge_graph_llm_trigger_to_graph_query_api",
+      "fromNode": "graph_llm_trigger",
+      "toNode": "graph_query_api"
+    },
+    {
+      "id": "edge_graph_gen_to_ci",
+      "fromNode": "graph_scip_generator",
+      "toNode": "graph_scip_ci"
+    },
+    {
+      "id": "edge_graph_ci_to_artifact",
+      "fromNode": "graph_scip_ci",
+      "toNode": "graph_scip_artifact"
+    },
+    {
+      "id": "edge_graph_artifact_to_import",
+      "fromNode": "graph_scip_artifact",
+      "toNode": "graph_import_runbook"
+    },
+    {
+      "id": "edge_graph_import_to_store",
+      "fromNode": "graph_import_runbook",
+      "toNode": "graph_store_sqlite"
+    },
+    {
+      "id": "edge_graph_store_to_query",
+      "fromNode": "graph_store_sqlite",
+      "toNode": "graph_query_api"
     }
   ]
 }
