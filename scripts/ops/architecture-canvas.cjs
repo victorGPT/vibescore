@@ -15,6 +15,7 @@ const SOURCE_EXTENSIONS = new Set([
   ".cs",
   ".jsx",
   ".tsx",
+  ".cjs",
   ".vue",
 ]);
 

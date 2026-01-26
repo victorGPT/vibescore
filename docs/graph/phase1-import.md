@@ -10,3 +10,5 @@ node tools/graph/build/importer.js \
 ```
 
 3) Verify queries using the graph query API (Definitions/References).
+
+Optional: use fixed SQL templates in `docs/graph/sql-templates.md` for local inspection.
