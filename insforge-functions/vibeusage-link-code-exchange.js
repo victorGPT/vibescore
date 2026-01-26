@@ -69,10 +69,14 @@ var require_env = __commonJS({
     function getAnonKey2() {
       return Deno.env.get("ANON_KEY") || Deno.env.get("INSFORGE_ANON_KEY") || null;
     }
+    function getJwtSecret() {
+      return Deno.env.get("INSFORGE_JWT_SECRET") || null;
+    }
     module2.exports = {
       getBaseUrl: getBaseUrl2,
       getServiceRoleKey: getServiceRoleKey2,
-      getAnonKey: getAnonKey2
+      getAnonKey: getAnonKey2,
+      getJwtSecret
     };
   }
 });

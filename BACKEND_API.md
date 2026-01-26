@@ -36,6 +36,8 @@ insforge2 update-function --slug vibeusage-usage-summary --codeFile insforge-fun
 - **Device token** endpoints: `Authorization: Bearer <device_token>`
   - Used by CLI ingestion; long-lived; server stores only sha256 hash.
 
+Local user JWT verification uses `INSFORGE_JWT_SECRET` (HS256) in the Edge Functions environment. It must match the JWT signing secret.
+
 All endpoints support CORS `OPTIONS` preflight.
 
 ## Endpoint base paths

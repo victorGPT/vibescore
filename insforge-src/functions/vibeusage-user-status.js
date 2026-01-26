@@ -23,36 +23,30 @@ module.exports = withRequestLogging('vibeusage-user-status', async function(requ
   const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
   if (!auth.ok) return json({ error: 'Unauthorized' }, 401);
 
-  const { data: userData, error: userErr } = await auth.edgeClient.auth.getCurrentUser();
-  if (userErr || !userData?.user?.id) return json({ error: 'Unauthorized' }, 401);
-
-  let createdAt = userData.user.created_at;
+  let createdAt = null;
   let partial = false;
-  if (typeof createdAt !== 'string' || createdAt.length === 0) {
-    const serviceRoleKey = getServiceRoleKey();
-    if (!serviceRoleKey) {
-      createdAt = null;
-      partial = true;
-    } else {
-      const anonKey = getAnonKey();
-      const serviceClient = createClient({
-        baseUrl,
-        anonKey: anonKey || serviceRoleKey,
-        edgeFunctionToken: serviceRoleKey
-      });
+  const serviceRoleKey = getServiceRoleKey();
+  if (!serviceRoleKey) {
+    partial = true;
+  } else {
+    const anonKey = getAnonKey();
+    const serviceClient = createClient({
+      baseUrl,
+      anonKey: anonKey || serviceRoleKey,
+      edgeFunctionToken: serviceRoleKey
+    });
 
-      const { data: userRow, error: userRowErr } = await serviceClient.database
-        .from('users')
-        .select('created_at')
-        .eq('id', auth.userId)
-        .maybeSingle();
+    const { data: userRow, error: userRowErr } = await serviceClient.database
+      .from('users')
+      .select('created_at')
+      .eq('id', auth.userId)
+      .maybeSingle();
 
-      if (userRowErr) return json({ error: userRowErr.message }, 500);
-      if (typeof userRow?.created_at !== 'string' || userRow.created_at.length === 0) {
-        return json({ error: 'Missing user created_at' }, 500);
-      }
-      createdAt = userRow.created_at;
+    if (userRowErr) return json({ error: userRowErr.message }, 500);
+    if (typeof userRow?.created_at !== 'string' || userRow.created_at.length === 0) {
+      return json({ error: 'Missing user created_at' }, 500);
     }
+    createdAt = userRow.created_at;
   }
 
   const { data: entitlements, error: entErr } = await auth.edgeClient.database

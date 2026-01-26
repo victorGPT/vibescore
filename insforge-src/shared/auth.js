@@ -1,6 +1,6 @@
 'use strict';
 
-const { getAnonKey } = require('./env');
+const { getAnonKey, getJwtSecret } = require('./env');
 const { resolvePublicView } = require('./public-view');
 
 function getBearerToken(headerValue) {
@@ -44,6 +44,19 @@ function decodeJwtPayload(token) {
   }
 }
 
+function decodeJwtHeader(token) {
+  if (typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length < 2) return null;
+  const raw = decodeBase64Url(parts[0]);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (_e) {
+    return null;
+  }
+}
+
 function getJwtRole(token) {
   const payload = decodeJwtPayload(token);
   const role = payload?.role;
@@ -70,26 +83,89 @@ function isJwtExpired(payload) {
   return exp * 1000 <= Date.now();
 }
 
+function base64UrlEncode(value) {
+  let base64 = null;
+  try {
+    if (typeof Buffer !== 'undefined') {
+      base64 = Buffer.from(value).toString('base64');
+    }
+  } catch (_e) {
+    // ignore
+  }
+  if (!base64 && typeof btoa === 'function' && value instanceof ArrayBuffer) {
+    const bytes = new Uint8Array(value);
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    base64 = btoa(binary);
+  }
+  if (!base64) return null;
+  return base64.replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+
+async function verifyUserJwtHs256({ token }) {
+  const secret = getJwtSecret();
+  if (!secret) {
+    return { ok: false, userId: null, error: 'Missing jwt secret', code: 'missing_jwt_secret' };
+  }
+  if (typeof token !== 'string') {
+    return { ok: false, userId: null, error: 'Invalid token' };
+  }
+  const parts = token.split('.');
+  if (parts.length !== 3) {
+    return { ok: false, userId: null, error: 'Invalid token' };
+  }
+  const header = decodeJwtHeader(token);
+  if (!header || header.alg !== 'HS256') {
+    return { ok: false, userId: null, error: 'Unsupported alg' };
+  }
+  const payload = decodeJwtPayload(token);
+  if (!payload) {
+    return { ok: false, userId: null, error: 'Invalid payload' };
+  }
+  const exp = Number(payload?.exp);
+  if (!Number.isFinite(exp)) {
+    return { ok: false, userId: null, error: 'Missing exp' };
+  }
+  if (isJwtExpired(payload)) {
+    return { ok: false, userId: null, error: 'Token expired' };
+  }
+  const cryptoSubtle = globalThis.crypto?.subtle;
+  if (!cryptoSubtle) {
+    return { ok: false, userId: null, error: 'Crypto unavailable' };
+  }
+  const data = `${parts[0]}.${parts[1]}`;
+  const encoder = new TextEncoder();
+  const key = await cryptoSubtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await cryptoSubtle.sign('HMAC', key, encoder.encode(data));
+  const expected = base64UrlEncode(signature);
+  if (!expected || expected !== parts[2]) {
+    return { ok: false, userId: null, error: 'Invalid signature' };
+  }
+  const userId = typeof payload.sub === 'string' ? payload.sub : null;
+  if (!userId) {
+    return { ok: false, userId: null, error: 'Missing sub' };
+  }
+  return { ok: true, userId, error: null };
+}
+
 async function getEdgeClientAndUserId({ baseUrl, bearer }) {
-  const anonKey = getAnonKey();
-  const edgeClient = createClient({ baseUrl, anonKey: anonKey || undefined, edgeFunctionToken: bearer });
-  const { data: userData, error: userErr } = await edgeClient.auth.getCurrentUser();
-  const userId = userData?.user?.id;
-  if (userErr || !userId) return { ok: false, edgeClient: null, userId: null };
-  return { ok: true, edgeClient, userId };
+  const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
+  if (!auth.ok) return { ok: false, edgeClient: null, userId: null };
+  return { ok: true, edgeClient: auth.edgeClient, userId: auth.userId };
 }
 
 async function getEdgeClientAndUserIdFast({ baseUrl, bearer }) {
   const anonKey = getAnonKey();
   const edgeClient = createClient({ baseUrl, anonKey: anonKey || undefined, edgeFunctionToken: bearer });
-  const payload = decodeJwtPayload(bearer);
-  if (payload && isJwtExpired(payload)) {
-    return { ok: false, edgeClient: null, userId: null };
-  }
-  const { data: userData, error: userErr } = await edgeClient.auth.getCurrentUser();
-  const resolvedUserId = userData?.user?.id;
-  if (userErr || !resolvedUserId) return { ok: false, edgeClient: null, userId: null };
-  return { ok: true, edgeClient, userId: resolvedUserId };
+  const local = await verifyUserJwtHs256({ token: bearer });
+  if (!local.ok) return { ok: false, edgeClient: null, userId: null, error: local };
+  return { ok: true, edgeClient, userId: local.userId };
 }
 
 async function getAccessContext({ baseUrl, bearer, allowPublic = false }) {
@@ -120,5 +196,6 @@ module.exports = {
   getAccessContext,
   getEdgeClientAndUserId,
   getEdgeClientAndUserIdFast,
-  isProjectAdminBearer
+  isProjectAdminBearer,
+  verifyUserJwtHs256
 };

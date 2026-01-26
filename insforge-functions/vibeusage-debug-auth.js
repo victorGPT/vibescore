@@ -60,7 +60,7 @@ var require_http = __commonJS({
 var require_env = __commonJS({
   "insforge-src/shared/env.js"(exports2, module2) {
     "use strict";
-    function getBaseUrl2() {
+    function getBaseUrl() {
       return Deno.env.get("INSFORGE_INTERNAL_URL") || "http://insforge:7130";
     }
     function getServiceRoleKey() {
@@ -69,10 +69,14 @@ var require_env = __commonJS({
     function getAnonKey2() {
       return Deno.env.get("ANON_KEY") || Deno.env.get("INSFORGE_ANON_KEY") || null;
     }
+    function getJwtSecret() {
+      return Deno.env.get("INSFORGE_JWT_SECRET") || null;
+    }
     module2.exports = {
-      getBaseUrl: getBaseUrl2,
+      getBaseUrl,
       getServiceRoleKey,
-      getAnonKey: getAnonKey2
+      getAnonKey: getAnonKey2,
+      getJwtSecret
     };
   }
 });
@@ -133,7 +137,7 @@ var require_public_view = __commonJS({
 var require_auth = __commonJS({
   "insforge-src/shared/auth.js"(exports2, module2) {
     "use strict";
-    var { getAnonKey: getAnonKey2 } = require_env();
+    var { getAnonKey: getAnonKey2, getJwtSecret } = require_env();
     var { resolvePublicView } = require_public_view();
     function getBearerToken2(headerValue) {
       if (!headerValue) return null;
@@ -171,6 +175,18 @@ var require_auth = __commonJS({
         return null;
       }
     }
+    function decodeJwtHeader(token) {
+      if (typeof token !== "string") return null;
+      const parts = token.split(".");
+      if (parts.length < 2) return null;
+      const raw = decodeBase64Url(parts[0]);
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch (_e) {
+        return null;
+      }
+    }
     function getJwtRole(token) {
       const payload = decodeJwtPayload(token);
       const role = payload?.role;
@@ -194,25 +210,85 @@ var require_auth = __commonJS({
       if (!Number.isFinite(exp)) return false;
       return exp * 1e3 <= Date.now();
     }
+    function base64UrlEncode(value) {
+      let base64 = null;
+      try {
+        if (typeof Buffer !== "undefined") {
+          base64 = Buffer.from(value).toString("base64");
+        }
+      } catch (_e) {
+      }
+      if (!base64 && typeof btoa === "function" && value instanceof ArrayBuffer) {
+        const bytes = new Uint8Array(value);
+        let binary = "";
+        for (const byte of bytes) binary += String.fromCharCode(byte);
+        base64 = btoa(binary);
+      }
+      if (!base64) return null;
+      return base64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+    }
+    async function verifyUserJwtHs2562({ token }) {
+      const secret = getJwtSecret();
+      if (!secret) {
+        return { ok: false, userId: null, error: "Missing jwt secret", code: "missing_jwt_secret" };
+      }
+      if (typeof token !== "string") {
+        return { ok: false, userId: null, error: "Invalid token" };
+      }
+      const parts = token.split(".");
+      if (parts.length !== 3) {
+        return { ok: false, userId: null, error: "Invalid token" };
+      }
+      const header = decodeJwtHeader(token);
+      if (!header || header.alg !== "HS256") {
+        return { ok: false, userId: null, error: "Unsupported alg" };
+      }
+      const payload = decodeJwtPayload(token);
+      if (!payload) {
+        return { ok: false, userId: null, error: "Invalid payload" };
+      }
+      const exp = Number(payload?.exp);
+      if (!Number.isFinite(exp)) {
+        return { ok: false, userId: null, error: "Missing exp" };
+      }
+      if (isJwtExpired(payload)) {
+        return { ok: false, userId: null, error: "Token expired" };
+      }
+      const cryptoSubtle = globalThis.crypto?.subtle;
+      if (!cryptoSubtle) {
+        return { ok: false, userId: null, error: "Crypto unavailable" };
+      }
+      const data = `${parts[0]}.${parts[1]}`;
+      const encoder = new TextEncoder();
+      const key = await cryptoSubtle.importKey(
+        "raw",
+        encoder.encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+      const signature = await cryptoSubtle.sign("HMAC", key, encoder.encode(data));
+      const expected = base64UrlEncode(signature);
+      if (!expected || expected !== parts[2]) {
+        return { ok: false, userId: null, error: "Invalid signature" };
+      }
+      const userId = typeof payload.sub === "string" ? payload.sub : null;
+      if (!userId) {
+        return { ok: false, userId: null, error: "Missing sub" };
+      }
+      return { ok: true, userId, error: null };
+    }
     async function getEdgeClientAndUserId({ baseUrl, bearer }) {
-      const anonKey = getAnonKey2();
-      const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
-      const { data: userData, error: userErr } = await edgeClient.auth.getCurrentUser();
-      const userId = userData?.user?.id;
-      if (userErr || !userId) return { ok: false, edgeClient: null, userId: null };
-      return { ok: true, edgeClient, userId };
+      const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
+      if (!auth.ok) return { ok: false, edgeClient: null, userId: null };
+      return { ok: true, edgeClient: auth.edgeClient, userId: auth.userId };
     }
     async function getEdgeClientAndUserIdFast({ baseUrl, bearer }) {
       const anonKey = getAnonKey2();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
-      const payload = decodeJwtPayload(bearer);
-      if (payload && isJwtExpired(payload)) {
-        return { ok: false, edgeClient: null, userId: null };
-      }
-      const { data: userData, error: userErr } = await edgeClient.auth.getCurrentUser();
-      const resolvedUserId = userData?.user?.id;
-      if (userErr || !resolvedUserId) return { ok: false, edgeClient: null, userId: null };
-      return { ok: true, edgeClient, userId: resolvedUserId };
+      const local = await verifyUserJwtHs2562({ token: bearer });
+      if (!local.ok) return { ok: false, edgeClient: null, userId: null, error: local };
+      return { ok: true, edgeClient, userId: local.userId };
     }
     async function getAccessContext({ baseUrl, bearer, allowPublic = false }) {
       if (!bearer) return { ok: false, edgeClient: null, userId: null, accessType: null };
@@ -239,15 +315,16 @@ var require_auth = __commonJS({
       getAccessContext,
       getEdgeClientAndUserId,
       getEdgeClientAndUserIdFast,
-      isProjectAdminBearer
+      isProjectAdminBearer,
+      verifyUserJwtHs256: verifyUserJwtHs2562
     };
   }
 });
 
 // insforge-src/functions/vibeusage-debug-auth.js
 var { handleOptions, json, requireMethod } = require_http();
-var { getBearerToken } = require_auth();
-var { getAnonKey, getBaseUrl } = require_env();
+var { getBearerToken, verifyUserJwtHs256 } = require_auth();
+var { getAnonKey } = require_env();
 module.exports = async function(request) {
   const opt = handleOptions(request);
   if (opt) return opt;
@@ -279,25 +356,10 @@ module.exports = async function(request) {
       200
     );
   }
-  const baseUrl = getBaseUrl();
-  let authOk = false;
-  let userId = null;
-  let error = null;
-  try {
-    const edgeClient = createClient({
-      baseUrl,
-      anonKey,
-      edgeFunctionToken: bearer
-    });
-    const { data, error: authError } = await edgeClient.auth.getCurrentUser();
-    userId = data?.user?.id || null;
-    authOk = Boolean(userId) && !authError;
-    if (!authOk) {
-      error = authError?.message || "Unauthorized";
-    }
-  } catch (e) {
-    error = e?.message || String(e);
-  }
+  const local = await verifyUserJwtHs256({ token: bearer });
+  const authOk = local.ok;
+  const userId = local.userId;
+  const error = local.ok ? null : local.error || "Unauthorized";
   return json(
     {
       hasAnonKey: true,
