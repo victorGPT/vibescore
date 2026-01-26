@@ -15,6 +15,7 @@ pnpm-debug.log*
 .code/
 .worktrees/
 codex-pr-review-loop.skill
+index.scip
 
 # Local-only snapshots and experiments
 /backups/
@@ -27,5 +28,4 @@ codex-pr-review-loop.skill
 
 # Local-only canvas focus output
 architecture.focus.canvas
-
 .worktrees/

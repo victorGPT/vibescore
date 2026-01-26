@@ -55,6 +55,8 @@ landing.rank.singularity,landing,LandingPage,LandingPage,rank_singularity,"APEX"
 landing.rank.unranked,landing,LandingPage,LandingPage,rank_unranked,"UNRANKED",,active
 landing.cta.initialize,landing,LandingPage,LandingPage,cta_primary,">> INITIALIZE_LINK <<",,active
 landing.cta.subtext,landing,LandingPage,LandingPage,cta_subtext,"Connect with GitHub // Enter the System",,active
+landing.cta.primary,landing,LandingPage,LandingPage,cta_primary,">> INITIALIZE_LINK <<",,active
+landing.cta.secondary,landing,LandingPage,LandingPage,cta_secondary,"Connect with GitHub // Enter the System",,active
 landing.footer.link.manifesto,landing,LandingPage,LandingPage,footer_link_manifesto,"Manifesto",,active
 landing.footer.link.docs,landing,LandingPage,LandingPage,footer_link_docs,"Docs",,active
 landing.footer.link.security,landing,LandingPage,LandingPage,footer_link_security,"Security",,active
@@ -298,6 +300,8 @@ dashboard.daily.empty,dashboard,DashboardPage,AsciiBox,empty_state,"No data yet.
 dashboard.identity.title,dashboard,DashboardPage,IdentityCard,title,"Identity_Core",,active
 dashboard.identity.subtitle,dashboard,DashboardPage,IdentityCard,subtitle,"Authorized",,active
 dashboard.identity.fallback,dashboard,DashboardPage,IdentityCard,handle_fallback,"ANONYMOUS",,active
+
+dashboard.version.label,dashboard,App,VersionBadge,label,"Version",,active
 
 dashboard.screenshot.title_line1,dashboard,DashboardPage,ScreenshotTitle,title_line,"Coding Agent",,active
 dashboard.screenshot.title_line2,dashboard,DashboardPage,ScreenshotTitle,title_line,"2025 Wrapped",,active

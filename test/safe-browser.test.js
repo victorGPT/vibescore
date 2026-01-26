@@ -1,8 +1,9 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
+const { loadDashboardModule } = require("./helpers/load-dashboard-module");
 
 test("safe browser helpers do not throw when unavailable", async () => {
-  const mod = await import("../dashboard/src/lib/safe-browser.js");
+  const mod = await loadDashboardModule("dashboard/src/lib/safe-browser.ts");
   const { safeGetItem, safeSetItem, safeWriteClipboard } = mod;
 
   assert.equal(typeof safeGetItem, "function");

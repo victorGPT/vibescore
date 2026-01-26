@@ -17,7 +17,6 @@ const {
 const { applyCanaryFilter } = require('../shared/canary');
 const {
   addDatePartsDays,
-  formatLocalDateKey,
   getUsageMaxDays,
   getUsageTimeZoneContext,
   isUtcTimeZone,
@@ -26,8 +25,15 @@ const {
   normalizeDateRangeLocal,
   parseDateParts
 } = require('../shared/date');
-const { toBigInt } = require('../shared/numbers');
 const { forEachPage } = require('../shared/pagination');
+const { initDailyBuckets, applyDailyBucket } = require('../shared/core/usage-daily');
+const { shouldIncludeUsageRow } = require('../shared/core/usage-filter');
+const {
+  buildPricingBucketKey,
+  getSourceEntry,
+  parsePricingBucketKey,
+  resolveDisplayName
+} = require('../shared/core/usage-summary');
 const {
   buildPricingMetadata,
   computeUsageCost,
@@ -51,7 +57,6 @@ const {
 } = require('../shared/model-alias-timeline');
 
 const DEFAULT_MODEL = 'unknown';
-const PRICING_BUCKET_SEP = '::';
 
 module.exports = withRequestLogging('vibeusage-usage-daily', async function(request, logger) {
   const opt = handleOptions(request);
@@ -119,19 +124,7 @@ module.exports = withRequestLogging('vibeusage-usage-daily', async function(requ
     aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
   }
 
-  const buckets = new Map(
-    dayKeys.map((day) => [
-      day,
-      {
-        total: 0n,
-        billable: 0n,
-        input: 0n,
-        cached: 0n,
-        output: 0n,
-        reasoning: 0n
-      }
-    ])
-  );
+  const { buckets } = initDailyBuckets(dayKeys);
 
   let totals = createTotals();
   let sourcesMap = new Map();
@@ -201,28 +194,9 @@ module.exports = withRequestLogging('vibeusage-usage-daily', async function(requ
           if (!ts) continue;
           const dt = new Date(ts);
           if (!Number.isFinite(dt.getTime())) continue;
-        if (hasModelFilter) {
-          const rawModel = normalizeUsageModel(row?.model);
-          const dateKey = extractDateKey(ts) || to;
-          const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
-          const filterIdentity = resolveIdentityAtDate({
-            rawModel: canonicalModel,
-            usageKey: canonicalModel,
-            dateKey,
-            timeline: aliasTimeline
-          });
-          if (identity.model_id !== filterIdentity.model_id) continue;
-        }
-          const day = formatLocalDateKey(dt, tzContext);
-          const bucket = buckets.get(day);
-          if (!bucket) continue;
-          bucket.total += toBigInt(row?.total_tokens);
+        if (!shouldIncludeUsageRow({ row, canonicalModel, hasModelFilter, aliasTimeline, to })) continue;
           const billable = ingestRow(row);
-          bucket.billable += billable;
-          bucket.input += toBigInt(row?.input_tokens);
-          bucket.cached += toBigInt(row?.cached_input_tokens);
-          bucket.output += toBigInt(row?.output_tokens);
-          bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
+          applyDailyBucket({ buckets, row, tzContext, billable });
         }
       }
     });
@@ -264,25 +238,11 @@ module.exports = withRequestLogging('vibeusage-usage-daily', async function(requ
         const day = row?.day;
         const bucket = buckets.get(day);
         if (!bucket) continue;
-        if (hasModelFilter) {
-          const rawModel = normalizeUsageModel(row?.model);
-          const dateKey = extractDateKey(day) || to;
-          const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
-          const filterIdentity = resolveIdentityAtDate({
-            rawModel: canonicalModel,
-            usageKey: canonicalModel,
-            dateKey,
-            timeline: aliasTimeline
-          });
-          if (identity.model_id !== filterIdentity.model_id) continue;
-        }
-        bucket.total += toBigInt(row?.total_tokens);
+        if (!shouldIncludeUsageRow({ row, canonicalModel, hasModelFilter, aliasTimeline, to })) continue;
+        const dayValue = row?.day;
+        const rowForBucket = row?.hour_start || !dayValue ? row : { ...row, hour_start: `${dayValue}T00:00:00.000Z` };
         const billable = ingestRow(row);
-        bucket.billable += billable;
-        bucket.input += toBigInt(row?.input_tokens);
-        bucket.cached += toBigInt(row?.cached_input_tokens);
-        bucket.output += toBigInt(row?.output_tokens);
-        bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
+        applyDailyBucket({ buckets, row: rowForBucket, tzContext, billable });
       }
 
       if (rows.length === 0) {
@@ -350,7 +310,7 @@ module.exports = withRequestLogging('vibeusage-usage-daily', async function(requ
       const profileCache = new Map();
 
       const getProfile = async (modelId, dateKey) => {
-        const key = `${modelId || ''}${PRICING_BUCKET_SEP}${dateKey || ''}`;
+        const key = buildPricingBucketKey('profile', modelId || '', dateKey || '');
         if (profileCache.has(key)) return profileCache.get(key);
         const profile = await resolvePricingProfile({
           edgeClient: auth.edgeClient,
@@ -451,59 +411,3 @@ module.exports = withRequestLogging('vibeusage-usage-daily', async function(requ
     queryDurationMs
   );
 });
-
-function getSourceEntry(map, source) {
-  if (map.has(source)) return map.get(source);
-  const entry = {
-    source,
-    totals: createTotals()
-  };
-  map.set(source, entry);
-  return entry;
-}
-
-function resolveDisplayName(identityMap, modelId) {
-  if (!modelId || !identityMap || typeof identityMap.values !== 'function') return modelId || null;
-  for (const entry of identityMap.values()) {
-    if (entry?.model_id === modelId && entry?.model) return entry.model;
-  }
-  return modelId;
-}
-
-function buildPricingBucketKey(sourceKey, usageKey, dateKey) {
-  return JSON.stringify([sourceKey || '', usageKey || '', dateKey || '']);
-}
-
-function parsePricingBucketKey(bucketKey, defaultDate) {
-  if (typeof bucketKey === 'string' && bucketKey.startsWith('[')) {
-    try {
-      const parsed = JSON.parse(bucketKey);
-      if (Array.isArray(parsed)) {
-        const usageKey = parsed[1] ?? parsed[0] ?? '';
-        const dateKey = parsed[2] ?? defaultDate;
-        return {
-          usageKey: String(usageKey || ''),
-          dateKey: String(dateKey || defaultDate)
-        };
-      }
-    } catch (_e) {
-      // fall through to legacy parsing
-    }
-  }
-  if (typeof bucketKey === 'string') {
-    const parts = bucketKey.split(PRICING_BUCKET_SEP);
-    let usageKey = null;
-    let dateKey = null;
-    if (parts.length >= 3) {
-      usageKey = parts[1];
-      dateKey = parts[2];
-    } else if (parts.length === 2) {
-      usageKey = parts[0];
-      dateKey = parts[1];
-    } else {
-      usageKey = bucketKey;
-    }
-    return { usageKey, dateKey: dateKey || defaultDate };
-  }
-  return { usageKey: bucketKey, dateKey: defaultDate };
-}

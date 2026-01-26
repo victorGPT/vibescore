@@ -470,7 +470,7 @@ var require_source = __commonJS({
   "insforge-src/shared/source.js"(exports2, module2) {
     "use strict";
     var MAX_SOURCE_LENGTH = 64;
-    function normalizeSource2(value) {
+    function normalizeSource(value) {
       if (typeof value !== "string") return null;
       const normalized = value.trim().toLowerCase();
       if (!normalized) return null;
@@ -484,13 +484,13 @@ var require_source = __commonJS({
       const raw = url.searchParams.get("source");
       if (raw == null) return { ok: true, source: null };
       if (raw.trim() === "") return { ok: true, source: null };
-      const normalized = normalizeSource2(raw);
+      const normalized = normalizeSource(raw);
       if (!normalized) return { ok: false, error: "Invalid source" };
       return { ok: true, source: normalized };
     }
     module2.exports = {
       MAX_SOURCE_LENGTH,
-      normalizeSource: normalizeSource2,
+      normalizeSource,
       getSourceParam
     };
   }
@@ -505,7 +505,7 @@ var require_model = __commonJS({
       const trimmed = value.trim();
       return trimmed.length > 0 ? trimmed : null;
     }
-    function normalizeUsageModel2(value) {
+    function normalizeUsageModel(value) {
       const normalized = normalizeModel(value);
       if (!normalized) return null;
       const lowered = normalized.toLowerCase();
@@ -520,7 +520,7 @@ var require_model = __commonJS({
       const terms = [];
       const seen = /* @__PURE__ */ new Set();
       for (const model of models) {
-        const normalized = normalizeUsageModel2(model);
+        const normalized = normalizeUsageModel(model);
         if (!normalized) continue;
         const safe = escapeLike(normalized);
         const exact = `model.ilike.${safe}`;
@@ -539,13 +539,13 @@ var require_model = __commonJS({
       const raw = url.searchParams.get("model");
       if (raw == null) return { ok: true, model: null };
       if (raw.trim() === "") return { ok: true, model: null };
-      const normalized = normalizeUsageModel2(raw);
+      const normalized = normalizeUsageModel(raw);
       if (!normalized) return { ok: false, error: "Invalid model" };
       return { ok: true, model: normalized };
     }
     module2.exports = {
       normalizeModel,
-      normalizeUsageModel: normalizeUsageModel2,
+      normalizeUsageModel,
       applyUsageModelFilter,
       getModelParam
     };
@@ -605,12 +605,12 @@ var require_usage_billable = __commonJS({
   "insforge-src/shared/usage-billable.js"(exports2, module2) {
     "use strict";
     var { toBigInt } = require_numbers();
-    var { normalizeSource: normalizeSource2 } = require_source();
+    var { normalizeSource } = require_source();
     var BILLABLE_INPUT_OUTPUT_REASONING = /* @__PURE__ */ new Set(["codex", "every-code"]);
     var BILLABLE_ADD_ALL = /* @__PURE__ */ new Set(["claude", "opencode"]);
     var BILLABLE_TOTAL = /* @__PURE__ */ new Set(["gemini"]);
-    function computeBillableTotalTokens2({ source, totals } = {}) {
-      const normalizedSource = normalizeSource2(source) || "unknown";
+    function computeBillableTotalTokens({ source, totals } = {}) {
+      const normalizedSource = normalizeSource(source) || "unknown";
       const input = toBigInt(totals?.input_tokens);
       const cached = toBigInt(totals?.cached_input_tokens);
       const output = toBigInt(totals?.output_tokens);
@@ -624,7 +624,651 @@ var require_usage_billable = __commonJS({
       return input + output + reasoning;
     }
     module2.exports = {
-      computeBillableTotalTokens: computeBillableTotalTokens2
+      computeBillableTotalTokens
+    };
+  }
+});
+
+// insforge-src/shared/core/ingest.js
+var require_ingest = __commonJS({
+  "insforge-src/shared/core/ingest.js"(exports2, module2) {
+    "use strict";
+    var { normalizeSource } = require_source();
+    var { normalizeUsageModel } = require_model();
+    var { computeBillableTotalTokens } = require_usage_billable();
+    var DEFAULT_MODEL = "unknown";
+    var BILLABLE_RULE_VERSION2 = 1;
+    function normalizeHourlyPayload2(data) {
+      if (Array.isArray(data)) return data;
+      if (data && typeof data === "object") {
+        if (Array.isArray(data.hourly)) return data.hourly;
+        if (Array.isArray(data.data)) return data.data;
+        if (data.data && typeof data.data === "object" && Array.isArray(data.data.hourly)) {
+          return data.data.hourly;
+        }
+      }
+      return null;
+    }
+    function normalizeProjectHourlyPayload2(data) {
+      if (!data || typeof data !== "object") return null;
+      if (Array.isArray(data.project_hourly)) return data.project_hourly;
+      if (data.data && typeof data.data === "object" && Array.isArray(data.data.project_hourly)) {
+        return data.data.project_hourly;
+      }
+      return null;
+    }
+    function parseUtcHalfHourStart(value) {
+      if (typeof value !== "string" || value.trim() === "") return null;
+      const dt = new Date(value);
+      if (!Number.isFinite(dt.getTime())) return null;
+      const minutes = dt.getUTCMinutes();
+      if (minutes !== 0 && minutes !== 30 || dt.getUTCSeconds() !== 0 || dt.getUTCMilliseconds() !== 0) {
+        return null;
+      }
+      const hourStart = new Date(
+        Date.UTC(
+          dt.getUTCFullYear(),
+          dt.getUTCMonth(),
+          dt.getUTCDate(),
+          dt.getUTCHours(),
+          minutes >= 30 ? 30 : 0,
+          0,
+          0
+        )
+      );
+      return hourStart.toISOString();
+    }
+    function toNonNegativeInt(n) {
+      if (typeof n !== "number") return null;
+      if (!Number.isFinite(n)) return null;
+      if (!Number.isInteger(n)) return null;
+      if (n < 0) return null;
+      return n;
+    }
+    function parseHourlyBucket(raw) {
+      if (!raw || typeof raw !== "object") return { ok: false, error: "Invalid half-hour bucket" };
+      const hourStart = parseUtcHalfHourStart(raw.hour_start);
+      if (!hourStart) {
+        return { ok: false, error: "hour_start must be an ISO timestamp at UTC half-hour boundary" };
+      }
+      const source = normalizeSource(raw.source);
+      const model = normalizeUsageModel(raw.model) || DEFAULT_MODEL;
+      const input = toNonNegativeInt(raw.input_tokens);
+      const cached = toNonNegativeInt(raw.cached_input_tokens);
+      const output = toNonNegativeInt(raw.output_tokens);
+      const reasoning = toNonNegativeInt(raw.reasoning_output_tokens);
+      const total = toNonNegativeInt(raw.total_tokens);
+      if ([input, cached, output, reasoning, total].some((n) => n == null)) {
+        return { ok: false, error: "Token fields must be non-negative integers" };
+      }
+      return {
+        ok: true,
+        value: {
+          source,
+          model,
+          hour_start: hourStart,
+          input_tokens: input,
+          cached_input_tokens: cached,
+          output_tokens: output,
+          reasoning_output_tokens: reasoning,
+          total_tokens: total
+        }
+      };
+    }
+    function parseProjectHourlyBucket(raw) {
+      if (!raw || typeof raw !== "object") return { ok: false, error: "Invalid project half-hour bucket" };
+      const hourStart = parseUtcHalfHourStart(raw.hour_start);
+      if (!hourStart) {
+        return { ok: false, error: "hour_start must be an ISO timestamp at UTC half-hour boundary" };
+      }
+      const source = normalizeSource(raw.source);
+      const projectKey = typeof raw.project_key === "string" ? raw.project_key.trim() : "";
+      const projectRef = typeof raw.project_ref === "string" ? raw.project_ref.trim() : "";
+      const input = toNonNegativeInt(raw.input_tokens);
+      const cached = toNonNegativeInt(raw.cached_input_tokens);
+      const output = toNonNegativeInt(raw.output_tokens);
+      const reasoning = toNonNegativeInt(raw.reasoning_output_tokens);
+      const total = toNonNegativeInt(raw.total_tokens);
+      if (!projectKey) {
+        return { ok: false, error: "project_key is required" };
+      }
+      if (!projectRef) {
+        return { ok: false, error: "project_ref is required" };
+      }
+      if ([input, cached, output, reasoning, total].some((n) => n == null)) {
+        return { ok: false, error: "Token fields must be non-negative integers" };
+      }
+      return {
+        ok: true,
+        value: {
+          source,
+          project_key: projectKey,
+          project_ref: projectRef,
+          hour_start: hourStart,
+          input_tokens: input,
+          cached_input_tokens: cached,
+          output_tokens: output,
+          reasoning_output_tokens: reasoning,
+          total_tokens: total
+        }
+      };
+    }
+    function buildRows2({ hourly, tokenRow, nowIso, billableRuleVersion = BILLABLE_RULE_VERSION2 }) {
+      const byHour = /* @__PURE__ */ new Map();
+      for (const raw of hourly) {
+        const parsed = parseHourlyBucket(raw);
+        if (!parsed.ok) return { error: parsed.error, data: [] };
+        const source = parsed.value.source || "codex";
+        const model = parsed.value.model || DEFAULT_MODEL;
+        const dedupeKey = `${parsed.value.hour_start}::${source}::${model}`;
+        byHour.set(dedupeKey, { ...parsed.value, source, model });
+      }
+      const rows = [];
+      for (const bucket of byHour.values()) {
+        const billable = computeBillableTotalTokens({ source: bucket.source, totals: bucket });
+        rows.push({
+          user_id: tokenRow.user_id,
+          device_id: tokenRow.device_id,
+          device_token_id: tokenRow.id,
+          source: bucket.source,
+          model: bucket.model,
+          hour_start: bucket.hour_start,
+          input_tokens: bucket.input_tokens,
+          cached_input_tokens: bucket.cached_input_tokens,
+          output_tokens: bucket.output_tokens,
+          reasoning_output_tokens: bucket.reasoning_output_tokens,
+          total_tokens: bucket.total_tokens,
+          billable_total_tokens: billable.toString(),
+          billable_rule_version: billableRuleVersion,
+          updated_at: nowIso
+        });
+      }
+      return { error: null, data: rows };
+    }
+    function buildProjectRows2({ hourly, tokenRow, nowIso }) {
+      const byHour = /* @__PURE__ */ new Map();
+      for (const raw of hourly) {
+        const parsed = parseProjectHourlyBucket(raw);
+        if (!parsed.ok) return { error: parsed.error, data: [] };
+        const source = parsed.value.source || "codex";
+        const dedupeKey = `${parsed.value.hour_start}::${source}::${parsed.value.project_key}`;
+        byHour.set(dedupeKey, { ...parsed.value, source });
+      }
+      const rows = [];
+      for (const bucket of byHour.values()) {
+        rows.push({
+          user_id: tokenRow.user_id,
+          device_id: tokenRow.device_id,
+          device_token_id: tokenRow.id,
+          source: bucket.source,
+          project_key: bucket.project_key,
+          project_ref: bucket.project_ref,
+          hour_start: bucket.hour_start,
+          input_tokens: bucket.input_tokens,
+          cached_input_tokens: bucket.cached_input_tokens,
+          output_tokens: bucket.output_tokens,
+          reasoning_output_tokens: bucket.reasoning_output_tokens,
+          total_tokens: bucket.total_tokens,
+          updated_at: nowIso
+        });
+      }
+      return { error: null, data: rows };
+    }
+    function deriveMetricsSource2(rows) {
+      if (!Array.isArray(rows) || rows.length === 0) return null;
+      const sources = /* @__PURE__ */ new Set();
+      for (const row of rows) {
+        const source = typeof row?.source === "string" ? row.source.trim() : "";
+        if (source) sources.add(source);
+      }
+      if (sources.size === 1) return Array.from(sources)[0];
+      if (sources.size > 1) return "mixed";
+      return null;
+    }
+    module2.exports = {
+      DEFAULT_MODEL,
+      BILLABLE_RULE_VERSION: BILLABLE_RULE_VERSION2,
+      normalizeHourlyPayload: normalizeHourlyPayload2,
+      normalizeProjectHourlyPayload: normalizeProjectHourlyPayload2,
+      parseUtcHalfHourStart,
+      toNonNegativeInt,
+      parseHourlyBucket,
+      parseProjectHourlyBucket,
+      buildRows: buildRows2,
+      buildProjectRows: buildProjectRows2,
+      deriveMetricsSource: deriveMetricsSource2
+    };
+  }
+});
+
+// insforge-src/shared/db/records.js
+var require_records = __commonJS({
+  "insforge-src/shared/db/records.js"(exports2, module2) {
+    "use strict";
+    function buildAuthHeaders({ anonKey, tokenHash }) {
+      return {
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+        "x-vibeusage-device-token-hash": tokenHash
+      };
+    }
+    async function readApiJson(res) {
+      const text = await res.text();
+      if (!text) return { data: null, error: null, code: null };
+      try {
+        const parsed = JSON.parse(text);
+        return { data: parsed, error: parsed?.message || parsed?.error || null, code: parsed?.code || null };
+      } catch (_e) {
+        return { data: null, error: text.slice(0, 300), code: null };
+      }
+    }
+    function normalizeRows(data) {
+      if (Array.isArray(data)) return data;
+      if (data && typeof data === "object" && Array.isArray(data.data)) return data.data;
+      return null;
+    }
+    function isUpsertUnsupported(result) {
+      const status = Number(result?.status || 0);
+      if (status !== 400 && status !== 404 && status !== 405 && status !== 409 && status !== 422) return false;
+      const msg = String(result?.error || "").toLowerCase();
+      if (!msg) return false;
+      return msg.includes("on_conflict") || msg.includes("resolution") || msg.includes("prefer") || msg.includes("unknown") || msg.includes("invalid");
+    }
+    async function recordsUpsert({ url, anonKey, tokenHash, rows, onConflict, prefer, resolution, select, fetcher }) {
+      const target = new URL(url.toString());
+      if (onConflict) target.searchParams.set("on_conflict", onConflict);
+      if (select) target.searchParams.set("select", select);
+      const preferParts = [];
+      if (prefer) preferParts.push(prefer);
+      if (resolution) preferParts.push(`resolution=${resolution}`);
+      const preferHeader = preferParts.filter(Boolean).join(",");
+      const res = await (fetcher || fetch)(target.toString(), {
+        method: "POST",
+        headers: {
+          ...buildAuthHeaders({ anonKey, tokenHash }),
+          ...preferHeader ? { Prefer: preferHeader } : {},
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(rows)
+      });
+      const { data, error, code } = await readApiJson(res);
+      return { ok: res.ok, status: res.status, data, error, code };
+    }
+    module2.exports = {
+      buildAuthHeaders,
+      readApiJson,
+      normalizeRows,
+      isUpsertUnsupported,
+      recordsUpsert
+    };
+  }
+});
+
+// insforge-src/shared/db/ingest.js
+var require_ingest2 = __commonJS({
+  "insforge-src/shared/db/ingest.js"(exports2, module2) {
+    "use strict";
+    var {
+      buildAuthHeaders,
+      isUpsertUnsupported,
+      normalizeRows,
+      readApiJson,
+      recordsUpsert
+    } = require_records();
+    var DEVICE_TOKEN_SELECT = "id,user_id,device_id,revoked_at,last_sync_at";
+    function normalizeIso(value) {
+      if (typeof value !== "string") return null;
+      const dt = new Date(value);
+      if (!Number.isFinite(dt.getTime())) return null;
+      return dt.toISOString();
+    }
+    function isWithinInterval(lastSyncAt, minutes, nowIso) {
+      const lastMs = Date.parse(lastSyncAt);
+      if (!Number.isFinite(lastMs)) return false;
+      const windowMs = Math.max(0, minutes) * 60 * 1e3;
+      if (windowMs <= 0) return false;
+      const nowMs = nowIso ? Date.parse(nowIso) : Date.now();
+      if (!Number.isFinite(nowMs)) return false;
+      return nowMs - lastMs < windowMs;
+    }
+    function toNonNegativeInt(value) {
+      if (typeof value !== "number") return 0;
+      if (!Number.isFinite(value)) return 0;
+      if (!Number.isInteger(value)) return 0;
+      if (value < 0) return 0;
+      return value;
+    }
+    async function fetchDeviceTokenRow2({ serviceClient, baseUrl, anonKey, tokenHash, fetcher }) {
+      if (serviceClient?.database?.from) {
+        const { data: tokenRow2, error: error2 } = await serviceClient.database.from("vibeusage_tracker_device_tokens").select(DEVICE_TOKEN_SELECT).eq("token_hash", tokenHash).maybeSingle();
+        if (error2) throw new Error(error2.message);
+        if (!tokenRow2 || tokenRow2.revoked_at) return null;
+        return tokenRow2;
+      }
+      if (!baseUrl || !anonKey) throw new Error("Anon key missing");
+      const url = new URL("/api/database/records/vibeusage_tracker_device_tokens", baseUrl);
+      url.searchParams.set("select", DEVICE_TOKEN_SELECT);
+      url.searchParams.set("token_hash", `eq.${tokenHash}`);
+      url.searchParams.set("limit", "1");
+      const res = await (fetcher || fetch)(url.toString(), {
+        method: "GET",
+        headers: buildAuthHeaders({ anonKey, tokenHash })
+      });
+      const { data, error } = await readApiJson(res);
+      if (!res.ok) throw new Error(error || `HTTP ${res.status}`);
+      const rows = normalizeRows(data);
+      const tokenRow = rows?.[0] || null;
+      if (!tokenRow || tokenRow.revoked_at) return null;
+      return tokenRow;
+    }
+    async function updateRecord({ baseUrl, anonKey, tokenHash, table, match, values, fetcher }) {
+      const url = new URL(`/api/database/records/${table}`, baseUrl);
+      for (const [key, val] of Object.entries(match || {})) {
+        url.searchParams.set(key, `eq.${val}`);
+      }
+      const res = await (fetcher || fetch)(url.toString(), {
+        method: "PATCH",
+        headers: {
+          ...buildAuthHeaders({ anonKey, tokenHash }),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(values)
+      });
+      const { data, error, code } = await readApiJson(res);
+      return { ok: res.ok, status: res.status, data, error, code };
+    }
+    async function touchDeviceTokenAndDevice({
+      serviceClient,
+      baseUrl,
+      anonKey,
+      tokenHash,
+      tokenRow,
+      nowIso,
+      fetcher,
+      minIntervalMinutes = 30
+    }) {
+      if (!tokenRow) return;
+      const lastSyncAt = normalizeIso(tokenRow.last_sync_at);
+      const shouldUpdateSync = !lastSyncAt || !isWithinInterval(lastSyncAt, minIntervalMinutes, nowIso);
+      const tokenUpdate = shouldUpdateSync ? { last_used_at: nowIso, last_sync_at: nowIso } : { last_used_at: nowIso };
+      try {
+        if (serviceClient?.database?.from) {
+          await serviceClient.database.from("vibeusage_tracker_device_tokens").update(tokenUpdate).eq("id", tokenRow.id);
+        } else if (baseUrl && anonKey) {
+          await updateRecord({
+            baseUrl,
+            anonKey,
+            tokenHash,
+            table: "vibeusage_tracker_device_tokens",
+            match: { id: tokenRow.id },
+            values: tokenUpdate,
+            fetcher
+          });
+        }
+      } catch (_e) {
+      }
+      try {
+        if (serviceClient?.database?.from) {
+          await serviceClient.database.from("vibeusage_tracker_devices").update({ last_seen_at: nowIso }).eq("id", tokenRow.device_id);
+        } else if (baseUrl && anonKey) {
+          await updateRecord({
+            baseUrl,
+            anonKey,
+            tokenHash,
+            table: "vibeusage_tracker_devices",
+            match: { id: tokenRow.device_id },
+            values: { last_seen_at: nowIso },
+            fetcher
+          });
+        }
+      } catch (_e) {
+      }
+    }
+    async function upsertHourlyUsage2({
+      serviceClient,
+      baseUrl,
+      serviceRoleKey,
+      anonKey,
+      tokenHash,
+      tokenRow,
+      rows,
+      nowIso,
+      fetcher
+    }) {
+      if (serviceClient && serviceRoleKey && baseUrl) {
+        const url2 = new URL("/api/database/records/vibeusage_tracker_hourly", baseUrl);
+        const res2 = await recordsUpsert({
+          url: url2,
+          anonKey: serviceRoleKey,
+          tokenHash,
+          rows,
+          onConflict: "user_id,device_id,source,model,hour_start",
+          prefer: "return=representation",
+          resolution: "merge-duplicates",
+          select: "hour_start",
+          fetcher
+        });
+        if (res2.ok) {
+          const insertedRows = normalizeRows(res2.data);
+          const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+          await touchDeviceTokenAndDevice({ serviceClient, tokenRow, nowIso });
+          return { ok: true, inserted, skipped: 0 };
+        }
+        if (!isUpsertUnsupported(res2)) {
+          return { ok: false, error: res2.error || `HTTP ${res2.status}`, inserted: 0, skipped: 0 };
+        }
+      }
+      if (serviceClient?.database?.from) {
+        const { error } = await serviceClient.database.from("vibeusage_tracker_hourly").upsert(rows, { onConflict: "user_id,device_id,source,model,hour_start" });
+        if (error) return { ok: false, error: error.message, inserted: 0, skipped: 0 };
+        await touchDeviceTokenAndDevice({ serviceClient, tokenRow, nowIso });
+        return { ok: true, inserted: rows.length, skipped: 0 };
+      }
+      if (!anonKey || !baseUrl) {
+        return { ok: false, error: "Anon key missing", inserted: 0, skipped: 0 };
+      }
+      const url = new URL("/api/database/records/vibeusage_tracker_hourly", baseUrl);
+      const res = await recordsUpsert({
+        url,
+        anonKey,
+        tokenHash,
+        rows,
+        onConflict: "user_id,device_id,source,model,hour_start",
+        prefer: "return=representation",
+        resolution: "merge-duplicates",
+        select: "hour_start",
+        fetcher
+      });
+      if (res.ok) {
+        const insertedRows = normalizeRows(res.data);
+        const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+        await touchDeviceTokenAndDevice({ baseUrl, anonKey, tokenHash, tokenRow, nowIso, fetcher });
+        return { ok: true, inserted, skipped: 0 };
+      }
+      if (isUpsertUnsupported(res)) {
+        return { ok: false, error: res.error || "Half-hour upsert unsupported", inserted: 0, skipped: 0 };
+      }
+      return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
+    }
+    async function upsertProjectUsage2({
+      serviceClient,
+      baseUrl,
+      serviceRoleKey,
+      anonKey,
+      tokenHash,
+      tokenRow,
+      rows,
+      nowIso,
+      fetcher
+    }) {
+      if (serviceClient && serviceRoleKey && baseUrl) {
+        const url2 = new URL("/api/database/records/vibeusage_project_usage_hourly", baseUrl);
+        const res2 = await recordsUpsert({
+          url: url2,
+          anonKey: serviceRoleKey,
+          tokenHash,
+          rows,
+          onConflict: "user_id,project_key,hour_start,source",
+          prefer: "return=representation",
+          resolution: "merge-duplicates",
+          select: "hour_start",
+          fetcher
+        });
+        if (res2.ok) {
+          const insertedRows = normalizeRows(res2.data);
+          const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+          await touchDeviceTokenAndDevice({ serviceClient, tokenRow, nowIso });
+          return { ok: true, inserted, skipped: 0 };
+        }
+        if (!isUpsertUnsupported(res2)) {
+          return { ok: false, error: res2.error || `HTTP ${res2.status}`, inserted: 0, skipped: 0 };
+        }
+      }
+      if (serviceClient?.database?.from) {
+        const { error } = await serviceClient.database.from("vibeusage_project_usage_hourly").upsert(rows, { onConflict: "user_id,project_key,hour_start,source" });
+        if (error) return { ok: false, error: error.message, inserted: 0, skipped: 0 };
+        await touchDeviceTokenAndDevice({ serviceClient, tokenRow, nowIso });
+        return { ok: true, inserted: rows.length, skipped: 0 };
+      }
+      if (!anonKey || !baseUrl) {
+        return { ok: false, error: "Anon key missing", inserted: 0, skipped: 0 };
+      }
+      const url = new URL("/api/database/records/vibeusage_project_usage_hourly", baseUrl);
+      const res = await recordsUpsert({
+        url,
+        anonKey,
+        tokenHash,
+        rows,
+        onConflict: "user_id,project_key,hour_start,source",
+        prefer: "return=representation",
+        resolution: "merge-duplicates",
+        select: "hour_start",
+        fetcher
+      });
+      if (res.ok) {
+        const insertedRows = normalizeRows(res.data);
+        const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+        await touchDeviceTokenAndDevice({ baseUrl, anonKey, tokenHash, tokenRow, nowIso, fetcher });
+        return { ok: true, inserted, skipped: 0 };
+      }
+      if (isUpsertUnsupported(res)) {
+        return { ok: false, error: res.error || "Half-hour upsert unsupported", inserted: 0, skipped: 0 };
+      }
+      return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
+    }
+    async function upsertProjectRegistry2({
+      serviceClient,
+      baseUrl,
+      serviceRoleKey,
+      anonKey,
+      tokenHash,
+      rows,
+      fetcher
+    }) {
+      if (serviceClient && serviceRoleKey && baseUrl) {
+        const url2 = new URL("/api/database/records/vibeusage_projects", baseUrl);
+        const res2 = await recordsUpsert({
+          url: url2,
+          anonKey: serviceRoleKey,
+          tokenHash,
+          rows,
+          onConflict: "user_id,project_key",
+          prefer: "return=representation",
+          resolution: "merge-duplicates",
+          select: "project_key",
+          fetcher
+        });
+        if (res2.ok) {
+          const insertedRows = normalizeRows(res2.data);
+          const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+          return { ok: true, inserted, skipped: 0 };
+        }
+        if (!isUpsertUnsupported(res2)) {
+          return { ok: false, error: res2.error || `HTTP ${res2.status}`, inserted: 0, skipped: 0 };
+        }
+      }
+      if (serviceClient?.database?.from) {
+        const { error } = await serviceClient.database.from("vibeusage_projects").upsert(rows, { onConflict: "user_id,project_key" });
+        if (error) return { ok: false, error: error.message, inserted: 0, skipped: 0 };
+        return { ok: true, inserted: rows.length, skipped: 0 };
+      }
+      if (!anonKey || !baseUrl) {
+        return { ok: false, error: "Anon key missing", inserted: 0, skipped: 0 };
+      }
+      const url = new URL("/api/database/records/vibeusage_projects", baseUrl);
+      const res = await recordsUpsert({
+        url,
+        anonKey,
+        tokenHash,
+        rows,
+        onConflict: "user_id,project_key",
+        prefer: "return=representation",
+        resolution: "merge-duplicates",
+        select: "project_key",
+        fetcher
+      });
+      if (res.ok) {
+        const insertedRows = normalizeRows(res.data);
+        const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+        return { ok: true, inserted, skipped: 0 };
+      }
+      if (isUpsertUnsupported(res)) {
+        return { ok: false, error: res.error || "Project upsert unsupported", inserted: 0, skipped: 0 };
+      }
+      return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
+    }
+    async function recordIngestBatchMetrics2({
+      serviceClient,
+      baseUrl,
+      anonKey,
+      tokenHash,
+      tokenRow,
+      bucketCount,
+      inserted,
+      skipped,
+      source,
+      fetcher
+    }) {
+      if (!tokenRow) return;
+      const row = {
+        user_id: tokenRow.user_id,
+        device_id: tokenRow.device_id,
+        device_token_id: tokenRow.id,
+        source: typeof source === "string" ? source : null,
+        bucket_count: toNonNegativeInt(bucketCount),
+        inserted: toNonNegativeInt(inserted),
+        skipped: toNonNegativeInt(skipped)
+      };
+      try {
+        if (serviceClient?.database?.from) {
+          const { error } = await serviceClient.database.from("vibeusage_tracker_ingest_batches").insert(row);
+          if (error) throw new Error(error.message);
+          return;
+        }
+        if (!anonKey || !baseUrl) return;
+        const url = new URL("/api/database/records/vibeusage_tracker_ingest_batches", baseUrl);
+        const res = await (fetcher || fetch)(url.toString(), {
+          method: "POST",
+          headers: {
+            ...buildAuthHeaders({ anonKey, tokenHash }),
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(row)
+        });
+        if (!res.ok) {
+          const { error } = await readApiJson(res);
+          throw new Error(error || `HTTP ${res.status}`);
+        }
+      } catch (_e) {
+      }
+    }
+    module2.exports = {
+      fetchDeviceTokenRow: fetchDeviceTokenRow2,
+      touchDeviceTokenAndDevice,
+      upsertHourlyUsage: upsertHourlyUsage2,
+      upsertProjectUsage: upsertProjectUsage2,
+      upsertProjectRegistry: upsertProjectRegistry2,
+      recordIngestBatchMetrics: recordIngestBatchMetrics2
     };
   }
 });
@@ -636,12 +1280,22 @@ var { createConcurrencyGuard } = require_concurrency();
 var { getBearerToken } = require_auth();
 var { getAnonKey, getBaseUrl, getServiceRoleKey } = require_env();
 var { sha256Hex } = require_crypto();
-var { normalizeSource } = require_source();
-var { normalizeUsageModel } = require_model();
-var { computeBillableTotalTokens } = require_usage_billable();
+var {
+  BILLABLE_RULE_VERSION,
+  buildRows,
+  deriveMetricsSource,
+  normalizeHourlyPayload,
+  normalizeProjectHourlyPayload,
+  buildProjectRows
+} = require_ingest();
+var {
+  fetchDeviceTokenRow,
+  recordIngestBatchMetrics,
+  upsertHourlyUsage,
+  upsertProjectUsage,
+  upsertProjectRegistry
+} = require_ingest2();
 var MAX_BUCKETS = 500;
-var DEFAULT_MODEL = "unknown";
-var BILLABLE_RULE_VERSION = 1;
 var ingestGuard = createConcurrencyGuard({
   name: "vibeusage-ingest",
   envKey: ["VIBEUSAGE_INGEST_MAX_INFLIGHT"],
@@ -673,34 +1327,68 @@ module.exports = withRequestLogging("vibeusage-ingest", async function(request, 
     const tokenHash = await sha256Hex(deviceToken);
     let tokenRow = null;
     try {
-      tokenRow = serviceClient ? await getTokenRowWithServiceClient(serviceClient, tokenHash) : await getTokenRowWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher });
+      tokenRow = await fetchDeviceTokenRow({ serviceClient, baseUrl, anonKey, tokenHash, fetcher });
     } catch (e) {
       return json({ error: e?.message || "Internal error" }, 500);
     }
     if (!tokenRow) return json({ error: "Unauthorized" }, 401);
     const body = await readJson(request);
     if (body.error) return json({ error: body.error }, body.status);
-    const hourly = normalizeHourly(body.data);
-    const projectHourly = normalizeProjectHourly(body.data);
-    const hourlyBuckets = Array.isArray(hourly) ? hourly : [];
-    const projectBuckets = Array.isArray(projectHourly) ? projectHourly : [];
+    const hourly = normalizeHourlyPayload(body.data);
+    const projectHourly = normalizeProjectHourlyPayload(body.data);
     if (!Array.isArray(hourly) && !Array.isArray(projectHourly)) {
-      return json({ error: "Invalid payload: expected {hourly:[...]} or {project_hourly:[...]}" }, 400);
+      return json({ error: "Invalid payload: expected {hourly:[...]} or [...]" }, 400);
     }
-    if (hourlyBuckets.length + projectBuckets.length > MAX_BUCKETS) {
+    if (Array.isArray(hourly) && hourly.length > MAX_BUCKETS) {
+      return json({ error: `Too many buckets (max ${MAX_BUCKETS})` }, 413);
+    }
+    if (Array.isArray(projectHourly) && projectHourly.length > MAX_BUCKETS) {
       return json({ error: `Too many buckets (max ${MAX_BUCKETS})` }, 413);
     }
     const nowIso = (/* @__PURE__ */ new Date()).toISOString();
-    const rows = buildRows({ hourly: hourlyBuckets, tokenRow, nowIso });
+    const rows = Array.isArray(hourly) ? buildRows({ hourly, tokenRow, nowIso, billableRuleVersion: BILLABLE_RULE_VERSION }) : { error: null, data: [] };
     if (rows.error) return json({ error: rows.error }, 400);
-    const projectRows = buildProjectRows({ projectHourly: projectBuckets, tokenRow, nowIso });
+    const projectRows = Array.isArray(projectHourly) ? buildProjectRows({ hourly: projectHourly, tokenRow, nowIso }) : { error: null, data: [] };
     if (projectRows.error) return json({ error: projectRows.error }, 400);
-    const projectRegistryRows = buildProjectRegistryRows({
-      projectUsageRows: projectRows.data,
-      tokenRow,
-      nowIso
-    });
-    if (rows.data.length === 0 && projectRows.data.length === 0) {
+    let projectInserted = 0;
+    let projectSkipped = 0;
+    if (projectRows.data.length > 0) {
+      const registryByKey = /* @__PURE__ */ new Map();
+      for (const row of projectRows.data) {
+        registryByKey.set(row.project_key, {
+          user_id: row.user_id,
+          project_key: row.project_key,
+          project_ref: row.project_ref,
+          updated_at: nowIso
+        });
+      }
+      const registryRows = Array.from(registryByKey.values());
+      const registryUpsert = await upsertProjectRegistry({
+        serviceClient,
+        baseUrl,
+        serviceRoleKey,
+        anonKey,
+        tokenHash,
+        rows: registryRows,
+        fetcher
+      });
+      if (!registryUpsert.ok) return json({ error: registryUpsert.error }, 500);
+      const projectUpsert = await upsertProjectUsage({
+        serviceClient,
+        baseUrl,
+        serviceRoleKey,
+        anonKey,
+        tokenHash,
+        tokenRow,
+        rows: projectRows.data,
+        nowIso,
+        fetcher
+      });
+      if (!projectUpsert.ok) return json({ error: projectUpsert.error }, 500);
+      projectInserted = projectUpsert.inserted;
+      projectSkipped = projectUpsert.skipped;
+    }
+    if (rows.data.length === 0) {
       await recordIngestBatchMetrics({
         serviceClient,
         baseUrl,
@@ -713,27 +1401,19 @@ module.exports = withRequestLogging("vibeusage-ingest", async function(request, 
         source: null,
         fetcher
       });
-      return json({ success: true, inserted: 0, skipped: 0 }, 200);
+      return json(
+        { success: true, inserted: 0, skipped: 0, project_inserted: projectInserted, project_skipped: projectSkipped },
+        200
+      );
     }
-    const upsert = serviceClient ? await upsertWithServiceClient({
+    const upsert = await upsertHourlyUsage({
       serviceClient,
-      tokenRow,
-      rows: rows.data,
-      projectRows: projectRows.data,
-      projectRegistryRows,
-      nowIso,
       baseUrl,
       serviceRoleKey,
-      tokenHash,
-      fetcher
-    }) : await upsertWithAnonKey({
-      baseUrl,
       anonKey,
       tokenHash,
       tokenRow,
       rows: rows.data,
-      projectRows: projectRows.data,
-      projectRegistryRows,
       nowIso,
       fetcher
     });
@@ -744,17 +1424,19 @@ module.exports = withRequestLogging("vibeusage-ingest", async function(request, 
       anonKey,
       tokenHash,
       tokenRow,
-      bucketCount: rows.data.length + projectRows.data.length,
+      bucketCount: rows.data.length,
       inserted: upsert.inserted,
       skipped: upsert.skipped,
-      source: deriveMetricsSource(rows.data.length > 0 ? rows.data : projectRows.data),
+      source: deriveMetricsSource(rows.data),
       fetcher
     });
     return json(
       {
         success: true,
         inserted: upsert.inserted,
-        skipped: upsert.skipped
+        skipped: upsert.skipped,
+        project_inserted: projectInserted,
+        project_skipped: projectSkipped
       },
       200
     );
@@ -762,654 +1444,3 @@ module.exports = withRequestLogging("vibeusage-ingest", async function(request, 
     if (guard && typeof guard.release === "function") guard.release();
   }
 });
-function buildRows({ hourly, tokenRow, nowIso }) {
-  const byHour = /* @__PURE__ */ new Map();
-  for (const raw of hourly) {
-    const parsed = parseHourlyBucket(raw);
-    if (!parsed.ok) return { error: parsed.error, data: [] };
-    const source = parsed.value.source || "codex";
-    const model = parsed.value.model || DEFAULT_MODEL;
-    const dedupeKey = `${parsed.value.hour_start}::${source}::${model}`;
-    byHour.set(dedupeKey, { ...parsed.value, source, model });
-  }
-  const rows = [];
-  for (const bucket of byHour.values()) {
-    const billable = computeBillableTotalTokens({ source: bucket.source, totals: bucket });
-    rows.push({
-      user_id: tokenRow.user_id,
-      device_id: tokenRow.device_id,
-      device_token_id: tokenRow.id,
-      source: bucket.source,
-      model: bucket.model,
-      hour_start: bucket.hour_start,
-      input_tokens: bucket.input_tokens,
-      cached_input_tokens: bucket.cached_input_tokens,
-      output_tokens: bucket.output_tokens,
-      reasoning_output_tokens: bucket.reasoning_output_tokens,
-      total_tokens: bucket.total_tokens,
-      billable_total_tokens: billable.toString(),
-      billable_rule_version: BILLABLE_RULE_VERSION,
-      updated_at: nowIso
-    });
-  }
-  return { error: null, data: rows };
-}
-function buildProjectRows({ projectHourly, tokenRow, nowIso }) {
-  const byHour = /* @__PURE__ */ new Map();
-  for (const raw of projectHourly) {
-    const parsed = parseProjectBucket(raw);
-    if (!parsed.ok) return { error: parsed.error, data: [] };
-    const source = parsed.value.source || "codex";
-    const projectKey = parsed.value.project_key;
-    const dedupeKey = `${parsed.value.hour_start}::${source}::${projectKey}`;
-    byHour.set(dedupeKey, { ...parsed.value, source });
-  }
-  const rows = [];
-  for (const bucket of byHour.values()) {
-    const billable = computeBillableTotalTokens({ source: bucket.source, totals: bucket });
-    rows.push({
-      user_id: tokenRow.user_id,
-      device_id: tokenRow.device_id,
-      device_token_id: tokenRow.id,
-      project_key: bucket.project_key,
-      project_ref: bucket.project_ref,
-      source: bucket.source,
-      hour_start: bucket.hour_start,
-      input_tokens: bucket.input_tokens,
-      cached_input_tokens: bucket.cached_input_tokens,
-      output_tokens: bucket.output_tokens,
-      reasoning_output_tokens: bucket.reasoning_output_tokens,
-      total_tokens: bucket.total_tokens,
-      billable_total_tokens: billable.toString(),
-      billable_rule_version: BILLABLE_RULE_VERSION,
-      updated_at: nowIso
-    });
-  }
-  return { error: null, data: rows };
-}
-function buildProjectRegistryRows({ projectUsageRows, tokenRow, nowIso }) {
-  const byKey = /* @__PURE__ */ new Map();
-  const rows = Array.isArray(projectUsageRows) ? projectUsageRows : [];
-  for (const row of rows) {
-    const projectKey = typeof row?.project_key === "string" ? row.project_key : null;
-    const projectRef = typeof row?.project_ref === "string" ? row.project_ref : null;
-    if (!projectKey || !projectRef) continue;
-    if (byKey.has(projectKey)) continue;
-    byKey.set(projectKey, {
-      user_id: tokenRow.user_id,
-      device_id: tokenRow.device_id,
-      device_token_id: tokenRow.id,
-      project_key: projectKey,
-      project_ref: projectRef,
-      source: typeof row?.source === "string" ? row.source : "codex",
-      last_seen_at: nowIso
-    });
-  }
-  return Array.from(byKey.values());
-}
-function deriveMetricsSource(rows) {
-  if (!Array.isArray(rows) || rows.length === 0) return null;
-  const sources = /* @__PURE__ */ new Set();
-  for (const row of rows) {
-    const source = typeof row?.source === "string" ? row.source.trim() : "";
-    if (source) sources.add(source);
-  }
-  if (sources.size === 1) return Array.from(sources)[0];
-  if (sources.size > 1) return "mixed";
-  return null;
-}
-async function getTokenRowWithServiceClient(serviceClient, tokenHash) {
-  const { data: tokenRow, error: tokenErr } = await serviceClient.database.from("vibeusage_tracker_device_tokens").select("id,user_id,device_id,revoked_at,last_sync_at").eq("token_hash", tokenHash).maybeSingle();
-  if (tokenErr) throw new Error(tokenErr.message);
-  if (!tokenRow || tokenRow.revoked_at) return null;
-  return tokenRow;
-}
-async function getTokenRowWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher }) {
-  if (!anonKey) throw new Error("Anon key missing");
-  const url = new URL("/api/database/records/vibeusage_tracker_device_tokens", baseUrl);
-  url.searchParams.set("select", "id,user_id,device_id,revoked_at,last_sync_at");
-  url.searchParams.set("token_hash", `eq.${tokenHash}`);
-  url.searchParams.set("limit", "1");
-  const res = await (fetcher || fetch)(url.toString(), {
-    method: "GET",
-    headers: buildAnonHeaders({ anonKey, tokenHash })
-  });
-  const { data, error } = await readApiJson(res);
-  if (!res.ok) throw new Error(error || `HTTP ${res.status}`);
-  const rows = normalizeRows(data);
-  const tokenRow = rows?.[0] || null;
-  if (!tokenRow || tokenRow.revoked_at) return null;
-  return tokenRow;
-}
-async function upsertWithServiceClient({
-  serviceClient,
-  tokenRow,
-  rows,
-  projectRows,
-  projectRegistryRows,
-  nowIso,
-  baseUrl,
-  serviceRoleKey,
-  tokenHash,
-  fetcher
-}) {
-  let inserted = 0;
-  let skipped = 0;
-  const hourlyRows = Array.isArray(rows) ? rows : [];
-  if (hourlyRows.length > 0) {
-    const hourly = await upsertHourlyWithServiceClient({
-      serviceClient,
-      tokenRow,
-      rows: hourlyRows,
-      nowIso,
-      baseUrl,
-      serviceRoleKey,
-      tokenHash,
-      fetcher
-    });
-    if (!hourly.ok) return hourly;
-    inserted += hourly.inserted;
-    skipped += hourly.skipped;
-  }
-  const projectUsageRows = Array.isArray(projectRows) ? projectRows : [];
-  if (projectUsageRows.length > 0) {
-    const projectUsage = await upsertProjectUsageWithServiceClient({
-      serviceClient,
-      tokenRow,
-      rows: projectUsageRows,
-      nowIso,
-      baseUrl,
-      serviceRoleKey,
-      tokenHash,
-      fetcher
-    });
-    if (!projectUsage.ok) return projectUsage;
-    inserted += projectUsage.inserted;
-    skipped += projectUsage.skipped;
-  }
-  const registryRows = Array.isArray(projectRegistryRows) ? projectRegistryRows : [];
-  if (registryRows.length > 0) {
-    const registry = await upsertProjectRegistryWithServiceClient({
-      serviceClient,
-      rows: registryRows,
-      baseUrl,
-      serviceRoleKey,
-      tokenHash,
-      fetcher
-    });
-    if (!registry.ok) return registry;
-  }
-  if (hourlyRows.length > 0 || projectUsageRows.length > 0) {
-    await bestEffortTouchWithServiceClient(serviceClient, tokenRow, nowIso);
-  }
-  return { ok: true, inserted, skipped };
-}
-async function upsertWithAnonKey({
-  baseUrl,
-  anonKey,
-  tokenHash,
-  tokenRow,
-  rows,
-  projectRows,
-  projectRegistryRows,
-  nowIso,
-  fetcher
-}) {
-  if (!anonKey) return { ok: false, error: "Anon key missing", inserted: 0, skipped: 0 };
-  let inserted = 0;
-  let skipped = 0;
-  const hourlyRows = Array.isArray(rows) ? rows : [];
-  if (hourlyRows.length > 0) {
-    const hourly = await upsertHourlyWithAnonKey({
-      baseUrl,
-      anonKey,
-      tokenHash,
-      rows: hourlyRows,
-      fetcher
-    });
-    if (!hourly.ok) return hourly;
-    inserted += hourly.inserted;
-    skipped += hourly.skipped;
-  }
-  const projectUsageRows = Array.isArray(projectRows) ? projectRows : [];
-  if (projectUsageRows.length > 0) {
-    const projectUsage = await upsertProjectUsageWithAnonKey({
-      baseUrl,
-      anonKey,
-      tokenHash,
-      rows: projectUsageRows,
-      fetcher
-    });
-    if (!projectUsage.ok) return projectUsage;
-    inserted += projectUsage.inserted;
-    skipped += projectUsage.skipped;
-  }
-  const registryRows = Array.isArray(projectRegistryRows) ? projectRegistryRows : [];
-  if (registryRows.length > 0) {
-    const registry = await upsertProjectRegistryWithAnonKey({
-      baseUrl,
-      anonKey,
-      tokenHash,
-      rows: registryRows,
-      fetcher
-    });
-    if (!registry.ok) return registry;
-  }
-  if (hourlyRows.length > 0 || projectUsageRows.length > 0) {
-    await bestEffortTouchWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher });
-  }
-  return { ok: true, inserted, skipped };
-}
-async function upsertHourlyWithServiceClient({
-  serviceClient,
-  tokenRow,
-  rows,
-  nowIso,
-  baseUrl,
-  serviceRoleKey,
-  tokenHash,
-  fetcher
-}) {
-  if (serviceRoleKey && baseUrl) {
-    const url = new URL("/api/database/records/vibeusage_tracker_hourly", baseUrl);
-    const res = await recordsUpsert({
-      url,
-      anonKey: serviceRoleKey,
-      tokenHash,
-      rows,
-      onConflict: "user_id,device_id,source,model,hour_start",
-      prefer: "return=representation",
-      resolution: "merge-duplicates",
-      select: "hour_start",
-      fetcher
-    });
-    if (res.ok) {
-      const insertedRows = normalizeRows(res.data);
-      const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
-      return { ok: true, inserted, skipped: 0 };
-    }
-    if (!isUpsertUnsupported(res)) {
-      return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
-    }
-  }
-  const table = serviceClient.database.from("vibeusage_tracker_hourly");
-  if (typeof table?.upsert === "function") {
-    const { error } = await table.upsert(rows, { onConflict: "user_id,device_id,source,model,hour_start" });
-    if (error) return { ok: false, error: error.message, inserted: 0, skipped: 0 };
-    return { ok: true, inserted: rows.length, skipped: 0 };
-  }
-  return { ok: false, error: "Half-hour upsert unsupported", inserted: 0, skipped: 0 };
-}
-async function upsertHourlyWithAnonKey({ baseUrl, anonKey, tokenHash, rows, fetcher }) {
-  const url = new URL("/api/database/records/vibeusage_tracker_hourly", baseUrl);
-  const res = await recordsUpsert({
-    url,
-    anonKey,
-    tokenHash,
-    rows,
-    onConflict: "user_id,device_id,source,model,hour_start",
-    prefer: "return=representation",
-    resolution: "merge-duplicates",
-    select: "hour_start",
-    fetcher
-  });
-  if (res.ok) {
-    const insertedRows = normalizeRows(res.data);
-    const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
-    return { ok: true, inserted, skipped: 0 };
-  }
-  if (isUpsertUnsupported(res)) {
-    return { ok: false, error: res.error || "Half-hour upsert unsupported", inserted: 0, skipped: 0 };
-  }
-  return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
-}
-async function upsertProjectUsageWithServiceClient({
-  serviceClient,
-  rows,
-  baseUrl,
-  serviceRoleKey,
-  tokenHash,
-  fetcher
-}) {
-  if (serviceRoleKey && baseUrl) {
-    const url = new URL("/api/database/records/vibeusage_project_usage_hourly", baseUrl);
-    const res = await recordsUpsert({
-      url,
-      anonKey: serviceRoleKey,
-      tokenHash,
-      rows,
-      onConflict: "user_id,project_key,hour_start,source",
-      prefer: "return=representation",
-      resolution: "merge-duplicates",
-      select: "hour_start",
-      fetcher
-    });
-    if (res.ok) {
-      const insertedRows = normalizeRows(res.data);
-      const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
-      return { ok: true, inserted, skipped: 0 };
-    }
-    if (!isUpsertUnsupported(res)) {
-      return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
-    }
-  }
-  const table = serviceClient.database.from("vibeusage_project_usage_hourly");
-  if (typeof table?.upsert === "function") {
-    const { error } = await table.upsert(rows, { onConflict: "user_id,project_key,hour_start,source" });
-    if (error) return { ok: false, error: error.message, inserted: 0, skipped: 0 };
-    return { ok: true, inserted: rows.length, skipped: 0 };
-  }
-  return { ok: false, error: "Project usage upsert unsupported", inserted: 0, skipped: 0 };
-}
-async function upsertProjectUsageWithAnonKey({ baseUrl, anonKey, tokenHash, rows, fetcher }) {
-  const url = new URL("/api/database/records/vibeusage_project_usage_hourly", baseUrl);
-  const res = await recordsUpsert({
-    url,
-    anonKey,
-    tokenHash,
-    rows,
-    onConflict: "user_id,project_key,hour_start,source",
-    prefer: "return=representation",
-    resolution: "merge-duplicates",
-    select: "hour_start",
-    fetcher
-  });
-  if (res.ok) {
-    const insertedRows = normalizeRows(res.data);
-    const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
-    return { ok: true, inserted, skipped: 0 };
-  }
-  if (isUpsertUnsupported(res)) {
-    return { ok: false, error: res.error || "Project usage upsert unsupported", inserted: 0, skipped: 0 };
-  }
-  return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
-}
-async function upsertProjectRegistryWithServiceClient({ serviceClient, rows, baseUrl, serviceRoleKey, tokenHash, fetcher }) {
-  if (serviceRoleKey && baseUrl) {
-    const url = new URL("/api/database/records/vibeusage_projects", baseUrl);
-    const res = await recordsUpsert({
-      url,
-      anonKey: serviceRoleKey,
-      tokenHash,
-      rows,
-      onConflict: "user_id,project_key",
-      prefer: "return=representation",
-      resolution: "merge-duplicates",
-      select: "project_key",
-      fetcher
-    });
-    if (res.ok) return { ok: true };
-    if (!isUpsertUnsupported(res)) return { ok: false, error: res.error || `HTTP ${res.status}` };
-  }
-  const table = serviceClient.database.from("vibeusage_projects");
-  if (typeof table?.upsert === "function") {
-    const { error } = await table.upsert(rows, { onConflict: "user_id,project_key" });
-    if (error) return { ok: false, error: error.message };
-    return { ok: true };
-  }
-  return { ok: false, error: "Project registry upsert unsupported" };
-}
-async function upsertProjectRegistryWithAnonKey({ baseUrl, anonKey, tokenHash, rows, fetcher }) {
-  const url = new URL("/api/database/records/vibeusage_projects", baseUrl);
-  const res = await recordsUpsert({
-    url,
-    anonKey,
-    tokenHash,
-    rows,
-    onConflict: "user_id,project_key",
-    prefer: "return=representation",
-    resolution: "merge-duplicates",
-    select: "project_key",
-    fetcher
-  });
-  if (res.ok) return { ok: true };
-  if (isUpsertUnsupported(res)) {
-    return { ok: false, error: res.error || "Project registry upsert unsupported" };
-  }
-  return { ok: false, error: res.error || `HTTP ${res.status}` };
-}
-async function recordIngestBatchMetrics({
-  serviceClient,
-  baseUrl,
-  anonKey,
-  tokenHash,
-  tokenRow,
-  bucketCount,
-  inserted,
-  skipped,
-  source,
-  fetcher
-}) {
-  if (!tokenRow) return;
-  const row = {
-    user_id: tokenRow.user_id,
-    device_id: tokenRow.device_id,
-    device_token_id: tokenRow.id,
-    source: typeof source === "string" ? source : null,
-    bucket_count: toNonNegativeInt(bucketCount) ?? 0,
-    inserted: toNonNegativeInt(inserted) ?? 0,
-    skipped: toNonNegativeInt(skipped) ?? 0
-  };
-  try {
-    if (serviceClient) {
-      const { error } = await serviceClient.database.from("vibeusage_tracker_ingest_batches").insert(row);
-      if (error) throw new Error(error.message);
-      return;
-    }
-    if (!anonKey || !baseUrl) return;
-    const url = new URL("/api/database/records/vibeusage_tracker_ingest_batches", baseUrl);
-    const res = await (fetcher || fetch)(url.toString(), {
-      method: "POST",
-      headers: {
-        ...buildAnonHeaders({ anonKey, tokenHash }),
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(row)
-    });
-    if (!res.ok) {
-      const { error } = await readApiJson(res);
-      throw new Error(error || `HTTP ${res.status}`);
-    }
-  } catch (_e) {
-  }
-}
-async function bestEffortTouchWithServiceClient(serviceClient, tokenRow, nowIso) {
-  const lastSyncAt = normalizeIso(tokenRow?.last_sync_at);
-  const shouldUpdateSync = !lastSyncAt || !isWithinInterval(lastSyncAt, 30);
-  try {
-    await serviceClient.database.from("vibeusage_tracker_device_tokens").update(shouldUpdateSync ? { last_used_at: nowIso, last_sync_at: nowIso } : { last_used_at: nowIso }).eq("id", tokenRow.id);
-  } catch (_e) {
-  }
-  try {
-    await serviceClient.database.from("vibeusage_tracker_devices").update({ last_seen_at: nowIso }).eq("id", tokenRow.device_id);
-  } catch (_e) {
-  }
-}
-async function bestEffortTouchWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher }) {
-  if (!anonKey) return;
-  try {
-    const url = new URL("/api/database/rpc/vibeusage_touch_device_token_sync", baseUrl);
-    await (fetcher || fetch)(url.toString(), {
-      method: "POST",
-      headers: {
-        ...buildAnonHeaders({ anonKey, tokenHash }),
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ min_interval_minutes: 30 })
-    });
-  } catch (_e) {
-  }
-}
-function buildAnonHeaders({ anonKey, tokenHash }) {
-  return {
-    apikey: anonKey,
-    Authorization: `Bearer ${anonKey}`,
-    "x-vibeusage-device-token-hash": tokenHash
-  };
-}
-async function recordsUpsert({ url, anonKey, tokenHash, rows, onConflict, prefer, resolution, select, fetcher }) {
-  const target = new URL(url.toString());
-  if (onConflict) target.searchParams.set("on_conflict", onConflict);
-  if (select) target.searchParams.set("select", select);
-  const preferParts = [];
-  if (prefer) preferParts.push(prefer);
-  if (resolution) preferParts.push(`resolution=${resolution}`);
-  const preferHeader = preferParts.filter(Boolean).join(",");
-  const res = await (fetcher || fetch)(target.toString(), {
-    method: "POST",
-    headers: {
-      ...buildAnonHeaders({ anonKey, tokenHash }),
-      ...preferHeader ? { Prefer: preferHeader } : {},
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(rows)
-  });
-  const { data, error, code } = await readApiJson(res);
-  return { ok: res.ok, status: res.status, data, error, code };
-}
-async function readApiJson(res) {
-  const text = await res.text();
-  if (!text) return { data: null, error: null, code: null };
-  try {
-    const parsed = JSON.parse(text);
-    return { data: parsed, error: parsed?.message || parsed?.error || null, code: parsed?.code || null };
-  } catch (_e) {
-    return { data: null, error: text.slice(0, 300), code: null };
-  }
-}
-function normalizeRows(data) {
-  if (Array.isArray(data)) return data;
-  if (data && typeof data === "object" && Array.isArray(data.data)) return data.data;
-  return null;
-}
-function normalizeIso(value) {
-  if (typeof value !== "string") return null;
-  const dt = new Date(value);
-  if (!Number.isFinite(dt.getTime())) return null;
-  return dt.toISOString();
-}
-function isWithinInterval(lastSyncAt, minutes) {
-  const lastMs = Date.parse(lastSyncAt);
-  if (!Number.isFinite(lastMs)) return false;
-  const windowMs = Math.max(0, minutes) * 60 * 1e3;
-  return windowMs > 0 && Date.now() - lastMs < windowMs;
-}
-function isUpsertUnsupported(result) {
-  const status = Number(result?.status || 0);
-  if (status !== 400 && status !== 404 && status !== 405 && status !== 409 && status !== 422) return false;
-  const msg = String(result?.error || "").toLowerCase();
-  if (!msg) return false;
-  return msg.includes("on_conflict") || msg.includes("resolution") || msg.includes("prefer") || msg.includes("unknown") || msg.includes("invalid");
-}
-function normalizeHourly(data) {
-  if (Array.isArray(data)) return data;
-  if (data && typeof data === "object") {
-    if (Array.isArray(data.hourly)) return data.hourly;
-    if (Array.isArray(data.data)) return data.data;
-    if (data.data && typeof data.data === "object" && Array.isArray(data.data.hourly)) {
-      return data.data.hourly;
-    }
-  }
-  return null;
-}
-function normalizeProjectHourly(data) {
-  if (!data || typeof data !== "object") return null;
-  if (Array.isArray(data.project_hourly)) return data.project_hourly;
-  if (data.data && typeof data.data === "object" && Array.isArray(data.data.project_hourly)) {
-    return data.data.project_hourly;
-  }
-  return null;
-}
-function parseHourlyBucket(raw) {
-  if (!raw || typeof raw !== "object") return { ok: false, error: "Invalid half-hour bucket" };
-  const hourStart = parseUtcHalfHourStart(raw.hour_start);
-  if (!hourStart) {
-    return { ok: false, error: "hour_start must be an ISO timestamp at UTC half-hour boundary" };
-  }
-  const source = normalizeSource(raw.source);
-  const model = normalizeUsageModel(raw.model) || DEFAULT_MODEL;
-  const input = toNonNegativeInt(raw.input_tokens);
-  const cached = toNonNegativeInt(raw.cached_input_tokens);
-  const output = toNonNegativeInt(raw.output_tokens);
-  const reasoning = toNonNegativeInt(raw.reasoning_output_tokens);
-  const total = toNonNegativeInt(raw.total_tokens);
-  if ([input, cached, output, reasoning, total].some((n) => n == null)) {
-    return { ok: false, error: "Token fields must be non-negative integers" };
-  }
-  return {
-    ok: true,
-    value: {
-      source,
-      model,
-      hour_start: hourStart,
-      input_tokens: input,
-      cached_input_tokens: cached,
-      output_tokens: output,
-      reasoning_output_tokens: reasoning,
-      total_tokens: total
-    }
-  };
-}
-function parseProjectBucket(raw) {
-  if (!raw || typeof raw !== "object") return { ok: false, error: "Invalid project bucket" };
-  const hourStart = parseUtcHalfHourStart(raw.hour_start);
-  if (!hourStart) {
-    return { ok: false, error: "hour_start must be an ISO timestamp at UTC half-hour boundary" };
-  }
-  const projectRef = typeof raw.project_ref === "string" ? raw.project_ref.trim() : "";
-  const projectKey = typeof raw.project_key === "string" ? raw.project_key.trim() : "";
-  if (!projectRef || !projectKey) {
-    return { ok: false, error: "project_ref and project_key are required" };
-  }
-  const source = normalizeSource(raw.source);
-  const input = toNonNegativeInt(raw.input_tokens);
-  const cached = toNonNegativeInt(raw.cached_input_tokens);
-  const output = toNonNegativeInt(raw.output_tokens);
-  const reasoning = toNonNegativeInt(raw.reasoning_output_tokens);
-  const total = toNonNegativeInt(raw.total_tokens);
-  if ([input, cached, output, reasoning, total].some((n) => n == null)) {
-    return { ok: false, error: "Token fields must be non-negative integers" };
-  }
-  return {
-    ok: true,
-    value: {
-      project_ref: projectRef,
-      project_key: projectKey,
-      source,
-      hour_start: hourStart,
-      input_tokens: input,
-      cached_input_tokens: cached,
-      output_tokens: output,
-      reasoning_output_tokens: reasoning,
-      total_tokens: total
-    }
-  };
-}
-function parseUtcHalfHourStart(value) {
-  if (typeof value !== "string" || value.trim() === "") return null;
-  const dt = new Date(value);
-  if (!Number.isFinite(dt.getTime())) return null;
-  const minutes = dt.getUTCMinutes();
-  if (minutes !== 0 && minutes !== 30 || dt.getUTCSeconds() !== 0 || dt.getUTCMilliseconds() !== 0) {
-    return null;
-  }
-  const hourStart = new Date(
-    Date.UTC(
-      dt.getUTCFullYear(),
-      dt.getUTCMonth(),
-      dt.getUTCDate(),
-      dt.getUTCHours(),
-      minutes >= 30 ? 30 : 0,
-      0,
-      0
-    )
-  );
-  return hourStart.toISOString();
-}
-function toNonNegativeInt(n) {
-  if (typeof n !== "number") return null;
-  if (!Number.isFinite(n)) return null;
-  if (!Number.isInteger(n)) return null;
-  if (n < 0) return null;
-  return n;
-}

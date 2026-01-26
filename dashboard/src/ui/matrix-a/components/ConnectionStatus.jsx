@@ -1,4 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+
+import { isScreenshotModeEnabled } from "../../../lib/screenshot-mode.js";
 
 export function ConnectionStatus({
   status = "STABLE",
@@ -6,16 +8,24 @@ export function ConnectionStatus({
   className = "",
 }) {
   const [bit, setBit] = useState("0");
+  const screenshotMode = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return isScreenshotModeEnabled(window.location.search);
+  }, []);
 
   useEffect(() => {
     let interval;
     if (status === "STABLE") {
+      if (screenshotMode) {
+        setBit("1");
+        return undefined;
+      }
       interval = window.setInterval(() => {
         setBit(Math.random() > 0.5 ? "1" : "0");
       }, 150);
     }
     return () => window.clearInterval(interval);
-  }, [status]);
+  }, [screenshotMode, status]);
 
   const configs = {
     STABLE: {

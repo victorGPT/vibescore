@@ -1,6 +1,6 @@
 {
   "name": "vibeusage",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "description": "Codex CLI token usage tracker (macOS-first, notify-driven).",
   "license": "MIT",
   "publishConfig": {
@@ -17,13 +17,15 @@
     "dashboard:preview": "npm --prefix dashboard run preview",
     "dev:shim": "node scripts/dev-bin-shim.cjs",
     "validate:copy": "node scripts/validate-copy-registry.cjs",
+    "validate:ui-hardcode": "node scripts/ops/validate-ui-hardcode.cjs",
     "copy:pull": "node scripts/copy-sync.cjs pull",
     "copy:push": "node scripts/copy-sync.cjs push",
     "architecture:canvas": "node scripts/ops/architecture-canvas.cjs",
     "architecture:canvas:focus": "node scripts/ops/architecture-canvas.cjs --focus",
     "architecture:canvas:list-modules": "node scripts/ops/architecture-canvas.cjs --list-modules",
     "validate:guardrails": "node scripts/validate-architecture-guardrails.cjs",
-    "validate:insforge2-db": "node scripts/ops/insforge2-db-validate.cjs"
+    "validate:insforge2-db": "node scripts/ops/insforge2-db-validate.cjs",
+    "graph:scip": "node scripts/graph/generate-scip.cjs"
   },
   "bin": {
     "tracker": "bin/tracker.js",
@@ -37,12 +39,16 @@
     "README.md"
   ],
   "engines": {
-    "node": ">=18"
+    "node": "20.x"
   },
   "devDependencies": {
+    "@sourcegraph/scip-typescript": "^0.3.6",
     "esbuild": "0.27.2"
   },
   "dependencies": {
     "@insforge/sdk": "^1.0.4"
-  }
+  },
+  "bundledDependencies": [
+    "@insforge/sdk"
+  ]
 }

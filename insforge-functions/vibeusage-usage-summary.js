@@ -1188,6 +1188,71 @@ var require_pricing = __commonJS({
   }
 });
 
+// insforge-src/shared/core/usage-summary.js
+var require_usage_summary = __commonJS({
+  "insforge-src/shared/core/usage-summary.js"(exports2, module2) {
+    "use strict";
+    var { createTotals: createTotals2 } = require_usage_rollup();
+    function getSourceEntry2(map, source) {
+      if (map.has(source)) return map.get(source);
+      const entry = {
+        source,
+        totals: createTotals2()
+      };
+      map.set(source, entry);
+      return entry;
+    }
+    function resolveDisplayName2(identityMap, modelId) {
+      if (!modelId || !identityMap || typeof identityMap.values !== "function") return modelId || null;
+      for (const entry of identityMap.values()) {
+        if (entry?.model_id === modelId && entry?.model) return entry.model;
+      }
+      return modelId;
+    }
+    function buildPricingBucketKey2(sourceKey, usageKey, dateKey) {
+      return JSON.stringify([sourceKey || "", usageKey || "", dateKey || ""]);
+    }
+    function parsePricingBucketKey2(bucketKey, defaultDate) {
+      if (typeof bucketKey === "string" && bucketKey.startsWith("[")) {
+        try {
+          const parsed = JSON.parse(bucketKey);
+          if (Array.isArray(parsed)) {
+            const usageKey = parsed[1] ?? parsed[0] ?? "";
+            const dateKey = parsed[2] ?? defaultDate;
+            return {
+              usageKey: String(usageKey || ""),
+              dateKey: String(dateKey || defaultDate)
+            };
+          }
+        } catch (_e) {
+        }
+      }
+      if (typeof bucketKey === "string") {
+        const parts = bucketKey.split("::");
+        let usageKey = null;
+        let dateKey = null;
+        if (parts.length >= 3) {
+          usageKey = parts[1];
+          dateKey = parts[2];
+        } else if (parts.length === 2) {
+          usageKey = parts[0];
+          dateKey = parts[1];
+        } else {
+          usageKey = bucketKey;
+        }
+        return { usageKey, dateKey: dateKey || defaultDate };
+      }
+      return { usageKey: bucketKey, dateKey: defaultDate };
+    }
+    module2.exports = {
+      getSourceEntry: getSourceEntry2,
+      resolveDisplayName: resolveDisplayName2,
+      buildPricingBucketKey: buildPricingBucketKey2,
+      parsePricingBucketKey: parsePricingBucketKey2
+    };
+  }
+});
+
 // insforge-src/shared/logging.js
 var require_logging = __commonJS({
   "insforge-src/shared/logging.js"(exports2, module2) {
@@ -1506,6 +1571,12 @@ var {
   formatUsdFromMicros,
   resolvePricingProfile
 } = require_pricing();
+var {
+  buildPricingBucketKey,
+  getSourceEntry,
+  parsePricingBucketKey,
+  resolveDisplayName
+} = require_usage_summary();
 var { logSlowQuery, withRequestLogging } = require_logging();
 var { isDebugEnabled, withSlowQueryDebugPayload } = require_debug();
 var {
@@ -1516,7 +1587,6 @@ var {
 } = require_model_alias_timeline();
 var DEFAULT_SOURCE = "codex";
 var DEFAULT_MODEL = "unknown";
-var PRICING_BUCKET_SEP = "::";
 module.exports = withRequestLogging("vibeusage-usage-summary", async function(request, logger) {
   const opt = handleOptions(request);
   if (opt) return opt;
@@ -1794,7 +1864,7 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
       const rangeCanonicalModels = /* @__PURE__ */ new Set();
       const profileCache = /* @__PURE__ */ new Map();
       const getProfile = async (modelId, dateKey) => {
-        const key = `${modelId || ""}${PRICING_BUCKET_SEP}${dateKey || ""}`;
+        const key = buildPricingBucketKey("profile", modelId || "", dateKey || "");
         if (profileCache.has(key)) return profileCache.get(key);
         const profile = await resolvePricingProfile({
           edgeClient: auth.edgeClient,
@@ -1880,54 +1950,3 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
     queryDurationMs
   );
 });
-function getSourceEntry(map, source) {
-  if (map.has(source)) return map.get(source);
-  const entry = {
-    source,
-    totals: createTotals()
-  };
-  map.set(source, entry);
-  return entry;
-}
-function resolveDisplayName(identityMap, modelId) {
-  if (!modelId || !identityMap || typeof identityMap.values !== "function") return modelId || null;
-  for (const entry of identityMap.values()) {
-    if (entry?.model_id === modelId && entry?.model) return entry.model;
-  }
-  return modelId;
-}
-function buildPricingBucketKey(sourceKey, usageKey, dateKey) {
-  return JSON.stringify([sourceKey || "", usageKey || "", dateKey || ""]);
-}
-function parsePricingBucketKey(bucketKey, defaultDate) {
-  if (typeof bucketKey === "string" && bucketKey.startsWith("[")) {
-    try {
-      const parsed = JSON.parse(bucketKey);
-      if (Array.isArray(parsed)) {
-        const usageKey = parsed[1] ?? parsed[0] ?? "";
-        const dateKey = parsed[2] ?? defaultDate;
-        return {
-          usageKey: String(usageKey || ""),
-          dateKey: String(dateKey || defaultDate)
-        };
-      }
-    } catch (_e) {
-    }
-  }
-  if (typeof bucketKey === "string") {
-    const parts = bucketKey.split(PRICING_BUCKET_SEP);
-    let usageKey = null;
-    let dateKey = null;
-    if (parts.length >= 3) {
-      usageKey = parts[1];
-      dateKey = parts[2];
-    } else if (parts.length === 2) {
-      usageKey = parts[0];
-      dateKey = parts[1];
-    } else {
-      usageKey = bucketKey;
-    }
-    return { usageKey, dateKey: dateKey || defaultDate };
-  }
-  return { usageKey: bucketKey, dateKey: defaultDate };
-}

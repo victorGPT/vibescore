@@ -40,6 +40,12 @@ const {
   formatUsdFromMicros,
   resolvePricingProfile
 } = require('../shared/pricing');
+const {
+  buildPricingBucketKey,
+  getSourceEntry,
+  parsePricingBucketKey,
+  resolveDisplayName
+} = require('../shared/core/usage-summary');
 const { logSlowQuery, withRequestLogging } = require('../shared/logging');
 const { isDebugEnabled, withSlowQueryDebugPayload } = require('../shared/debug');
 const {
@@ -51,7 +57,6 @@ const {
 
 const DEFAULT_SOURCE = 'codex';
 const DEFAULT_MODEL = 'unknown';
-const PRICING_BUCKET_SEP = '::';
 
 module.exports = withRequestLogging('vibeusage-usage-summary', async function(request, logger) {
   const opt = handleOptions(request);
@@ -376,7 +381,7 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
       const profileCache = new Map();
 
       const getProfile = async (modelId, dateKey) => {
-        const key = `${modelId || ''}${PRICING_BUCKET_SEP}${dateKey || ''}`;
+        const key = buildPricingBucketKey('profile', modelId || '', dateKey || '');
         if (profileCache.has(key)) return profileCache.get(key);
         const profile = await resolvePricingProfile({
           edgeClient: auth.edgeClient,
@@ -472,59 +477,3 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
     queryDurationMs
   );
 });
-
-function getSourceEntry(map, source) {
-  if (map.has(source)) return map.get(source);
-  const entry = {
-    source,
-    totals: createTotals()
-  };
-  map.set(source, entry);
-  return entry;
-}
-
-function resolveDisplayName(identityMap, modelId) {
-  if (!modelId || !identityMap || typeof identityMap.values !== 'function') return modelId || null;
-  for (const entry of identityMap.values()) {
-    if (entry?.model_id === modelId && entry?.model) return entry.model;
-  }
-  return modelId;
-}
-
-function buildPricingBucketKey(sourceKey, usageKey, dateKey) {
-  return JSON.stringify([sourceKey || '', usageKey || '', dateKey || '']);
-}
-
-function parsePricingBucketKey(bucketKey, defaultDate) {
-  if (typeof bucketKey === 'string' && bucketKey.startsWith('[')) {
-    try {
-      const parsed = JSON.parse(bucketKey);
-      if (Array.isArray(parsed)) {
-        const usageKey = parsed[1] ?? parsed[0] ?? '';
-        const dateKey = parsed[2] ?? defaultDate;
-        return {
-          usageKey: String(usageKey || ''),
-          dateKey: String(dateKey || defaultDate)
-        };
-      }
-    } catch (_e) {
-      // fall through to legacy parsing
-    }
-  }
-  if (typeof bucketKey === 'string') {
-    const parts = bucketKey.split(PRICING_BUCKET_SEP);
-    let usageKey = null;
-    let dateKey = null;
-    if (parts.length >= 3) {
-      usageKey = parts[1];
-      dateKey = parts[2];
-    } else if (parts.length === 2) {
-      usageKey = parts[0];
-      dateKey = parts[1];
-    } else {
-      usageKey = bucketKey;
-    }
-    return { usageKey, dateKey: dateKey || defaultDate };
-  }
-  return { usageKey: bucketKey, dateKey: defaultDate };
-}

@@ -1,0 +1,159 @@
+{
+  "nodes": [
+    {
+      "id": "group_skills_root",
+      "type": "group",
+      "x": 20,
+      "y": 20,
+      "width": 1560,
+      "height": 920,
+      "label": "Skills: Frontend UI Functional"
+    },
+    {
+      "id": "node_core_flow",
+      "type": "text",
+      "x": 60,
+      "y": 60,
+      "width": 480,
+      "height": 100,
+      "text": "**Process Lane**\nStructure -> Style -> A11y -> Performance -> QA"
+    },
+    {
+      "id": "node_atomic",
+      "type": "text",
+      "x": 60,
+      "y": 200,
+      "width": 260,
+      "height": 140,
+      "text": "**Atomic Design**\nAtoms/Molecules/Organisms/Templates/Pages"
+    },
+    {
+      "id": "node_styling",
+      "type": "text",
+      "x": 360,
+      "y": 200,
+      "width": 260,
+      "height": 140,
+      "text": "**Styling**\nTailwind tokens & patterns"
+    },
+    {
+      "id": "node_a11y",
+      "type": "text",
+      "x": 660,
+      "y": 200,
+      "width": 260,
+      "height": 140,
+      "text": "**A11y**\nARIA + axe-core audits"
+    },
+    {
+      "id": "node_perf",
+      "type": "text",
+      "x": 960,
+      "y": 200,
+      "width": 260,
+      "height": 140,
+      "text": "**Performance**\nLazy load + state optimization"
+    },
+    {
+      "id": "node_qa",
+      "type": "text",
+      "x": 1260,
+      "y": 200,
+      "width": 260,
+      "height": 140,
+      "text": "**QA**\nChecks & sign-off"
+    },
+    {
+      "id": "node_tooling",
+      "type": "text",
+      "x": 1260,
+      "y": 360,
+      "width": 260,
+      "height": 140,
+      "text": "**Tooling**\nStorybook / ESLint / Prettier"
+    },
+    {
+      "id": "node_outputs_header",
+      "type": "text",
+      "x": 60,
+      "y": 520,
+      "width": 480,
+      "height": 80,
+      "text": "**Outputs Lane**\nTemplates + content constraints"
+    },
+    {
+      "id": "node_templates",
+      "type": "text",
+      "x": 360,
+      "y": 640,
+      "width": 260,
+      "height": 140,
+      "text": "**Templates**\nButton / Card / Form / Layout"
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge_core_atomic",
+      "fromNode": "node_core_flow",
+      "fromSide": "bottom",
+      "toNode": "node_atomic",
+      "toSide": "top"
+    },
+    {
+      "id": "edge_atomic_styling",
+      "fromNode": "node_atomic",
+      "fromSide": "right",
+      "toNode": "node_styling",
+      "toSide": "left",
+      "label": "style after structure"
+    },
+    {
+      "id": "edge_styling_a11y",
+      "fromNode": "node_styling",
+      "fromSide": "right",
+      "toNode": "node_a11y",
+      "toSide": "left",
+      "label": "a11y pass"
+    },
+    {
+      "id": "edge_a11y_perf",
+      "fromNode": "node_a11y",
+      "fromSide": "right",
+      "toNode": "node_perf",
+      "toSide": "left",
+      "label": "perf pass"
+    },
+    {
+      "id": "edge_perf_qa",
+      "fromNode": "node_perf",
+      "fromSide": "right",
+      "toNode": "node_qa",
+      "toSide": "left",
+      "label": "qa gate"
+    },
+    {
+      "id": "edge_tooling_qa",
+      "fromNode": "node_tooling",
+      "fromSide": "top",
+      "toNode": "node_qa",
+      "toSide": "bottom",
+      "label": "enable qa"
+    },
+    {
+      "id": "edge_atomic_templates",
+      "fromNode": "node_atomic",
+      "fromSide": "bottom",
+      "toNode": "node_templates",
+      "toSide": "top",
+      "label": "structures"
+    },
+    {
+      "id": "edge_styling_templates",
+      "fromNode": "node_styling",
+      "fromSide": "bottom",
+      "toNode": "node_templates",
+      "toSide": "top",
+      "label": "visuals"
+    }
+  ]
+}

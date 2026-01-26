@@ -1,8 +1,9 @@
 const assert = require("node:assert/strict");
 const { test } = require("node:test");
+const { loadDashboardModule } = require("./helpers/load-dashboard-module");
 
 test("getMockUsageModelBreakdown includes model_id per model", async () => {
-  const mod = await import("../dashboard/src/lib/mock-data.js");
+  const mod = await loadDashboardModule("dashboard/src/lib/mock-data.ts");
   const getMockUsageModelBreakdown = mod.getMockUsageModelBreakdown;
 
   const data = getMockUsageModelBreakdown({
