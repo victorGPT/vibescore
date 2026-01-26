@@ -344,15 +344,55 @@ export function getMockUsageMonthly({ months = 24, to, seed }: AnyRecord = {}) {
   return { from: formatDateUTC(startMonth), to: endDay, months, data: rows };
 }
 
-export function getMockUsageSummary({ from, to, seed }: AnyRecord = {}) {
+export function getMockUsageSummary({
+  from,
+  to,
+  seed,
+  rolling = true,
+}: AnyRecord = {}) {
   const rows = buildDailyRows({ from, to, seed });
   const totals = sumDailyRows(rows);
   const totalsWithCost = withCost(totals);
+  const rollingPayload = rolling
+    ? buildMockRollingSummary({ to, seed })
+    : null;
   return {
     from,
     to,
     days: rows.length,
     totals: totalsWithCost,
+    ...(rollingPayload ? { rolling: rollingPayload } : {}),
+  };
+}
+
+function buildMockRollingSummary({ to, seed }: AnyRecord = {}) {
+  const end = parseUtcDate(to) || parseUtcDate(formatDateLocal(new Date())) || new Date();
+  const endKey = formatDateUTC(end);
+  const last7From = formatDateUTC(addUtcDays(end, -6));
+  const last30From = formatDateUTC(addUtcDays(end, -29));
+  const last7Rows = buildDailyRows({ from: last7From, to: endKey, seed });
+  const last30Rows = buildDailyRows({ from: last30From, to: endKey, seed });
+
+  return {
+    last_7d: buildMockRollingWindow({ rows: last7Rows, from: last7From, to: endKey }),
+    last_30d: buildMockRollingWindow({ rows: last30Rows, from: last30From, to: endKey }),
+  };
+}
+
+function buildMockRollingWindow({ rows, from, to }: AnyRecord = {}) {
+  const totals = sumDailyRows(rows || []);
+  const activeDays = (rows || []).filter(
+    (row: AnyRecord) => Number(row.billable_total_tokens ?? row.total_tokens) > 0
+  ).length;
+  const avg =
+    activeDays > 0 ? Math.floor(totals.billable_total_tokens / activeDays) : 0;
+
+  return {
+    from,
+    to,
+    totals: { billable_total_tokens: totals.billable_total_tokens },
+    active_days: activeDays,
+    avg_per_active_day: avg,
   };
 }
 
