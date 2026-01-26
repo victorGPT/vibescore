@@ -550,7 +550,7 @@ var require_date = __commonJS({
       if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
       return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     }
-    function dateFromPartsUTC(parts) {
+    function dateFromPartsUTC2(parts) {
       if (!parts) return null;
       const y = Number(parts.year);
       const m = Number(parts.month) - 1;
@@ -572,7 +572,7 @@ var require_date = __commonJS({
       };
     }
     function addDatePartsDays2(parts, days) {
-      const base = dateFromPartsUTC(parts);
+      const base = dateFromPartsUTC2(parts);
       if (!base) return null;
       return datePartsFromDateUTC(addUtcDays2(base, days));
     }
@@ -710,8 +710,8 @@ var require_date = __commonJS({
       const startParts = parseDateParts2(from);
       const endParts = parseDateParts2(to);
       if (!startParts || !endParts) return [];
-      const start = dateFromPartsUTC(startParts);
-      const end = dateFromPartsUTC(endParts);
+      const start = dateFromPartsUTC2(startParts);
+      const end = dateFromPartsUTC2(endParts);
       if (!start || !end || end < start) return [];
       const days = [];
       for (let cursor = start; cursor <= end; cursor = addUtcDays2(cursor, 1)) {
@@ -758,7 +758,7 @@ var require_date = __commonJS({
       computeHeatmapWindowUtc,
       parseDateParts: parseDateParts2,
       formatDateParts: formatDateParts2,
-      dateFromPartsUTC,
+      dateFromPartsUTC: dateFromPartsUTC2,
       datePartsFromDateUTC,
       addDatePartsDays: addDatePartsDays2,
       addDatePartsMonths,
@@ -1549,6 +1549,7 @@ var { applyCanaryFilter } = require_canary();
 var {
   addDatePartsDays,
   addUtcDays,
+  dateFromPartsUTC,
   formatDateUTC,
   formatDateParts,
   getUsageMaxDays,
@@ -1888,8 +1889,8 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
     if (!rangeStartParts || !rangeEndParts) {
       return { ok: false, error: new Error("Invalid rolling range") };
     }
-    const rangeStartUtc = localDatePartsToUtc(rangeStartParts, tzContext);
-    const rangeEndUtc = localDatePartsToUtc(addDatePartsDays(rangeEndParts, 1), tzContext);
+    const rangeStartUtc = dateFromPartsUTC(rangeStartParts);
+    const rangeEndUtc = dateFromPartsUTC(addDatePartsDays(rangeEndParts, 1));
     if (!Number.isFinite(rangeStartUtc.getTime()) || !Number.isFinite(rangeEndUtc.getTime())) {
       return { ok: false, error: new Error("Invalid rolling range") };
     }
@@ -1904,10 +1905,10 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
       applyTotalsAndBillable({ totals: totals2, row, billable, hasStoredBillable });
       const dayKey = extractDateKey(row?.hour_start || row?.day);
       if (!dayKey) return;
-      const activeValue = row?.billable_total_tokens != null ? toBigInt(row?.billable_total_tokens) : toBigInt(row?.total_tokens);
-      if (activeValue <= 0n) return;
+      const billableTokens = row?.billable_total_tokens != null ? toBigInt(row?.billable_total_tokens) : 0n;
+      if (billableTokens <= 0n) return;
       const prev = activeByDay.get(dayKey) || 0n;
-      activeByDay.set(dayKey, prev + activeValue);
+      activeByDay.set(dayKey, prev + billableTokens);
     };
     const sumRes = await sumRangeWithRollup({
       rangeStartIso,
@@ -1917,16 +1918,20 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
       onRow: ingestRollingRow
     });
     if (!sumRes.ok) return sumRes;
+    const windowDays = listDateStrings(fromDay, toDay).length;
     const activeDays = Array.from(activeByDay.values()).filter((value) => value > 0n).length;
     const avg = activeDays > 0 ? totals2.billable_total_tokens / BigInt(activeDays) : 0n;
+    const avgPerDay = windowDays > 0 ? totals2.billable_total_tokens / BigInt(windowDays) : 0n;
     return {
       ok: true,
       payload: {
         from: fromDay,
         to: toDay,
+        window_days: windowDays,
         totals: { billable_total_tokens: totals2.billable_total_tokens.toString() },
         active_days: activeDays,
-        avg_per_active_day: avg.toString()
+        avg_per_active_day: avg.toString(),
+        avg_per_day: avgPerDay.toString()
       }
     };
   };
@@ -1996,17 +2001,21 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
   }
   let rollingPayload = null;
   if (rollingEnabled) {
-    const last7From = formatDateParts(addDatePartsDays(endParts, -6));
-    const last30From = formatDateParts(addDatePartsDays(endParts, -29));
+    const utcYesterday = formatDateUTC(addUtcDays(/* @__PURE__ */ new Date(), -1));
+    const rollingToDay = to < utcYesterday ? to : utcYesterday;
+    const rollingEndParts = parseDateParts(rollingToDay);
+    if (!rollingEndParts) return respond({ error: "Invalid rolling range" }, 400, 0);
+    const last7From = formatDateParts(addDatePartsDays(rollingEndParts, -6));
+    const last30From = formatDateParts(addDatePartsDays(rollingEndParts, -29));
     if (!last7From || !last30From) {
       return respond({ error: "Invalid rolling range" }, 400, 0);
     }
-    const last7Res = await buildRollingWindow({ fromDay: last7From, toDay: to });
+    const last7Res = await buildRollingWindow({ fromDay: last7From, toDay: rollingToDay });
     if (!last7Res.ok) {
       const queryDurationMs2 = Date.now() - queryStartMs;
       return respond({ error: last7Res.error.message }, 500, queryDurationMs2);
     }
-    const last30Res = await buildRollingWindow({ fromDay: last30From, toDay: to });
+    const last30Res = await buildRollingWindow({ fromDay: last30From, toDay: rollingToDay });
     if (!last30Res.ok) {
       const queryDurationMs2 = Date.now() - queryStartMs;
       return respond({ error: last30Res.error.message }, 500, queryDurationMs2);

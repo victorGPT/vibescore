@@ -1,5 +1,6 @@
 // Edge function: vibeusage-usage-summary
 // Returns token usage totals for the authenticated user over a timezone-aware date range.
+// Rollup day boundaries are UTC-aligned (vibeusage_tracker_daily_rollup.day).
 
 'use strict';
 
@@ -18,6 +19,7 @@ const { applyCanaryFilter } = require('../shared/canary');
 const {
   addDatePartsDays,
   addUtcDays,
+  dateFromPartsUTC,
   formatDateUTC,
   formatDateParts,
   getUsageMaxDays,
@@ -408,8 +410,8 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
       return { ok: false, error: new Error('Invalid rolling range') };
     }
 
-    const rangeStartUtc = localDatePartsToUtc(rangeStartParts, tzContext);
-    const rangeEndUtc = localDatePartsToUtc(addDatePartsDays(rangeEndParts, 1), tzContext);
+    const rangeStartUtc = dateFromPartsUTC(rangeStartParts);
+    const rangeEndUtc = dateFromPartsUTC(addDatePartsDays(rangeEndParts, 1));
     if (!Number.isFinite(rangeStartUtc.getTime()) || !Number.isFinite(rangeEndUtc.getTime())) {
       return { ok: false, error: new Error('Invalid rolling range') };
     }
@@ -426,12 +428,12 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
       applyTotalsAndBillable({ totals, row, billable, hasStoredBillable });
       const dayKey = extractDateKey(row?.hour_start || row?.day);
       if (!dayKey) return;
-      const activeValue = row?.billable_total_tokens != null
+      const billableTokens = row?.billable_total_tokens != null
         ? toBigInt(row?.billable_total_tokens)
-        : toBigInt(row?.total_tokens);
-      if (activeValue <= 0n) return;
+        : 0n;
+      if (billableTokens <= 0n) return;
       const prev = activeByDay.get(dayKey) || 0n;
-      activeByDay.set(dayKey, prev + activeValue);
+      activeByDay.set(dayKey, prev + billableTokens);
     };
 
     const sumRes = await sumRangeWithRollup({
@@ -443,17 +445,21 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
     });
     if (!sumRes.ok) return sumRes;
 
+    const windowDays = listDateStrings(fromDay, toDay).length;
     const activeDays = Array.from(activeByDay.values()).filter((value) => value > 0n).length;
     const avg = activeDays > 0 ? totals.billable_total_tokens / BigInt(activeDays) : 0n;
+    const avgPerDay = windowDays > 0 ? totals.billable_total_tokens / BigInt(windowDays) : 0n;
 
     return {
       ok: true,
       payload: {
         from: fromDay,
         to: toDay,
+        window_days: windowDays,
         totals: { billable_total_tokens: totals.billable_total_tokens.toString() },
         active_days: activeDays,
-        avg_per_active_day: avg.toString()
+        avg_per_active_day: avg.toString(),
+        avg_per_day: avgPerDay.toString()
       }
     };
   };
@@ -533,17 +539,21 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
 
   let rollingPayload = null;
   if (rollingEnabled) {
-    const last7From = formatDateParts(addDatePartsDays(endParts, -6));
-    const last30From = formatDateParts(addDatePartsDays(endParts, -29));
+    const utcYesterday = formatDateUTC(addUtcDays(new Date(), -1));
+    const rollingToDay = to < utcYesterday ? to : utcYesterday;
+    const rollingEndParts = parseDateParts(rollingToDay);
+    if (!rollingEndParts) return respond({ error: 'Invalid rolling range' }, 400, 0);
+    const last7From = formatDateParts(addDatePartsDays(rollingEndParts, -6));
+    const last30From = formatDateParts(addDatePartsDays(rollingEndParts, -29));
     if (!last7From || !last30From) {
       return respond({ error: 'Invalid rolling range' }, 400, 0);
     }
-    const last7Res = await buildRollingWindow({ fromDay: last7From, toDay: to });
+    const last7Res = await buildRollingWindow({ fromDay: last7From, toDay: rollingToDay });
     if (!last7Res.ok) {
       const queryDurationMs = Date.now() - queryStartMs;
       return respond({ error: last7Res.error.message }, 500, queryDurationMs);
     }
-    const last30Res = await buildRollingWindow({ fromDay: last30From, toDay: to });
+    const last30Res = await buildRollingWindow({ fromDay: last30From, toDay: rollingToDay });
     if (!last30Res.ok) {
       const queryDurationMs = Date.now() - queryStartMs;
       return respond({ error: last30Res.error.message }, 500, queryDurationMs);
