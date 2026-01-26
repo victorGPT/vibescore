@@ -1,5 +1,6 @@
 import { createInsforgeClient } from "./insforge-client";
 import { clearSessionSoftExpired, markSessionSoftExpired } from "./auth-storage";
+import { normalizeAccessToken, resolveAuthAccessToken } from "./auth-token";
 import { formatDateLocal } from "./date-range";
 import { insforgeAuthClient } from "./insforge-auth-client";
 import {
@@ -40,17 +41,7 @@ type AnyRecord = Record<string, any>;
 let refreshInFlight: Promise<any> | null = null;
 
 async function resolveAccessToken(accessToken: any) {
-  if (!accessToken) return null;
-  if (typeof accessToken === "function") {
-    return await accessToken();
-  }
-  if (
-    typeof accessToken === "object" &&
-    typeof accessToken.getAccessToken === "function"
-  ) {
-    return await accessToken.getAccessToken();
-  }
-  return accessToken;
+  return await resolveAuthAccessToken(accessToken);
 }
 
 export async function probeBackend({ baseUrl, accessToken, signal }: AnyRecord = {}) {
@@ -316,7 +307,7 @@ async function requestJson({
   let hadAccessToken = hasAccessTokenValue(activeAccessToken);
   let http = createInsforgeClient({
     baseUrl,
-    accessToken: activeAccessToken,
+    accessToken: activeAccessToken ?? undefined,
   }).getHttpClient();
   const retryOptions = normalizeRetryOptions(retry, "GET");
   const normalizedRequestKind = skipSessionExpiry ? REQUEST_KIND.probe : requestKind;
@@ -440,7 +431,7 @@ async function requestPostJson({
   let hadAccessToken = hasAccessTokenValue(activeAccessToken);
   let http = createInsforgeClient({
     baseUrl,
-    accessToken: activeAccessToken,
+    accessToken: activeAccessToken ?? undefined,
   }).getHttpClient();
   const retryOptions = normalizeRetryOptions(retry, "POST");
   const normalizedRequestKind = skipSessionExpiry ? REQUEST_KIND.probe : requestKind;
@@ -768,8 +759,7 @@ function normalizeRetryOptions(retry: any, method: any) {
 }
 
 function hasAccessTokenValue(accessToken: any) {
-  if (typeof accessToken !== "string") return false;
-  return accessToken.trim().length > 0;
+  return Boolean(normalizeAccessToken(accessToken));
 }
 
 function isJwtAccessToken(accessToken: any) {

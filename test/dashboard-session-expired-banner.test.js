@@ -129,8 +129,10 @@ test("App registers visibility revalidate for soft-expired sessions", () => {
 
 test("vibeusage-api resolves access token providers", () => {
   const src = read("dashboard/src/lib/vibeusage-api.ts");
+  const authTokenSrc = read("dashboard/src/lib/auth-token.js");
   assert.match(src, /resolveAccessToken/);
-  assert.match(src, /typeof\s+accessToken\s*===\s*\"function\"/);
+  assert.match(src, /resolveAuthAccessToken/);
+  assert.match(authTokenSrc, /typeof\s+auth\s*===\s*\"function\"/);
 });
 
 test("App avoids legacy auth fallback before InsForge is ready", () => {
@@ -151,10 +153,50 @@ test("DashboardPage shows session expired banner and bypasses auth gate", () => 
 
 test("DashboardPage disables auth access token when session expired", () => {
   const src = read("dashboard/src/pages/DashboardPage.jsx");
-  assert.match(
-    src,
-    /const authAccessToken\s*=\s*signedIn\s*\?\s*\(?\s*auth\?\.getAccessToken/
-  );
+  assert.match(src, /const authTokenAllowed\s*=\s*signedIn\s*&&\s*!sessionSoftExpired/);
+  assert.match(src, /const authAccessToken\s*=\s*useMemo/);
+  assert.match(src, /if\s*\(!authTokenAllowed\)\s*return\s+null/);
+});
+
+test("DashboardPage enables guest data flow when session soft expired", () => {
+  const src = read("dashboard/src/pages/DashboardPage.jsx");
+  assert.match(src, /const guestAllowed\s*=\s*signedIn\s*&&\s*sessionSoftExpired/);
+  assert.match(src, /useUsageData\([\s\S]*guestAllowed/);
+  assert.match(src, /useUsageModelBreakdown\([\s\S]*guestAllowed/);
+  assert.match(src, /useTrendData\([\s\S]*guestAllowed/);
+  assert.match(src, /useActivityHeatmap\([\s\S]*guestAllowed/);
+});
+
+test("Usage hooks resolve auth tokens per request and allow guest flow", () => {
+  const usageSrc = read("dashboard/src/hooks/use-usage-data.ts");
+  const trendSrc = read("dashboard/src/hooks/use-trend-data.ts");
+  const heatmapSrc = read("dashboard/src/hooks/use-activity-heatmap.ts");
+  const breakdownSrc = read("dashboard/src/hooks/use-usage-model-breakdown.ts");
+  assert.match(usageSrc, /resolveAuthAccessToken/);
+  assert.match(trendSrc, /resolveAuthAccessToken/);
+  assert.match(heatmapSrc, /resolveAuthAccessToken/);
+  assert.match(breakdownSrc, /resolveAuthAccessToken/);
+  assert.match(usageSrc, /guestAllowed/);
+  assert.match(trendSrc, /guestAllowed/);
+  assert.match(heatmapSrc, /guestAllowed/);
+  assert.match(breakdownSrc, /guestAllowed/);
+});
+
+function assertGuestCacheGuard(src) {
+  assert.match(src, /const\s+cacheAllowed\s*=\s*!guestAllowed/);
+  assert.match(src, /if\s*\(cacheAllowed\)[\s\S]*?readCache\(/);
+}
+
+test("Usage hooks skip cached data in guest mode", () => {
+  const usageSrc = read("dashboard/src/hooks/use-usage-data.ts");
+  const trendSrc = read("dashboard/src/hooks/use-trend-data.ts");
+  const heatmapSrc = read("dashboard/src/hooks/use-activity-heatmap.ts");
+  const breakdownSrc = read("dashboard/src/hooks/use-usage-model-breakdown.ts");
+
+  assertGuestCacheGuard(usageSrc);
+  assertGuestCacheGuard(trendSrc);
+  assertGuestCacheGuard(heatmapSrc);
+  assertGuestCacheGuard(breakdownSrc);
 });
 
 test("DashboardPage uses hosted auth routes", () => {
@@ -267,5 +309,5 @@ test("DashboardPage gates expired UI", () => {
 
 test("DashboardPage disables backend status when signed out or expired", () => {
   const src = read("dashboard/src/pages/DashboardPage.jsx");
-  assert.match(src, /const headerStatus\s*=\s*signedIn\s*\?\s*\(\s*<BackendStatus/);
+  assert.match(src, /const headerStatus\s*=\s*authTokenAllowed\s*&&\s*authTokenReady/);
 });

@@ -43,6 +43,11 @@ import { GithubStar } from "../ui/matrix-a/components/GithubStar.jsx";
 import { DashboardView } from "../ui/matrix-a/views/DashboardView.jsx";
 import { getMockNow, isMockEnabled } from "../lib/mock-data";
 import { isScreenshotModeEnabled } from "../lib/screenshot-mode";
+import {
+  isAccessTokenReady,
+  normalizeAccessToken,
+  resolveAuthAccessToken,
+} from "../lib/auth-token";
 
 const PERIODS = ["day", "week", "month", "total"];
 const DETAILS_DATE_KEYS = new Set(["day", "hour", "month"]);
@@ -133,11 +138,21 @@ export function DashboardPage({
   const [installCopied, setInstallCopied] = useState(false);
   const [sessionExpiredCopied, setSessionExpiredCopied] = useState(false);
   const mockEnabled = isMockEnabled();
-  const authAccessToken = signedIn
-    ? auth?.getAccessToken ?? auth?.accessToken ?? null
-    : null;
-  const accessToken = publicMode ? publicToken : authAccessToken;
+  const authTokenAllowed = signedIn && !sessionSoftExpired;
+  const authAccessToken = useMemo(() => {
+    if (!authTokenAllowed) return null;
+    if (typeof auth === "function") return auth;
+    if (typeof auth?.getAccessToken === "function") {
+      return auth.getAccessToken.bind(auth);
+    }
+    return null;
+  }, [auth, authTokenAllowed]);
+  const effectiveAuthToken = authTokenAllowed ? authAccessToken : null;
+  const accessToken = publicMode ? normalizeAccessToken(publicToken) : effectiveAuthToken;
   const accessEnabled = signedIn || mockEnabled || publicMode;
+  const authTokenReady = authTokenAllowed && isAccessTokenReady(effectiveAuthToken);
+  const guestAllowed = signedIn && sessionSoftExpired && !publicMode;
+
   useEffect(() => {
     const t = window.setTimeout(() => setBooted(true), 900);
     return () => window.clearTimeout(t);
@@ -152,27 +167,54 @@ export function DashboardPage({
       return;
     }
     if (publicMode) return;
+    if (!authTokenReady) {
+      setLinkCode(null);
+      setLinkCodeExpiresAt(null);
+      setLinkCodeLoading(false);
+      setLinkCodeError(null);
+      return;
+    }
     let active = true;
+    const resetLinkCode = () => {
+      setLinkCode(null);
+      setLinkCodeExpiresAt(null);
+      setLinkCodeLoading(false);
+      setLinkCodeError(null);
+    };
     setLinkCodeLoading(true);
     setLinkCodeError(null);
-    requestInstallLinkCode({ baseUrl, accessToken: authAccessToken })
-      .then((data) => {
+    (async () => {
+      let resolvedToken = null;
+      try {
+        resolvedToken = await resolveAuthAccessToken(effectiveAuthToken);
+      } catch (_err) {
+        resolvedToken = null;
+      }
+      if (!active) return;
+      if (!resolvedToken) {
+        resetLinkCode();
+        return;
+      }
+      try {
+        const data = await requestInstallLinkCode({
+          baseUrl,
+          accessToken: resolvedToken,
+        });
         if (!active) return;
         setLinkCode(typeof data?.link_code === "string" ? data.link_code : null);
         setLinkCodeExpiresAt(
           typeof data?.expires_at === "string" ? data.expires_at : null
         );
-      })
-      .catch((err) => {
+      } catch (err) {
         if (!active) return;
         setLinkCode(null);
         setLinkCodeExpiresAt(null);
         setLinkCodeError(err?.message || "Failed to load link code");
-      })
-      .finally(() => {
+      } finally {
         if (!active) return;
         setLinkCodeLoading(false);
-      });
+      }
+    })();
     return () => {
       active = false;
     };
@@ -181,7 +223,8 @@ export function DashboardPage({
     mockEnabled,
     signedIn,
     publicMode,
-    authAccessToken,
+    authTokenReady,
+    effectiveAuthToken,
     linkCodeRefreshToken,
   ]);
 
@@ -194,30 +237,54 @@ export function DashboardPage({
       setPublicViewCopied(false);
       return;
     }
+    if (!authTokenReady) {
+      setPublicViewEnabled(false);
+      setPublicViewToken(null);
+      setPublicViewLoading(false);
+      setPublicViewActionLoading(false);
+      setPublicViewCopied(false);
+      return;
+    }
     let active = true;
     setPublicViewLoading(true);
-    getPublicViewStatus({ baseUrl, accessToken: authAccessToken })
-      .then((data) => {
+    (async () => {
+      let resolvedToken = null;
+      try {
+        resolvedToken = await resolveAuthAccessToken(effectiveAuthToken);
+      } catch (_err) {
+        resolvedToken = null;
+      }
+      if (!active) return;
+      if (!resolvedToken) {
+        setPublicViewEnabled(false);
+        setPublicViewToken(null);
+        setPublicViewLoading(false);
+        return;
+      }
+      try {
+        const data = await getPublicViewStatus({
+          baseUrl,
+          accessToken: resolvedToken,
+        });
         if (!active) return;
         const enabled = Boolean(data?.enabled);
         const token =
           typeof data?.share_token === "string" ? data.share_token : null;
         setPublicViewEnabled(enabled);
         setPublicViewToken(token);
-      })
-      .catch(() => {
+      } catch (_err) {
         if (!active) return;
         setPublicViewEnabled(false);
         setPublicViewToken(null);
-      })
-      .finally(() => {
+      } finally {
         if (!active) return;
         setPublicViewLoading(false);
-      });
+      }
+    })();
     return () => {
       active = false;
     };
-  }, [baseUrl, mockEnabled, signedIn, publicMode, authAccessToken]);
+  }, [baseUrl, mockEnabled, signedIn, publicMode, authTokenReady, effectiveAuthToken]);
 
   useEffect(() => {
     if (!publicMode) {
@@ -374,6 +441,7 @@ export function DashboardPage({
   } = useUsageData({
     baseUrl,
     accessToken,
+    guestAllowed,
     from,
     to,
     includeDaily: period !== "total",
@@ -390,6 +458,7 @@ export function DashboardPage({
   } = useUsageModelBreakdown({
     baseUrl,
     accessToken,
+    guestAllowed,
     from,
     to,
     cacheKey,
@@ -415,6 +484,7 @@ export function DashboardPage({
   } = useTrendData({
     baseUrl,
     accessToken,
+    guestAllowed,
     period,
     from,
     to,
@@ -435,6 +505,7 @@ export function DashboardPage({
   } = useActivityHeatmap({
     baseUrl,
     accessToken,
+    guestAllowed,
     weeks: 52,
     cacheKey,
     timeZone,
@@ -1017,9 +1088,14 @@ export function DashboardPage({
     if (!nextUrl) {
       setPublicViewActionLoading(true);
       try {
+        const resolvedToken = await resolveAuthAccessToken(effectiveAuthToken);
+        if (!resolvedToken) {
+          setPublicViewActionLoading(false);
+          return;
+        }
         const data = await issuePublicViewToken({
           baseUrl,
-          accessToken: authAccessToken,
+          accessToken: resolvedToken,
         });
         const token =
           typeof data?.share_token === "string" ? data.share_token : null;
@@ -1042,7 +1118,7 @@ export function DashboardPage({
     setPublicViewCopied(true);
     window.setTimeout(() => setPublicViewCopied(false), 2000);
   }, [
-    authAccessToken,
+    effectiveAuthToken,
     baseUrl,
     publicViewActionLoading,
     publicViewEnabled,
@@ -1054,17 +1130,22 @@ export function DashboardPage({
     setPublicViewCopied(false);
     setPublicViewActionLoading(true);
     try {
+      const resolvedToken = await resolveAuthAccessToken(effectiveAuthToken);
+      if (!resolvedToken) {
+        setPublicViewActionLoading(false);
+        return;
+      }
       if (publicViewEnabled) {
         await revokePublicViewToken({
           baseUrl,
-          accessToken: authAccessToken,
+          accessToken: resolvedToken,
         });
         setPublicViewEnabled(false);
         setPublicViewToken(null);
       } else {
         const data = await issuePublicViewToken({
           baseUrl,
-          accessToken: authAccessToken,
+          accessToken: resolvedToken,
         });
         const token =
           typeof data?.share_token === "string" ? data.share_token : null;
@@ -1077,7 +1158,7 @@ export function DashboardPage({
     } finally {
       setPublicViewActionLoading(false);
     }
-  }, [authAccessToken, baseUrl, publicViewActionLoading, publicViewEnabled]);
+  }, [effectiveAuthToken, baseUrl, publicViewActionLoading, publicViewEnabled]);
 
   const dailyEmptyTemplate = useMemo(
     () => copy("dashboard.daily.empty", { cmd: "{{cmd}}" }),
@@ -1089,9 +1170,10 @@ export function DashboardPage({
     return [parts[0], parts.slice(1).join("{{cmd}}")];
   }, [dailyEmptyTemplate]);
 
-  const headerStatus = signedIn ? (
-    <BackendStatus baseUrl={baseUrl} accessToken={authAccessToken} />
-  ) : null;
+  const headerStatus =
+    authTokenAllowed && authTokenReady ? (
+      <BackendStatus baseUrl={baseUrl} accessToken={effectiveAuthToken} />
+    ) : null;
 
   const headerRight = (
     <div className="flex items-center gap-4">
