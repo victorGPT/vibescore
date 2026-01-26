@@ -2751,14 +2751,26 @@ test('vibeusage-usage-summary returns rolling metrics when requested', () =>
 
     const rows = [
       {
+        hour_start: '2025-12-19T12:00:00.000Z',
+        source: 'codex',
+        model: 'gpt-4o',
+        billable_total_tokens: '100',
+        total_tokens: '120',
+        input_tokens: '40',
+        cached_input_tokens: '10',
+        output_tokens: '50',
+        reasoning_output_tokens: '20'
+      },
+      {
         hour_start: '2025-12-21T00:00:00.000Z',
         source: 'codex',
         model: 'gpt-4o',
-        total_tokens: '10',
-        input_tokens: '4',
-        cached_input_tokens: '1',
-        output_tokens: '3',
-        reasoning_output_tokens: '2'
+        billable_total_tokens: '50',
+        total_tokens: '60',
+        input_tokens: '20',
+        cached_input_tokens: '5',
+        output_tokens: '25',
+        reasoning_output_tokens: '10'
       }
     ];
 
@@ -2805,7 +2817,21 @@ test('vibeusage-usage-summary returns rolling metrics when requested', () =>
     assert.ok(body.rolling);
     assert.ok(body.rolling.last_7d);
     assert.ok(body.rolling.last_30d);
-    assert.equal(body.rolling.last_7d.active_days, 1);
+    assert.equal(body.rolling.last_7d.from, '2025-12-15');
+    assert.equal(body.rolling.last_7d.to, '2025-12-21');
+    assert.equal(body.rolling.last_7d.totals.billable_total_tokens, '150');
+    assert.equal(body.rolling.last_7d.active_days, 2);
+    assert.equal(body.rolling.last_7d.avg_per_active_day, '75');
+    assert.equal(body.rolling.last_7d.avg_per_day, '21');
+    assert.equal(body.rolling.last_7d.window_days, 7);
+
+    assert.equal(body.rolling.last_30d.from, '2025-11-22');
+    assert.equal(body.rolling.last_30d.to, '2025-12-21');
+    assert.equal(body.rolling.last_30d.totals.billable_total_tokens, '150');
+    assert.equal(body.rolling.last_30d.active_days, 2);
+    assert.equal(body.rolling.last_30d.avg_per_active_day, '75');
+    assert.equal(body.rolling.last_30d.avg_per_day, '5');
+    assert.equal(body.rolling.last_30d.window_days, 30);
   }));
 
 test('vibeusage-usage-summary returns total_cost_usd and pricing metadata', () =>
