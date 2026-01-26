@@ -272,6 +272,30 @@ test('fetchDeviceTokenRow uses records API and ignores revoked tokens', async ()
   assert.equal(calls[0].init.headers.Authorization, 'Bearer anon');
 });
 
+test('upsertProjectUsage uses correct table and onConflict keys', async () => {
+  const calls = [];
+  const fakeFetch = async (url, init) => {
+    calls.push({ url, init });
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify([{ hour_start: '2026-01-25T10:30:00.000Z' }])
+    };
+  };
+
+  await ingestDb.upsertProjectUsage({
+    baseUrl: 'https://example.com',
+    anonKey: 'anon',
+    tokenHash: 'hash',
+    rows: [{ user_id: 'u1', project_key: 'p1', hour_start: '2026-01-25T10:30:00.000Z', source: 'codex' }],
+    nowIso: '2026-01-25T12:00:00.000Z',
+    fetcher: fakeFetch
+  });
+
+  assert.ok(calls[0].url.includes('/api/database/records/vibeusage_project_usage_hourly'));
+  assert.ok(calls[0].url.includes('on_conflict=user_id%2Cproject_key%2Chour_start%2Csource'));
+});
+
 test('touchDeviceTokenAndDevice updates last_sync_at only when interval elapsed', async () => {
   const calls = [];
   const fakeFetch = async (url, init) => {

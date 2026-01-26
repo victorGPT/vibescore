@@ -218,6 +218,157 @@ async function upsertHourlyUsage({
   return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
 }
 
+async function upsertProjectUsage({
+  serviceClient,
+  baseUrl,
+  serviceRoleKey,
+  anonKey,
+  tokenHash,
+  tokenRow,
+  rows,
+  nowIso,
+  fetcher
+}) {
+  if (serviceClient && serviceRoleKey && baseUrl) {
+    const url = new URL('/api/database/records/vibeusage_project_usage_hourly', baseUrl);
+    const res = await recordsUpsert({
+      url,
+      anonKey: serviceRoleKey,
+      tokenHash,
+      rows,
+      onConflict: 'user_id,project_key,hour_start,source',
+      prefer: 'return=representation',
+      resolution: 'merge-duplicates',
+      select: 'hour_start',
+      fetcher
+    });
+
+    if (res.ok) {
+      const insertedRows = normalizeRows(res.data);
+      const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+      await touchDeviceTokenAndDevice({ serviceClient, tokenRow, nowIso });
+      return { ok: true, inserted, skipped: 0 };
+    }
+
+    if (!isUpsertUnsupported(res)) {
+      return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
+    }
+  }
+
+  if (serviceClient?.database?.from) {
+    const { error } = await serviceClient
+      .database
+      .from('vibeusage_project_usage_hourly')
+      .upsert(rows, { onConflict: 'user_id,project_key,hour_start,source' });
+    if (error) return { ok: false, error: error.message, inserted: 0, skipped: 0 };
+    await touchDeviceTokenAndDevice({ serviceClient, tokenRow, nowIso });
+    return { ok: true, inserted: rows.length, skipped: 0 };
+  }
+
+  if (!anonKey || !baseUrl) {
+    return { ok: false, error: 'Anon key missing', inserted: 0, skipped: 0 };
+  }
+
+  const url = new URL('/api/database/records/vibeusage_project_usage_hourly', baseUrl);
+  const res = await recordsUpsert({
+    url,
+    anonKey,
+    tokenHash,
+    rows,
+    onConflict: 'user_id,project_key,hour_start,source',
+    prefer: 'return=representation',
+    resolution: 'merge-duplicates',
+    select: 'hour_start',
+    fetcher
+  });
+
+  if (res.ok) {
+    const insertedRows = normalizeRows(res.data);
+    const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+    await touchDeviceTokenAndDevice({ baseUrl, anonKey, tokenHash, tokenRow, nowIso, fetcher });
+    return { ok: true, inserted, skipped: 0 };
+  }
+
+  if (isUpsertUnsupported(res)) {
+    return { ok: false, error: res.error || 'Half-hour upsert unsupported', inserted: 0, skipped: 0 };
+  }
+
+  return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
+}
+
+async function upsertProjectRegistry({
+  serviceClient,
+  baseUrl,
+  serviceRoleKey,
+  anonKey,
+  tokenHash,
+  rows,
+  fetcher
+}) {
+  if (serviceClient && serviceRoleKey && baseUrl) {
+    const url = new URL('/api/database/records/vibeusage_projects', baseUrl);
+    const res = await recordsUpsert({
+      url,
+      anonKey: serviceRoleKey,
+      tokenHash,
+      rows,
+      onConflict: 'user_id,project_key',
+      prefer: 'return=representation',
+      resolution: 'merge-duplicates',
+      select: 'project_key',
+      fetcher
+    });
+
+    if (res.ok) {
+      const insertedRows = normalizeRows(res.data);
+      const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+      return { ok: true, inserted, skipped: 0 };
+    }
+
+    if (!isUpsertUnsupported(res)) {
+      return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
+    }
+  }
+
+  if (serviceClient?.database?.from) {
+    const { error } = await serviceClient
+      .database
+      .from('vibeusage_projects')
+      .upsert(rows, { onConflict: 'user_id,project_key' });
+    if (error) return { ok: false, error: error.message, inserted: 0, skipped: 0 };
+    return { ok: true, inserted: rows.length, skipped: 0 };
+  }
+
+  if (!anonKey || !baseUrl) {
+    return { ok: false, error: 'Anon key missing', inserted: 0, skipped: 0 };
+  }
+
+  const url = new URL('/api/database/records/vibeusage_projects', baseUrl);
+  const res = await recordsUpsert({
+    url,
+    anonKey,
+    tokenHash,
+    rows,
+    onConflict: 'user_id,project_key',
+    prefer: 'return=representation',
+    resolution: 'merge-duplicates',
+    select: 'project_key',
+    fetcher
+  });
+
+  if (res.ok) {
+    const insertedRows = normalizeRows(res.data);
+    const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+    return { ok: true, inserted, skipped: 0 };
+  }
+
+  if (isUpsertUnsupported(res)) {
+    return { ok: false, error: res.error || 'Project upsert unsupported', inserted: 0, skipped: 0 };
+  }
+
+  return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
+}
+
 async function recordIngestBatchMetrics({
   serviceClient,
   baseUrl,
@@ -273,5 +424,7 @@ module.exports = {
   fetchDeviceTokenRow,
   touchDeviceTokenAndDevice,
   upsertHourlyUsage,
+  upsertProjectUsage,
+  upsertProjectRegistry,
   recordIngestBatchMetrics
 };
