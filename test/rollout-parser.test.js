@@ -97,11 +97,14 @@ test('parseRolloutIncremental emits project usage buckets with canonicalized pro
     const lines = [buildTokenCountLine({ ts: '2025-12-17T00:10:00.000Z', last: usage, total: usage })];
     await fs.writeFile(rolloutPath, lines.join('\n') + '\n', 'utf8');
 
-    const publicRepoResolver = async () => ({
-      status: 'public_verified',
-      projectKey: 'acme/alpha',
-      projectRef: 'https://github.com/acme/alpha'
-    });
+    const publicRepoResolver = async ({ projectRef }) => {
+      if (!projectRef) return { status: 'blocked', projectKey: null, projectRef: null };
+      return {
+        status: 'public_verified',
+        projectKey: 'acme/alpha',
+        projectRef: 'https://github.com/acme/alpha'
+      };
+    };
 
     await parseRolloutIncremental({
       rolloutFiles: [rolloutPath],
@@ -183,6 +186,66 @@ test('parseRolloutIncremental uses turn_context cwd to resolve project context',
   }
 });
 
+test('parseRolloutIncremental marks blocked when remote is missing but repo_root_hash matches', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-rollout-'));
+  try {
+    const repoRoot = path.join(tmp, 'repo');
+    await fs.mkdir(path.join(repoRoot, '.git'), { recursive: true });
+    const configPath = path.join(repoRoot, '.git', 'config');
+    await fs.writeFile(
+      configPath,
+      `[remote "origin"]\n\turl = https://github.com/acme/alpha.git\n`,
+      'utf8'
+    );
+
+    const rolloutPath = path.join(repoRoot, 'rollout-test.jsonl');
+    const usage = {
+      input_tokens: 1,
+      cached_input_tokens: 0,
+      output_tokens: 2,
+      reasoning_output_tokens: 0,
+      total_tokens: 3
+    };
+    const lines = [buildTokenCountLine({ ts: '2026-01-26T00:10:00.000Z', last: usage, total: usage })];
+    await fs.writeFile(rolloutPath, lines.join('\n') + '\n', 'utf8');
+
+    const queuePath = path.join(tmp, 'queue.jsonl');
+    const projectQueuePath = path.join(tmp, 'project.queue.jsonl');
+    const cursors = { version: 1, files: {}, updatedAt: null };
+
+    const publicRepoResolver = async ({ projectRef }) => {
+      if (!projectRef) return { status: 'blocked', projectKey: null, projectRef: null };
+      return { status: 'public_verified', projectKey: 'acme/alpha', projectRef };
+    };
+
+    await parseRolloutIncremental({
+      rolloutFiles: [rolloutPath],
+      cursors,
+      queuePath,
+      projectQueuePath,
+      publicRepoResolver
+    });
+
+    assert.equal(cursors.projectHourly.projects['acme/alpha'].status, 'public_verified');
+    assert.ok(cursors.projectHourly.projects['acme/alpha'].repo_root_hash);
+
+    await fs.writeFile(configPath, '', 'utf8');
+
+    await parseRolloutIncremental({
+      rolloutFiles: [rolloutPath],
+      cursors,
+      queuePath,
+      projectQueuePath,
+      publicRepoResolver
+    });
+
+    assert.equal(cursors.projectHourly.projects['acme/alpha'].status, 'blocked');
+    assert.equal(cursors.projectHourly.projects['acme/alpha'].purge_pending, true);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 test('parseRolloutIncremental strips credentials from project_ref', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-rollout-'));
   try {
@@ -212,11 +275,14 @@ test('parseRolloutIncremental strips credentials from project_ref', async () => 
     const lines = [buildTokenCountLine({ ts: '2025-12-17T00:10:00.000Z', last: usage, total: usage })];
     await fs.writeFile(rolloutPath, lines.join('\n') + '\n', 'utf8');
 
-    const publicRepoResolver = async () => ({
-      status: 'public_verified',
-      projectKey: 'acme/alpha',
-      projectRef: 'https://github.com/acme/alpha'
-    });
+    const publicRepoResolver = async ({ projectRef }) => {
+      if (!projectRef) return { status: 'blocked', projectKey: null, projectRef: null };
+      return {
+        status: 'public_verified',
+        projectKey: 'acme/alpha',
+        projectRef: 'https://github.com/acme/alpha'
+      };
+    };
 
     await parseRolloutIncremental({
       rolloutFiles: [rolloutPath],
@@ -263,11 +329,14 @@ test('parseRolloutIncremental ignores local path project_ref', async () => {
     const lines = [buildTokenCountLine({ ts: '2025-12-17T00:10:00.000Z', last: usage, total: usage })];
     await fs.writeFile(rolloutPath, lines.join('\n') + '\n', 'utf8');
 
-    const publicRepoResolver = async () => ({
-      status: 'public_verified',
-      projectKey: 'acme/alpha',
-      projectRef: 'https://github.com/acme/alpha'
-    });
+    const publicRepoResolver = async ({ projectRef }) => {
+      if (!projectRef) return { status: 'blocked', projectKey: null, projectRef: null };
+      return {
+        status: 'public_verified',
+        projectKey: 'acme/alpha',
+        projectRef: 'https://github.com/acme/alpha'
+      };
+    };
 
     await parseRolloutIncremental({
       rolloutFiles: [rolloutPath],

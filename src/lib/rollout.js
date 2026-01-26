@@ -1520,7 +1520,7 @@ async function resolveProjectMetaForPath(startDir, cache) {
     if (configPath) {
       const remoteUrl = await readGitRemoteUrl(configPath);
       const projectRef = canonicalizeProjectRef(remoteUrl);
-      const meta = projectRef ? { projectRef, repoRoot: current } : null;
+      const meta = { projectRef: projectRef || null, repoRoot: current };
       if (cache) {
         for (const entry of visited) cache.set(entry, meta);
       }
@@ -1561,14 +1561,22 @@ async function defaultPublicRepoResolver({ projectRef, repoRoot, cache }) {
 
 function recordProjectMeta(projectState, meta) {
   if (!projectState || !meta || typeof meta !== 'object') return;
-  const projectKey = typeof meta.projectKey === 'string' ? meta.projectKey : null;
+  const repoRootHash = typeof meta.repoRootHash === 'string' ? meta.repoRootHash : null;
+  let projectKey = typeof meta.projectKey === 'string' ? meta.projectKey : null;
+  if (!projectKey && repoRootHash && projectState.projects && typeof projectState.projects === 'object') {
+    for (const [key, entry] of Object.entries(projectState.projects)) {
+      if (entry && entry.repo_root_hash === repoRootHash) {
+        projectKey = key;
+        break;
+      }
+    }
+  }
   if (!projectKey) return;
   if (!projectState.projects || typeof projectState.projects !== 'object') {
     projectState.projects = {};
   }
   const prev = projectState.projects[projectKey] || {};
   const status = typeof meta.status === 'string' ? meta.status : null;
-  const repoRootHash = typeof meta.repoRootHash === 'string' ? meta.repoRootHash : null;
   const projectRef = typeof meta.projectRef === 'string' ? meta.projectRef : null;
   const next = {
     ...prev,
@@ -1611,7 +1619,7 @@ async function resolveProjectContextForPath({
 }) {
   if (!startDir) return null;
   const projectMeta = await resolveProjectMetaForPath(startDir, projectMetaCache);
-  if (!projectMeta || !projectMeta.projectRef) return null;
+  if (!projectMeta) return null;
   const resolver = typeof publicRepoResolver === 'function' ? publicRepoResolver : defaultPublicRepoResolver;
   const meta = await resolver({
     projectRef: projectMeta.projectRef,
