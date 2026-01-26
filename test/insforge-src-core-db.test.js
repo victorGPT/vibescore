@@ -39,6 +39,25 @@ test('parseHourlyBucket validates half-hour boundaries and tokens', () => {
   assert.equal(invalid.ok, false);
 });
 
+test('parseProjectHourlyBucket validates half-hour boundaries and project fields', () => {
+  const valid = ingestCore.parseProjectHourlyBucket({
+    hour_start: '2026-01-25T10:30:00.000Z',
+    source: 'codex',
+    project_key: 'proj_1',
+    project_ref: 'https://github.com/victorGPT/vibeusage',
+    input_tokens: 1,
+    cached_input_tokens: 0,
+    output_tokens: 2,
+    reasoning_output_tokens: 0,
+    total_tokens: 3
+  });
+  assert.equal(valid.ok, true);
+  assert.equal(valid.value.project_key, 'proj_1');
+
+  const invalid = ingestCore.parseProjectHourlyBucket({ hour_start: '2026-01-25T10:31:00.000Z' });
+  assert.equal(invalid.ok, false);
+});
+
 test('buildRows dedupes hourly buckets by hour/source/model', () => {
   const nowIso = '2026-01-25T12:00:00.000Z';
   const tokenRow = { user_id: 'u1', device_id: 'd1', id: 't1' };
@@ -251,6 +270,30 @@ test('fetchDeviceTokenRow uses records API and ignores revoked tokens', async ()
   assert.ok(calls[0].url.includes('token_hash=eq.hash'));
   assert.equal(calls[0].init.method, 'GET');
   assert.equal(calls[0].init.headers.Authorization, 'Bearer anon');
+});
+
+test('upsertProjectUsage uses correct table and onConflict keys', async () => {
+  const calls = [];
+  const fakeFetch = async (url, init) => {
+    calls.push({ url, init });
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify([{ hour_start: '2026-01-25T10:30:00.000Z' }])
+    };
+  };
+
+  await ingestDb.upsertProjectUsage({
+    baseUrl: 'https://example.com',
+    anonKey: 'anon',
+    tokenHash: 'hash',
+    rows: [{ user_id: 'u1', project_key: 'p1', hour_start: '2026-01-25T10:30:00.000Z', source: 'codex' }],
+    nowIso: '2026-01-25T12:00:00.000Z',
+    fetcher: fakeFetch
+  });
+
+  assert.ok(calls[0].url.includes('/api/database/records/vibeusage_project_usage_hourly'));
+  assert.ok(calls[0].url.includes('on_conflict=user_id%2Cproject_key%2Chour_start%2Csource'));
 });
 
 test('touchDeviceTokenAndDevice updates last_sync_at only when interval elapsed', async () => {

@@ -68,7 +68,10 @@ test("dashboard has tsconfig", async () => {
 
 test("vite env types are declared", async () => {
   const viteEnv = await read(path.join(repoRoot, "dashboard/src/vite-env.d.ts"));
-  assert.ok(viteEnv.includes("vite/client"), "expected vite client types reference");
+  assert.ok(
+    viteEnv.includes("interface ImportMetaEnv"),
+    "expected ImportMetaEnv declaration",
+  );
 });
 
 test("dashboard package defines typecheck", async () => {
