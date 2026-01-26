@@ -6,6 +6,7 @@
 Produce a project postmortem for PR #89.
 
 ### Baseline Output (Current Skill)
+```markdown
 # PR #89 Codex Review Churn Retrospective
 
 ## Scope
@@ -38,10 +39,11 @@ Produce a project postmortem for PR #89.
 
 ## Risk-Layer Gate Reminder
 If any trigger matches, fill the addendum with rules/invariants, boundary matrix, and evidence.
+```
 
 ### RED: Failure Rationale (Why This Fails a Project Postmortem)
-- Missing project-level impact: the output never states user/customer/system impact or operational consequences (it only says “repeat @codex review cycles”).
-- No acceptance criteria or outcomes: there is no statement of what “success” was, what was accepted at merge, or what changed in the project (only stage causes).
-- No timeline or narrative: it jumps straight to “Stage Attribution” without a “What happened / when / detection / resolution” sequence.
-- Churn-only framing: the “Scope” and “Evidence Chain” are entirely about Codex review cycles rather than project outcomes.
-- Lessons learned absent: “Preventive Actions” are limited to PR template/risk-layer gates and test additions; no broader project lessons are captured.
+- Missing project-level impact (Baseline Output evidence): it never states user/customer/system impact or operational consequences; it only says “repeat @codex review cycles”.
+- No acceptance criteria or outcomes (Baseline Output evidence): it lists “Stage Attribution” and “Cause Taxonomy” but never states what “success” was or what was accepted at merge.
+- No timeline or narrative (Baseline Output evidence): it jumps straight to “Stage Attribution” with no “What happened / when / detection / resolution”.
+- Churn-only framing (Baseline Output evidence): “Scope” and “Evidence Chain” are entirely about Codex review cycles, not project outcomes.
+- Lessons learned absent (Baseline Output evidence): “Preventive Actions” are limited to PR template/risk-layer gates and tests, with no broader project lessons.
