@@ -68,6 +68,216 @@ test('parseRolloutIncremental skips duplicate token_count records (unchanged tot
   }
 });
 
+test('parseRolloutIncremental emits project usage buckets with canonicalized project_ref', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-rollout-'));
+  try {
+    const repoRoot = path.join(tmp, 'repo');
+    await fs.mkdir(path.join(repoRoot, '.git'), { recursive: true });
+    await fs.writeFile(
+      path.join(repoRoot, '.git', 'config'),
+      `[remote "origin"]\n\turl = git@github.com:acme/alpha.git\n`,
+      'utf8'
+    );
+
+    const rolloutPath = path.join(repoRoot, 'sessions', '2025', '12', '17', 'rollout-test.jsonl');
+    await fs.mkdir(path.dirname(rolloutPath), { recursive: true });
+
+    const queuePath = path.join(tmp, 'queue.jsonl');
+    const projectQueuePath = path.join(tmp, 'project.queue.jsonl');
+    const cursors = { version: 1, files: {}, updatedAt: null };
+
+    const usage = {
+      input_tokens: 2,
+      cached_input_tokens: 1,
+      output_tokens: 3,
+      reasoning_output_tokens: 0,
+      total_tokens: 6
+    };
+
+    const lines = [buildTokenCountLine({ ts: '2025-12-17T00:10:00.000Z', last: usage, total: usage })];
+    await fs.writeFile(rolloutPath, lines.join('\n') + '\n', 'utf8');
+
+    const publicRepoResolver = async () => ({
+      status: 'public_verified',
+      projectKey: 'acme/alpha',
+      projectRef: 'https://github.com/acme/alpha'
+    });
+
+    await parseRolloutIncremental({
+      rolloutFiles: [rolloutPath],
+      cursors,
+      queuePath,
+      projectQueuePath,
+      publicRepoResolver
+    });
+
+    const projectQueued = await readJsonLines(projectQueuePath);
+    assert.equal(projectQueued.length, 1);
+    assert.equal(projectQueued[0].project_ref, 'https://github.com/acme/alpha');
+    assert.equal(projectQueued[0].project_key, 'acme/alpha');
+    assert.equal(projectQueued[0].source, 'codex');
+    assert.equal(projectQueued[0].hour_start, '2025-12-17T00:00:00.000Z');
+    assert.equal(projectQueued[0].input_tokens, usage.input_tokens);
+    assert.equal(projectQueued[0].cached_input_tokens, usage.cached_input_tokens);
+    assert.equal(projectQueued[0].output_tokens, usage.output_tokens);
+    assert.equal(projectQueued[0].reasoning_output_tokens, usage.reasoning_output_tokens);
+    assert.equal(projectQueued[0].total_tokens, usage.total_tokens);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('parseRolloutIncremental strips credentials from project_ref', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-rollout-'));
+  try {
+    const repoRoot = path.join(tmp, 'repo');
+    await fs.mkdir(path.join(repoRoot, '.git'), { recursive: true });
+    await fs.writeFile(
+      path.join(repoRoot, '.git', 'config'),
+      `[remote "origin"]\n\turl = https://token@github.com/acme/alpha.git\n`,
+      'utf8'
+    );
+
+    const rolloutPath = path.join(repoRoot, 'sessions', '2025', '12', '17', 'rollout-test.jsonl');
+    await fs.mkdir(path.dirname(rolloutPath), { recursive: true });
+
+    const queuePath = path.join(tmp, 'queue.jsonl');
+    const projectQueuePath = path.join(tmp, 'project.queue.jsonl');
+    const cursors = { version: 1, files: {}, updatedAt: null };
+
+    const usage = {
+      input_tokens: 2,
+      cached_input_tokens: 1,
+      output_tokens: 3,
+      reasoning_output_tokens: 0,
+      total_tokens: 6
+    };
+
+    const lines = [buildTokenCountLine({ ts: '2025-12-17T00:10:00.000Z', last: usage, total: usage })];
+    await fs.writeFile(rolloutPath, lines.join('\n') + '\n', 'utf8');
+
+    const publicRepoResolver = async () => ({
+      status: 'public_verified',
+      projectKey: 'acme/alpha',
+      projectRef: 'https://github.com/acme/alpha'
+    });
+
+    await parseRolloutIncremental({
+      rolloutFiles: [rolloutPath],
+      cursors,
+      queuePath,
+      projectQueuePath,
+      publicRepoResolver
+    });
+
+    const projectQueued = await readJsonLines(projectQueuePath);
+    assert.equal(projectQueued.length, 1);
+    assert.equal(projectQueued[0].project_ref, 'https://github.com/acme/alpha');
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('parseRolloutIncremental ignores local path project_ref', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-rollout-'));
+  try {
+    const repoRoot = path.join(tmp, 'repo');
+    await fs.mkdir(path.join(repoRoot, '.git'), { recursive: true });
+    await fs.writeFile(
+      path.join(repoRoot, '.git', 'config'),
+      `[remote "origin"]\n\turl = /Users/alice/projects/alpha\n`,
+      'utf8'
+    );
+
+    const rolloutPath = path.join(repoRoot, 'sessions', '2025', '12', '17', 'rollout-test.jsonl');
+    await fs.mkdir(path.dirname(rolloutPath), { recursive: true });
+
+    const queuePath = path.join(tmp, 'queue.jsonl');
+    const projectQueuePath = path.join(tmp, 'project.queue.jsonl');
+    const cursors = { version: 1, files: {}, updatedAt: null };
+
+    const usage = {
+      input_tokens: 2,
+      cached_input_tokens: 1,
+      output_tokens: 3,
+      reasoning_output_tokens: 0,
+      total_tokens: 6
+    };
+
+    const lines = [buildTokenCountLine({ ts: '2025-12-17T00:10:00.000Z', last: usage, total: usage })];
+    await fs.writeFile(rolloutPath, lines.join('\n') + '\n', 'utf8');
+
+    const publicRepoResolver = async () => ({
+      status: 'public_verified',
+      projectKey: 'acme/alpha',
+      projectRef: 'https://github.com/acme/alpha'
+    });
+
+    await parseRolloutIncremental({
+      rolloutFiles: [rolloutPath],
+      cursors,
+      queuePath,
+      projectQueuePath,
+      publicRepoResolver
+    });
+
+    const projectQueued = await readJsonLines(projectQueuePath);
+    assert.equal(projectQueued.length, 0);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('parseRolloutIncremental skips project usage when repo is blocked', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-rollout-'));
+  try {
+    const repoRoot = path.join(tmp, 'repo');
+    await fs.mkdir(path.join(repoRoot, '.git'), { recursive: true });
+    await fs.writeFile(
+      path.join(repoRoot, '.git', 'config'),
+      `[remote "origin"]\n\turl = git@github.com:acme/alpha.git\n`,
+      'utf8'
+    );
+
+    const rolloutPath = path.join(repoRoot, 'sessions', '2025', '12', '17', 'rollout-test.jsonl');
+    await fs.mkdir(path.dirname(rolloutPath), { recursive: true });
+
+    const queuePath = path.join(tmp, 'queue.jsonl');
+    const projectQueuePath = path.join(tmp, 'project.queue.jsonl');
+    const cursors = { version: 1, files: {}, updatedAt: null };
+
+    const usage = {
+      input_tokens: 2,
+      cached_input_tokens: 1,
+      output_tokens: 3,
+      reasoning_output_tokens: 0,
+      total_tokens: 6
+    };
+
+    const lines = [buildTokenCountLine({ ts: '2025-12-17T00:10:00.000Z', last: usage, total: usage })];
+    await fs.writeFile(rolloutPath, lines.join('\n') + '\n', 'utf8');
+
+    const publicRepoResolver = async () => ({
+      status: 'blocked',
+      projectKey: 'acme/alpha',
+      projectRef: 'https://github.com/acme/alpha'
+    });
+
+    await parseRolloutIncremental({
+      rolloutFiles: [rolloutPath],
+      cursors,
+      queuePath,
+      projectQueuePath,
+      publicRepoResolver
+    });
+
+    const projectQueued = await readJsonLines(projectQueuePath);
+    assert.equal(projectQueued.length, 0);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 test('parseRolloutIncremental splits usage into half-hour buckets', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-rollout-'));
   try {

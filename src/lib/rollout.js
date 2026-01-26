@@ -4,6 +4,7 @@ const path = require('node:path');
 const readline = require('node:readline');
 
 const { ensureDir } = require('./fs');
+const { hashRepoRoot, resolveGitHubPublicStatus } = require('./vibeusage-public-repo');
 
 const DEFAULT_SOURCE = 'codex';
 const DEFAULT_MODEL = 'unknown';
@@ -69,7 +70,15 @@ async function listOpencodeMessageFiles(storageDir) {
   return out;
 }
 
-async function parseRolloutIncremental({ rolloutFiles, cursors, queuePath, onProgress, source }) {
+async function parseRolloutIncremental({
+  rolloutFiles,
+  cursors,
+  queuePath,
+  projectQueuePath,
+  onProgress,
+  source,
+  publicRepoResolver
+}) {
   await ensureDir(path.dirname(queuePath));
   let filesProcessed = 0;
   let eventsAggregated = 0;
@@ -77,6 +86,11 @@ async function parseRolloutIncremental({ rolloutFiles, cursors, queuePath, onPro
   const cb = typeof onProgress === 'function' ? onProgress : null;
   const totalFiles = Array.isArray(rolloutFiles) ? rolloutFiles.length : 0;
   const hourlyState = normalizeHourlyState(cursors?.hourly);
+  const projectEnabled = typeof projectQueuePath === 'string' && projectQueuePath.length > 0;
+  const projectState = projectEnabled ? normalizeProjectState(cursors?.projectHourly) : null;
+  const projectTouchedBuckets = projectEnabled ? new Set() : null;
+  const projectMetaCache = projectEnabled ? new Map() : null;
+  const publicRepoCache = projectEnabled ? new Map() : null;
   const touchedBuckets = new Set();
   const defaultSource = normalizeSourceInput(source) || DEFAULT_SOURCE;
 
@@ -100,6 +114,18 @@ async function parseRolloutIncremental({ rolloutFiles, cursors, queuePath, onPro
     const lastTotal = prev && prev.inode === inode ? prev.lastTotal || null : null;
     const lastModel = prev && prev.inode === inode ? prev.lastModel || null : null;
 
+    const projectContext = projectEnabled
+      ? await resolveProjectContextForFile({
+          filePath,
+          projectMetaCache,
+          publicRepoCache,
+          publicRepoResolver,
+          projectState
+        })
+      : null;
+    const projectRef = projectContext?.projectRef || null;
+    const projectKey = projectContext?.projectKey || null;
+
     const result = await parseRolloutFile({
       filePath,
       startOffset,
@@ -107,7 +133,11 @@ async function parseRolloutIncremental({ rolloutFiles, cursors, queuePath, onPro
       lastModel,
       hourlyState,
       touchedBuckets,
-      source: fileSource
+      source: fileSource,
+      projectState,
+      projectTouchedBuckets,
+      projectRef,
+      projectKey
     });
 
     cursors.files[key] = {
@@ -134,13 +164,28 @@ async function parseRolloutIncremental({ rolloutFiles, cursors, queuePath, onPro
   }
 
   const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
+  const projectBucketsQueued = projectEnabled
+    ? await enqueueTouchedProjectBuckets({ projectQueuePath, projectState, projectTouchedBuckets })
+    : 0;
   hourlyState.updatedAt = new Date().toISOString();
   cursors.hourly = hourlyState;
+  if (projectState) {
+    projectState.updatedAt = new Date().toISOString();
+    cursors.projectHourly = projectState;
+  }
 
-  return { filesProcessed, eventsAggregated, bucketsQueued };
+  return { filesProcessed, eventsAggregated, bucketsQueued, projectBucketsQueued };
 }
 
-async function parseClaudeIncremental({ projectFiles, cursors, queuePath, onProgress, source }) {
+async function parseClaudeIncremental({
+  projectFiles,
+  cursors,
+  queuePath,
+  projectQueuePath,
+  onProgress,
+  source,
+  publicRepoResolver
+}) {
   await ensureDir(path.dirname(queuePath));
   let filesProcessed = 0;
   let eventsAggregated = 0;
@@ -149,6 +194,11 @@ async function parseClaudeIncremental({ projectFiles, cursors, queuePath, onProg
   const files = Array.isArray(projectFiles) ? projectFiles : [];
   const totalFiles = files.length;
   const hourlyState = normalizeHourlyState(cursors?.hourly);
+  const projectEnabled = typeof projectQueuePath === 'string' && projectQueuePath.length > 0;
+  const projectState = projectEnabled ? normalizeProjectState(cursors?.projectHourly) : null;
+  const projectTouchedBuckets = projectEnabled ? new Set() : null;
+  const projectMetaCache = projectEnabled ? new Map() : null;
+  const publicRepoCache = projectEnabled ? new Map() : null;
   const touchedBuckets = new Set();
   const defaultSource = normalizeSourceInput(source) || 'claude';
 
@@ -170,12 +220,28 @@ async function parseClaudeIncremental({ projectFiles, cursors, queuePath, onProg
     const inode = st.ino || 0;
     const startOffset = prev && prev.inode === inode ? prev.offset || 0 : 0;
 
+    const projectContext = projectEnabled
+      ? await resolveProjectContextForFile({
+          filePath,
+          projectMetaCache,
+          publicRepoCache,
+          publicRepoResolver,
+          projectState
+        })
+      : null;
+    const projectRef = projectContext?.projectRef || null;
+    const projectKey = projectContext?.projectKey || null;
+
     const result = await parseClaudeFile({
       filePath,
       startOffset,
       hourlyState,
       touchedBuckets,
-      source: fileSource
+      source: fileSource,
+      projectState,
+      projectTouchedBuckets,
+      projectRef,
+      projectKey
     });
 
     cursors.files[key] = {
@@ -200,13 +266,28 @@ async function parseClaudeIncremental({ projectFiles, cursors, queuePath, onProg
   }
 
   const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
+  const projectBucketsQueued = projectEnabled
+    ? await enqueueTouchedProjectBuckets({ projectQueuePath, projectState, projectTouchedBuckets })
+    : 0;
   hourlyState.updatedAt = new Date().toISOString();
   cursors.hourly = hourlyState;
+  if (projectState) {
+    projectState.updatedAt = new Date().toISOString();
+    cursors.projectHourly = projectState;
+  }
 
-  return { filesProcessed, eventsAggregated, bucketsQueued };
+  return { filesProcessed, eventsAggregated, bucketsQueued, projectBucketsQueued };
 }
 
-async function parseGeminiIncremental({ sessionFiles, cursors, queuePath, onProgress, source }) {
+async function parseGeminiIncremental({
+  sessionFiles,
+  cursors,
+  queuePath,
+  projectQueuePath,
+  onProgress,
+  source,
+  publicRepoResolver
+}) {
   await ensureDir(path.dirname(queuePath));
   let filesProcessed = 0;
   let eventsAggregated = 0;
@@ -215,6 +296,11 @@ async function parseGeminiIncremental({ sessionFiles, cursors, queuePath, onProg
   const files = Array.isArray(sessionFiles) ? sessionFiles : [];
   const totalFiles = files.length;
   const hourlyState = normalizeHourlyState(cursors?.hourly);
+  const projectEnabled = typeof projectQueuePath === 'string' && projectQueuePath.length > 0;
+  const projectState = projectEnabled ? normalizeProjectState(cursors?.projectHourly) : null;
+  const projectTouchedBuckets = projectEnabled ? new Set() : null;
+  const projectMetaCache = projectEnabled ? new Map() : null;
+  const publicRepoCache = projectEnabled ? new Map() : null;
   const touchedBuckets = new Set();
   const defaultSource = normalizeSourceInput(source) || 'gemini';
 
@@ -238,6 +324,18 @@ async function parseGeminiIncremental({ sessionFiles, cursors, queuePath, onProg
     let lastTotals = prev && prev.inode === inode ? prev.lastTotals || null : null;
     let lastModel = prev && prev.inode === inode ? prev.lastModel || null : null;
 
+    const projectContext = projectEnabled
+      ? await resolveProjectContextForFile({
+          filePath,
+          projectMetaCache,
+          publicRepoCache,
+          publicRepoResolver,
+          projectState
+        })
+      : null;
+    const projectRef = projectContext?.projectRef || null;
+    const projectKey = projectContext?.projectKey || null;
+
     const result = await parseGeminiFile({
       filePath,
       startIndex,
@@ -245,7 +343,11 @@ async function parseGeminiIncremental({ sessionFiles, cursors, queuePath, onProg
       lastModel,
       hourlyState,
       touchedBuckets,
-      source: fileSource
+      source: fileSource,
+      projectState,
+      projectTouchedBuckets,
+      projectRef,
+      projectKey
     });
 
     cursors.files[key] = {
@@ -272,13 +374,28 @@ async function parseGeminiIncremental({ sessionFiles, cursors, queuePath, onProg
   }
 
   const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
+  const projectBucketsQueued = projectEnabled
+    ? await enqueueTouchedProjectBuckets({ projectQueuePath, projectState, projectTouchedBuckets })
+    : 0;
   hourlyState.updatedAt = new Date().toISOString();
   cursors.hourly = hourlyState;
+  if (projectState) {
+    projectState.updatedAt = new Date().toISOString();
+    cursors.projectHourly = projectState;
+  }
 
-  return { filesProcessed, eventsAggregated, bucketsQueued };
+  return { filesProcessed, eventsAggregated, bucketsQueued, projectBucketsQueued };
 }
 
-async function parseOpencodeIncremental({ messageFiles, cursors, queuePath, onProgress, source }) {
+async function parseOpencodeIncremental({
+  messageFiles,
+  cursors,
+  queuePath,
+  projectQueuePath,
+  onProgress,
+  source,
+  publicRepoResolver
+}) {
   await ensureDir(path.dirname(queuePath));
   let filesProcessed = 0;
   let eventsAggregated = 0;
@@ -287,6 +404,11 @@ async function parseOpencodeIncremental({ messageFiles, cursors, queuePath, onPr
   const files = Array.isArray(messageFiles) ? messageFiles : [];
   const totalFiles = files.length;
   const hourlyState = normalizeHourlyState(cursors?.hourly);
+  const projectEnabled = typeof projectQueuePath === 'string' && projectQueuePath.length > 0;
+  const projectState = projectEnabled ? normalizeProjectState(cursors?.projectHourly) : null;
+  const projectTouchedBuckets = projectEnabled ? new Set() : null;
+  const projectMetaCache = projectEnabled ? new Map() : null;
+  const publicRepoCache = projectEnabled ? new Map() : null;
   const opencodeState = normalizeOpencodeState(cursors?.opencode);
   const messageIndex = opencodeState.messages;
   const touchedBuckets = new Set();
@@ -329,6 +451,18 @@ async function parseOpencodeIncremental({ messageFiles, cursors, queuePath, onPr
     const fallbackTotals = prev && typeof prev.lastTotals === 'object' ? prev.lastTotals : null;
     const fallbackMessageKey =
       prev && typeof prev.messageKey === 'string' && prev.messageKey.trim() ? prev.messageKey.trim() : null;
+    const projectContext = projectEnabled
+      ? await resolveProjectContextForFile({
+          filePath,
+          projectMetaCache,
+          publicRepoCache,
+          publicRepoResolver,
+          projectState
+        })
+      : null;
+    const projectRef = projectContext?.projectRef || null;
+    const projectKey = projectContext?.projectKey || null;
+
     const result = await parseOpencodeMessageFile({
       filePath,
       messageIndex,
@@ -336,7 +470,11 @@ async function parseOpencodeIncremental({ messageFiles, cursors, queuePath, onPr
       fallbackMessageKey,
       hourlyState,
       touchedBuckets,
-      source: fileSource
+      source: fileSource,
+      projectState,
+      projectTouchedBuckets,
+      projectRef,
+      projectKey
     });
 
     cursors.files[key] = {
@@ -371,12 +509,19 @@ async function parseOpencodeIncremental({ messageFiles, cursors, queuePath, onPr
   }
 
   const bucketsQueued = await enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets });
+  const projectBucketsQueued = projectEnabled
+    ? await enqueueTouchedProjectBuckets({ projectQueuePath, projectState, projectTouchedBuckets })
+    : 0;
   hourlyState.updatedAt = new Date().toISOString();
   cursors.hourly = hourlyState;
   opencodeState.updatedAt = new Date().toISOString();
   cursors.opencode = opencodeState;
+  if (projectState) {
+    projectState.updatedAt = new Date().toISOString();
+    cursors.projectHourly = projectState;
+  }
 
-  return { filesProcessed, eventsAggregated, bucketsQueued };
+  return { filesProcessed, eventsAggregated, bucketsQueued, projectBucketsQueued };
 }
 
 async function parseRolloutFile({
@@ -386,7 +531,11 @@ async function parseRolloutFile({
   lastModel,
   hourlyState,
   touchedBuckets,
-  source
+  source,
+  projectState,
+  projectTouchedBuckets,
+  projectRef,
+  projectKey
 }) {
   const st = await fs.stat(filePath);
   const endOffset = st.size;
@@ -444,13 +593,28 @@ async function parseRolloutFile({
     const bucket = getHourlyBucket(hourlyState, source, model, bucketStart);
     addTotals(bucket.totals, delta);
     touchedBuckets.add(bucketKey(source, model, bucketStart));
+    if (projectKey && projectState && projectTouchedBuckets) {
+      const projectBucket = getProjectBucket(projectState, projectKey, source, bucketStart, projectRef);
+      addTotals(projectBucket.totals, delta);
+      projectTouchedBuckets.add(projectBucketKey(projectKey, source, bucketStart));
+    }
     eventsAggregated += 1;
   }
 
   return { endOffset, lastTotal: totals, lastModel: model, eventsAggregated };
 }
 
-async function parseClaudeFile({ filePath, startOffset, hourlyState, touchedBuckets, source }) {
+async function parseClaudeFile({
+  filePath,
+  startOffset,
+  hourlyState,
+  touchedBuckets,
+  source,
+  projectState,
+  projectTouchedBuckets,
+  projectRef,
+  projectKey
+}) {
   const st = await fs.stat(filePath).catch(() => null);
   if (!st || !st.isFile()) return { endOffset: startOffset, eventsAggregated: 0 };
 
@@ -486,6 +650,11 @@ async function parseClaudeFile({ filePath, startOffset, hourlyState, touchedBuck
     const bucket = getHourlyBucket(hourlyState, source, model, bucketStart);
     addTotals(bucket.totals, delta);
     touchedBuckets.add(bucketKey(source, model, bucketStart));
+    if (projectKey && projectState && projectTouchedBuckets) {
+      const projectBucket = getProjectBucket(projectState, projectKey, source, bucketStart, projectRef);
+      addTotals(projectBucket.totals, delta);
+      projectTouchedBuckets.add(projectBucketKey(projectKey, source, bucketStart));
+    }
     eventsAggregated += 1;
   }
 
@@ -501,7 +670,11 @@ async function parseGeminiFile({
   lastModel,
   hourlyState,
   touchedBuckets,
-  source
+  source,
+  projectState,
+  projectTouchedBuckets,
+  projectRef,
+  projectKey
 }) {
   const raw = await fs.readFile(filePath, 'utf8').catch(() => '');
   if (!raw.trim()) return { lastIndex: startIndex, lastTotals, lastModel, eventsAggregated: 0 };
@@ -554,6 +727,11 @@ async function parseGeminiFile({
     const bucket = getHourlyBucket(hourlyState, source, model, bucketStart);
     addTotals(bucket.totals, delta);
     touchedBuckets.add(bucketKey(source, model, bucketStart));
+    if (projectKey && projectState && projectTouchedBuckets) {
+      const projectBucket = getProjectBucket(projectState, projectKey, source, bucketStart, projectRef);
+      addTotals(projectBucket.totals, delta);
+      projectTouchedBuckets.add(projectBucketKey(projectKey, source, bucketStart));
+    }
     eventsAggregated += 1;
     totals = currentTotals;
   }
@@ -573,7 +751,11 @@ async function parseOpencodeMessageFile({
   fallbackMessageKey,
   hourlyState,
   touchedBuckets,
-  source
+  source,
+  projectState,
+  projectTouchedBuckets,
+  projectRef,
+  projectKey
 }) {
   const fallbackKey =
     typeof fallbackMessageKey === 'string' && fallbackMessageKey.trim() ? fallbackMessageKey.trim() : null;
@@ -645,6 +827,11 @@ async function parseOpencodeMessageFile({
   const bucket = getHourlyBucket(hourlyState, source, model, bucketStart);
   addTotals(bucket.totals, delta);
   touchedBuckets.add(bucketKey(source, model, bucketStart));
+  if (projectKey && projectState && projectTouchedBuckets) {
+    const projectBucket = getProjectBucket(projectState, projectKey, source, bucketStart, projectRef);
+    addTotals(projectBucket.totals, delta);
+    projectTouchedBuckets.add(projectBucketKey(projectKey, source, bucketStart));
+  }
   return { messageKey, lastTotals: currentTotals, eventsAggregated: 1, shouldUpdate: true };
 }
 
@@ -918,6 +1105,45 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
   return toAppend.length;
 }
 
+async function enqueueTouchedProjectBuckets({ projectQueuePath, projectState, projectTouchedBuckets }) {
+  if (!projectQueuePath || !projectState || !projectTouchedBuckets || projectTouchedBuckets.size === 0) return 0;
+
+  await ensureDir(path.dirname(projectQueuePath));
+
+  const toAppend = [];
+  for (const key of projectTouchedBuckets) {
+    const bucket = projectState.buckets[key];
+    if (!bucket || !bucket.totals) continue;
+    const totals = bucket.totals;
+    const queuedKey = totalsKey(totals);
+    if (bucket.queuedKey === queuedKey) continue;
+    const projectRef = typeof bucket.project_ref === 'string' ? bucket.project_ref : null;
+    const projectKey = typeof bucket.project_key === 'string' ? bucket.project_key : null;
+    if (!projectRef || !projectKey) continue;
+
+    toAppend.push(
+      JSON.stringify({
+        project_ref: projectRef,
+        project_key: projectKey,
+        source: bucket.source,
+        hour_start: bucket.hour_start,
+        input_tokens: totals.input_tokens,
+        cached_input_tokens: totals.cached_input_tokens,
+        output_tokens: totals.output_tokens,
+        reasoning_output_tokens: totals.reasoning_output_tokens,
+        total_tokens: totals.total_tokens
+      })
+    );
+    bucket.queuedKey = queuedKey;
+  }
+
+  if (toAppend.length > 0) {
+    await fs.appendFile(projectQueuePath, toAppend.join('\n') + '\n', 'utf8');
+  }
+
+  return toAppend.length;
+}
+
 function pickDominantModel(buckets) {
   let dominantModel = null;
   let dominantTotal = -1;
@@ -1049,6 +1275,31 @@ function normalizeHourlyState(raw) {
   };
 }
 
+function normalizeProjectState(raw) {
+  const state = raw && typeof raw === 'object' ? raw : {};
+  const rawBuckets = state.buckets && typeof state.buckets === 'object' ? state.buckets : {};
+  const buckets = {};
+  const rawProjects = state.projects && typeof state.projects === 'object' ? state.projects : {};
+  const projects = {};
+
+  for (const [key, value] of Object.entries(rawBuckets)) {
+    if (!key) continue;
+    buckets[key] = value;
+  }
+
+  for (const [key, value] of Object.entries(rawProjects)) {
+    if (!key || !value || typeof value !== 'object') continue;
+    projects[key] = { ...value };
+  }
+
+  return {
+    version: 2,
+    buckets,
+    projects,
+    updatedAt: typeof state.updatedAt === 'string' ? state.updatedAt : null
+  };
+}
+
 function normalizeOpencodeState(raw) {
   const state = raw && typeof raw === 'object' ? raw : {};
   const messages = state.messages && typeof state.messages === 'object' ? state.messages : {};
@@ -1089,6 +1340,40 @@ function getHourlyBucket(state, source, model, hourStart) {
   if (bucket.queuedKey != null && typeof bucket.queuedKey !== 'string') {
     bucket.queuedKey = null;
   }
+
+  return bucket;
+}
+
+function getProjectBucket(state, projectKey, source, hourStart, projectRef) {
+  const buckets = state.buckets;
+  const normalizedSource = normalizeSourceInput(source) || DEFAULT_SOURCE;
+  const key = projectBucketKey(projectKey, normalizedSource, hourStart);
+  let bucket = buckets[key];
+  if (!bucket || typeof bucket !== 'object') {
+    bucket = {
+      totals: initTotals(),
+      queuedKey: null,
+      project_key: projectKey,
+      project_ref: projectRef,
+      source: normalizedSource,
+      hour_start: hourStart
+    };
+    buckets[key] = bucket;
+    return bucket;
+  }
+
+  if (!bucket.totals || typeof bucket.totals !== 'object') {
+    bucket.totals = initTotals();
+  }
+
+  if (bucket.queuedKey != null && typeof bucket.queuedKey !== 'string') {
+    bucket.queuedKey = null;
+  }
+
+  if (projectRef) bucket.project_ref = projectRef;
+  if (projectKey) bucket.project_key = projectKey;
+  bucket.source = normalizedSource;
+  bucket.hour_start = hourStart;
 
   return bucket;
 }
@@ -1146,6 +1431,11 @@ function bucketKey(source, model, hourStart) {
   return `${safeSource}${BUCKET_SEPARATOR}${safeModel}${BUCKET_SEPARATOR}${hourStart}`;
 }
 
+function projectBucketKey(projectKey, source, hourStart) {
+  const safeSource = normalizeSourceInput(source) || DEFAULT_SOURCE;
+  return `${projectKey}${BUCKET_SEPARATOR}${safeSource}${BUCKET_SEPARATOR}${hourStart}`;
+}
+
 function groupBucketKey(source, hourStart) {
   const safeSource = normalizeSourceInput(source) || DEFAULT_SOURCE;
   return `${safeSource}${BUCKET_SEPARATOR}${hourStart}`;
@@ -1176,6 +1466,209 @@ function normalizeModelInput(value) {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+async function resolveProjectMetaForPath(startDir, cache) {
+  if (!startDir || typeof startDir !== 'string') return null;
+  if (cache && cache.has(startDir)) return cache.get(startDir);
+
+  const visited = [];
+  let current = startDir;
+  const root = path.parse(startDir).root;
+  while (current) {
+    if (cache && cache.has(current)) {
+      const cached = cache.get(current);
+      for (const entry of visited) cache.set(entry, cached);
+      return cached;
+    }
+    visited.push(current);
+
+    const configPath = await resolveGitConfigPath(current);
+    if (configPath) {
+      const remoteUrl = await readGitRemoteUrl(configPath);
+      const projectRef = canonicalizeProjectRef(remoteUrl);
+      const meta = projectRef ? { projectRef, repoRoot: current } : null;
+      if (cache) {
+        for (const entry of visited) cache.set(entry, meta);
+      }
+      return meta;
+    }
+
+    if (current === root) break;
+    const parent = path.dirname(current);
+    if (!parent || parent === current) break;
+    current = parent;
+  }
+
+  if (cache) {
+    for (const entry of visited) cache.set(entry, null);
+  }
+  return null;
+}
+
+async function defaultPublicRepoResolver({ projectRef, repoRoot, cache }) {
+  if (!projectRef) {
+    return {
+      status: 'blocked',
+      projectKey: null,
+      projectRef: null,
+      repoRootHash: repoRoot ? hashRepoRoot(repoRoot) : null,
+      reason: 'missing_ref'
+    };
+  }
+
+  const cached = cache && cache.has(projectRef) ? cache.get(projectRef) : null;
+  const base = cached || (await resolveGitHubPublicStatus(projectRef));
+  if (cache && !cached) cache.set(projectRef, base);
+  return {
+    ...base,
+    repoRootHash: repoRoot ? hashRepoRoot(repoRoot) : null
+  };
+}
+
+function recordProjectMeta(projectState, meta) {
+  if (!projectState || !meta || typeof meta !== 'object') return;
+  const projectKey = typeof meta.projectKey === 'string' ? meta.projectKey : null;
+  if (!projectKey) return;
+  if (!projectState.projects || typeof projectState.projects !== 'object') {
+    projectState.projects = {};
+  }
+  const prev = projectState.projects[projectKey] || {};
+  const status = typeof meta.status === 'string' ? meta.status : null;
+  const repoRootHash = typeof meta.repoRootHash === 'string' ? meta.repoRootHash : null;
+  const projectRef = typeof meta.projectRef === 'string' ? meta.projectRef : null;
+  const next = {
+    ...prev,
+    project_ref: projectRef || prev.project_ref || null,
+    status: status || prev.status || null,
+    repo_root_hash: repoRootHash || prev.repo_root_hash || null,
+    updated_at: new Date().toISOString()
+  };
+  if (status === 'blocked' && prev.status !== 'blocked') {
+    next.purge_pending = true;
+  } else if (status && status !== 'blocked') {
+    next.purge_pending = false;
+  }
+  projectState.projects[projectKey] = next;
+}
+
+async function resolveProjectContextForFile({
+  filePath,
+  projectMetaCache,
+  publicRepoCache,
+  publicRepoResolver,
+  projectState
+}) {
+  if (!filePath) return null;
+  const projectMeta = await resolveProjectMetaForPath(path.dirname(filePath), projectMetaCache);
+  if (!projectMeta || !projectMeta.projectRef) return null;
+  const resolver = typeof publicRepoResolver === 'function' ? publicRepoResolver : defaultPublicRepoResolver;
+  const meta = await resolver({
+    projectRef: projectMeta.projectRef,
+    repoRoot: projectMeta.repoRoot,
+    cache: publicRepoCache
+  });
+  const repoRootHash = projectMeta.repoRoot ? hashRepoRoot(projectMeta.repoRoot) : null;
+  const normalized = {
+    ...(meta || {}),
+    projectRef: meta?.projectRef || projectMeta.projectRef,
+    projectKey: meta?.projectKey || null,
+    status: meta?.status || 'blocked',
+    repoRootHash: meta?.repoRootHash || repoRootHash
+  };
+  recordProjectMeta(projectState, normalized);
+  if (normalized.status !== 'public_verified') {
+    return { projectRef: normalized.projectRef, projectKey: null, status: normalized.status };
+  }
+  return { projectRef: normalized.projectRef, projectKey: normalized.projectKey, status: normalized.status };
+}
+
+async function resolveGitConfigPath(rootDir) {
+  const gitPath = path.join(rootDir, '.git');
+  const st = await fs.stat(gitPath).catch(() => null);
+  if (!st) return null;
+  if (st.isDirectory()) {
+    const configPath = path.join(gitPath, 'config');
+    const cfg = await fs.stat(configPath).catch(() => null);
+    return cfg && cfg.isFile() ? configPath : null;
+  }
+  if (st.isFile()) {
+    const content = await fs.readFile(gitPath, 'utf8').catch(() => '');
+    const match = content.match(/gitdir:\s*(.+)/i);
+    if (!match) return null;
+    let gitDir = match[1].trim();
+    if (!gitDir) return null;
+    if (!path.isAbsolute(gitDir)) {
+      gitDir = path.resolve(rootDir, gitDir);
+    }
+    const configPath = path.join(gitDir, 'config');
+    const cfg = await fs.stat(configPath).catch(() => null);
+    return cfg && cfg.isFile() ? configPath : null;
+  }
+  return null;
+}
+
+async function readGitRemoteUrl(configPath) {
+  const raw = await fs.readFile(configPath, 'utf8').catch(() => '');
+  if (!raw.trim()) return null;
+
+  const remotes = new Map();
+  let current = null;
+  for (const line of raw.split(/\r?\n/)) {
+    const sectionMatch = line.match(/^\s*\[remote\s+"([^"]+)"\]\s*$/i);
+    if (sectionMatch) {
+      current = sectionMatch[1];
+      continue;
+    }
+    if (!current) continue;
+    const urlMatch = line.match(/^\s*url\s*=\s*(.+)\s*$/i);
+    if (urlMatch) {
+      remotes.set(current, urlMatch[1].trim());
+    }
+  }
+
+  if (remotes.has('origin')) return remotes.get('origin');
+  const first = remotes.values().next();
+  return first.done ? null : first.value;
+}
+
+function canonicalizeProjectRef(remoteUrl) {
+  if (typeof remoteUrl !== 'string') return null;
+  let ref = remoteUrl.trim();
+  if (!ref) return null;
+
+  if (ref.startsWith('file://')) return null;
+  if (path.isAbsolute(ref) || path.win32.isAbsolute(ref)) return null;
+
+  const gitAtMatch = ref.match(/^git@([^:]+):(.+)$/i);
+  if (gitAtMatch) {
+    ref = `https://${gitAtMatch[1]}/${gitAtMatch[2]}`;
+  } else if (ref.startsWith('ssh://')) {
+    try {
+      const parsed = new URL(ref);
+      ref = `https://${parsed.hostname}${parsed.pathname}`;
+    } catch (_e) {
+      return null;
+    }
+  } else if (ref.startsWith('git://')) {
+    ref = `https://${ref.slice('git://'.length)}`;
+  } else if (ref.startsWith('http://')) {
+    ref = `https://${ref.slice('http://'.length)}`;
+  } else if (!ref.startsWith('https://')) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(ref);
+    if (!parsed.hostname) return null;
+    ref = `https://${parsed.hostname}${parsed.pathname}`;
+  } catch (_e) {
+    return null;
+  }
+
+  ref = ref.replace(/\.git$/i, '');
+  ref = ref.replace(/\/+$/, '');
+  return ref || null;
 }
 
 function normalizeGeminiTokens(tokens) {

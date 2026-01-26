@@ -49,7 +49,7 @@ Project-level usage is **only tracked and ingested for public GitHub repositorie
   - `blocked_reason` (non_public | rate_limit | invalid_remote | verification_timeout | error)
   - `usage_total_tokens`
   - `last_verified_at`
-  - `repo_root` (local path; not uploaded)
+  - `repo_root_hash` (local path hash; not uploaded)
 
 ## Deletion Policy
 - On `blocked`, delete only the project usage rows and any project-level file usage. **Never delete** `usage_system_totals`.
@@ -75,5 +75,5 @@ Project-level usage is **only tracked and ingested for public GitHub repositorie
 - Client-only change first; server continues to accept public_verified only.
 - No compatibility shims.
 
-## Open Questions
-- Should we persist `repo_root` long-term or hash it for local privacy?
+## Decisions
+- Persist `repo_root_hash` only (no raw path stored).
