@@ -39,6 +39,25 @@ test('parseHourlyBucket validates half-hour boundaries and tokens', () => {
   assert.equal(invalid.ok, false);
 });
 
+test('parseProjectHourlyBucket validates half-hour boundaries and project fields', () => {
+  const valid = ingestCore.parseProjectHourlyBucket({
+    hour_start: '2026-01-25T10:30:00.000Z',
+    source: 'codex',
+    project_key: 'proj_1',
+    project_ref: 'https://github.com/victorGPT/vibeusage',
+    input_tokens: 1,
+    cached_input_tokens: 0,
+    output_tokens: 2,
+    reasoning_output_tokens: 0,
+    total_tokens: 3
+  });
+  assert.equal(valid.ok, true);
+  assert.equal(valid.value.project_key, 'proj_1');
+
+  const invalid = ingestCore.parseProjectHourlyBucket({ hour_start: '2026-01-25T10:31:00.000Z' });
+  assert.equal(invalid.ok, false);
+});
+
 test('buildRows dedupes hourly buckets by hour/source/model', () => {
   const nowIso = '2026-01-25T12:00:00.000Z';
   const tokenRow = { user_id: 'u1', device_id: 'd1', id: 't1' };
