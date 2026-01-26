@@ -1290,7 +1290,7 @@
     {
       "id": "test_uploader_test_2bc50c67",
       "type": "text",
-      "text": "**uploader.test**\n`test/uploader.test.js`\n\nTest module.\n\n包含：\n- uploader.test (273 行)\n- stubIngestHourly (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**uploader.test**\n`test/uploader.test.js`\n\nTest module.\n\n包含：\n- uploader.test (345 行)\n- stubIngestHourly (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2980,
       "y": 12652,
       "width": 280,
@@ -1799,7 +1799,7 @@
     {
       "id": "utils_uploader_21e03343",
       "type": "text",
-      "text": "**uploader**\n`src/lib/uploader.js`\n\nShared utilities.\n\n包含：\n- uploader (195 行)\n- drainQueueToCloud (9 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**uploader**\n`src/lib/uploader.js`\n\nShared utilities.\n\n包含：\n- uploader (215 行)\n- drainQueueToCloud (9 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1540,
       "y": 9240,
       "width": 280,
