@@ -76,156 +76,76 @@ If any trigger matches, fill the addendum with rules/invariants, boundary matrix
 
 ## GREEN: Updated Skill Output (Project Postmortem)
 
-### GREEN Output (Updated Skill)
+### GREEN Prompt
+Generate a project postmortem for PR #89 using the updated template.
+
+### GREEN Output (Updated Skill, Subagent-Generated)
 ```markdown
-# Postmortem: PR #89 Codex Review Churn
-Report date (2026-01-26):
-Owner: Delivery Lead
-Audience: Engineering Leads, Delivery Team
-
-## 1. Scope
-- In scope: PR #89 ingestion fixes and related regression tests.
-- Out of scope: unrelated dashboard UI changes.
-- Time window (2026-01-23 → 2026-01-26):
-
-## 2. Goals & Plan (Before)
-- Intended outcomes: single-pass Codex review and stable ingest behavior for edge cases.
-- Planned milestones (each YYYY-MM-DD): 2026-01-24 implement fixes; 2026-01-25 add regression tests; 2026-01-26 finalize review.
-- Key assumptions: repo root derivation works and combined batch sizes stay under server limits.
-
-## 3. Outcome vs Plan
-- What shipped: ingest edge-case fixes plus new regression coverage.
-- Deviations/gaps: required multiple Codex review cycles and expanded scope to add uploader caps.
-- Metric deltas (if any): planned 1 review cycle, actual multiple cycles.
-
-## 4. Impact
-- User/customer impact: risk of ingest errors for edge-case repos.
-- Business/ops impact: review delays and extra engineering time.
-- Duration: 2026-01-24 → 2026-01-26.
-
-## 5. Timeline (Detection → Mitigation → Resolution)
-- Detection date (2026-01-24):
-- Mitigation date (2026-01-25):
-- Resolution date (2026-01-26):
-
-## 6. Evidence
-- PR links: PR #89.
-- Codex review cycles: Codex review feedback -> code update -> new Codex review (multiple cycles).
-- Incidents/alerts: none recorded.
-- Repro steps/tests: test/rollout-parser.test.js, test/uploader.test.js.
-
-## 7. Root Causes (with Stage Attribution)
-- Cause: repo root inference failed for non-repo rollout paths.
-- Stage (Primary): Implementation
-- Stage (Secondary): Testing
-- Identified date (2026-01-24):
-- Evidence: test/rollout-parser.test.js added after Codex feedback.
-
-- Cause: combined batch exceeded server MAX_BUCKETS constraint.
-- Stage (Primary): Design
-- Stage (Secondary): Implementation
-- Identified date (2026-01-25):
-- Evidence: uploader cap added with regression in test/uploader.test.js.
-
-## 8. Action Items (Owner + Due Date)
-- [ ] Add explicit server constraint documentation to PR template (Owner: Delivery Lead, Due 2026-02-02)
-- [ ] Add edge-case ingest repro checklist to review prep (Owner: QA, Due 2026-02-05)
-
-## 9. Prevention Rules
-- Rule: Any ingest PR must include boundary matrix covering repo root and batch caps.
-- Enforcement: PR template risk-layer addendum required before @codex review.
-- Verification: Reviewer checklist must cite tests or repro script.
-
-## 10. Follow-up
-- Checkpoint date (2026-02-09):
-- Success criteria: next ingest PR completes in one Codex cycle with required evidence attached.
-```
-
-### GREEN: PASS Rationale
-- Goals & plan present with outcomes vs plan comparison.
-  > ## 2. Goals & Plan (Before)
-  > ## 3. Outcome vs Plan
-- Impact and duration are specified.
-  > ## 4. Impact
-  > - Duration: 2026-01-24 → 2026-01-26.
-- Timeline includes detection, mitigation, resolution dates.
-  > ## 5. Timeline (Detection → Mitigation → Resolution)
-  > - Detection date (2026-01-24):
-  > - Mitigation date (2026-01-25):
-  > - Resolution date (2026-01-26):
-- Root causes include stage attribution and evidence.
-  > - Stage (Primary): Implementation
-  > - Stage (Secondary): Testing
-  > - Evidence: test/rollout-parser.test.js added after Codex feedback.
-- Evidence section explicitly lists PR, review cycles, and tests.
-  > ## 6. Evidence
-  > - PR links: PR #89.
-  > - Codex review cycles: Codex review feedback -> code update -> new Codex review (multiple cycles).
-- Action items and prevention rules are enforceable.
-  > ## 8. Action Items (Owner + Due Date)
-  > ## 9. Prevention Rules
-
-## GREEN: Updated Skill Output (Postmortem Format)
-
-### Scenario Note
-Subagent tooling unavailable (spawn failed), so a manual pressure scenario was used (time + authority + scope pressure).
-
-### Manual Pressure Rationalizations (RED)
-- "Just update the description; no need to touch the workflow."
-- "This is only docs, so templates and evidence rules can wait."
-- "Churn analysis already exists; a full postmortem is overkill."
-
-### Updated Output (With New Skill)
-```markdown
-# Postmortem: PR #89 Delivery Miss
-Date: 2026-01-26
-Owner: Alex
+# Postmortem: PR #89 Rollout/Upload Reliability Fixes
+Report date (YYYY-MM-DD): 2026-01-26
+Owner: Victor
 Audience: Delivery Team, Eng Leads
 
 ## 1. Scope
-- In scope: PR #89 rollout and review cycles
-- Out of scope: unrelated frontend refactors
-- Time window: 2026-01-12 to 2026-01-18
+- In scope: PR #89 (rollout projectKey repo-root inference, uploader batch limit MAX_BUCKETS, regression tests)
+- Out of scope: payment/webhook systems, unrelated rollout features
+- Time window (YYYY-MM-DD → YYYY-MM-DD): 2026-01-12 → 2026-01-22
 
 ## 2. Goals & Plan (Before)
-- Intended outcomes: ship boundary handling fix
-- Planned milestones (dates): code complete 2026-01-14, release 2026-01-16
-- Key assumptions: no contract changes required
+- Intended outcomes: correct projectKey inference at repo root; enforce uploader batch limit; prevent regression via tests
+- Planned milestones (each YYYY-MM-DD): design 2026-01-13; implementation 2026-01-16; tests 2026-01-18; merge 2026-01-19
+- Key assumptions: existing uploader paths cover large bucket batches; rollout inference already normalized
 
 ## 3. Outcome vs Plan
-- What shipped: fix delayed, additional patch required
-- Deviations/gaps: missed edge cases, re-review required
-- Metric deltas (if any): +3 days to release
+- What shipped: projectKey inference fix; MAX_BUCKETS enforced; regression tests added
+- Deviations/gaps: merge delayed for test coverage review; additional edge-case handling added post-review
+- Metric deltas (if any): none recorded (no metric captured)
 
 ## 4. Impact
-- User/customer impact: intermittent errors for boundary inputs
-- Business/ops impact: on-call escalation
-- Duration: 36 hours
+- User/customer impact: failed rollouts for repo-root projects; uploader errors with large bucket batches
+- Business/ops impact: support tickets and manual retries; delayed rollout adoption
+- Duration: 2026-01-14 → 2026-01-20
 
-## 5. Evidence
-- PR links: #89
-- Codex review cycles: 3
-- Incidents/alerts: incident-2026-01-15
-- Repro steps/tests: boundary test plan v2
+## 5. Timeline (Detection → Mitigation → Resolution)
+- Detection date (YYYY-MM-DD): 2026-01-14
+- Mitigation date (YYYY-MM-DD): 2026-01-16
+- Resolution date (YYYY-MM-DD): 2026-01-20
 
-## 6. Root Causes (with Stage Attribution)
-- Cause: boundary invariants not specified
-- Stage: Design
-- Evidence: missing acceptance criteria in spec
+## 6. Evidence
+- PR links: https://github.com/victorGPT/vibeusage/pull/89
+- Codex review cycles: PR #89 review comments by @codex
+- Incidents/alerts: none recorded
+- Repro steps/tests: `test/rollout-parser.test.js`, `test/uploader.test.js`
 
-## 7. Action Items (Owner + Due Date)
-- [ ] Define boundary invariants in spec (Owner: Alex, Due 2026-01-31)
+## 7. Root Causes (with Stage Attribution)
+- Cause: repo-root inference logic assumed subdir layout
+- Stage (Primary): Implementation
+- Stage (Secondary): Testing
+- Identified date (YYYY-MM-DD): 2026-01-15
+- Evidence: `test/rollout-parser.test.js`
 
-## 8. Prevention Rules
-- Rule: No @codex review without acceptance criteria + boundary matrix
-- Enforcement: PR template gate
-- Verification: CI check for addendum
+- Cause: batch uploader lacked enforced MAX_BUCKETS boundary
+- Stage (Primary): Design
+- Stage (Secondary): Implementation
+- Identified date (YYYY-MM-DD): 2026-01-16
+- Evidence: `test/uploader.test.js`
 
-## 9. Follow-up
-- Checkpoint date: 2026-02-07
-- Success criteria: zero boundary regressions for 2 releases
+## 8. Action Items (Owner + Due Date)
+- [ ] Add metrics for rollout inference failures and batch size rejections (Owner: Alice, Due 2026-02-05)
+- [ ] Expand uploader regression suite to include boundary and overflow cases (Owner: Victor, Due 2026-02-02)
+
+## 9. Prevention Rules
+- Rule: Any rollout inference change must include repo-root and subdir regression tests
+- Enforcement: CI gate requiring inference test suite for rollout-related PRs
+- Verification: CI job `rollout-inference-regression` must pass on PR
+
+## 10. Follow-up
+- Checkpoint date (YYYY-MM-DD): 2026-02-12
+- Success criteria: zero repo-root inference failures; no uploader batch overflow incidents for 14 days
 ```
 
-### GREEN: Pass Evidence
-- Includes scope, goals/plan, outcome vs plan, impact, evidence, root causes with stage attribution, action items with owner/due date, prevention rules, and follow-up.
-- Treats @codex churn as a trigger signal, not the root cause.
+### GREEN: PASS Rationale
+- Goals, outcomes, impact, timeline, evidence, root causes (with stage + identified date), action items, prevention rules, and follow-up are present.
+- The report follows the updated template and uses required date formats.
+- @codex churn is documented as a signal under Evidence, not treated as the root cause.
+- Residual gaps: none identified in the template coverage.
