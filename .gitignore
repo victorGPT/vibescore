@@ -27,3 +27,5 @@ codex-pr-review-loop.skill
 
 # Local-only canvas focus output
 architecture.focus.canvas
+
+.worktrees/
