@@ -172,6 +172,78 @@ test('drainQueueToCloud uploads project buckets even when hourly queue is empty'
   }
 });
 
+test('drainQueueToCloud caps combined batch size across queues', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-uploader-'));
+  const queuePath = path.join(tmp, 'queue.jsonl');
+  const queueStatePath = path.join(tmp, 'queue.state.json');
+  const projectQueuePath = path.join(tmp, 'project.queue.jsonl');
+  const projectQueueStatePath = path.join(tmp, 'project.queue.state.json');
+
+  const hourly = [
+    '2025-12-17T00:00:00.000Z',
+    '2025-12-17T00:30:00.000Z',
+    '2025-12-17T01:00:00.000Z',
+    '2025-12-17T01:30:00.000Z'
+  ].map((hourStart) =>
+    JSON.stringify({
+      source: 'codex',
+      model: 'unknown',
+      hour_start: hourStart,
+      input_tokens: 1,
+      cached_input_tokens: 0,
+      output_tokens: 0,
+      reasoning_output_tokens: 0,
+      total_tokens: 1
+    })
+  );
+
+  const project = [
+    '2025-12-17T02:00:00.000Z',
+    '2025-12-17T02:30:00.000Z',
+    '2025-12-17T03:00:00.000Z',
+    '2025-12-17T03:30:00.000Z'
+  ].map((hourStart) =>
+    JSON.stringify({
+      project_ref: 'https://github.com/acme/alpha',
+      project_key: 'acme/alpha',
+      source: 'codex',
+      hour_start: hourStart,
+      input_tokens: 1,
+      cached_input_tokens: 0,
+      output_tokens: 0,
+      reasoning_output_tokens: 0,
+      total_tokens: 1
+    })
+  );
+
+  await fs.writeFile(queuePath, hourly.join('\n') + '\n', 'utf8');
+  await fs.writeFile(projectQueuePath, project.join('\n') + '\n', 'utf8');
+
+  const stub = stubIngestHourly();
+  try {
+    const { drainQueueToCloud } = require('../src/lib/uploader');
+    await drainQueueToCloud({
+      baseUrl: 'http://localhost',
+      deviceToken: 'device-token',
+      queuePath,
+      queueStatePath,
+      projectQueuePath,
+      projectQueueStatePath,
+      maxBatches: 1,
+      batchSize: 4
+    });
+
+    assert.equal(stub.calls.length, 1);
+    const combined = stub.calls[0].hourly.length + stub.calls[0].project_hourly.length;
+    assert.equal(combined, 4);
+    assert.ok(stub.calls[0].hourly.length > 0);
+    assert.ok(stub.calls[0].project_hourly.length > 0);
+  } finally {
+    stub.restore();
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 test('drainQueueToCloud reports combined offset in progress callback', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-uploader-'));
   const queuePath = path.join(tmp, 'queue.jsonl');

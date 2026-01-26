@@ -8,6 +8,7 @@ const { ingestHourly } = require('./vibeusage-api');
 const DEFAULT_SOURCE = 'codex';
 const DEFAULT_MODEL = 'unknown';
 const BUCKET_SEPARATOR = '|';
+const MAX_INGEST_BUCKETS = 500;
 
 async function drainQueueToCloud({
   baseUrl,
@@ -40,12 +41,31 @@ async function drainQueueToCloud({
 
   const cb = typeof onProgress === 'function' ? onProgress : null;
   const queueSize = await safeFileSize(queuePath);
-  const projectQueueSize = await safeFileSize(projectQueuePath);
+  const projectQueueSize = projectQueueEnabled ? await safeFileSize(projectQueuePath) : 0;
   const maxBuckets = Math.max(1, Math.floor(Number(batchSize || 200)));
+  const totalLimit = Math.min(maxBuckets, MAX_INGEST_BUCKETS);
 
   for (let batch = 0; batch < maxBatches; batch++) {
-    const res = await readBatch(queuePath, offset, maxBuckets);
-    const projectRes = await readProjectBatch(projectQueuePath, projectOffset, maxBuckets);
+    const hasHourly = queueSize > offset;
+    const hasProject = projectQueueEnabled && projectQueueSize > projectOffset;
+    let hourlyLimit = 0;
+    let projectLimit = 0;
+
+    if (hasHourly && hasProject) {
+      hourlyLimit = Math.ceil(totalLimit / 2);
+      projectLimit = totalLimit - hourlyLimit;
+    } else if (hasHourly) {
+      hourlyLimit = totalLimit;
+    } else if (hasProject) {
+      projectLimit = totalLimit;
+    }
+
+    const res =
+      hourlyLimit > 0 ? await readBatch(queuePath, offset, hourlyLimit) : { buckets: [], nextOffset: offset };
+    const projectRes =
+      projectLimit > 0
+        ? await readProjectBatch(projectQueuePath, projectOffset, projectLimit)
+        : { buckets: [], nextOffset: projectOffset };
     if (res.buckets.length === 0 && projectRes.buckets.length === 0) break;
 
     attempted += res.buckets.length + projectRes.buckets.length;
