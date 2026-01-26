@@ -422,7 +422,43 @@ var require_auth = __commonJS({
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const local = await verifyUserJwtHs256({ token: bearer });
       if (!local.ok) return { ok: false, edgeClient: null, userId: null, error: local };
-      return { ok: true, edgeClient, userId: local.userId };
+      if (typeof edgeClient?.auth?.getCurrentUser !== "function") {
+        return {
+          ok: false,
+          edgeClient: null,
+          userId: null,
+          error: { error: "Auth client unavailable", code: "missing_auth_client" }
+        };
+      }
+      let authResult = null;
+      try {
+        authResult = await edgeClient.auth.getCurrentUser();
+      } catch (e) {
+        return {
+          ok: false,
+          edgeClient: null,
+          userId: null,
+          error: { error: e?.message || "Auth lookup failed", code: "auth_lookup_failed" }
+        };
+      }
+      const authUserId = authResult?.data?.user?.id || null;
+      if (!authUserId || authResult?.error) {
+        return {
+          ok: false,
+          edgeClient: null,
+          userId: null,
+          error: { error: authResult?.error?.message || "Auth lookup failed", code: "auth_lookup_failed" }
+        };
+      }
+      if (authUserId !== local.userId) {
+        return {
+          ok: false,
+          edgeClient: null,
+          userId: null,
+          error: { error: "User mismatch", code: "user_mismatch" }
+        };
+      }
+      return { ok: true, edgeClient, userId: authUserId };
     }
     async function getAccessContext({ baseUrl, bearer, allowPublic = false }) {
       if (!bearer) return { ok: false, edgeClient: null, userId: null, accessType: null };

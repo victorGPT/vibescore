@@ -126,6 +126,26 @@ test('local jwt verification rejects when secret missing', async () => {
   assert.equal(res.code, 'missing_jwt_secret');
 });
 
+test('getEdgeClientAndUserIdFast rejects when auth lookup fails', async () => {
+  const userId = '33333333-3333-3333-3333-333333333333';
+  const userJwt = createUserJwt(userId);
+  let authCalls = 0;
+
+  globalThis.createClient = () => ({
+    auth: {
+      getCurrentUser: async () => {
+        authCalls += 1;
+        return { data: { user: null }, error: { message: 'User missing' } };
+      }
+    }
+  });
+
+  const { getEdgeClientAndUserIdFast } = require('../insforge-src/shared/auth');
+  const res = await getEdgeClientAndUserIdFast({ baseUrl: BASE_URL, bearer: userJwt });
+  assert.equal(res.ok, false);
+  assert.equal(authCalls, 1);
+});
+
 test('vibeusage-debug-auth accepts locally verified jwt', async () => {
   const fn = require('../insforge-functions/vibeusage-debug-auth');
   const userId = '33333333-3333-3333-3333-333333333333';
@@ -3467,7 +3487,7 @@ test('vibeusage-usage-summary logs vibeusage function name', () =>
   }
   }));
 
-test('vibeusage-usage-summary uses local jwt payload without auth lookup', () =>
+test('vibeusage-usage-summary validates user via auth lookup', () =>
   withRollupEnabled(async () => {
   const fn = require('../insforge-functions/vibeusage-usage-summary');
 
@@ -3493,6 +3513,12 @@ test('vibeusage-usage-summary uses local jwt payload without auth lookup', () =>
     if (args && args.edgeFunctionToken === userJwt) {
       assert.equal(args.anonKey, ANON_KEY);
       return {
+        auth: {
+          getCurrentUser: async () => {
+            authCalls += 1;
+            return { data: { user: { id: userId } }, error: null };
+          }
+        },
         database: {
           from: (table) => {
             if (table === 'vibeusage_tracker_hourly') {
@@ -3541,7 +3567,7 @@ test('vibeusage-usage-summary uses local jwt payload without auth lookup', () =>
   assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'hour_start' && f.value === '2025-12-21T00:00:00.000Z'));
   assert.ok(filters.some((f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-22T00:00:00.000Z'));
   assert.ok(orders.some((o) => o.col === 'hour_start'));
-  assert.equal(authCalls, 0, 'expected auth.getCurrentUser to be unused');
+  assert.equal(authCalls, 1, 'expected auth.getCurrentUser to be used');
   }));
 
 test('vibeusage-usage-summary rejects oversized ranges', { concurrency: 1 }, async () => {
@@ -5293,6 +5319,9 @@ test('vibeusage-leaderboard rejects invalid period', async () => {
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
       return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
         database: {
           from: () => {
             throw new Error('Unexpected database access');
@@ -5466,6 +5495,9 @@ test('vibeusage-user-status returns pro.active for cutoff user', async () => {
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
       return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
         database: {
           from: (table) => {
             assert.equal(table, 'vibeusage_user_entitlements');
@@ -5523,6 +5555,9 @@ test('vibeusage-user-status falls back to users table when created_at missing', 
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
       return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
         database: {
           from: (table) => {
             assert.equal(table, 'vibeusage_user_entitlements');
@@ -5585,6 +5620,9 @@ test('vibeusage-user-status degrades when created_at missing and no service role
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
       return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
         database: {
           from: (table) => {
             assert.equal(table, 'vibeusage_user_entitlements');
