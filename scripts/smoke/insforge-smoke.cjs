@@ -12,6 +12,10 @@
  */
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+loadDotEnv();
+
 const AUTH_RETRY_DELAY_MS = normalizePositiveInt(process.env.VIBEUSAGE_SMOKE_AUTH_RETRY_MS, 5000);
 const AUTH_RETRIES = normalizePositiveInt(process.env.VIBEUSAGE_SMOKE_AUTH_RETRIES, 6);
 
@@ -19,6 +23,28 @@ main().catch((err) => {
   console.error(err && err.stack ? err.stack : String(err));
   process.exit(1);
 });
+
+function loadDotEnv() {
+  const root = path.resolve(__dirname, '..', '..');
+  for (const filename of ['.env', '.env.local']) {
+    const filePath = path.join(root, filename);
+    if (!fs.existsSync(filePath)) continue;
+    const content = fs.readFileSync(filePath, 'utf8');
+    for (const line of content.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/);
+      if (!match) continue;
+      const key = match[1];
+      if (process.env[key] !== undefined) continue;
+      let value = match[2] ?? '';
+      if (value.startsWith('"') && value.endsWith('"')) {
+        value = value.slice(1, -1);
+      }
+      process.env[key] = value;
+    }
+  }
+}
 
 async function main() {
   const baseUrl = process.env.VIBEUSAGE_INSFORGE_BASE_URL || 'https://5tmappuk.us-east.insforge.app';
