@@ -188,6 +188,14 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
     }
   };
 
+  const applyHourlyOrdering = (query) => {
+    return query
+      .order('hour_start', { ascending: true })
+      .order('device_id', { ascending: true })
+      .order('source', { ascending: true })
+      .order('model', { ascending: true });
+  };
+
   const sumHourlyRange = async (rangeStartIso, rangeEndIso) => {
     const { error } = await forEachPage({
       createQuery: () => {
@@ -200,13 +208,8 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
         if (source) query = query.eq('source', source);
         if (hasModelFilter) query = applyUsageModelFilter(query, usageModels);
         query = applyCanaryFilter(query, { source, model: canonicalModel });
-        return query
-          .gte('hour_start', rangeStartIso)
-          .lt('hour_start', rangeEndIso)
-          .order('hour_start', { ascending: true })
-          .order('device_id', { ascending: true })
-          .order('source', { ascending: true })
-          .order('model', { ascending: true });
+        query = query.gte('hour_start', rangeStartIso).lt('hour_start', rangeEndIso);
+        return applyHourlyOrdering(query);
       },
       onPage: (rows) => {
         const pageRows = Array.isArray(rows) ? rows : [];
@@ -280,13 +283,8 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
         if (source) query = query.eq('source', source);
         if (hasModelFilter) query = applyUsageModelFilter(query, usageModels);
         query = applyCanaryFilter(query, { source, model: canonicalModel });
-        return query
-          .gte('hour_start', rangeStartIso)
-          .lt('hour_start', rangeEndIso)
-          .order('hour_start', { ascending: true })
-          .order('device_id', { ascending: true })
-          .order('source', { ascending: true })
-          .order('model', { ascending: true });
+        query = query.gte('hour_start', rangeStartIso).lt('hour_start', rangeEndIso);
+        return applyHourlyOrdering(query);
       },
       onPage: (rows) => {
         const pageRows = Array.isArray(rows) ? rows : [];
