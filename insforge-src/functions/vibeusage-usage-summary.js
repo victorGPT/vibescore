@@ -19,6 +19,7 @@ const {
   addDatePartsDays,
   addUtcDays,
   formatDateUTC,
+  formatDateParts,
   getUsageMaxDays,
   getUsageTimeZoneContext,
   listDateStrings,
@@ -47,6 +48,7 @@ const {
   resolveDisplayName
 } = require('../shared/core/usage-summary');
 const { logSlowQuery, withRequestLogging } = require('../shared/logging');
+const { toBigInt } = require('../shared/numbers');
 const { isDebugEnabled, withSlowQueryDebugPayload } = require('../shared/debug');
 const {
   buildAliasTimeline,
@@ -79,6 +81,7 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
   if (!auth.ok) return respond({ error: 'Unauthorized' }, 401, 0);
 
   const tzContext = getUsageTimeZoneContext(url);
+  const rollingEnabled = url.searchParams.get('rolling') === '1';
   const sourceResult = getSourceParam(url);
   if (!sourceResult.ok) return respond({ error: sourceResult.error }, 400, 0);
   const source = sourceResult.source;
@@ -265,6 +268,198 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
     return { ok: true, rowsCount: rows.length };
   };
 
+  const sumHourlyRangeInto = async (rangeStartIso, rangeEndIso, onRow) => {
+    const { error } = await forEachPage({
+      createQuery: () => {
+        let query = auth.edgeClient.database
+          .from('vibeusage_tracker_hourly')
+          .select(
+            'hour_start,source,model,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens'
+          )
+          .eq('user_id', auth.userId);
+        if (source) query = query.eq('source', source);
+        if (hasModelFilter) query = applyUsageModelFilter(query, usageModels);
+        query = applyCanaryFilter(query, { source, model: canonicalModel });
+        return query
+          .gte('hour_start', rangeStartIso)
+          .lt('hour_start', rangeEndIso)
+          .order('hour_start', { ascending: true })
+          .order('device_id', { ascending: true })
+          .order('source', { ascending: true })
+          .order('model', { ascending: true });
+      },
+      onPage: (rows) => {
+        const pageRows = Array.isArray(rows) ? rows : [];
+        for (const row of pageRows) onRow(row);
+      }
+    });
+    if (error) return { ok: false, error };
+    return { ok: true };
+  };
+
+  const sumRollupRangeInto = async (fromDay, toDay, onRow) => {
+    let rows = [];
+    if (hasModelFilter && Array.isArray(usageModels) && usageModels.length > 0) {
+      for (const usageModel of usageModels) {
+        const rollupRes = await fetchRollupRows({
+          edgeClient: auth.edgeClient,
+          userId: auth.userId,
+          fromDay,
+          toDay,
+          source,
+          model: usageModel
+        });
+        if (!rollupRes.ok) return { ok: false, error: rollupRes.error };
+        rows = rows.concat(Array.isArray(rollupRes.rows) ? rollupRes.rows : []);
+      }
+    } else {
+      const rollupRes = await fetchRollupRows({
+        edgeClient: auth.edgeClient,
+        userId: auth.userId,
+        fromDay,
+        toDay,
+        source,
+        model: canonicalModel || null
+      });
+      if (!rollupRes.ok) return { ok: false, error: rollupRes.error };
+      rows = Array.isArray(rollupRes.rows) ? rollupRes.rows : [];
+    }
+    for (const row of rows) onRow(row);
+    return { ok: true, rowsCount: rows.length };
+  };
+
+  const sumRangeWithRollup = async ({
+    rangeStartIso,
+    rangeEndIso,
+    rangeStartUtc,
+    rangeEndUtc,
+    onRow
+  }) => {
+    const rangeStartDayUtc = new Date(Date.UTC(
+      rangeStartUtc.getUTCFullYear(),
+      rangeStartUtc.getUTCMonth(),
+      rangeStartUtc.getUTCDate()
+    ));
+    const rangeEndDayUtc = new Date(Date.UTC(
+      rangeEndUtc.getUTCFullYear(),
+      rangeEndUtc.getUTCMonth(),
+      rangeEndUtc.getUTCDate()
+    ));
+
+    const sameUtcDay = rangeStartDayUtc.getTime() === rangeEndDayUtc.getTime();
+    const startIsBoundary = rangeStartUtc.getTime() === rangeStartDayUtc.getTime();
+    const endIsBoundary = rangeEndUtc.getTime() === rangeEndDayUtc.getTime();
+
+    if (!rollupEnabled) {
+      return sumHourlyRangeInto(rangeStartIso, rangeEndIso, onRow);
+    }
+
+    let hourlyError = null;
+    let rollupEmptyWithHourly = false;
+    if (sameUtcDay) {
+      const hourlyRes = await sumHourlyRangeInto(rangeStartIso, rangeEndIso, onRow);
+      if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+    } else {
+      const rollupStartDate = startIsBoundary
+        ? rangeStartDayUtc
+        : addUtcDays(rangeStartDayUtc, 1);
+      const rollupEndDate = addUtcDays(rangeEndDayUtc, -1);
+
+      if (!startIsBoundary) {
+        const hourlyRes = await sumHourlyRangeInto(rangeStartIso, rollupStartDate.toISOString(), onRow);
+        if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+      }
+
+      if (!endIsBoundary && !hourlyError) {
+        const hourlyRes = await sumHourlyRangeInto(rangeEndDayUtc.toISOString(), rangeEndIso, onRow);
+        if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+      }
+
+      if (!hourlyError) {
+        if (rollupStartDate.getTime() <= rollupEndDate.getTime()) {
+          const rollupRes = await sumRollupRangeInto(
+            formatDateUTC(rollupStartDate),
+            formatDateUTC(rollupEndDate),
+            onRow
+          );
+          if (!rollupRes.ok) {
+            hourlyError = rollupRes.error;
+          } else if (rollupRes.rowsCount === 0) {
+            const hourlyCheck = await hasHourlyData(rangeStartIso, rangeEndIso);
+            if (!hourlyCheck.ok) {
+              hourlyError = hourlyCheck.error;
+            } else if (hourlyCheck.hasRows) {
+              rollupEmptyWithHourly = true;
+            }
+          }
+        }
+      }
+    }
+
+    if (hourlyError || rollupEmptyWithHourly) {
+      return sumHourlyRangeInto(rangeStartIso, rangeEndIso, onRow);
+    }
+
+    return { ok: true };
+  };
+
+  const buildRollingWindow = async ({ fromDay, toDay }) => {
+    const rangeStartParts = parseDateParts(fromDay);
+    const rangeEndParts = parseDateParts(toDay);
+    if (!rangeStartParts || !rangeEndParts) {
+      return { ok: false, error: new Error('Invalid rolling range') };
+    }
+
+    const rangeStartUtc = localDatePartsToUtc(rangeStartParts, tzContext);
+    const rangeEndUtc = localDatePartsToUtc(addDatePartsDays(rangeEndParts, 1), tzContext);
+    if (!Number.isFinite(rangeStartUtc.getTime()) || !Number.isFinite(rangeEndUtc.getTime())) {
+      return { ok: false, error: new Error('Invalid rolling range') };
+    }
+
+    const rangeStartIso = rangeStartUtc.toISOString();
+    const rangeEndIso = rangeEndUtc.toISOString();
+    const totals = createTotals();
+    const activeByDay = new Map();
+
+    const ingestRollingRow = (row) => {
+      if (!shouldIncludeRow(row)) return;
+      const sourceKey = normalizeSource(row?.source) || DEFAULT_SOURCE;
+      const { billable, hasStoredBillable } = resolveBillableTotals({ row, source: sourceKey });
+      applyTotalsAndBillable({ totals, row, billable, hasStoredBillable });
+      const dayKey = extractDateKey(row?.hour_start || row?.day);
+      if (!dayKey) return;
+      const activeValue = row?.billable_total_tokens != null
+        ? toBigInt(row?.billable_total_tokens)
+        : toBigInt(row?.total_tokens);
+      if (activeValue <= 0n) return;
+      const prev = activeByDay.get(dayKey) || 0n;
+      activeByDay.set(dayKey, prev + activeValue);
+    };
+
+    const sumRes = await sumRangeWithRollup({
+      rangeStartIso,
+      rangeEndIso,
+      rangeStartUtc,
+      rangeEndUtc,
+      onRow: ingestRollingRow
+    });
+    if (!sumRes.ok) return sumRes;
+
+    const activeDays = Array.from(activeByDay.values()).filter((value) => value > 0n).length;
+    const avg = activeDays > 0 ? totals.billable_total_tokens / BigInt(activeDays) : 0n;
+
+    return {
+      ok: true,
+      payload: {
+        from: fromDay,
+        to: toDay,
+        totals: { billable_total_tokens: totals.billable_total_tokens.toString() },
+        active_days: activeDays,
+        avg_per_active_day: avg.toString()
+      }
+    };
+  };
+
   const startDayUtc = new Date(Date.UTC(
     startUtc.getUTCFullYear(),
     startUtc.getUTCMonth(),
@@ -336,6 +531,29 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
         return respond({ error: fallbackRes.error.message }, 500, queryDurationMs);
       }
     }
+  }
+
+  let rollingPayload = null;
+  if (rollingEnabled) {
+    const last7From = formatDateParts(addDatePartsDays(endParts, -6));
+    const last30From = formatDateParts(addDatePartsDays(endParts, -29));
+    if (!last7From || !last30From) {
+      return respond({ error: 'Invalid rolling range' }, 400, 0);
+    }
+    const last7Res = await buildRollingWindow({ fromDay: last7From, toDay: to });
+    if (!last7Res.ok) {
+      const queryDurationMs = Date.now() - queryStartMs;
+      return respond({ error: last7Res.error.message }, 500, queryDurationMs);
+    }
+    const last30Res = await buildRollingWindow({ fromDay: last30From, toDay: to });
+    if (!last30Res.ok) {
+      const queryDurationMs = Date.now() - queryStartMs;
+      return respond({ error: last30Res.error.message }, 500, queryDurationMs);
+    }
+    rollingPayload = {
+      last_7d: last7Res.payload,
+      last_30d: last30Res.payload
+    };
   }
 
   const queryDurationMs = Date.now() - queryStartMs;
@@ -460,20 +678,19 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
     total_cost_usd: formatUsdFromMicros(totalCostMicros)
   };
 
-  return respond(
-    {
-      from,
-      to,
-      days: dayKeys.length,
-      model_id: hasModelParam ? impliedModelId || null : null,
-      model: hasModelParam && impliedModelId ? impliedModelDisplay : null,
-      totals: totalsPayload,
-      pricing: buildPricingMetadata({
-        profile: overallCost.profile,
-        pricingMode: summaryPricingMode
-      })
-    },
-    200,
-    queryDurationMs
-  );
+  const responsePayload = {
+    from,
+    to,
+    days: dayKeys.length,
+    model_id: hasModelParam ? impliedModelId || null : null,
+    model: hasModelParam && impliedModelId ? impliedModelDisplay : null,
+    totals: totalsPayload,
+    pricing: buildPricingMetadata({
+      profile: overallCost.profile,
+      pricingMode: summaryPricingMode
+    })
+  };
+  if (rollingPayload) responsePayload.rolling = rollingPayload;
+
+  return respond(responsePayload, 200, queryDurationMs);
 });
