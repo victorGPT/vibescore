@@ -637,7 +637,7 @@ test('vibeusage-ingest ingests project_hourly buckets and upserts project regist
   assert.equal(res.status, 200);
 
   const data = await res.json();
-  assert.deepEqual(data, { success: true, inserted: 0, skipped: 0, project_inserted: 1, project_skipped: 0 });
+  assert.deepEqual(data, { success: true, inserted: 1, skipped: 0 });
 
   const projectUsageCall = fetchCalls.find((call) =>
     String(call.url).includes('/api/database/records/vibeusage_project_usage_hourly')
@@ -650,7 +650,7 @@ test('vibeusage-ingest ingests project_hourly buckets and upserts project regist
   assert.equal(usageRows.length, 1);
   assert.equal(usageRows[0]?.project_ref, projectBucket.project_ref);
   assert.equal(usageRows[0]?.project_key, projectBucket.project_key);
-  assert.equal(usageRows[0]?.total_tokens, 6);
+  assert.equal(usageRows[0]?.billable_total_tokens, '6');
 
   const projectRegistryCall = fetchCalls.find((call) =>
     String(call.url).includes('/api/database/records/vibeusage_projects')
