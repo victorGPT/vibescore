@@ -670,7 +670,7 @@
     {
       "id": "test_edge-functions_test_deffefcc",
       "type": "text",
-      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- edge-functions.test (6234 行)\n- toBase64Url (1 个参数)\n\n依赖：3 个模块\n被依赖：0 次",
+      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- edge-functions.test (6373 行)\n- toBase64Url (1 个参数)\n\n依赖：3 个模块\n被依赖：0 次",
       "x": 1540,
       "y": 12464,
       "width": 280,
@@ -2345,7 +2345,7 @@
     {
       "id": "utils_auth_7a311011",
       "type": "text",
-      "text": "**auth**\n`insforge-src/shared/auth.js`\n\nShared utilities.\n\n包含：\n- auth (125 行)\n- getBearerToken (1 个参数)\n\n依赖：0 个模块\n被依赖：5 次",
+      "text": "**auth**\n`insforge-src/shared/auth.js`\n\nShared utilities.\n\n包含：\n- auth (243 行)\n- getBearerToken (1 个参数)\n\n依赖：0 个模块\n被依赖：5 次",
       "x": 100,
       "y": 6016,
       "width": 280,
@@ -2447,7 +2447,7 @@
     {
       "id": "utils_env_27e9ff64",
       "type": "text",
-      "text": "**env**\n`insforge-src/shared/env.js`\n\nShared utilities.\n\n包含：\n- env (26 行)\n- getBaseUrl (0 个参数)\n\n依赖：0 个模块\n被依赖：5 次",
+      "text": "**env**\n`insforge-src/shared/env.js`\n\nShared utilities.\n\n包含：\n- env (31 行)\n- getBaseUrl (0 个参数)\n\n依赖：0 个模块\n被依赖：5 次",
       "x": 2260,
       "y": 6376,
       "width": 280,
@@ -2838,7 +2838,7 @@
     {
       "id": "edge-function_vibeusage-debug-auth_796432e5",
       "type": "text",
-      "text": "**vibeusage-debug-auth**\n`insforge-src/functions/vibeusage-debug-auth.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-debug-auth (78 行)\n- exports (0 个参数)\n\n依赖：3 个模块\n被依赖：0 次",
+      "text": "**vibeusage-debug-auth**\n`insforge-src/functions/vibeusage-debug-auth.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-debug-auth (62 行)\n- exports (0 个参数)\n\n依赖：3 个模块\n被依赖：0 次",
       "x": 100,
       "y": 4936,
       "width": 280,
@@ -3229,7 +3229,7 @@
     {
       "id": "edge-function_vibeusage-user-status_a869d4d9",
       "type": "text",
-      "text": "**vibeusage-user-status**\n`insforge-src/functions/vibeusage-user-status.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-user-status (84 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibeusage-user-status**\n`insforge-src/functions/vibeusage-user-status.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-user-status (78 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2620,
       "y": 5656,
       "width": 280,

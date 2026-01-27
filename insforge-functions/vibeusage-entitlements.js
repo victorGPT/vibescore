@@ -69,10 +69,14 @@ var require_env = __commonJS({
     function getAnonKey2() {
       return Deno.env.get("ANON_KEY") || Deno.env.get("INSFORGE_ANON_KEY") || null;
     }
+    function getJwtSecret() {
+      return Deno.env.get("INSFORGE_JWT_SECRET") || null;
+    }
     module2.exports = {
       getBaseUrl: getBaseUrl2,
       getServiceRoleKey: getServiceRoleKey2,
-      getAnonKey: getAnonKey2
+      getAnonKey: getAnonKey2,
+      getJwtSecret
     };
   }
 });
@@ -133,7 +137,7 @@ var require_public_view = __commonJS({
 var require_auth = __commonJS({
   "insforge-src/shared/auth.js"(exports2, module2) {
     "use strict";
-    var { getAnonKey: getAnonKey2 } = require_env();
+    var { getAnonKey: getAnonKey2, getJwtSecret } = require_env();
     var { resolvePublicView } = require_public_view();
     function getBearerToken2(headerValue) {
       if (!headerValue) return null;
@@ -171,6 +175,18 @@ var require_auth = __commonJS({
         return null;
       }
     }
+    function decodeJwtHeader(token) {
+      if (typeof token !== "string") return null;
+      const parts = token.split(".");
+      if (parts.length < 2) return null;
+      const raw = decodeBase64Url(parts[0]);
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch (_e) {
+        return null;
+      }
+    }
     function getJwtRole(token) {
       const payload = decodeJwtPayload(token);
       const role = payload?.role;
@@ -194,25 +210,121 @@ var require_auth = __commonJS({
       if (!Number.isFinite(exp)) return false;
       return exp * 1e3 <= Date.now();
     }
+    function base64UrlEncode(value) {
+      let base64 = null;
+      try {
+        if (typeof Buffer !== "undefined") {
+          base64 = Buffer.from(value).toString("base64");
+        }
+      } catch (_e) {
+      }
+      if (!base64 && typeof btoa === "function" && value instanceof ArrayBuffer) {
+        const bytes = new Uint8Array(value);
+        let binary = "";
+        for (const byte of bytes) binary += String.fromCharCode(byte);
+        base64 = btoa(binary);
+      }
+      if (!base64) return null;
+      return base64.replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+    }
+    async function verifyUserJwtHs256({ token }) {
+      const secret = getJwtSecret();
+      if (!secret) {
+        return { ok: false, userId: null, error: "Missing jwt secret", code: "missing_jwt_secret" };
+      }
+      if (typeof token !== "string") {
+        return { ok: false, userId: null, error: "Invalid token" };
+      }
+      const parts = token.split(".");
+      if (parts.length !== 3) {
+        return { ok: false, userId: null, error: "Invalid token" };
+      }
+      const header = decodeJwtHeader(token);
+      if (!header || header.alg !== "HS256") {
+        return { ok: false, userId: null, error: "Unsupported alg" };
+      }
+      const payload = decodeJwtPayload(token);
+      if (!payload) {
+        return { ok: false, userId: null, error: "Invalid payload" };
+      }
+      const exp = Number(payload?.exp);
+      if (!Number.isFinite(exp)) {
+        return { ok: false, userId: null, error: "Missing exp" };
+      }
+      if (isJwtExpired(payload)) {
+        return { ok: false, userId: null, error: "Token expired" };
+      }
+      const cryptoSubtle = globalThis.crypto?.subtle;
+      if (!cryptoSubtle) {
+        return { ok: false, userId: null, error: "Crypto unavailable" };
+      }
+      const data = `${parts[0]}.${parts[1]}`;
+      const encoder = new TextEncoder();
+      const key = await cryptoSubtle.importKey(
+        "raw",
+        encoder.encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+      const signature = await cryptoSubtle.sign("HMAC", key, encoder.encode(data));
+      const expected = base64UrlEncode(signature);
+      if (!expected || expected !== parts[2]) {
+        return { ok: false, userId: null, error: "Invalid signature" };
+      }
+      const userId = typeof payload.sub === "string" ? payload.sub : null;
+      if (!userId) {
+        return { ok: false, userId: null, error: "Missing sub" };
+      }
+      return { ok: true, userId, error: null };
+    }
     async function getEdgeClientAndUserId({ baseUrl, bearer }) {
-      const anonKey = getAnonKey2();
-      const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
-      const { data: userData, error: userErr } = await edgeClient.auth.getCurrentUser();
-      const userId = userData?.user?.id;
-      if (userErr || !userId) return { ok: false, edgeClient: null, userId: null };
-      return { ok: true, edgeClient, userId };
+      const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
+      if (!auth.ok) return { ok: false, edgeClient: null, userId: null };
+      return { ok: true, edgeClient: auth.edgeClient, userId: auth.userId };
     }
     async function getEdgeClientAndUserIdFast({ baseUrl, bearer }) {
       const anonKey = getAnonKey2();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
-      const payload = decodeJwtPayload(bearer);
-      if (payload && isJwtExpired(payload)) {
-        return { ok: false, edgeClient: null, userId: null };
+      const local = await verifyUserJwtHs256({ token: bearer });
+      if (!local.ok) return { ok: false, edgeClient: null, userId: null, error: local };
+      if (typeof edgeClient?.auth?.getCurrentUser !== "function") {
+        return {
+          ok: false,
+          edgeClient: null,
+          userId: null,
+          error: { error: "Auth client unavailable", code: "missing_auth_client" }
+        };
       }
-      const { data: userData, error: userErr } = await edgeClient.auth.getCurrentUser();
-      const resolvedUserId = userData?.user?.id;
-      if (userErr || !resolvedUserId) return { ok: false, edgeClient: null, userId: null };
-      return { ok: true, edgeClient, userId: resolvedUserId };
+      let authResult = null;
+      try {
+        authResult = await edgeClient.auth.getCurrentUser();
+      } catch (e) {
+        return {
+          ok: false,
+          edgeClient: null,
+          userId: null,
+          error: { error: e?.message || "Auth lookup failed", code: "auth_lookup_failed" }
+        };
+      }
+      const authUserId = authResult?.data?.user?.id || null;
+      if (!authUserId || authResult?.error) {
+        return {
+          ok: false,
+          edgeClient: null,
+          userId: null,
+          error: { error: authResult?.error?.message || "Auth lookup failed", code: "auth_lookup_failed" }
+        };
+      }
+      if (authUserId !== local.userId) {
+        return {
+          ok: false,
+          edgeClient: null,
+          userId: null,
+          error: { error: "User mismatch", code: "user_mismatch" }
+        };
+      }
+      return { ok: true, edgeClient, userId: authUserId };
     }
     async function getAccessContext({ baseUrl, bearer, allowPublic = false }) {
       if (!bearer) return { ok: false, edgeClient: null, userId: null, accessType: null };
@@ -239,7 +351,8 @@ var require_auth = __commonJS({
       getAccessContext,
       getEdgeClientAndUserId,
       getEdgeClientAndUserIdFast,
-      isProjectAdminBearer: isProjectAdminBearer2
+      isProjectAdminBearer: isProjectAdminBearer2,
+      verifyUserJwtHs256
     };
   }
 });
