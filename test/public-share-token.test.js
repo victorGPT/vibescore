@@ -8,6 +8,11 @@ test('isPublicShareToken accepts 64-hex tokens', () => {
   assert.equal(isPublicShareToken(token), true);
 });
 
+test('isPublicShareToken rejects uppercase 64-hex tokens', () => {
+  const token = 'A'.repeat(64);
+  assert.equal(isPublicShareToken(token), false);
+});
+
 test('isPublicShareToken rejects jwt-like tokens', () => {
   const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.payload.signature';
   assert.equal(isPublicShareToken(token), false);

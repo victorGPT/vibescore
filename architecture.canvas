@@ -1214,7 +1214,7 @@
     {
       "id": "test_public-share-token_test_de7b1424",
       "type": "text",
-      "text": "**public-share-token.test**\n`test/public-share-token.test.js`\n\nTest module.\n\n包含：\n- public-share-token.test (21 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**public-share-token.test**\n`test/public-share-token.test.js`\n\nTest module.\n\n包含：\n- public-share-token.test (26 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2620,
       "y": 13544,
       "width": 280,
@@ -2634,7 +2634,7 @@
     {
       "id": "utils_public-view_eb6a6a98",
       "type": "text",
-      "text": "**public-view**\n`insforge-src/shared/public-view.js`\n\nShared utilities.\n\n包含：\n- public-view (57 行)\n- resolvePublicView (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**public-view**\n`insforge-src/shared/public-view.js`\n\nShared utilities.\n\n包含：\n- public-view (64 行)\n- resolvePublicView (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 100,
       "y": 7096,
       "width": 280,
