@@ -1,0 +1,6 @@
+number,title,url,closed_at,merged_at,review_cycles,frontend,backend,primary_stage,secondary_stages,topic_summary,review_signals
+56,"feat: top models module and usage identity alignment","https://github.com/victorGPT/vibeusage/pull/56",2026-01-06T23:43:31Z,2026-01-06T23:43:31Z,14,yes,yes,,,,
+70,"feat: adopt InsForge hosted auth for dashboard","https://github.com/victorGPT/vibeusage/pull/70",2026-01-15T18:44:41Z,2026-01-15T18:44:41Z,9,yes,yes,,,,
+25,"feat: one-login link code install flow","https://github.com/victorGPT/vibeusage/pull/25",2025-12-28T11:55:41Z,2025-12-28T11:55:41Z,9,yes,yes,,,,
+89,"Gate project usage to public GitHub repos","https://github.com/victorGPT/vibeusage/pull/89",2026-01-26T18:42:38Z,2026-01-26T18:42:38Z,4,no,yes,,,,
+83,"docs/test: frontend foundation plan and baselines","https://github.com/victorGPT/vibeusage/pull/83",2026-01-24T03:40:48Z,2026-01-24T03:40:48Z,4,no,yes,,,,
