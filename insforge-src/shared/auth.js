@@ -1,7 +1,7 @@
 'use strict';
 
 const { getAnonKey, getJwtSecret } = require('./env');
-const { resolvePublicView } = require('./public-view');
+const { resolvePublicView, isPublicShareToken } = require('./public-view');
 
 function getBearerToken(headerValue) {
   if (!headerValue) return null;
@@ -217,6 +217,10 @@ async function getAccessContext({ baseUrl, bearer, allowPublic = false }) {
     return { ok: true, edgeClient: auth.edgeClient, userId: auth.userId, accessType: 'user' };
   }
   if (!allowPublic) {
+    return { ok: false, edgeClient: null, userId: null, accessType: null };
+  }
+
+  if (!isPublicShareToken(bearer)) {
     return { ok: false, edgeClient: null, userId: null, accessType: null };
   }
 
