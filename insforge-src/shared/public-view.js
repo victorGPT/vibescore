@@ -3,9 +3,13 @@
 const { getAnonKey, getServiceRoleKey } = require('./env');
 const { sha256Hex } = require('./crypto');
 
+const SHARE_TOKEN_RE = /^[a-f0-9]{64}$/i;
+
 async function resolvePublicView({ baseUrl, shareToken }) {
   const token = normalizeToken(shareToken);
-  if (!token) return { ok: false, edgeClient: null, userId: null };
+  if (!isPublicShareToken(token)) {
+    return { ok: false, edgeClient: null, userId: null };
+  }
 
   const serviceRoleKey = getServiceRoleKey();
   if (!serviceRoleKey) return { ok: false, edgeClient: null, userId: null };
@@ -40,6 +44,13 @@ function normalizeToken(value) {
   return token;
 }
 
+function isPublicShareToken(value) {
+  const token = normalizeToken(value);
+  if (!token) return false;
+  return SHARE_TOKEN_RE.test(token);
+}
+
 module.exports = {
-  resolvePublicView
+  resolvePublicView,
+  isPublicShareToken
 };

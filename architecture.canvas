@@ -2634,7 +2634,7 @@
     {
       "id": "utils_public-view_eb6a6a98",
       "type": "text",
-      "text": "**public-view**\n`insforge-src/shared/public-view.js`\n\nShared utilities.\n\n包含：\n- public-view (46 行)\n- resolvePublicView (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**public-view**\n`insforge-src/shared/public-view.js`\n\nShared utilities.\n\n包含：\n- public-view (57 行)\n- resolvePublicView (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 100,
       "y": 7096,
       "width": 280,
