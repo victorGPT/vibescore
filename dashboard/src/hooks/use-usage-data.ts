@@ -72,7 +72,7 @@ export function useUsageData({
 
   const refresh = useCallback(async () => {
     const resolvedToken = await resolveAuthAccessToken(accessToken);
-    if (!resolvedToken && !guestAllowed && !mockEnabled) return;
+    if (!resolvedToken && !mockEnabled) return;
     setLoading(true);
     setError(null);
     try {
