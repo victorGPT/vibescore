@@ -2875,7 +2875,7 @@ test('vibeusage-project-usage-summary aggregates project usage', async () => {
       project_key: 'acme/alpha',
       project_ref: 'https://github.com/acme/alpha',
       sum_total_tokens: '100',
-      sum_billable_total_tokens: '120'
+      sum_billable_total_tokens: '0'
     }
   ];
 
@@ -2918,7 +2918,7 @@ test('vibeusage-project-usage-summary aggregates project usage', async () => {
   assert.equal(body.entries.length, 1);
   assert.equal(body.entries[0].project_key, 'acme/alpha');
   assert.equal(body.entries[0].total_tokens, '100');
-  assert.equal(body.entries[0].billable_total_tokens, '120');
+  assert.equal(body.entries[0].billable_total_tokens, '100');
   assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
   assert.ok(
     filters.some(
@@ -2930,7 +2930,7 @@ test('vibeusage-project-usage-summary aggregates project usage', async () => {
       (f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-22T00:00:00.000Z'
     )
   );
-  assert.ok(orders.some((o) => o.col === 'sum_billable_total_tokens'));
+  assert.ok(orders.some((o) => o.col === 'sum_total_tokens'));
 });
 
 test('vibeusage-usage-summary returns total_cost_usd and pricing metadata', () =>

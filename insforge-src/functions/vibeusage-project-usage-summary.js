@@ -80,7 +80,7 @@ module.exports = withRequestLogging('vibeusage-project-usage-summary', async fun
     .lt('hour_start', endIso);
 
   if (source) query = query.eq('source', source);
-  query = query.order('sum_billable_total_tokens', { ascending: false }).limit(limit);
+  query = query.order('sum_total_tokens', { ascending: false }).limit(limit);
 
   const { data, error } = await query;
   if (error) {
@@ -89,12 +89,16 @@ module.exports = withRequestLogging('vibeusage-project-usage-summary', async fun
   }
 
   const entries = (Array.isArray(data) ? data : [])
-    .map((row) => ({
-      project_key: row?.project_key || null,
-      project_ref: row?.project_ref || null,
-      total_tokens: normalizeAggregateValue(row?.sum_total_tokens),
-      billable_total_tokens: normalizeAggregateValue(row?.sum_billable_total_tokens)
-    }))
+    .map((row) => {
+      const totalTokens = normalizeAggregateValue(row?.sum_total_tokens);
+      const billableTokens = normalizeAggregateValue(row?.sum_billable_total_tokens);
+      return {
+        project_key: row?.project_key || null,
+        project_ref: row?.project_ref || null,
+        total_tokens: totalTokens,
+        billable_total_tokens: resolveBillableTotal(totalTokens, billableTokens)
+      };
+    })
     .filter((row) => row.project_key && row.project_ref);
 
   const queryDurationMs = Date.now() - queryStartMs;
@@ -136,4 +140,26 @@ function normalizeAggregateValue(value) {
   if (typeof value === 'number' && Number.isFinite(value)) return String(value);
   if (typeof value === 'bigint') return value.toString();
   return String(value);
+}
+
+function parseAggregateValue(value) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  if (/^[0-9]+$/.test(text)) return BigInt(text);
+  const num = Number(text);
+  return Number.isFinite(num) ? num : null;
+}
+
+function resolveBillableTotal(totalTokens, billableTokens) {
+  if (billableTokens == null) return totalTokens;
+  const totalValue = parseAggregateValue(totalTokens);
+  const billableValue = parseAggregateValue(billableTokens);
+  if (billableValue == null) return totalTokens;
+  if (typeof billableValue === 'bigint') {
+    if (billableValue === 0n && totalValue != null) return totalTokens;
+  } else if (billableValue === 0 && totalValue != null) {
+    return totalTokens;
+  }
+  return billableTokens;
 }

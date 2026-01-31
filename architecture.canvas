@@ -3042,7 +3042,7 @@
     {
       "id": "edge-function_vibeusage-project-usage-summary_f09eaead",
       "type": "text",
-      "text": "**vibeusage-project-usage-summary**\n`insforge-src/functions/vibeusage-project-usage-summary.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-project-usage-summary (140 行)\n- normalizeLimit (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibeusage-project-usage-summary**\n`insforge-src/functions/vibeusage-project-usage-summary.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-project-usage-summary (166 行)\n- normalizeLimit (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1540,
       "y": 5296,
       "width": 280,
