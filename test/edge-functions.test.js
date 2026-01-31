@@ -651,6 +651,8 @@ test('vibeusage-ingest ingests project_hourly buckets and upserts project regist
   assert.equal(usageRows[0]?.project_ref, projectBucket.project_ref);
   assert.equal(usageRows[0]?.project_key, projectBucket.project_key);
   assert.equal(usageRows[0]?.total_tokens, 6);
+  assert.equal(usageRows[0]?.billable_total_tokens, '6');
+  assert.equal(usageRows[0]?.billable_rule_version, 1);
 
   const projectRegistryCall = fetchCalls.find((call) =>
     String(call.url).includes('/api/database/records/vibeusage_projects')
@@ -2918,7 +2920,7 @@ test('vibeusage-project-usage-summary aggregates project usage', async () => {
   assert.equal(body.entries.length, 1);
   assert.equal(body.entries[0].project_key, 'acme/alpha');
   assert.equal(body.entries[0].total_tokens, '100');
-  assert.equal(body.entries[0].billable_total_tokens, '100');
+  assert.equal(body.entries[0].billable_total_tokens, '0');
   assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
   assert.ok(
     filters.some(

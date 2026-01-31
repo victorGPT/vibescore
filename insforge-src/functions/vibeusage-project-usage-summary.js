@@ -94,12 +94,11 @@ module.exports = withRequestLogging('vibeusage-project-usage-summary', async fun
   const entries = (Array.isArray(data) ? data : [])
     .map((row) => {
       const totalTokens = normalizeAggregateValue(row?.sum_total_tokens);
-      const billableTokens = normalizeAggregateValue(row?.sum_billable_total_tokens);
       return {
         project_key: row?.project_key || null,
         project_ref: row?.project_ref || null,
         total_tokens: totalTokens,
-        billable_total_tokens: resolveBillableTotal(totalTokens, billableTokens)
+        billable_total_tokens: resolveBillableTotal(totalTokens, row?.sum_billable_total_tokens)
       };
     })
     .filter((row) => row.project_key && row.project_ref);
@@ -145,24 +144,7 @@ function normalizeAggregateValue(value) {
   return String(value);
 }
 
-function parseAggregateValue(value) {
-  if (value == null) return null;
-  const text = String(value).trim();
-  if (!text) return null;
-  if (/^[0-9]+$/.test(text)) return BigInt(text);
-  const num = Number(text);
-  return Number.isFinite(num) ? num : null;
-}
-
-function resolveBillableTotal(totalTokens, billableTokens) {
-  if (billableTokens == null) return totalTokens;
-  const totalValue = parseAggregateValue(totalTokens);
-  const billableValue = parseAggregateValue(billableTokens);
-  if (billableValue == null) return totalTokens;
-  if (typeof billableValue === 'bigint') {
-    if (billableValue === 0n && totalValue != null) return totalTokens;
-  } else if (billableValue === 0 && totalValue != null) {
-    return totalTokens;
-  }
-  return billableTokens;
+function resolveBillableTotal(totalTokens, billableRaw) {
+  if (billableRaw == null) return totalTokens;
+  return normalizeAggregateValue(billableRaw);
 }
