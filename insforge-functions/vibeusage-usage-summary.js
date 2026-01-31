@@ -1826,7 +1826,8 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
     rangeEndIso,
     rangeStartUtc,
     rangeEndUtc,
-    onRow
+    onRow,
+    onReset
   }) => {
     const rangeStartDayUtc = new Date(Date.UTC(
       rangeStartUtc.getUTCFullYear(),
@@ -1881,6 +1882,7 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
       }
     }
     if (hourlyError || rollupEmptyWithHourly) {
+      if (typeof onReset === "function") onReset();
       return sumHourlyRangeInto(rangeStartIso, rangeEndIso, onRow);
     }
     return { ok: true };
@@ -1900,6 +1902,15 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
     const rangeEndIso = rangeEndUtc.toISOString();
     const totals2 = createTotals();
     const activeByDay = /* @__PURE__ */ new Map();
+    const resetRollingAggregation = () => {
+      totals2.total_tokens = 0n;
+      totals2.billable_total_tokens = 0n;
+      totals2.input_tokens = 0n;
+      totals2.cached_input_tokens = 0n;
+      totals2.output_tokens = 0n;
+      totals2.reasoning_output_tokens = 0n;
+      activeByDay.clear();
+    };
     const ingestRollingRow = (row) => {
       if (!shouldIncludeRow(row)) return;
       const sourceKey = normalizeSource(row?.source) || DEFAULT_SOURCE;
@@ -1923,7 +1934,8 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
       rangeEndIso,
       rangeStartUtc,
       rangeEndUtc,
-      onRow: ingestRollingRow
+      onRow: ingestRollingRow,
+      onReset: resetRollingAggregation
     });
     if (!sumRes.ok) return sumRes;
     const windowDays = listDateStrings(fromDay, toDay).length;

@@ -335,7 +335,8 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
     rangeEndIso,
     rangeStartUtc,
     rangeEndUtc,
-    onRow
+    onRow,
+    onReset
   }) => {
     const rangeStartDayUtc = new Date(Date.UTC(
       rangeStartUtc.getUTCFullYear(),
@@ -399,6 +400,7 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
     }
 
     if (hourlyError || rollupEmptyWithHourly) {
+      if (typeof onReset === 'function') onReset();
       return sumHourlyRangeInto(rangeStartIso, rangeEndIso, onRow);
     }
 
@@ -422,6 +424,15 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
     const rangeEndIso = rangeEndUtc.toISOString();
     const totals = createTotals();
     const activeByDay = new Map();
+    const resetRollingAggregation = () => {
+      totals.total_tokens = 0n;
+      totals.billable_total_tokens = 0n;
+      totals.input_tokens = 0n;
+      totals.cached_input_tokens = 0n;
+      totals.output_tokens = 0n;
+      totals.reasoning_output_tokens = 0n;
+      activeByDay.clear();
+    };
 
     const ingestRollingRow = (row) => {
       if (!shouldIncludeRow(row)) return;
@@ -447,7 +458,8 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
       rangeEndIso,
       rangeStartUtc,
       rangeEndUtc,
-      onRow: ingestRollingRow
+      onRow: ingestRollingRow,
+      onReset: resetRollingAggregation
     });
     if (!sumRes.ok) return sumRes;
 
