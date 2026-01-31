@@ -2834,7 +2834,7 @@ test('vibeusage-usage-summary returns rolling metrics when requested', () =>
     assert.equal(body.rolling.last_30d.window_days, 30);
   }));
 
-test('vibeusage-usage-summary clamps rolling windows to UTC yesterday', () =>
+test('vibeusage-usage-summary clamps rolling windows to local yesterday', () =>
   withRollupDisabled(async () => {
     const fn = require('../insforge-functions/vibeusage-usage-summary');
 
@@ -2896,7 +2896,7 @@ test('vibeusage-usage-summary clamps rolling windows to UTC yesterday', () =>
     };
 
     const RealDate = globalThis.Date;
-    const fixedNow = new RealDate('2025-12-22T10:00:00.000Z');
+    const fixedNow = new RealDate('2025-12-22T02:00:00.000Z');
     globalThis.Date = class extends RealDate {
       constructor(...args) {
         if (args.length === 0) return new RealDate(fixedNow);
@@ -2915,7 +2915,7 @@ test('vibeusage-usage-summary clamps rolling windows to UTC yesterday', () =>
 
     try {
       const req = new Request(
-        'http://localhost/functions/vibeusage-usage-summary?from=2025-12-21&to=2025-12-25&rolling=1',
+        'http://localhost/functions/vibeusage-usage-summary?from=2025-12-21&to=2025-12-25&rolling=1&tz_offset_minutes=-480',
         {
           method: 'GET',
           headers: { Authorization: `Bearer ${userJwt}` }
@@ -2926,10 +2926,10 @@ test('vibeusage-usage-summary clamps rolling windows to UTC yesterday', () =>
       assert.equal(res.status, 200);
       const body = await res.json();
       assert.ok(body.rolling);
-      assert.equal(body.rolling.last_7d.to, '2025-12-21');
-      assert.equal(body.rolling.last_30d.to, '2025-12-21');
-      assert.equal(body.rolling.last_7d.from, '2025-12-15');
-      assert.equal(body.rolling.last_30d.from, '2025-11-22');
+      assert.equal(body.rolling.last_7d.to, '2025-12-20');
+      assert.equal(body.rolling.last_30d.to, '2025-12-20');
+      assert.equal(body.rolling.last_7d.from, '2025-12-14');
+      assert.equal(body.rolling.last_30d.from, '2025-11-21');
     } finally {
       globalThis.Date = RealDate;
     }

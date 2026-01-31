@@ -19,9 +19,9 @@ const { applyCanaryFilter } = require('../shared/canary');
 const {
   addDatePartsDays,
   addUtcDays,
-  dateFromPartsUTC,
   formatDateUTC,
   formatDateParts,
+  getLocalParts,
   getUsageMaxDays,
   getUsageTimeZoneContext,
   listDateStrings,
@@ -410,8 +410,8 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
       return { ok: false, error: new Error('Invalid rolling range') };
     }
 
-    const rangeStartUtc = dateFromPartsUTC(rangeStartParts);
-    const rangeEndUtc = dateFromPartsUTC(addDatePartsDays(rangeEndParts, 1));
+    const rangeStartUtc = localDatePartsToUtc(rangeStartParts, tzContext);
+    const rangeEndUtc = localDatePartsToUtc(addDatePartsDays(rangeEndParts, 1), tzContext);
     if (!Number.isFinite(rangeStartUtc.getTime()) || !Number.isFinite(rangeEndUtc.getTime())) {
       return { ok: false, error: new Error('Invalid rolling range') };
     }
@@ -539,8 +539,9 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
 
   let rollingPayload = null;
   if (rollingEnabled) {
-    const utcYesterday = formatDateUTC(addUtcDays(new Date(), -1));
-    const rollingToDay = to < utcYesterday ? to : utcYesterday;
+    const localTodayParts = getLocalParts(new Date(), tzContext);
+    const localYesterday = formatDateParts(addDatePartsDays(localTodayParts, -1));
+    const rollingToDay = to < localYesterday ? to : localYesterday;
     const rollingEndParts = parseDateParts(rollingToDay);
     if (!rollingEndParts) return respond({ error: 'Invalid rolling range' }, 400, 0);
     const last7From = formatDateParts(addDatePartsDays(rollingEndParts, -6));
