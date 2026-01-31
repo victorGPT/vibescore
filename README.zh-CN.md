@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="dashboard/public/icon-192.png" width="96" alt="VibeUsage 图标" />
+
 # 🟢 VIBEUSAGE
 
 **量化你的 AI 产出**  

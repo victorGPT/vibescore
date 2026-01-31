@@ -18,8 +18,13 @@ function getAnonKey() {
   return Deno.env.get('ANON_KEY') || Deno.env.get('INSFORGE_ANON_KEY') || null;
 }
 
+function getJwtSecret() {
+  return Deno.env.get('INSFORGE_JWT_SECRET') || null;
+}
+
 module.exports = {
   getBaseUrl,
   getServiceRoleKey,
-  getAnonKey
+  getAnonKey,
+  getJwtSecret
 };

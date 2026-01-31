@@ -4,8 +4,8 @@
 'use strict';
 
 const { handleOptions, json, requireMethod } = require('../shared/http');
-const { getBearerToken } = require('../shared/auth');
-const { getAnonKey, getBaseUrl } = require('../shared/env');
+const { getBearerToken, verifyUserJwtHs256 } = require('../shared/auth');
+const { getAnonKey } = require('../shared/env');
 
 module.exports = async function(request) {
   const opt = handleOptions(request);
@@ -43,26 +43,10 @@ module.exports = async function(request) {
     );
   }
 
-  const baseUrl = getBaseUrl();
-  let authOk = false;
-  let userId = null;
-  let error = null;
-
-  try {
-    const edgeClient = createClient({
-      baseUrl,
-      anonKey,
-      edgeFunctionToken: bearer
-    });
-    const { data, error: authError } = await edgeClient.auth.getCurrentUser();
-    userId = data?.user?.id || null;
-    authOk = Boolean(userId) && !authError;
-    if (!authOk) {
-      error = authError?.message || 'Unauthorized';
-    }
-  } catch (e) {
-    error = e?.message || String(e);
-  }
+  const local = await verifyUserJwtHs256({ token: bearer });
+  const authOk = local.ok;
+  const userId = local.userId;
+  const error = local.ok ? null : local.error || 'Unauthorized';
 
   return json(
     {
