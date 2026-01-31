@@ -186,6 +186,62 @@ test('parseRolloutIncremental uses turn_context cwd to resolve project context',
   }
 });
 
+test('parseRolloutIncremental uses session_meta cwd to resolve project context', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-rollout-'));
+  try {
+    const repoRoot = path.join(tmp, 'repo');
+    await fs.mkdir(path.join(repoRoot, '.git'), { recursive: true });
+    await fs.writeFile(
+      path.join(repoRoot, '.git', 'config'),
+      `[remote "origin"]\n\turl = https://github.com/acme/alpha.git\n`,
+      'utf8'
+    );
+
+    const sessionsDir = path.join(tmp, 'sessions', '2026', '01', '26');
+    await fs.mkdir(sessionsDir, { recursive: true });
+    const rolloutPath = path.join(sessionsDir, 'rollout-test.jsonl');
+
+    const usage = {
+      input_tokens: 2,
+      cached_input_tokens: 1,
+      output_tokens: 3,
+      reasoning_output_tokens: 0,
+      total_tokens: 6
+    };
+
+    const lines = [
+      buildSessionMetaLine({ model: 'gpt-4', cwd: repoRoot }),
+      buildTokenCountLine({ ts: '2026-01-26T00:10:00.000Z', last: usage, total: usage })
+    ];
+    await fs.writeFile(rolloutPath, lines.join('\n') + '\n', 'utf8');
+
+    const queuePath = path.join(tmp, 'queue.jsonl');
+    const projectQueuePath = path.join(tmp, 'project.queue.jsonl');
+    const cursors = { version: 1, files: {}, updatedAt: null };
+
+    const publicRepoResolver = async ({ projectRef }) => ({
+      status: 'public_verified',
+      projectKey: 'acme/alpha',
+      projectRef
+    });
+
+    await parseRolloutIncremental({
+      rolloutFiles: [rolloutPath],
+      cursors,
+      queuePath,
+      projectQueuePath,
+      publicRepoResolver
+    });
+
+    const projectQueued = await readJsonLines(projectQueuePath);
+    assert.equal(projectQueued.length, 1);
+    assert.equal(projectQueued[0].project_key, 'acme/alpha');
+    assert.equal(projectQueued[0].project_ref, 'https://github.com/acme/alpha');
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 test('parseRolloutIncremental marks blocked when remote is missing but repo_root_hash matches', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-rollout-'));
   try {
@@ -1719,6 +1775,17 @@ function buildTurnContextLine({ model, cwd }) {
   }
   return JSON.stringify({
     type: 'turn_context',
+    payload
+  });
+}
+
+function buildSessionMetaLine({ model, cwd }) {
+  const payload = { model };
+  if (typeof cwd === 'string' && cwd.length > 0) {
+    payload.cwd = cwd;
+  }
+  return JSON.stringify({
+    type: 'session_meta',
     payload
   });
 }

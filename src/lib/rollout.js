@@ -563,7 +563,9 @@ async function parseRolloutFile({
     if (!line) continue;
     const maybeTokenCount = line.includes('"token_count"');
     const maybeTurnContext =
-      !maybeTokenCount && line.includes('"turn_context"') && (line.includes('"model"') || line.includes('"cwd"'));
+      !maybeTokenCount &&
+      (line.includes('"turn_context"') || line.includes('"session_meta"')) &&
+      (line.includes('"model"') || line.includes('"cwd"'));
     if (!maybeTokenCount && !maybeTurnContext) continue;
 
     let obj;
@@ -573,7 +575,11 @@ async function parseRolloutFile({
       continue;
     }
 
-    if (obj?.type === 'turn_context' && obj?.payload && typeof obj.payload === 'object') {
+    if (
+      (obj?.type === 'turn_context' || obj?.type === 'session_meta') &&
+      obj?.payload &&
+      typeof obj.payload === 'object'
+    ) {
       if (typeof obj.payload.model === 'string') {
         model = obj.payload.model;
       }
@@ -1661,7 +1667,18 @@ async function resolveGitConfigPath(rootDir) {
     }
     const configPath = path.join(gitDir, 'config');
     const cfg = await fs.stat(configPath).catch(() => null);
-    return cfg && cfg.isFile() ? configPath : null;
+    if (cfg && cfg.isFile()) return configPath;
+
+    const commonDirRaw = await fs.readFile(path.join(gitDir, 'commondir'), 'utf8').catch(() => '');
+    const commonDirRel = commonDirRaw.trim();
+    if (!commonDirRel) return null;
+    let commonDir = commonDirRel;
+    if (!path.isAbsolute(commonDir)) {
+      commonDir = path.resolve(gitDir, commonDir);
+    }
+    const commonConfigPath = path.join(commonDir, 'config');
+    const commonCfg = await fs.stat(commonConfigPath).catch(() => null);
+    return commonCfg && commonCfg.isFile() ? commonConfigPath : null;
   }
   return null;
 }

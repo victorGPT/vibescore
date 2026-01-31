@@ -670,7 +670,7 @@
     {
       "id": "test_edge-functions_test_deffefcc",
       "type": "text",
-      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- edge-functions.test (6234 行)\n- toBase64Url (1 个参数)\n\n依赖：3 个模块\n被依赖：0 次",
+      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- edge-functions.test (6245 行)\n- toBase64Url (1 个参数)\n\n依赖：3 个模块\n被依赖：0 次",
       "x": 1540,
       "y": 12464,
       "width": 280,
@@ -1231,7 +1231,7 @@
     {
       "id": "test_rollout-git-config_test_856d62d0",
       "type": "text",
-      "text": "**rollout-git-config.test**\n`test/rollout-git-config.test.js`\n\nTest module.\n\n包含：\n- rollout-git-config.test (53 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**rollout-git-config.test**\n`test/rollout-git-config.test.js`\n\nTest module.\n\n包含：\n- rollout-git-config.test (105 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2980,
       "y": 13544,
       "width": 280,
@@ -1248,7 +1248,7 @@
     {
       "id": "test_rollout-parser_test_e96ece4a",
       "type": "text",
-      "text": "**rollout-parser.test**\n`test/rollout-parser.test.js`\n\nTest module.\n\n包含：\n- rollout-parser.test (1817 行)\n- buildTurnContextLine (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**rollout-parser.test**\n`test/rollout-parser.test.js`\n\nTest module.\n\n包含：\n- rollout-parser.test (1884 行)\n- buildTurnContextLine (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 3340,
       "y": 13544,
       "width": 280,
@@ -2029,7 +2029,7 @@
     {
       "id": "utils_rollout_ea37f1e4",
       "type": "text",
-      "text": "**rollout**\n`src/lib/rollout.js`\n\nShared utilities.\n\n包含：\n- rollout (1960 行)\n- listRolloutFiles (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**rollout**\n`src/lib/rollout.js`\n\nShared utilities.\n\n包含：\n- rollout (1977 行)\n- listRolloutFiles (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 100,
       "y": 10492,
       "width": 280,
@@ -2923,7 +2923,7 @@
     {
       "id": "edge-function_vibeusage-ingest_42e1bc93",
       "type": "text",
-      "text": "**vibeusage-ingest**\n`insforge-src/functions/vibeusage-ingest.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-ingest (206 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibeusage-ingest**\n`insforge-src/functions/vibeusage-ingest.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-ingest (210 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1900,
       "y": 4936,
       "width": 280,

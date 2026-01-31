@@ -658,6 +658,17 @@ test('vibeusage-ingest ingests project_hourly buckets and upserts project regist
   assert.ok(projectRegistryCall, 'project registry upsert missing');
   const registryUrl = new URL(projectRegistryCall.url);
   assert.equal(registryUrl.searchParams.get('on_conflict'), 'user_id,project_key');
+
+  const registryRows = JSON.parse(projectRegistryCall.init?.body || '[]');
+  assert.equal(registryRows.length, 1);
+  assert.equal(registryRows[0]?.user_id, tokenRow.user_id);
+  assert.equal(registryRows[0]?.device_id, tokenRow.device_id);
+  assert.equal(registryRows[0]?.device_token_id, tokenRow.id);
+  assert.equal(registryRows[0]?.project_key, projectBucket.project_key);
+  assert.equal(registryRows[0]?.project_ref, projectBucket.project_ref);
+  assert.equal(registryRows[0]?.source, projectBucket.source);
+  assert.ok(registryRows[0]?.updated_at, 'updated_at missing');
+  assert.ok(registryRows[0]?.last_seen_at, 'last_seen_at missing');
 });
 
 test('vibeusage-ingest accepts wrapped payload with data.hourly', async () => {
