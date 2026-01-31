@@ -5,12 +5,12 @@ Add rolling usage metrics (last 7 days, last 30 days, average per active day) to
 
 ## Context
 - Dashboard is Vite + React with Tailwind; no unit/component test framework currently.
-- Backend usage summary API already exists and is timezone-aware.
+- Backend usage summary API already exists and is timezone-aware for input date ranges; rollups remain UTC-aligned.
 - Copy registry requires all UI strings to live in `dashboard/src/content/copy.csv`.
 
 ## Decisions
 - **API:** Extend `vibeusage-usage-summary` response with optional `rolling` payload behind `rolling=1` query param (default off to preserve existing behavior and cost).
-- **Rolling windows:** Rolling 7d and 30d computed based on existing timezone context in the summary endpoint. Average = total billable tokens / active days (days with `billable_total_tokens ?? total_tokens > 0`).
+- **Rolling windows:** Rolling 7d and 30d are computed by UTC day (aligned with `vibeusage_tracker_daily_rollup.day`). Average = total billable tokens / active days (days with `billable_total_tokens ?? total_tokens > 0`).
 - **UI:** Add a new module below `UsagePanel` using `AsciiBox`, three columns with label on top and value below. Strings come from `copy.csv`.
 - **Frontend tests:** Add Vitest + RTL with `jest-dom` and `user-event`. Provide a minimal interactive test using an existing component (MatrixButton) to validate render + interaction. Keep Playwright for E2E.
 

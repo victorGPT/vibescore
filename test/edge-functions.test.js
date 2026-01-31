@@ -4386,12 +4386,14 @@ test('fetchAliasRows includes same-day alias timestamps', { concurrency: 1 }, as
 test('vibeusage-usage-daily rejects oversized ranges', { concurrency: 1 }, async () => {
   const fn = require('../insforge-functions/vibeusage-usage-daily');
   const prevMaxDays = process.env.VIBEUSAGE_USAGE_MAX_DAYS;
+  const prevMaxLocalDays = process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC;
   const userId = '55555555-5555-5555-5555-555555555555';
   const userJwt = createUserJwt(userId);
   let dbTouched = false;
 
   try {
     process.env.VIBEUSAGE_USAGE_MAX_DAYS = '30';
+    process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC = '7';
     globalThis.createClient = (args) => {
       if (args && args.edgeFunctionToken === userJwt) {
         return {
@@ -4425,6 +4427,57 @@ test('vibeusage-usage-daily rejects oversized ranges', { concurrency: 1 }, async
   } finally {
     if (prevMaxDays === undefined) delete process.env.VIBEUSAGE_USAGE_MAX_DAYS;
     else process.env.VIBEUSAGE_USAGE_MAX_DAYS = prevMaxDays;
+    if (prevMaxLocalDays === undefined) delete process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC;
+    else process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC = prevMaxLocalDays;
+  }
+});
+
+test('vibeusage-usage-daily rejects oversized non-UTC ranges', { concurrency: 1 }, async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-daily');
+  const prevMaxDays = process.env.VIBEUSAGE_USAGE_MAX_DAYS;
+  const prevMaxLocalDays = process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC;
+  const userId = '55555555-5555-5555-5555-555555555555';
+  const userJwt = createUserJwt(userId);
+  let dbTouched = false;
+
+  try {
+    process.env.VIBEUSAGE_USAGE_MAX_DAYS = '30';
+    process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC = '7';
+    globalThis.createClient = (args) => {
+      if (args && args.edgeFunctionToken === userJwt) {
+        return {
+          auth: {
+            getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+          },
+          database: {
+            from: () => {
+              dbTouched = true;
+              throw new Error('database should not be queried for oversized local ranges');
+            }
+          }
+        };
+      }
+      throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+    };
+
+    const req = new Request(
+      'http://localhost/functions/vibeusage-usage-daily?from=2025-01-01&to=2025-01-10&tz=Asia/Tokyo&tz_offset_minutes=540',
+      {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${userJwt}` }
+      }
+    );
+
+    const res = await fn(req);
+    assert.equal(res.status, 400);
+    const body = await res.json();
+    assert.match(String(body.error || ''), /max/i);
+    assert.equal(dbTouched, false);
+  } finally {
+    if (prevMaxDays === undefined) delete process.env.VIBEUSAGE_USAGE_MAX_DAYS;
+    else process.env.VIBEUSAGE_USAGE_MAX_DAYS = prevMaxDays;
+    if (prevMaxLocalDays === undefined) delete process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC;
+    else process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC = prevMaxLocalDays;
   }
 });
 

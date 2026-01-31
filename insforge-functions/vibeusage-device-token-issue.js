@@ -236,9 +236,12 @@ var require_public_view = __commonJS({
     "use strict";
     var { getAnonKey: getAnonKey2, getServiceRoleKey: getServiceRoleKey2 } = require_env();
     var { sha256Hex: sha256Hex2 } = require_crypto();
+    var SHARE_TOKEN_RE = /^[a-f0-9]{64}$/;
     async function resolvePublicView({ baseUrl, shareToken }) {
-      const token = normalizeToken(shareToken);
-      if (!token) return { ok: false, edgeClient: null, userId: null };
+      const token = normalizeShareToken(shareToken);
+      if (!token) {
+        return { ok: false, edgeClient: null, userId: null };
+      }
       const serviceRoleKey = getServiceRoleKey2();
       if (!serviceRoleKey) return { ok: false, edgeClient: null, userId: null };
       const anonKey = getAnonKey2();
@@ -261,8 +264,20 @@ var require_public_view = __commonJS({
       if (token.length > 256) return null;
       return token;
     }
+    function normalizeShareToken(value) {
+      const token = normalizeToken(value);
+      if (!token) return null;
+      const normalized = token.toLowerCase();
+      if (token !== normalized) return null;
+      if (!SHARE_TOKEN_RE.test(normalized)) return null;
+      return normalized;
+    }
+    function isPublicShareToken(value) {
+      return Boolean(normalizeShareToken(value));
+    }
     module2.exports = {
-      resolvePublicView
+      resolvePublicView,
+      isPublicShareToken
     };
   }
 });
@@ -272,7 +287,7 @@ var require_auth = __commonJS({
   "insforge-src/shared/auth.js"(exports2, module2) {
     "use strict";
     var { getAnonKey: getAnonKey2, getJwtSecret } = require_env();
-    var { resolvePublicView } = require_public_view();
+    var { resolvePublicView, isPublicShareToken } = require_public_view();
     function getBearerToken2(headerValue) {
       if (!headerValue) return null;
       const prefix = "Bearer ";
@@ -421,7 +436,10 @@ var require_auth = __commonJS({
       const anonKey = getAnonKey2();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const local = await verifyUserJwtHs256({ token: bearer });
-      if (!local.ok) return { ok: false, edgeClient: null, userId: null, error: local };
+      const allowAuthOnly = !local.ok && local.code === "missing_jwt_secret";
+      if (!local.ok && !allowAuthOnly) {
+        return { ok: false, edgeClient: null, userId: null, error: local };
+      }
       if (typeof edgeClient?.auth?.getCurrentUser !== "function") {
         return {
           ok: false,
@@ -450,7 +468,7 @@ var require_auth = __commonJS({
           error: { error: authResult?.error?.message || "Auth lookup failed", code: "auth_lookup_failed" }
         };
       }
-      if (authUserId !== local.userId) {
+      if (!allowAuthOnly && authUserId !== local.userId) {
         return {
           ok: false,
           edgeClient: null,
@@ -467,6 +485,9 @@ var require_auth = __commonJS({
         return { ok: true, edgeClient: auth.edgeClient, userId: auth.userId, accessType: "user" };
       }
       if (!allowPublic) {
+        return { ok: false, edgeClient: null, userId: null, accessType: null };
+      }
+      if (!isPublicShareToken(bearer)) {
         return { ok: false, edgeClient: null, userId: null, accessType: null };
       }
       const publicView = await resolvePublicView({ baseUrl, shareToken: bearer });

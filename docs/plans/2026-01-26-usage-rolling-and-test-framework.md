@@ -239,7 +239,7 @@ git commit -m "test: add rolling usage summary expectation"
 
 **Step 1: Implement rolling calculation (minimal)**
 - Add `rolling=1` query param support.
-- Compute rolling ranges based on existing timezone context.
+- Compute rolling ranges based on UTC day boundaries (align with `vibeusage_tracker_daily_rollup.day`).
 - Aggregate totals + active days.
 - Compute `avg_per_active_day` with bigint division.
 

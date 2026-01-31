@@ -10,11 +10,13 @@ it("renders rolling usage values", () => {
       totals: { billable_total_tokens: "12000" },
       active_days: 3,
       avg_per_active_day: "4000",
+      avg_per_day: "1714",
     },
     last_30d: {
       totals: { billable_total_tokens: "30000" },
       active_days: 10,
       avg_per_active_day: "3000",
+      avg_per_day: "1000",
     },
   };
 
@@ -28,7 +30,7 @@ it("renders rolling usage values", () => {
     });
 
   expect(copy("dashboard.rolling.title")).toBe("RECENT_USAGE");
-  expect(copy("dashboard.rolling.avg_active_day")).toBe("AVG_DAY");
+  expect(copy("dashboard.rolling.avg_active_day")).toBe("AVG_30_DAY");
   expect(screen.getByText(copy("dashboard.rolling.title"))).toBeInTheDocument();
   expect(screen.getByText(copy("dashboard.rolling.last_7d"))).toBeInTheDocument();
   expect(screen.getByText(copy("dashboard.rolling.last_30d"))).toBeInTheDocument();
@@ -36,7 +38,7 @@ it("renders rolling usage values", () => {
 
   expect(screen.getByText(compact("12000"))).toBeInTheDocument();
   expect(screen.getByText(compact("30000"))).toBeInTheDocument();
-  expect(screen.getByText(compact("3000"))).toBeInTheDocument();
+  expect(screen.getByText(compact("1000"))).toBeInTheDocument();
 });
 
 it("adapts to narrow layouts", () => {

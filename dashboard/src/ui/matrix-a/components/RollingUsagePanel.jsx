@@ -32,9 +32,9 @@ export const RollingUsagePanel = React.memo(function RollingUsagePanel({
       value: formatValue(rolling?.last_30d?.totals?.billable_total_tokens),
     },
     {
-      key: "avg_active_day",
+      key: "avg_30d",
       label: copy("dashboard.rolling.avg_active_day"),
-      value: formatValue(rolling?.last_30d?.avg_per_active_day),
+      value: formatValue(rolling?.last_30d?.avg_per_day),
     },
   ];
 

@@ -18,6 +18,7 @@ const { applyCanaryFilter } = require('../shared/canary');
 const {
   addDatePartsDays,
   getUsageMaxDays,
+  getUsageMaxDaysNonUtc,
   getUsageTimeZoneContext,
   isUtcTimeZone,
   listDateStrings,
@@ -93,7 +94,10 @@ module.exports = withRequestLogging('vibeusage-usage-daily', async function(requ
   );
 
   const dayKeys = listDateStrings(from, to);
-  const maxDays = getUsageMaxDays();
+  let maxDays = getUsageMaxDays();
+  if (!isUtcTimeZone(tzContext)) {
+    maxDays = Math.min(maxDays, getUsageMaxDaysNonUtc());
+  }
   if (dayKeys.length > maxDays) {
     return respond({ error: `Date range too large (max ${maxDays} days)` }, 400, 0);
   }

@@ -384,8 +384,11 @@ function buildMockRollingWindow({ rows, from, to }: AnyRecord = {}) {
   const activeDays = (rows || []).filter(
     (row: AnyRecord) => Number(row.billable_total_tokens ?? row.total_tokens) > 0
   ).length;
+  const windowDays = (rows || []).length;
   const avg =
     activeDays > 0 ? Math.floor(totals.billable_total_tokens / activeDays) : 0;
+  const avgPerDay =
+    windowDays > 0 ? Math.floor(totals.billable_total_tokens / windowDays) : 0;
 
   return {
     from,
@@ -393,6 +396,7 @@ function buildMockRollingWindow({ rows, from, to }: AnyRecord = {}) {
     totals: { billable_total_tokens: totals.billable_total_tokens },
     active_days: activeDays,
     avg_per_active_day: avg,
+    avg_per_day: avgPerDay,
   };
 }
 

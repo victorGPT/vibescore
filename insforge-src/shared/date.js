@@ -275,6 +275,15 @@ function getUsageMaxDays() {
   return clampInt(n, 1, 5000);
 }
 
+function getUsageMaxDaysNonUtc() {
+  const raw = readEnvValue('VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC');
+  if (raw == null || raw === '') return 180;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 180;
+  if (n <= 0) return 180;
+  return clampInt(n, 1, 5000);
+}
+
 function readEnvValue(key) {
   try {
     if (typeof Deno !== 'undefined' && Deno?.env?.get) {
@@ -319,5 +328,6 @@ module.exports = {
   localDatePartsToUtc,
   normalizeDateRangeLocal,
   listDateStrings,
-  getUsageMaxDays
+  getUsageMaxDays,
+  getUsageMaxDaysNonUtc
 };
