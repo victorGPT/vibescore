@@ -26,6 +26,7 @@ const {
   getLocalParts,
   getUsageMaxDays,
   getUsageTimeZoneContext,
+  isUtcTimeZone,
   listDateStrings,
   localDatePartsToUtc,
   normalizeDateRangeLocal,
@@ -424,9 +425,7 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
     const rangeEndIso = rangeEndUtc.toISOString();
     const totals = createTotals();
     const activeByDay = new Map();
-    const shouldUseHourlyForActiveDays = rollupEnabled
-      && Number.isFinite(tzContext?.offsetMinutes)
-      && tzContext.offsetMinutes !== 0;
+    const shouldUseHourlyForActiveDays = rollupEnabled && !isUtcTimeZone(tzContext);
     const resetRollingAggregation = () => {
       totals.total_tokens = 0n;
       totals.billable_total_tokens = 0n;

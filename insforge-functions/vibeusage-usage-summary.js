@@ -1902,7 +1902,7 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
     const rangeEndIso = rangeEndUtc.toISOString();
     const totals2 = createTotals();
     const activeByDay = /* @__PURE__ */ new Map();
-    const shouldUseHourlyForActiveDays = rollupEnabled && Number.isFinite(tzContext?.offsetMinutes) && tzContext.offsetMinutes !== 0;
+    const shouldUseHourlyForActiveDays = rollupEnabled && !isUtcTimeZone(tzContext);
     const resetRollingAggregation = () => {
       totals2.total_tokens = 0n;
       totals2.billable_total_tokens = 0n;
