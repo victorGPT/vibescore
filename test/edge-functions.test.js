@@ -2923,6 +2923,7 @@ test('vibeusage-project-usage-summary aggregates project usage', async () => {
   assert.equal(body.entries[0].billable_total_tokens, '0');
   assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
   assert.ok(filters.some((f) => f.op === 'neq' && f.col === 'source' && f.value === 'canary'));
+  assert.ok(!filters.some((f) => f.col === 'model'));
   assert.ok(
     filters.some(
       (f) => f.op === 'gte' && f.col === 'hour_start' && f.value === '2025-12-20T00:00:00.000Z'
