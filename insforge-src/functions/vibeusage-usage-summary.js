@@ -19,7 +19,9 @@ const { applyCanaryFilter } = require('../shared/canary');
 const {
   addDatePartsDays,
   addUtcDays,
+  dateFromPartsUTC,
   formatDateUTC,
+  formatLocalDateKey,
   formatDateParts,
   getLocalParts,
   getUsageMaxDays,
@@ -426,7 +428,13 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
       const sourceKey = normalizeSource(row?.source) || DEFAULT_SOURCE;
       const { billable, hasStoredBillable } = resolveBillableTotals({ row, source: sourceKey });
       applyTotalsAndBillable({ totals, row, billable, hasStoredBillable });
-      const dayKey = extractDateKey(row?.hour_start || row?.day);
+      let dayKey = null;
+      if (row?.hour_start) {
+        dayKey = formatLocalDateKey(new Date(row.hour_start), tzContext);
+      } else if (row?.day) {
+        const dayParts = parseDateParts(row.day);
+        if (dayParts) dayKey = formatLocalDateKey(dateFromPartsUTC(dayParts), tzContext);
+      }
       if (!dayKey) return;
       const billableTokens = hasStoredBillable ? toBigInt(row?.billable_total_tokens) : billable;
       if (billableTokens <= 0n) return;
