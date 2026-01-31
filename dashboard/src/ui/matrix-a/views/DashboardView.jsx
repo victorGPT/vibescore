@@ -34,6 +34,7 @@ export function DashboardView(props) {
     identityStartDate,
     activeDays,
     identityScrambleDurationMs,
+    projectUsageBlock,
     topModels,
     signedIn,
     publicMode,
@@ -215,6 +216,8 @@ export function DashboardView(props) {
                 animateTitle={false}
                 scrambleDurationMs={identityScrambleDurationMs}
               />
+
+              {projectUsageBlock}
 
               <TopModelsPanel rows={topModels} />
 

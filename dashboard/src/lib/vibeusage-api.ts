@@ -10,6 +10,7 @@ import {
   getMockUsageMonthly,
   getMockUsageModelBreakdown,
   getMockUsageSummary,
+  getMockProjectUsageSummary,
   isMockEnabled,
 } from "./mock-data";
 
@@ -23,6 +24,7 @@ const PATHS = {
   usageMonthly: "vibeusage-usage-monthly",
   usageHeatmap: "vibeusage-usage-heatmap",
   usageModelBreakdown: "vibeusage-usage-model-breakdown",
+  projectUsageSummary: "vibeusage-project-usage-summary",
   linkCodeInit: "vibeusage-link-code-init",
   publicViewStatus: "vibeusage-public-view-status",
   publicViewIssue: "vibeusage-public-view-issue",
@@ -80,6 +82,34 @@ export async function getUsageSummary({
     accessToken: resolvedAccessToken,
     slug: PATHS.usageSummary,
     params: { from, to, ...filterParams, ...tzParams },
+  });
+}
+
+export async function getProjectUsageSummary({
+  baseUrl,
+  accessToken,
+  from,
+  to,
+  source,
+  limit,
+  timeZone,
+  tzOffsetMinutes,
+}: AnyRecord = {}) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
+  if (isMockEnabled()) {
+    return getMockProjectUsageSummary({ seed: resolvedAccessToken, limit });
+  }
+  const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
+  const filterParams = buildFilterParams({ source });
+  const params: AnyRecord = { ...filterParams, ...tzParams };
+  if (from) params.from = from;
+  if (to) params.to = to;
+  if (limit != null) params.limit = String(limit);
+  return requestJson({
+    baseUrl,
+    accessToken: resolvedAccessToken,
+    slug: PATHS.projectUsageSummary,
+    params,
   });
 }
 

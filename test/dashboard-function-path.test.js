@@ -96,6 +96,49 @@ test('usage summary does not fall back on 401', async () => {
   assert.ok(calls[0]?.includes('/functions/'));
 });
 
+test('project usage summary prefers /functions and falls back on 404', async () => {
+  const { getProjectUsageSummary } = await loadVibescoreApi();
+  const calls = [];
+
+  globalThis.fetch = async (url) => {
+    const target = String(url);
+    calls.push(target);
+
+    if (target.includes('/api/functions/vibeusage-project-usage-summary')) {
+      return jsonResponse(
+        {
+          from: '2025-01-01',
+          to: '2025-01-01',
+          entries: [
+            {
+              project_key: 'acme/alpha',
+              project_ref: 'https://github.com/acme/alpha',
+              total_tokens: '10',
+              billable_total_tokens: '10'
+            }
+          ]
+        },
+        200
+      );
+    }
+    if (target.includes('/functions/vibeusage-project-usage-summary')) {
+      return jsonResponse({ error: 'Not Found', message: 'Not Found' }, 404);
+    }
+
+    return jsonResponse({ error: 'Unexpected', message: 'Unexpected' }, 500);
+  };
+
+  const res = await getProjectUsageSummary({
+    baseUrl: 'https://example.test',
+    accessToken: 'token',
+    limit: 3
+  });
+
+  assert.equal(res?.entries?.[0]?.project_key, 'acme/alpha');
+  assert.ok(calls[0]?.includes('/functions/'));
+  assert.ok(calls[1]?.includes('/api/functions/'));
+});
+
 test('link code init posts to /functions', async () => {
   const { requestInstallLinkCode } = await loadVibescoreApi();
   const calls = [];

@@ -2862,6 +2862,77 @@ test('vibeusage-usage-summary uses hourly when rollup disabled', () =>
     );
   }));
 
+test('vibeusage-project-usage-summary aggregates project usage', async () => {
+  const fn = require('../insforge-functions/vibeusage-project-usage-summary');
+
+  const userId = '99999999-9999-9999-9999-999999999999';
+  const userJwt = 'user_jwt_test';
+  const filters = [];
+  const orders = [];
+
+  const rows = [
+    {
+      project_key: 'acme/alpha',
+      project_ref: 'https://github.com/acme/alpha',
+      sum_total_tokens: '100',
+      sum_billable_total_tokens: '120'
+    }
+  ];
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            assert.equal(table, 'vibeusage_project_usage_hourly');
+            const query = createQueryMock({
+              rows,
+              onFilter: (entry) => {
+                if (entry.op === 'order') orders.push(entry);
+                else filters.push(entry);
+              }
+            });
+            return { select: () => query };
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request(
+    'http://localhost/functions/vibeusage-project-usage-summary?from=2025-12-20&to=2025-12-21&limit=3',
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${userJwt}` }
+    }
+  );
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+
+  const body = await res.json();
+  assert.equal(body.entries.length, 1);
+  assert.equal(body.entries[0].project_key, 'acme/alpha');
+  assert.equal(body.entries[0].total_tokens, '100');
+  assert.equal(body.entries[0].billable_total_tokens, '120');
+  assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
+  assert.ok(
+    filters.some(
+      (f) => f.op === 'gte' && f.col === 'hour_start' && f.value === '2025-12-20T00:00:00.000Z'
+    )
+  );
+  assert.ok(
+    filters.some(
+      (f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-22T00:00:00.000Z'
+    )
+  );
+  assert.ok(orders.some((o) => o.col === 'sum_billable_total_tokens'));
+});
+
 test('vibeusage-usage-summary returns total_cost_usd and pricing metadata', () =>
   withRollupEnabled(async () => {
     const fn = require('../insforge-functions/vibeusage-usage-summary');
