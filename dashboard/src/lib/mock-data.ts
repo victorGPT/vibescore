@@ -18,6 +18,18 @@ type HourRow = {
 };
 
 const DEFAULT_MOCK_SEED = "vibeusage";
+const MOCK_PROJECT_REPOS = [
+  "victorgpt/vibeusage",
+  "spacedriveapp/spacedrive",
+  "acme/alpha",
+  "acme/beta",
+  "neo/nebula",
+  "signal/flux",
+  "matrix/terminal",
+  "orbit/atlas",
+  "lumen/core",
+  "delta/horizon",
+];
 
 export function isMockEnabled() {
   if (typeof import.meta !== "undefined" && import.meta.env) {
@@ -393,6 +405,36 @@ function buildMockRollingWindow({ rows, from, to }: AnyRecord = {}) {
     totals: { billable_total_tokens: totals.billable_total_tokens },
     active_days: activeDays,
     avg_per_active_day: avg,
+  };
+}
+
+export function getMockProjectUsageSummary({
+  seed,
+  limit = 3,
+}: AnyRecord = {}) {
+  const seedValue = toSeed(seed);
+  const entries = MOCK_PROJECT_REPOS.map((repo, index) => {
+    const hash = hashString(`${seedValue}:${repo}`);
+    const base = 120000 + (hash % 900000);
+    const drift = (index % 4) * 4200;
+    const total = Math.max(0, base + drift);
+    const billable = Math.max(0, Math.round(total * 0.96));
+    return {
+      project_key: repo,
+      project_ref: `https://github.com/${repo}`,
+      total_tokens: String(total),
+      billable_total_tokens: String(billable),
+    };
+  })
+    .sort(
+      (a, b) =>
+        Number(b.billable_total_tokens) - Number(a.billable_total_tokens)
+    )
+    .slice(0, Math.max(1, Math.min(10, Math.floor(Number(limit) || 3))));
+
+  return {
+    generated_at: new Date().toISOString(),
+    entries,
   };
 }
 

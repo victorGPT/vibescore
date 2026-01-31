@@ -777,6 +777,8 @@ test('vibeusage-ingest ingests project_hourly buckets and upserts project regist
   assert.equal(usageRows[0]?.project_ref, projectBucket.project_ref);
   assert.equal(usageRows[0]?.project_key, projectBucket.project_key);
   assert.equal(usageRows[0]?.total_tokens, 6);
+  assert.equal(usageRows[0]?.billable_total_tokens, '6');
+  assert.equal(usageRows[0]?.billable_rule_version, 1);
 
   const projectRegistryCall = fetchCalls.find((call) =>
     String(call.url).includes('/api/database/records/vibeusage_projects')
@@ -784,6 +786,17 @@ test('vibeusage-ingest ingests project_hourly buckets and upserts project regist
   assert.ok(projectRegistryCall, 'project registry upsert missing');
   const registryUrl = new URL(projectRegistryCall.url);
   assert.equal(registryUrl.searchParams.get('on_conflict'), 'user_id,project_key');
+
+  const registryRows = JSON.parse(projectRegistryCall.init?.body || '[]');
+  assert.equal(registryRows.length, 1);
+  assert.equal(registryRows[0]?.user_id, tokenRow.user_id);
+  assert.equal(registryRows[0]?.device_id, tokenRow.device_id);
+  assert.equal(registryRows[0]?.device_token_id, tokenRow.id);
+  assert.equal(registryRows[0]?.project_key, projectBucket.project_key);
+  assert.equal(registryRows[0]?.project_ref, projectBucket.project_ref);
+  assert.equal(registryRows[0]?.source, projectBucket.source);
+  assert.ok(registryRows[0]?.updated_at, 'updated_at missing');
+  assert.ok(registryRows[0]?.last_seen_at, 'last_seen_at missing');
 });
 
 test('vibeusage-ingest accepts wrapped payload with data.hourly', async () => {
@@ -2979,6 +2992,82 @@ test('vibeusage-usage-summary uses hourly when rollup disabled', () =>
     );
   }));
 
+test('vibeusage-project-usage-summary aggregates project usage', async () => {
+  const fn = require('../insforge-functions/vibeusage-project-usage-summary');
+
+  const userId = '99999999-9999-9999-9999-999999999999';
+  const userJwt = 'user_jwt_test';
+  const filters = [];
+  const orders = [];
+
+  const rows = [
+    {
+      project_key: 'acme/alpha',
+      project_ref: 'https://github.com/acme/alpha',
+      sum_total_tokens: '100',
+      sum_billable_total_tokens: '0'
+    }
+  ];
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            assert.equal(table, 'vibeusage_project_usage_hourly');
+            const query = createQueryMock({
+              rows,
+              onFilter: (entry) => {
+                if (entry.op === 'order') orders.push(entry);
+                else filters.push(entry);
+              }
+            });
+            return { select: () => query };
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request(
+    'http://localhost/functions/vibeusage-project-usage-summary?from=2025-12-20&to=2025-12-21&limit=3',
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${userJwt}` }
+    }
+  );
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+
+  const body = await res.json();
+  assert.equal(body.entries.length, 1);
+  assert.equal(body.entries[0].project_key, 'acme/alpha');
+  assert.equal(body.entries[0].total_tokens, '100');
+  assert.equal(body.entries[0].billable_total_tokens, '0');
+  assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
+  assert.ok(filters.some((f) => f.op === 'neq' && f.col === 'source' && f.value === 'canary'));
+  assert.ok(!filters.some((f) => f.col === 'model'));
+  assert.ok(
+    filters.some(
+      (f) => f.op === 'gte' && f.col === 'hour_start' && f.value === '2025-12-20T00:00:00.000Z'
+    )
+  );
+  assert.ok(
+    filters.some(
+      (f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-22T00:00:00.000Z'
+    )
+  );
+  const billableOrderIndex = orders.findIndex((o) => o.col === 'sum_billable_total_tokens');
+  const totalOrderIndex = orders.findIndex((o) => o.col === 'sum_total_tokens');
+  assert.ok(billableOrderIndex >= 0);
+  assert.ok(totalOrderIndex >= 0);
+  assert.ok(billableOrderIndex < totalOrderIndex);
+});
 test('vibeusage-usage-summary returns rolling metrics when requested', () =>
   withRollupDisabled(async () => {
     const fn = require('../insforge-functions/vibeusage-usage-summary');

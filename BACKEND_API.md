@@ -415,6 +415,46 @@ Notes:
 
 ---
 
+### GET /functions/vibeusage-project-usage-summary
+
+Return top project usage totals for the authenticated user over a date range in the requested timezone (default UTC).
+
+Auth:
+- `Authorization: Bearer <user_jwt>`
+
+Query:
+- `from=YYYY-MM-DD` (optional; default last 30 days)
+- `to=YYYY-MM-DD` (optional; default today in requested timezone)
+- `source=codex|every-code|...` (optional; filter by source; omit to aggregate all sources)
+- `limit=1..10` (optional; default 3)
+- `tz=IANA` (optional; e.g. `America/Los_Angeles`)
+- `tz_offset_minutes` (optional; fixed offset minutes from UTC to local, e.g. `-480`)
+- `debug=1` (optional; include debug payload for query timing)
+
+Response (bigints as strings):
+
+```json
+{
+  "from": "YYYY-MM-DD",
+  "to": "YYYY-MM-DD",
+  "generated_at": "iso",
+  "entries": [
+    {
+      "project_key": "owner/repo",
+      "project_ref": "https://github.com/owner/repo",
+      "total_tokens": "0",
+      "billable_total_tokens": "0"
+    }
+  ]
+}
+```
+
+Notes:
+- Results are sorted by `billable_total_tokens` descending.
+- When `debug=1` is set, the response includes a `debug` object with `request_id`, `status`, `query_ms`, `slow_threshold_ms`, `slow_query`.
+
+---
+
 ### GET /functions/vibeusage-usage-model-breakdown
 
 Return per-source and per-model aggregates for a date range. This endpoint is intended for model mix and cost breakdown UI.

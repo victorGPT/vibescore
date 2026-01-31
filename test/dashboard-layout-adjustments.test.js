@@ -29,6 +29,16 @@ const copyPath = path.join(
   "content",
   "copy.csv"
 );
+const projectUsagePath = path.join(
+  __dirname,
+  "..",
+  "dashboard",
+  "src",
+  "ui",
+  "matrix-a",
+  "components",
+  "ProjectUsagePanel.jsx"
+);
 
 function readFile(filePath) {
   return fs.readFileSync(filePath, "utf8");
@@ -49,6 +59,105 @@ test("DashboardPage places TrendMonitor above heatmap in left column", () => {
   assert.ok(
     trendIndex < heatmapIndex,
     "expected TrendMonitor above heatmap in left column"
+  );
+});
+
+test("DashboardPage places project usage panel above CORE_INDEX in right column", () => {
+  const src = readFile(viewPath);
+  const leftStart = src.indexOf("lg:col-span-4");
+  const rightStart = src.indexOf("lg:col-span-8", leftStart + 1);
+  assert.ok(leftStart !== -1, "expected left column markup");
+  assert.ok(rightStart !== -1, "expected right column markup");
+
+  const leftColumn = src.slice(leftStart, rightStart);
+  assert.ok(
+    !leftColumn.includes("{projectUsageBlock}"),
+    "expected project usage panel moved out of left column"
+  );
+
+  const rightColumn = src.slice(rightStart);
+  const projectIndex = rightColumn.indexOf("{projectUsageBlock}");
+  const usagePanelIndex = rightColumn.indexOf("<UsagePanel");
+  assert.ok(projectIndex !== -1, "expected project usage panel in right column");
+  assert.ok(usagePanelIndex !== -1, "expected UsagePanel in right column");
+  assert.ok(
+    projectIndex < usagePanelIndex,
+    "expected project usage panel above UsagePanel in right column"
+  );
+});
+
+test("ProjectUsagePanel lays out cards in responsive grid", () => {
+  const src = readFile(projectUsagePath);
+  assert.ok(
+    src.includes("grid-cols-1"),
+    "expected project usage grid to start with one column"
+  );
+  assert.ok(
+    src.includes("md:grid-cols-2"),
+    "expected project usage grid to use two columns on medium screens"
+  );
+  assert.ok(
+    src.includes("lg:grid-cols-3"),
+    "expected project usage grid to use three columns on large screens"
+  );
+});
+
+test("ProjectUsagePanel uses icon for star label", () => {
+  const src = readFile(projectUsagePath);
+  assert.ok(
+    src.includes("data-star-icon"),
+    "expected project usage panel to render a star icon"
+  );
+  assert.ok(
+    src.includes('data-star-position="top-right"'),
+    "expected project usage panel to place star in top-right corner"
+  );
+  assert.ok(
+    src.includes("formatCompactNumber(starsRaw"),
+    "expected project usage panel to compact star values"
+  );
+  assert.ok(
+    src.includes("h-[1.3em]"),
+    "expected star icon height to match caption line height"
+  );
+  assert.ok(
+    src.includes('data-owner-row="true"'),
+    "expected star to align with owner row"
+  );
+});
+
+test("ProjectUsagePanel renders three info rows", () => {
+  const src = readFile(projectUsagePath);
+  const markers = [
+    'data-card-line="identity"',
+    'data-card-line="stars"',
+    'data-card-line="tokens"',
+  ];
+  for (const marker of markers) {
+    assert.ok(
+      src.includes(marker),
+      `expected project usage card to render ${marker}`
+    );
+  }
+});
+
+test("ProjectUsagePanel constrains identity text width", () => {
+  const src = readFile(projectUsagePath);
+  assert.ok(
+    src.includes('data-card-field="owner"'),
+    "expected owner field marker for truncation"
+  );
+  assert.ok(
+    src.includes('data-card-field="repo"'),
+    "expected repo field marker for truncation"
+  );
+  assert.ok(
+    src.includes("truncate"),
+    "expected truncated identity text"
+  );
+  assert.ok(
+    src.includes("max-w-"),
+    "expected max width constraint for identity text"
   );
 });
 

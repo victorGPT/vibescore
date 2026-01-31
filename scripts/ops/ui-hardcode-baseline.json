@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-01-25T06:00:59.240Z",
+  "generatedAt": "2026-01-31T20:04:15.754Z",
   "root": "dashboard/src",
   "rules": {
     "colors": "hex/rgb(a) literals",
     "rawText": "JSX text nodes containing letters or digits"
   },
   "totals": {
-    "colors": 75,
+    "colors": 77,
     "rawText": 12
   },
   "files": {
@@ -41,7 +41,7 @@
       "rawTextTokens": []
     },
     "dashboard/src/ui/foundation/MatrixShell.jsx": {
-      "colors": 4,
+      "colors": 6,
       "rawText": 0,
       "rawTextTokens": []
     },

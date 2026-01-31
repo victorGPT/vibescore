@@ -9,7 +9,8 @@ create table if not exists public.vibeusage_projects (
   project_ref text not null,
   source text not null,
   first_seen_at timestamptz not null default now(),
-  last_seen_at timestamptz not null default now()
+  last_seen_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create unique index if not exists vibeusage_projects_user_key_uniq
@@ -60,6 +61,11 @@ exception when duplicate_object then null; end $$;
 
 do $$ begin
   alter table public.vibeusage_projects
+    add column updated_at timestamptz not null default now();
+exception when duplicate_column then null; end $$;
+
+do $$ begin
+  alter table public.vibeusage_projects
     add constraint vibeusage_projects_device_token_id_fkey
     foreign key (device_token_id) references public.vibeusage_tracker_device_tokens(id) on delete set null;
 exception when duplicate_object then null; end $$;
@@ -102,27 +108,27 @@ exception when duplicate_object then null; end $$;
 do $$ begin
   create policy vibeusage_projects_insert_by_device_token on public.vibeusage_projects
     for insert to public
-    with check (public.vibescore_device_token_allows_event_insert(device_token_id, user_id, device_id));
+    with check (public.vibeusage_device_token_allows_event_insert(device_token_id, user_id, device_id));
 exception when duplicate_object then null; end $$;
 
 do $$ begin
   create policy vibeusage_projects_update_by_device_token on public.vibeusage_projects
     for update to public
-    using (public.vibescore_device_token_allows_event_insert(device_token_id, user_id, device_id))
-    with check (public.vibescore_device_token_allows_event_insert(device_token_id, user_id, device_id));
+    using (public.vibeusage_device_token_allows_event_insert(device_token_id, user_id, device_id))
+    with check (public.vibeusage_device_token_allows_event_insert(device_token_id, user_id, device_id));
 exception when duplicate_object then null; end $$;
 
 do $$ begin
   create policy vibeusage_project_usage_hourly_insert_by_device_token on public.vibeusage_project_usage_hourly
     for insert to public
-    with check (public.vibescore_device_token_allows_event_insert(device_token_id, user_id, device_id));
+    with check (public.vibeusage_device_token_allows_event_insert(device_token_id, user_id, device_id));
 exception when duplicate_object then null; end $$;
 
 do $$ begin
   create policy vibeusage_project_usage_hourly_update_by_device_token on public.vibeusage_project_usage_hourly
     for update to public
-    using (public.vibescore_device_token_allows_event_insert(device_token_id, user_id, device_id))
-    with check (public.vibescore_device_token_allows_event_insert(device_token_id, user_id, device_id));
+    using (public.vibeusage_device_token_allows_event_insert(device_token_id, user_id, device_id))
+    with check (public.vibeusage_device_token_allows_event_insert(device_token_id, user_id, device_id));
 exception when duplicate_object then null; end $$;
 
 do $$ begin

@@ -35,6 +35,7 @@ export function DashboardView(props) {
     identityStartDate,
     activeDays,
     identityScrambleDurationMs,
+    projectUsageBlock,
     topModels,
     signedIn,
     publicMode,
@@ -380,6 +381,8 @@ export function DashboardView(props) {
             </div>
 
             <div className="lg:col-span-8 flex flex-col gap-6 min-w-0">
+              {projectUsageBlock}
+
               <UsagePanel
                 title={copy("usage.panel.title")}
                 period={period}

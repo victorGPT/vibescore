@@ -109,8 +109,12 @@ module.exports = withRequestLogging('vibeusage-ingest', async function(request, 
       for (const row of projectRows.data) {
         registryByKey.set(row.project_key, {
           user_id: row.user_id,
+          device_id: row.device_id,
+          device_token_id: row.device_token_id,
+          source: row.source,
           project_key: row.project_key,
           project_ref: row.project_ref,
+          last_seen_at: nowIso,
           updated_at: nowIso
         });
       }

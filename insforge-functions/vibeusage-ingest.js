@@ -909,6 +909,7 @@ var require_ingest = __commonJS({
       }
       const rows = [];
       for (const bucket of byHour.values()) {
+        const billable = computeBillableTotalTokens({ source: bucket.source, totals: bucket });
         rows.push({
           user_id: tokenRow.user_id,
           device_id: tokenRow.device_id,
@@ -922,6 +923,8 @@ var require_ingest = __commonJS({
           output_tokens: bucket.output_tokens,
           reasoning_output_tokens: bucket.reasoning_output_tokens,
           total_tokens: bucket.total_tokens,
+          billable_total_tokens: billable.toString(),
+          billable_rule_version: BILLABLE_RULE_VERSION2,
           updated_at: nowIso
         });
       }
@@ -1470,8 +1473,12 @@ module.exports = withRequestLogging("vibeusage-ingest", async function(request, 
       for (const row of projectRows.data) {
         registryByKey.set(row.project_key, {
           user_id: row.user_id,
+          device_id: row.device_id,
+          device_token_id: row.device_token_id,
+          source: row.source,
           project_key: row.project_key,
           project_ref: row.project_ref,
+          last_seen_at: nowIso,
           updated_at: nowIso
         });
       }

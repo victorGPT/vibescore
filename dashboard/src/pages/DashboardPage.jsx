@@ -27,6 +27,7 @@ import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
 import { useTrendData } from "../hooks/use-trend-data.js";
 import { useUsageData } from "../hooks/use-usage-data.js";
 import { useUsageModelBreakdown } from "../hooks/use-usage-model-breakdown.js";
+import { useProjectUsageSummary } from "../hooks/use-project-usage-summary";
 import {
   formatTimeZoneLabel,
   formatTimeZoneShortLabel,
@@ -40,6 +41,7 @@ import { MatrixButton } from "../ui/foundation/MatrixButton.jsx";
 import { ActivityHeatmap } from "../ui/matrix-a/components/ActivityHeatmap.jsx";
 import { BootScreen } from "../ui/matrix-a/components/BootScreen.jsx";
 import { GithubStar } from "../ui/matrix-a/components/GithubStar.jsx";
+import { ProjectUsagePanel } from "../ui/matrix-a/components/ProjectUsagePanel.jsx";
 import { DashboardView } from "../ui/matrix-a/views/DashboardView.jsx";
 import { getMockNow, isMockEnabled } from "../lib/mock-data";
 import { isScreenshotModeEnabled } from "../lib/screenshot-mode";
@@ -463,6 +465,21 @@ export function DashboardPage({
     from,
     to,
     cacheKey,
+    timeZone,
+    tzOffsetMinutes,
+  });
+
+  const [projectUsageLimit, setProjectUsageLimit] = useState(3);
+  const {
+    entries: projectUsageEntries,
+    loading: projectUsageLoading,
+    error: projectUsageError,
+  } = useProjectUsageSummary({
+    baseUrl,
+    accessToken,
+    limit: projectUsageLimit,
+    from,
+    to,
     timeZone,
     tzOffsetMinutes,
   });
@@ -1016,6 +1033,18 @@ export function DashboardPage({
     () => buildTopModels(modelBreakdown, { limit: 3, copyFn: copy }),
     [modelBreakdown]
   );
+  const projectUsageBlock = useMemo(
+    () => (
+      <ProjectUsagePanel
+        entries={projectUsageEntries}
+        limit={projectUsageLimit}
+        onLimitChange={setProjectUsageLimit}
+        loading={projectUsageLoading}
+        error={projectUsageError}
+      />
+    ),
+    [projectUsageEntries, projectUsageLimit, projectUsageLoading, projectUsageError]
+  );
 
   const openCostModal = useCallback(() => setCostModalOpen(true), []);
   const closeCostModal = useCallback(() => setCostModalOpen(false), []);
@@ -1234,6 +1263,7 @@ export function DashboardPage({
       identityStartDate={identityStartDate}
       activeDays={activeDays}
       identityScrambleDurationMs={identityScrambleDurationMs}
+      projectUsageBlock={projectUsageBlock}
       topModels={topModels}
       signedIn={signedIn}
       publicMode={publicMode}
