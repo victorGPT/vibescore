@@ -449,7 +449,7 @@
     {
       "id": "test_dashboard-layout-adjustments_test_90329a31",
       "type": "text",
-      "text": "**dashboard-layout-adjustments.test**\n`test/dashboard-layout-adjustments.test.js`\n\nTest module.\n\n包含：\n- dashboard-layout-adjustments.test (151 行)\n- readFile (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**dashboard-layout-adjustments.test**\n`test/dashboard-layout-adjustments.test.js`\n\nTest module.\n\n包含：\n- dashboard-layout-adjustments.test (260 行)\n- readFile (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 460,
       "y": 12104,
       "width": 280,
@@ -3701,7 +3701,7 @@
     {
       "id": "frontend_ProjectUsagePanel_70e1ac72",
       "type": "text",
-      "text": "**ProjectUsagePanel**\n`dashboard/src/ui/matrix-a/components/ProjectUsagePanel.jsx`\n\nUI component layer.\n\n包含：\n- ProjectUsagePanel (275 行)\n- splitRepoKey (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**ProjectUsagePanel**\n`dashboard/src/ui/matrix-a/components/ProjectUsagePanel.jsx`\n\nUI component layer.\n\n包含：\n- ProjectUsagePanel (309 行)\n- splitRepoKey (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2620,
       "y": 2792,
       "width": 280,

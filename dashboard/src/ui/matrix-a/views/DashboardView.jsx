@@ -217,8 +217,6 @@ export function DashboardView(props) {
                 scrambleDurationMs={identityScrambleDurationMs}
               />
 
-              {projectUsageBlock}
-
               <TopModelsPanel rows={topModels} />
 
               {!screenshotMode && !signedIn && !publicMode ? (
@@ -379,6 +377,8 @@ export function DashboardView(props) {
             </div>
 
             <div className="lg:col-span-8 flex flex-col gap-6 min-w-0">
+              {projectUsageBlock}
+
               <UsagePanel
                 title={copy("usage.panel.title")}
                 period={period}
