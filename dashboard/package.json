@@ -11,7 +11,9 @@
     "lint:ts": "eslint \"src/**/*.{ts,tsx}\"",
     "preview": "vite preview",
     "screenshot": "node scripts/capture-dashboard-screenshot.mjs",
-    "verify:share-clipboard": "node scripts/verify-share-clipboard.mjs"
+    "verify:share-clipboard": "node scripts/verify-share-clipboard.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@fontsource/geist-mono": "^5.2.0",
@@ -28,14 +30,19 @@
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "@vitejs/plugin-react": "^4.0.0",
+    "@testing-library/jest-dom": "^6.4.5",
+    "@testing-library/react": "^14.3.1",
+    "@testing-library/user-event": "^14.5.2",
     "autoprefixer": "^10.4.21",
     "eslint": "^8.57.0",
     "eslint-plugin-react": "^7.35.0",
     "eslint-plugin-react-hooks": "^4.6.2",
+    "jsdom": "^24.0.0",
     "playwright": "^1.57.0",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.9.3",
-    "vite": "^7.3.0"
+    "vite": "^7.3.0",
+    "vitest": "^2.1.0"
   }
 }

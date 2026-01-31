@@ -434,6 +434,7 @@ export function DashboardPage({
   const {
     daily,
     summary,
+    rolling,
     source: usageSource,
     loading: usageLoading,
     error: usageError,
@@ -1270,6 +1271,7 @@ export function DashboardPage({
       summaryLabel={summaryLabel}
       summaryValue={summaryValue}
       summaryCostValue={summaryCostValue}
+      rollingUsage={rolling}
       costInfoEnabled={costInfoEnabled}
       openCostModal={openCostModal}
       allowBreakdownToggle={allowBreakdownToggle}

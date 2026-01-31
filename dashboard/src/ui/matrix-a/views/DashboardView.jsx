@@ -6,6 +6,7 @@ import { MatrixShell } from "../../foundation/MatrixShell.jsx";
 import { CostAnalysisModal } from "../components/CostAnalysisModal.jsx";
 import { IdentityCard } from "../components/IdentityCard.jsx";
 import { NeuralDivergenceMap } from "../components/NeuralDivergenceMap.jsx";
+import { RollingUsagePanel } from "../components/RollingUsagePanel.jsx";
 import { TopModelsPanel } from "../components/TopModelsPanel.jsx";
 import { TrendMonitor } from "../components/TrendMonitor.jsx";
 import { UsagePanel } from "../components/UsagePanel.jsx";
@@ -71,6 +72,7 @@ export function DashboardView(props) {
     summaryLabel,
     summaryValue,
     summaryCostValue,
+    rollingUsage,
     costInfoEnabled,
     openCostModal,
     allowBreakdownToggle,
@@ -215,6 +217,8 @@ export function DashboardView(props) {
                 animateTitle={false}
                 scrambleDurationMs={identityScrambleDurationMs}
               />
+
+              <RollingUsagePanel rolling={rollingUsage} />
 
               <TopModelsPanel rows={topModels} />
 

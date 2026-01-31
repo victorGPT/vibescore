@@ -20,6 +20,7 @@ export function useUsageData({
 }: any = {}) {
   const [daily, setDaily] = useState<any[]>([]);
   const [summary, setSummary] = useState<any | null>(null);
+  const [rolling, setRolling] = useState<any | null>(null);
   const [source, setSource] = useState<string>("edge");
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -79,14 +80,28 @@ export function useUsageData({
       let dailyRes = null;
       let summaryRes = null;
       if (includeDaily) {
-        dailyRes = await getUsageDaily({
-          baseUrl,
-          accessToken: resolvedToken,
-          from,
-          to,
-          timeZone,
-          tzOffsetMinutes,
-        });
+        const [dailyResult, summaryResult] = await Promise.allSettled([
+          getUsageDaily({
+            baseUrl,
+            accessToken: resolvedToken,
+            from,
+            to,
+            timeZone,
+            tzOffsetMinutes,
+          }),
+          getUsageSummary({
+            baseUrl,
+            accessToken: resolvedToken,
+            from,
+            to,
+            timeZone,
+            tzOffsetMinutes,
+            rolling: true,
+          }),
+        ]);
+        if (dailyResult.status === "rejected") throw dailyResult.reason;
+        dailyRes = dailyResult.value;
+        summaryRes = summaryResult.status === "fulfilled" ? summaryResult.value : null;
       } else {
         summaryRes = await getUsageSummary({
           baseUrl,
@@ -95,6 +110,7 @@ export function useUsageData({
           to,
           timeZone,
           tzOffsetMinutes,
+          rolling: true,
         });
       }
 
@@ -108,27 +124,36 @@ export function useUsageData({
         });
       }
       let nextSummary = summaryRes?.totals || dailyRes?.summary?.totals || null;
-      if (includeDaily && !nextSummary) {
-        const fallback = await getUsageSummary({
-          baseUrl,
-          accessToken: resolvedToken,
-          from,
-          to,
-          timeZone,
-          tzOffsetMinutes,
-        });
-        nextSummary = fallback?.totals || null;
+      let nextRolling = summaryRes?.rolling || dailyRes?.summary?.rolling || null;
+      if (includeDaily && !nextSummary && !summaryRes) {
+        try {
+          const fallback = await getUsageSummary({
+            baseUrl,
+            accessToken: resolvedToken,
+            from,
+            to,
+            timeZone,
+            tzOffsetMinutes,
+            rolling: true,
+          });
+          nextSummary = fallback?.totals || null;
+          nextRolling = fallback?.rolling || nextRolling;
+        } catch (_e) {
+          // Ignore summary fallback errors when daily data is available.
+        }
       }
       const nowIso = new Date().toISOString();
 
       setDaily(nextDaily);
       setSummary(nextSummary);
+      setRolling(nextRolling);
       setSource("edge");
       setFetchedAt(nowIso);
 
       if (nextSummary && cacheAllowed) {
         writeCache({
           summary: nextSummary,
+          rolling: nextRolling,
           daily: nextDaily,
           from,
           to,
@@ -143,6 +168,7 @@ export function useUsageData({
         const cached = readCache();
         if (cached?.summary) {
           setSummary(cached.summary);
+          setRolling(cached.rolling || null);
           const cachedDaily = Array.isArray(cached.daily) ? cached.daily : [];
           const filledDaily = includeDaily
             ? fillDailyGaps(cachedDaily, cached.from || from, cached.to || to, {
@@ -160,6 +186,7 @@ export function useUsageData({
           setError(err?.message || String(err));
           setDaily([]);
           setSummary(null);
+          setRolling(null);
           setSource("edge");
           setFetchedAt(null);
         }
@@ -168,6 +195,7 @@ export function useUsageData({
         setError(err?.message || String(err));
         setDaily([]);
         setSummary(null);
+        setRolling(null);
         setSource("edge");
         setFetchedAt(null);
       }
@@ -196,6 +224,7 @@ export function useUsageData({
     if (!tokenReady && !guestAllowed && !mockEnabled) {
       setDaily([]);
       setSummary(null);
+      setRolling(null);
       setError(null);
       setLoading(false);
       setSource("edge");
@@ -206,6 +235,7 @@ export function useUsageData({
       clearCache();
       setDaily([]);
       setSummary(null);
+      setRolling(null);
       setError(null);
       setSource("edge");
       setFetchedAt(null);
@@ -213,6 +243,7 @@ export function useUsageData({
       const cached = readCache();
       if (cached?.summary) {
         setSummary(cached.summary);
+        setRolling(cached.rolling || null);
         const cachedDaily = Array.isArray(cached.daily) ? cached.daily : [];
         const filledDaily = includeDaily
           ? fillDailyGaps(cachedDaily, cached.from || from, cached.to || to, {
@@ -243,6 +274,7 @@ export function useUsageData({
   return {
     daily,
     summary,
+    rolling,
     source: normalizedSource,
     fetchedAt,
     loading,
