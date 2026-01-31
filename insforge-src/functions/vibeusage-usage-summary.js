@@ -424,6 +424,9 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
     const rangeEndIso = rangeEndUtc.toISOString();
     const totals = createTotals();
     const activeByDay = new Map();
+    const shouldUseHourlyForActiveDays = rollupEnabled
+      && Number.isFinite(tzContext?.offsetMinutes)
+      && tzContext.offsetMinutes !== 0;
     const resetRollingAggregation = () => {
       totals.total_tokens = 0n;
       totals.billable_total_tokens = 0n;
@@ -433,12 +436,7 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
       totals.reasoning_output_tokens = 0n;
       activeByDay.clear();
     };
-
-    const ingestRollingRow = (row) => {
-      if (!shouldIncludeRow(row)) return;
-      const sourceKey = normalizeSource(row?.source) || DEFAULT_SOURCE;
-      const { billable, hasStoredBillable } = resolveBillableTotals({ row, source: sourceKey });
-      applyTotalsAndBillable({ totals, row, billable, hasStoredBillable });
+    const updateActiveByDay = ({ row, billable, hasStoredBillable }) => {
       let dayKey = null;
       if (row?.hour_start) {
         dayKey = formatLocalDateKey(new Date(row.hour_start), tzContext);
@@ -453,6 +451,15 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
       activeByDay.set(dayKey, prev + billableTokens);
     };
 
+    const ingestRollingRow = (row) => {
+      if (!shouldIncludeRow(row)) return;
+      const sourceKey = normalizeSource(row?.source) || DEFAULT_SOURCE;
+      const { billable, hasStoredBillable } = resolveBillableTotals({ row, source: sourceKey });
+      applyTotalsAndBillable({ totals, row, billable, hasStoredBillable });
+      if (shouldUseHourlyForActiveDays) return;
+      updateActiveByDay({ row, billable, hasStoredBillable });
+    };
+
     const sumRes = await sumRangeWithRollup({
       rangeStartIso,
       rangeEndIso,
@@ -462,6 +469,16 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
       onReset: resetRollingAggregation
     });
     if (!sumRes.ok) return sumRes;
+    if (shouldUseHourlyForActiveDays) {
+      activeByDay.clear();
+      const activeRes = await sumHourlyRangeInto(rangeStartIso, rangeEndIso, (row) => {
+        if (!shouldIncludeRow(row)) return;
+        const sourceKey = normalizeSource(row?.source) || DEFAULT_SOURCE;
+        const { billable, hasStoredBillable } = resolveBillableTotals({ row, source: sourceKey });
+        updateActiveByDay({ row, billable, hasStoredBillable });
+      });
+      if (!activeRes.ok) return activeRes;
+    }
 
     const windowDays = listDateStrings(fromDay, toDay).length;
     const activeDays = Array.from(activeByDay.values()).filter((value) => value > 0n).length;
