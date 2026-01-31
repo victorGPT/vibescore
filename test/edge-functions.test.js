@@ -2765,9 +2765,9 @@ test('vibeusage-usage-summary returns rolling metrics when requested', () =>
         hour_start: '2025-12-21T00:00:00.000Z',
         source: 'codex',
         model: 'gpt-4o',
-        billable_total_tokens: '50',
-        total_tokens: '60',
-        input_tokens: '20',
+        billable_total_tokens: null,
+        total_tokens: '55',
+        input_tokens: '15',
         cached_input_tokens: '5',
         output_tokens: '25',
         reasoning_output_tokens: '10'

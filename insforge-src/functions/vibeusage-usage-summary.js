@@ -428,9 +428,7 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
       applyTotalsAndBillable({ totals, row, billable, hasStoredBillable });
       const dayKey = extractDateKey(row?.hour_start || row?.day);
       if (!dayKey) return;
-      const billableTokens = row?.billable_total_tokens != null
-        ? toBigInt(row?.billable_total_tokens)
-        : 0n;
+      const billableTokens = hasStoredBillable ? toBigInt(row?.billable_total_tokens) : billable;
       if (billableTokens <= 0n) return;
       const prev = activeByDay.get(dayKey) || 0n;
       activeByDay.set(dayKey, prev + billableTokens);
