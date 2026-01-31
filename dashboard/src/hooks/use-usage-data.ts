@@ -96,6 +96,7 @@ export function useUsageData({
             to,
             timeZone,
             tzOffsetMinutes,
+            rolling: true,
           }),
         ]);
         if (dailyResult.status === "rejected") throw dailyResult.reason;
@@ -109,6 +110,7 @@ export function useUsageData({
           to,
           timeZone,
           tzOffsetMinutes,
+          rolling: true,
         });
       }
 
@@ -132,6 +134,7 @@ export function useUsageData({
             to,
             timeZone,
             tzOffsetMinutes,
+            rolling: true,
           });
           nextSummary = fallback?.totals || null;
           nextRolling = fallback?.rolling || nextRolling;

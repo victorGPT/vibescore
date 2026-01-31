@@ -218,6 +218,8 @@ export function DashboardView(props) {
                 scrambleDurationMs={identityScrambleDurationMs}
               />
 
+              <RollingUsagePanel rolling={rollingUsage} />
+
               <TopModelsPanel rows={topModels} />
 
               {!screenshotMode && !signedIn && !publicMode ? (
@@ -419,8 +421,6 @@ export function DashboardView(props) {
                 summaryScrambleDurationMs={identityScrambleDurationMs}
                 summaryAnimate={false}
               />
-
-              <RollingUsagePanel rolling={rollingUsage} />
 
               <NeuralDivergenceMap
                 fleetData={fleetData}

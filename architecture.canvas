@@ -670,7 +670,7 @@
     {
       "id": "test_edge-functions_test_deffefcc",
       "type": "text",
-      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- edge-functions.test (6217 行)\n- toBase64Url (1 个参数)\n\n依赖：3 个模块\n被依赖：0 次",
+      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- extends (6318 行)\n- toBase64Url (1 个参数)\n\n依赖：3 个模块\n被依赖：0 次",
       "x": 1540,
       "y": 12104,
       "width": 280,
@@ -3582,7 +3582,7 @@
     {
       "id": "frontend_RollingUsagePanel_be9f0a3a",
       "type": "text",
-      "text": "**RollingUsagePanel**\n`dashboard/src/ui/matrix-a/components/RollingUsagePanel.jsx`\n\nUI component layer.\n\n包含：\n- RollingUsagePanel (59 行)\n- RollingUsagePanel (3 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**RollingUsagePanel**\n`dashboard/src/ui/matrix-a/components/RollingUsagePanel.jsx`\n\nUI component layer.\n\n包含：\n- RollingUsagePanel (65 行)\n- RollingUsagePanel (3 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 100,
       "y": 3152,
       "width": 280,
@@ -3735,7 +3735,7 @@
     {
       "id": "test_RollingUsagePanel_test_218cd888",
       "type": "text",
-      "text": "**RollingUsagePanel.test**\n`dashboard/src/ui/matrix-a/components/__tests__/RollingUsagePanel.test.jsx`\n\nTest module.\n\n包含：\n- RollingUsagePanel.test (32 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**RollingUsagePanel.test**\n`dashboard/src/ui/matrix-a/components/__tests__/RollingUsagePanel.test.jsx`\n\nTest module.\n\n包含：\n- RollingUsagePanel.test (39 行)\n- compact (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 820,
       "y": 2432,
       "width": 280,

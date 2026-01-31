@@ -68,7 +68,7 @@ export async function getUsageSummary({
   model,
   timeZone,
   tzOffsetMinutes,
-  rolling = true,
+  rolling = false,
 }: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {

@@ -1,7 +1,7 @@
 import React from "react";
 
 import { copy } from "../../../lib/copy";
-import { toDisplayNumber } from "../../../lib/format";
+import { formatCompactNumber } from "../../../lib/format";
 import { AsciiBox } from "../../foundation/AsciiBox.jsx";
 
 export const RollingUsagePanel = React.memo(function RollingUsagePanel({
@@ -9,9 +9,15 @@ export const RollingUsagePanel = React.memo(function RollingUsagePanel({
   className = "",
 }) {
   const placeholder = copy("shared.placeholder.short");
+  const compactConfig = {
+    thousandSuffix: copy("shared.unit.thousand_abbrev"),
+    millionSuffix: copy("shared.unit.million_abbrev"),
+    billionSuffix: copy("shared.unit.billion_abbrev"),
+  };
   const formatValue = (value) => {
     if (value == null) return placeholder;
-    return toDisplayNumber(value);
+    const formatted = formatCompactNumber(value, compactConfig);
+    return formatted === "-" ? placeholder : formatted;
   };
 
   const items = [
@@ -38,7 +44,7 @@ export const RollingUsagePanel = React.memo(function RollingUsagePanel({
       className={className}
       bodyClassName="py-4"
     >
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((item) => (
           <div
             key={item.key}
