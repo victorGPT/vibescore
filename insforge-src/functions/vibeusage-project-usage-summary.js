@@ -17,6 +17,7 @@ const {
   parseDateParts
 } = require('../shared/date');
 const { logSlowQuery, withRequestLogging } = require('../shared/logging');
+const { applyCanaryFilter } = require('../shared/canary');
 const { isDebugEnabled, withSlowQueryDebugPayload } = require('../shared/debug');
 
 const DEFAULT_LIMIT = 3;
@@ -80,6 +81,7 @@ module.exports = withRequestLogging('vibeusage-project-usage-summary', async fun
     .lt('hour_start', endIso);
 
   if (source) query = query.eq('source', source);
+  query = applyCanaryFilter(query, { source, model: null });
   query = query
     .order('sum_billable_total_tokens', { ascending: false })
     .order('sum_total_tokens', { ascending: false })

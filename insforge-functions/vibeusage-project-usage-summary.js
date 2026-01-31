@@ -706,6 +706,26 @@ var require_logging = __commonJS({
   }
 });
 
+// insforge-src/shared/canary.js
+var require_canary = __commonJS({
+  "insforge-src/shared/canary.js"(exports2, module2) {
+    "use strict";
+    function isCanaryTag(value) {
+      if (typeof value !== "string") return false;
+      return value.trim().toLowerCase() === "canary";
+    }
+    function applyCanaryFilter2(query, { source, model } = {}) {
+      if (!query || typeof query.neq !== "function") return query;
+      if (isCanaryTag(source) || isCanaryTag(model)) return query;
+      return query.neq("source", "canary").neq("model", "canary");
+    }
+    module2.exports = {
+      applyCanaryFilter: applyCanaryFilter2,
+      isCanaryTag
+    };
+  }
+});
+
 // insforge-src/shared/debug.js
 var require_debug = __commonJS({
   "insforge-src/shared/debug.js"(exports2, module2) {
@@ -774,6 +794,7 @@ var {
   parseDateParts
 } = require_date();
 var { logSlowQuery, withRequestLogging } = require_logging();
+var { applyCanaryFilter } = require_canary();
 var { isDebugEnabled, withSlowQueryDebugPayload } = require_debug();
 var DEFAULT_LIMIT = 3;
 var MAX_LIMIT = 10;
@@ -819,6 +840,7 @@ module.exports = withRequestLogging("vibeusage-project-usage-summary", async fun
     "project_key,project_ref,sum_total_tokens:sum(total_tokens),sum_billable_total_tokens:sum(billable_total_tokens)"
   ).eq("user_id", auth.userId).gte("hour_start", startIso).lt("hour_start", endIso);
   if (source) query = query.eq("source", source);
+  query = applyCanaryFilter(query, { source, model: null });
   query = query.order("sum_billable_total_tokens", { ascending: false }).order("sum_total_tokens", { ascending: false }).limit(limit);
   const { data, error } = await query;
   if (error) {
