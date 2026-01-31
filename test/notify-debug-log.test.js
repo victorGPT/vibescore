@@ -16,6 +16,21 @@ async function runNotify(notifyPath, env) {
   });
 }
 
+async function rmWithRetry(target, retries = 3) {
+  let lastErr = null;
+  for (let i = 0; i <= retries; i++) {
+    try {
+      await fs.rm(target, { recursive: true, force: true });
+      return;
+    } catch (err) {
+      lastErr = err;
+      if (!err || err.code !== 'ENOTEMPTY') throw err;
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+  }
+  throw lastErr;
+}
+
 async function setupInitEnv() {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-notify-debug-'));
   const prevHome = process.env.HOME;
@@ -51,7 +66,7 @@ async function setupInitEnv() {
       else process.env.VIBEUSAGE_DEVICE_TOKEN = prevToken;
       if (prevOpencodeConfigDir === undefined) delete process.env.OPENCODE_CONFIG_DIR;
       else process.env.OPENCODE_CONFIG_DIR = prevOpencodeConfigDir;
-      await fs.rm(tmp, { recursive: true, force: true });
+      await rmWithRetry(tmp);
     }
   };
 }

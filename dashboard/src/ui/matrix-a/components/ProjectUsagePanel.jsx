@@ -236,9 +236,37 @@ function ProjectUsageCard({
       href={projectRef || (repoId ? `https://github.com/${repoId}` : "#")}
       target="_blank"
       rel="noopener noreferrer"
-      className="group flex h-full flex-col gap-3 border border-matrix-ghost bg-matrix-panel px-4 py-4 transition-all duration-200 hover:border-matrix-primary hover:shadow-matrix-glow"
+      className="group relative flex h-full min-h-[152px] flex-col gap-3 border border-matrix-ghost bg-matrix-panel px-4 py-5 transition-all duration-200 hover:border-matrix-primary hover:shadow-matrix-glow"
+      data-project-card="true"
     >
-      <div className="flex items-center gap-3 min-w-0" data-card-line="identity">
+      <div
+        className="absolute right-4 top-4 flex items-center gap-1 text-caption uppercase tracking-[0.2em] text-matrix-muted"
+        data-card-line="stars"
+        data-star-slot="corner"
+      >
+        <span className="sr-only">{starsLabel}</span>
+        <span className="inline-flex items-center justify-center h-[1.3em] w-[1.3em]">
+          <svg
+            viewBox="0 0 16 16"
+            className="h-full w-full fill-matrix-primary"
+            data-star-icon="true"
+            aria-hidden="true"
+          >
+            <path d="M8 1.1 10.1 5.4l4.8.7-3.5 3.4.8 4.8L8 11.9l-4.2 2.4.8-4.8L1.1 6.1l4.8-.7L8 1.1z" />
+          </svg>
+        </span>
+        <span
+          className="inline-flex items-center h-[1.3em] tabular-nums text-matrix-bright"
+          title={starsFull}
+        >
+          {starsCompact}
+        </span>
+      </div>
+
+      <div
+        className="flex items-center gap-3 min-w-0 pr-12"
+        data-card-line="identity"
+      >
         <div className="relative h-12 w-12 rounded-full border border-matrix-ghost overflow-hidden">
           {avatarUrl ? (
             <img
@@ -252,54 +280,35 @@ function ProjectUsageCard({
         </div>
         <div className="min-w-0 flex-1">
           <div
-            className="flex items-center justify-between gap-3"
+            className="flex items-center gap-3"
             data-owner-row="true"
           >
             <div
-              className="text-caption text-matrix-muted uppercase tracking-[0.2em] truncate max-w-[10rem] sm:max-w-[12rem]"
+              className="text-caption text-matrix-muted uppercase tracking-[0.2em] leading-none h-[1.3em] flex items-center truncate max-w-[10rem] sm:max-w-[12rem]"
               data-card-field="owner"
             >
               {owner || placeholder}
             </div>
-            <div
-              className="flex items-baseline gap-1 text-caption uppercase tracking-[0.2em] text-matrix-muted"
-              data-card-line="stars"
-              data-star-position="top-right"
-            >
-              <span className="sr-only">{starsLabel}</span>
-              <span className="inline-flex items-center justify-center h-[1.3em] w-[1.3em]">
-                <svg
-                  viewBox="0 0 16 16"
-                  className="h-full w-full fill-matrix-primary"
-                  data-star-icon="true"
-                  aria-hidden="true"
-                >
-                  <path d="M8 1.1 10.1 5.4l4.8.7-3.5 3.4.8 4.8L8 11.9l-4.2 2.4.8-4.8L1.1 6.1l4.8-.7L8 1.1z" />
-                </svg>
-              </span>
-              <span
-                className="inline-flex items-center h-[1.3em] tabular-nums text-matrix-bright"
-                title={starsFull}
-              >
-                {starsCompact}
-              </span>
-            </div>
-          </div>
-          <div
-            className="text-body font-black text-matrix-bright truncate max-w-[12rem] sm:max-w-[14rem]"
-            title={repo || repoKey}
-            data-card-field="repo"
-          >
-            {repo || repoKey || placeholder}
           </div>
         </div>
       </div>
       <div
-        className="flex items-center gap-2 text-caption uppercase tracking-[0.2em] text-matrix-muted"
+        className="text-body font-black text-matrix-bright truncate max-w-[14rem] sm:max-w-[16rem] pr-12"
+        title={repo || repoKey}
+        data-card-line="repo"
+        data-card-field="repo"
+      >
+        {repo || repoKey || placeholder}
+      </div>
+      <div
+        className="flex items-center justify-between gap-3 text-caption uppercase tracking-[0.2em] text-matrix-muted"
         data-card-line="tokens"
       >
         <span>{tokensLabel}</span>
-        <span className="text-body font-black text-matrix-primary" title={tokensFull}>
+        <span
+          className="text-body font-black text-matrix-primary tabular-nums"
+          title={tokensFull}
+        >
           {tokensCompact}
         </span>
       </div>

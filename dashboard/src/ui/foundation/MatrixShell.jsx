@@ -29,24 +29,24 @@ export function MatrixShell({
         className={`relative z-10 flex flex-col min-h-screen matrix-shell-content ${contentClassName}`}
       >
         {!hideHeader ? (
-          <header className="flex justify-between border-b border-[#00FF41]/20 pb-3 mb-6 items-center shrink-0">
+          <header className="flex justify-between border-b border-matrix-primary/20 pb-3 mb-6 items-center shrink-0">
             <div className="flex items-center space-x-6">
               <img
                 src="/icon.svg"
                 alt=""
                 aria-hidden="true"
-                className="w-8 h-8 md:w-9 md:h-9 rounded-sm bg-black border border-[#00ff00]/30 shadow-[0_0_12px_rgba(0,255,65,0.35)]"
+                className="w-8 h-8 md:w-9 md:h-9 rounded-sm bg-black border border-matrix-primary/30 shadow-[0_0_12px_rgba(0,255,65,0.35)]"
               />
               <div className="flex items-baseline gap-3 uppercase select-none">
                 <span
-                  className="text-[#00ff00] font-black text-2xl md:text-3xl glow-text"
+                  className="text-matrix-primary font-black text-2xl md:text-3xl glow-text"
                   style={{ letterSpacing: "-1px" }}
                 >
                   {titlePrimary}
                 </span>
                 {titleSecondary ? (
                   <span
-                    className="text-[#00ff00] font-extralight text-sm md:text-base"
+                    className="text-matrix-primary font-extralight text-sm md:text-base"
                     style={{ letterSpacing: "2px" }}
                   >
                     {titleSecondary}

@@ -28,6 +28,30 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 - 渐进式披露：阅读架构时先运行 `node scripts/ops/architecture-canvas.cjs --list-modules` 获取模块，再用 `--focus <module> --out architecture.focus.canvas` 生成聚焦画布；阅读时只打开 `architecture.focus.canvas`，需要全量时再查看 `architecture.canvas`。
 - 渐进式披露粒度：小改动聚焦单模块；中等改动在同模块内扩展相邻模块（必要时多次 `--focus`）；跨模块/数据流改动先逐步扩展，只有依赖仍不清楚时才打开全量 `architecture.canvas`。
 
+## Canvas 执行边界（强制 vs 可选）
+
+**强制（必须读 + 更新 Canvas）**
+- 架构变更或系统边界调整
+- 数据流/存储/同步路径变化
+- 公共接口或契约改变（API、事件、数据模型）
+- 跨模块耦合关系调整
+
+**可选（允许跳过 Canvas 读/更）**
+- 局部 bugfix（不影响模块边界/数据流）
+- 纯文案/样式/格式类改动
+- 孤立脚本修补（不进入核心流程）
+
+**最小摩擦执行规则**
+1) 变更前判断是否触发“强制”条件  
+2) 触发则执行 Canvas 读 + 更新；不触发可跳过  
+3) 提交信息或 PR 描述可附一句：`Canvas: updated` 或 `Canvas: not required`
+
+## SQLite 使用习惯（渐进式披露）
+
+- 定位顺序：先用 Canvas 缩小范围（模块/路径前缀），再用 SQLite 精确查询。  
+- 查询原则：只输出最小结果集（几十/几百行以内），禁止全量导出。  
+- 模板优先：使用 `docs/graph/sql-templates.md` 的固定 SQL，避免手写出错。  
+- 目标定位：SQLite 仅负责“符号级事实定位”，输出结果再交给 AI。  
 # OpenSpec 使用范围
 
 - 默认使用 skill 工作流，不强制走 OpenSpec。
@@ -46,3 +70,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 # 工作流规则（Workflow）
 
 - 完成代码后仅执行本地提交（git commit），未经用户明确指示不得推送（git push）。
+
+# 部署规则（Deployment）
+
+- 所有函数都通过 Insforge2 MCP 部署。

@@ -16,6 +16,10 @@ pnpm-debug.log*
 .worktrees/
 codex-pr-review-loop.skill
 index.scip
+/index.*.scip
+/graph.plan.json
+/data/graph.sqlite
+/data/graph.sqlite-*
 
 # Local-only snapshots and experiments
 /backups/

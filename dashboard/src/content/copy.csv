@@ -128,6 +128,11 @@ usage.cost_info.icon,ui,UsagePanel,UsagePanel,cost_info_icon,"[ KEY ]",,active
 usage.cost_info.label,ui,UsagePanel,UsagePanel,cost_info_label,"Detail",,active
 usage.range_label,ui,UsagePanel,UsagePanel,range_label,"Range: {{range}}",,active
 
+dashboard.rolling.title,ui,RollingUsagePanel,RollingUsagePanel,title,"RECENT_USAGE",,active
+dashboard.rolling.last_7d,ui,RollingUsagePanel,RollingUsagePanel,label_last_7d,"LAST_7_DAYS",,active
+dashboard.rolling.last_30d,ui,RollingUsagePanel,RollingUsagePanel,label_last_30d,"LAST_30_DAYS",,active
+dashboard.rolling.avg_active_day,ui,RollingUsagePanel,RollingUsagePanel,label_avg_active_day,"AVG_DAY",,active
+
 dashboard.model_breakdown.title,ui,NeuralDivergenceMap,NeuralDivergenceMap,title,"Model Breakdown",,active
 dashboard.model_breakdown.footer,ui,NeuralDivergenceMap,NeuralDivergenceMap,footer,"Multi-Engine Load Balancing // Active Session",,active
 dashboard.model_breakdown.usage_label,ui,NeuralAdaptiveFleet,NeuralAdaptiveFleet,usage_label,"USAGE: {{value}}",,active

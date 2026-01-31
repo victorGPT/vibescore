@@ -70,18 +70,20 @@ export async function getUsageSummary({
   model,
   timeZone,
   tzOffsetMinutes,
+  rolling = false,
 }: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
-    return getMockUsageSummary({ from, to, seed: resolvedAccessToken });
+    return getMockUsageSummary({ from, to, seed: resolvedAccessToken, rolling });
   }
   const tzParams = buildTimeZoneParams({ timeZone, tzOffsetMinutes });
   const filterParams = buildFilterParams({ source, model });
+  const rollingParams = rolling ? { rolling: "1" } : {};
   return requestJson({
     baseUrl,
     accessToken: resolvedAccessToken,
     slug: PATHS.usageSummary,
-    params: { from, to, ...filterParams, ...tzParams },
+    params: { from, to, ...filterParams, ...tzParams, ...rollingParams },
   });
 }
 

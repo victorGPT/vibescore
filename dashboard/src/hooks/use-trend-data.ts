@@ -108,7 +108,7 @@ export function useTrendData({
       return;
     }
     const resolvedToken = await resolveAuthAccessToken(accessToken);
-    if (!resolvedToken && !guestAllowed && !mockEnabled) return;
+    if (!resolvedToken && !mockEnabled) return;
     setLoading(true);
     setError(null);
     try {
