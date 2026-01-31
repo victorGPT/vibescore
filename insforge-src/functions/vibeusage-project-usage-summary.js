@@ -80,7 +80,10 @@ module.exports = withRequestLogging('vibeusage-project-usage-summary', async fun
     .lt('hour_start', endIso);
 
   if (source) query = query.eq('source', source);
-  query = query.order('sum_total_tokens', { ascending: false }).limit(limit);
+  query = query
+    .order('sum_billable_total_tokens', { ascending: false })
+    .order('sum_total_tokens', { ascending: false })
+    .limit(limit);
 
   const { data, error } = await query;
   if (error) {

@@ -819,7 +819,7 @@ module.exports = withRequestLogging("vibeusage-project-usage-summary", async fun
     "project_key,project_ref,sum_total_tokens:sum(total_tokens),sum_billable_total_tokens:sum(billable_total_tokens)"
   ).eq("user_id", auth.userId).gte("hour_start", startIso).lt("hour_start", endIso);
   if (source) query = query.eq("source", source);
-  query = query.order("sum_total_tokens", { ascending: false }).limit(limit);
+  query = query.order("sum_billable_total_tokens", { ascending: false }).order("sum_total_tokens", { ascending: false }).limit(limit);
   const { data, error } = await query;
   if (error) {
     const queryDurationMs2 = Date.now() - queryStartMs;

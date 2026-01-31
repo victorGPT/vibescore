@@ -2930,7 +2930,11 @@ test('vibeusage-project-usage-summary aggregates project usage', async () => {
       (f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-22T00:00:00.000Z'
     )
   );
-  assert.ok(orders.some((o) => o.col === 'sum_total_tokens'));
+  const billableOrderIndex = orders.findIndex((o) => o.col === 'sum_billable_total_tokens');
+  const totalOrderIndex = orders.findIndex((o) => o.col === 'sum_total_tokens');
+  assert.ok(billableOrderIndex >= 0);
+  assert.ok(totalOrderIndex >= 0);
+  assert.ok(billableOrderIndex < totalOrderIndex);
 });
 
 test('vibeusage-usage-summary returns total_cost_usd and pricing metadata', () =>
