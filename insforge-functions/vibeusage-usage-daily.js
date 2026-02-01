@@ -804,7 +804,7 @@ var require_date = __commonJS({
         second: shifted.getUTCSeconds()
       };
     }
-    function formatLocalDateKey(date, tzContext) {
+    function formatLocalDateKey2(date, tzContext) {
       return formatDateParts(getLocalParts(date, tzContext));
     }
     function localDatePartsToUtc2(parts, tzContext) {
@@ -910,7 +910,7 @@ var require_date = __commonJS({
       isUtcTimeZone,
       getTimeZoneOffsetMinutes,
       getLocalParts,
-      formatLocalDateKey,
+      formatLocalDateKey: formatLocalDateKey2,
       localDatePartsToUtc: localDatePartsToUtc2,
       normalizeDateRangeLocal: normalizeDateRangeLocal2,
       listDateStrings: listDateStrings2,
@@ -1013,7 +1013,7 @@ var require_numbers = __commonJS({
 var require_usage_daily = __commonJS({
   "insforge-src/shared/core/usage-daily.js"(exports2, module2) {
     "use strict";
-    var { formatLocalDateKey } = require_date();
+    var { formatLocalDateKey: formatLocalDateKey2 } = require_date();
     var { toBigInt } = require_numbers();
     function initDailyBuckets2(dayKeys) {
       const buckets = new Map(
@@ -1036,7 +1036,7 @@ var require_usage_daily = __commonJS({
       if (!ts) return false;
       const dt = new Date(ts);
       if (!Number.isFinite(dt.getTime())) return false;
-      const day = formatLocalDateKey(dt, tzContext);
+      const day = formatLocalDateKey2(dt, tzContext);
       const bucket = buckets?.get ? buckets.get(day) : null;
       if (!bucket) return false;
       bucket.total += toBigInt(row?.total_tokens);
@@ -1886,6 +1886,7 @@ var {
 var { applyCanaryFilter } = require_canary();
 var {
   addDatePartsDays,
+  formatLocalDateKey,
   getUsageMaxDays,
   getUsageMaxDaysNonUtc,
   getUsageTimeZoneContext,
@@ -2006,6 +2007,8 @@ module.exports = withRequestLogging("vibeusage-usage-daily", async function(requ
       totals = createTotals();
       sourcesMap = /* @__PURE__ */ new Map();
       distinctModels = /* @__PURE__ */ new Set();
+      distinctUsageModels.clear();
+      if (pricingBuckets) pricingBuckets.clear();
       rowCount = 0;
       rollupHit = false;
     };
@@ -2084,12 +2087,12 @@ module.exports = withRequestLogging("vibeusage-usage-daily", async function(requ
         rowCount += rows2.length;
         rollupHit = true;
         for (const row of rows2) {
-          const day = row?.day;
-          const bucket = buckets.get(day);
-          if (!bucket) continue;
           if (!shouldIncludeUsageRow({ row, canonicalModel, hasModelFilter, aliasTimeline, to })) continue;
           const dayValue = row?.day;
+          if (!dayValue && !row?.hour_start) continue;
           const rowForBucket = row?.hour_start || !dayValue ? row : { ...row, hour_start: `${dayValue}T00:00:00.000Z` };
+          const dayKey = rowForBucket?.hour_start ? formatLocalDateKey(new Date(rowForBucket.hour_start), tzContext) : null;
+          if (!dayKey || !buckets.has(dayKey)) continue;
           const billable = ingestRow(row);
           applyDailyBucket({ buckets, row: rowForBucket, tzContext, billable });
         }

@@ -1947,6 +1947,8 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
       totals = createTotals();
       sourcesMap = /* @__PURE__ */ new Map();
       distinctModels = /* @__PURE__ */ new Set();
+      distinctUsageModels.clear();
+      if (pricingBuckets) pricingBuckets.clear();
       rowCount = 0;
       rollupHit = false;
     };

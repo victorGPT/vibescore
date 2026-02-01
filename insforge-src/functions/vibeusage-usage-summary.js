@@ -164,6 +164,8 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
     totals = createTotals();
     sourcesMap = new Map();
     distinctModels = new Set();
+    distinctUsageModels.clear();
+    if (pricingBuckets) pricingBuckets.clear();
     rowCount = 0;
     rollupHit = false;
   };

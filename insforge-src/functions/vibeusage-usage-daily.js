@@ -17,6 +17,7 @@ const {
 const { applyCanaryFilter } = require('../shared/canary');
 const {
   addDatePartsDays,
+  formatLocalDateKey,
   getUsageMaxDays,
   getUsageMaxDaysNonUtc,
   getUsageTimeZoneContext,
@@ -152,6 +153,8 @@ module.exports = withRequestLogging('vibeusage-usage-daily', async function(requ
     totals = createTotals();
     sourcesMap = new Map();
     distinctModels = new Set();
+    distinctUsageModels.clear();
+    if (pricingBuckets) pricingBuckets.clear();
     rowCount = 0;
     rollupHit = false;
   };
@@ -251,12 +254,16 @@ module.exports = withRequestLogging('vibeusage-usage-daily', async function(requ
       rowCount += rows.length;
       rollupHit = true;
       for (const row of rows) {
-        const day = row?.day;
-        const bucket = buckets.get(day);
-        if (!bucket) continue;
         if (!shouldIncludeUsageRow({ row, canonicalModel, hasModelFilter, aliasTimeline, to })) continue;
         const dayValue = row?.day;
-        const rowForBucket = row?.hour_start || !dayValue ? row : { ...row, hour_start: `${dayValue}T00:00:00.000Z` };
+        if (!dayValue && !row?.hour_start) continue;
+        const rowForBucket = row?.hour_start || !dayValue
+          ? row
+          : { ...row, hour_start: `${dayValue}T00:00:00.000Z` };
+        const dayKey = rowForBucket?.hour_start
+          ? formatLocalDateKey(new Date(rowForBucket.hour_start), tzContext)
+          : null;
+        if (!dayKey || !buckets.has(dayKey)) continue;
         const billable = ingestRow(row);
         applyDailyBucket({ buckets, row: rowForBucket, tzContext, billable });
       }
