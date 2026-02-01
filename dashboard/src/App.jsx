@@ -17,7 +17,10 @@ import { fetchLatestTrackerVersion } from "./lib/npm-version";
 import { isScreenshotModeEnabled } from "./lib/screenshot-mode";
 import { getAppVersion } from "./lib/app-version";
 import { resolveAuthGate } from "./lib/auth-gate";
-import { shouldRedirectFromAuthCallback } from "./lib/auth-callback";
+import {
+  getSafeSessionStorage,
+  shouldRedirectFromAuthCallback,
+} from "./lib/auth-callback";
 import {
   clearAuthStorage,
   clearSessionExpired,
@@ -235,7 +238,7 @@ export default function App() {
       search: window.location.search,
       hasSession: Boolean(insforgeSession?.accessToken),
       sessionResolved: insforgeSession !== undefined,
-      storage: window.sessionStorage,
+      storage: getSafeSessionStorage(),
     });
     if (!shouldRedirect) return;
     window.location.replace(signInUrl);

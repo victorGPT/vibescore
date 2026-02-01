@@ -2,6 +2,17 @@ export const AUTH_CALLBACK_RETRY_KEY =
   "vibeusage.dashboard.auth_callback_retry.v1";
 let memoryRetry: string | null = null;
 
+export function getSafeSessionStorage(
+  getter: () => Storage | null = () =>
+    typeof window === "undefined" ? null : window.sessionStorage
+) {
+  try {
+    return getter();
+  } catch (_e) {
+    return null;
+  }
+}
+
 export function resetAuthCallbackRetryState() {
   memoryRetry = null;
 }

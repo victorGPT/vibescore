@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   AUTH_CALLBACK_RETRY_KEY,
+  getSafeSessionStorage,
   resetAuthCallbackRetryState,
   shouldRedirectFromAuthCallback,
 } from "../auth-callback";
@@ -116,5 +117,12 @@ describe("shouldRedirectFromAuthCallback", () => {
     });
     expect(shouldRedirect).toBe(false);
     expect(storage.getItem(AUTH_CALLBACK_RETRY_KEY)).toBeNull();
+  });
+
+  it("returns null when sessionStorage getter throws", () => {
+    const storage = getSafeSessionStorage(() => {
+      throw new Error("storage blocked");
+    });
+    expect(storage).toBeNull();
   });
 });
