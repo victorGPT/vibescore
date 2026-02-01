@@ -42,13 +42,23 @@ _Codex CLI 实时 AI 分析工具_
 
 ## 🚀 核心功能
 
-- 📡 **自动嗅探与同步 (Auto-Sync)**: 实时监听 Codex CLI 管道并具备**全自动后台同步**功能。初始化后，你的 Token 产出将自动追踪并同步，无需手动执行脚本。
-- 🧭 **全能采集 (Universal-Sync)**: 原生支持 **Codex CLI**, **Every Code** 以及最新的 **Claude Code**。无论是 GPT-4, Claude 3.5 Sonnet 还是 o1/Gemini，所有模型的 Token 消耗均可被统一捕获与统计。
+- 📡 **自动嗅探与同步 (Auto-Sync)**: 实时监听 AI CLI 管道并具备**全自动后台同步**功能。初始化后，你的 Token 产出将自动追踪并同步，无需手动执行脚本。
+- 🧭 **全能采集 (Universal-Sync)**: 原生支持多种 AI CLI 工具：
+  - **Codex CLI** - OpenAI 官方 CLI
+  - **Every Code** - 社区版 Codex 替代品
+  - **Gemini CLI** - Google AI CLI
+  - **Opencode** - AI 编程助手
+  - **Claude Code** - Anthropic 官方 CLI
+  - 无论是 GPT-4、Claude 3.5 Sonnet 还是 o1/Gemini，所有模型的 Token 消耗均可被统一捕获与统计。
 - 📊 **Matrix Dashboard (矩阵控制台)**: 基于 React + Vite 的高性能仪表盘，采用全新的 **Matrix-A** 设计语言。
   - **Neural Divergence Map (神经发散图谱)**: 可视化多引擎负载均衡状态，直观展示算力分布。
   - **Cost Intelligence (成本智能)**: 实时、多维度的成本分解与预测。
+  - **Activity Heatmap (活跃热力图)**: GitHub 风格的贡献图，支持连续天数统计。
   - **Smart Notifications (智能通知)**: 非侵入式的系统级通知，采用金色 (Gold/Amber) 视觉传达高价值信息。
 - ⚡ **AI Analytics (AI 分析)**: 深度分析 Input/Output Token，支持缓存 (Cached) 与推理 (Reasoning) 部分的分离监控。
+- 📈 **排行榜 (Leaderboard)**: 日、周、月、总排行榜，使用隐私安全的显示名称。
+- 🌐 **公开视图 (Public View)**: 分享你的 AI 使用历程，隐私安全的公开档案。
+- 📁 **项目统计 (Project Stats)**: 按项目/仓库追踪 Token 使用，支持全时间范围。
 - 🔒 **Identity Core (身份核心)**: 完备的身份验证与权限管理，保护你的开发数据资产。
 
 ### 🌌 视觉预览
@@ -65,14 +75,33 @@ _Codex CLI 实时 AI 分析工具_
 npx --yes vibeusage init
 ```
 
-说明：交互式终端会显示授权菜单；非交互环境可使用 `--yes` 跳过。
-可选：`--dry-run` 仅预览将发生的变更，不写入任何文件。
-说明：若存在 `~/.code/config.toml`（或 `CODE_HOME`），`init` 会自动配置 Every Code 的 `notify`。配置完成后，数据同步完全自动化，无需后续人工干预。
-说明：若检测到 Gemini CLI home，`init` 会在 `~/.gemini/settings.json` 安装 `SessionEnd` hook，并将 `tools.enableHooks = true` 以确保 hook 生效。这会启用所有 Gemini hooks；如需关闭，可将 `tools.enableHooks = false`（或禁用 `vibeusage-tracker` hook）。
+**认证方式：**
+
+1. **浏览器认证**（默认）- 打开浏览器进行安全认证
+2. **链接码** - 使用 `--link-code` 通过控制台生成的代码认证
+3. **密码** - 直接密码认证（后备方案）
+4. **访问令牌** - 用于 CI/自动化环境
+
+**CLI 选项：**
+- `--yes` - 非交互环境跳过确认提示
+- `--dry-run` - 仅预览变更，不写入文件
+- `--link-code <code>` - 使用控制台的链接码认证
+- `--base-url <url>` - 覆盖默认 API 端点
+
+**支持的 CLI 工具自动配置：**
+
+| 工具 | 配置位置 | 方式 |
+|------|---------|------|
+| Codex CLI | `~/.codex/config.toml` | `notify` hook |
+| Every Code | `~/.code/config.toml`（或 `CODE_HOME`） | `notify` hook |
+| Gemini CLI | `~/.gemini/settings.json`（或 `GEMINI_HOME`） | `SessionEnd` hook |
+| Opencode | 全局插件 | 消息解析插件 |
+| Claude Code | `~/.claude/hooks/` | Hook 配置 |
+
+`init` 完成后，所有支持的 CLI 工具将自动配置数据同步，无需额外操作。
 
 ### 同步与状态查看
 
-````bash
 虽然同步是自动完成的，但你仍可以随时手动触发同步或查看状态：
 
 ```bash
@@ -81,7 +110,7 @@ npx --yes vibeusage sync
 
 # 查看当前连接状态
 npx --yes vibeusage status
-````
+```
 
 ### Doctor
 
@@ -96,20 +125,77 @@ npx --yes vibeusage doctor --json --out doctor.json
 npx --yes vibeusage doctor --base-url https://example.invalid
 ```
 
+### 卸载
+
+```bash
+# 标准卸载（保留数据）
+npx --yes vibeusage uninstall
+
+# 完全清理 - 删除所有数据，包括配置和缓存会话
+npx --yes vibeusage uninstall --purge
+```
+
 ### 日志来源
 
-- Codex CLI 日志：`~/.codex/sessions/**/rollout-*.jsonl`（可用 `CODEX_HOME` 覆盖）
-- Every Code 日志：`~/.code/sessions/**/rollout-*.jsonl`（可用 `CODE_HOME` 覆盖）
-- Gemini CLI 日志：`~/.gemini/tmp/**/chats/session-*.json`（可用 `GEMINI_HOME` 覆盖）
+| 工具 | 日志位置 | 覆盖环境变量 |
+|------|---------|-------------|
+| Codex CLI | `~/.codex/sessions/**/rollout-*.jsonl` | `CODEX_HOME` |
+| Every Code | `~/.code/sessions/**/rollout-*.jsonl` | `CODE_HOME` |
+| Gemini CLI | `~/.gemini/tmp/**/chats/session-*.json` | `GEMINI_HOME` |
+| Opencode | `~/.opencode/messages/*.json` | - |
+| Claude Code | 从 hook 输出解析 | - |
 
 ## 🔧 环境变量
 
-- `VIBEUSAGE_HTTP_TIMEOUT_MS`：CLI 请求超时（毫秒，默认 `20000`，`0` 表示关闭，范围 `1000..120000`）。
-- `VITE_VIBEUSAGE_HTTP_TIMEOUT_MS`：Dashboard 请求超时（毫秒，默认 `15000`，`0` 表示关闭，范围 `1000..30000`）。
-- `VIBEUSAGE_ROLLUP_ENABLED`：当前被忽略，rollup 聚合在代码层禁用，等待 rollup 表部署完成后再恢复。
-- `GEMINI_HOME`：覆盖 Gemini CLI 的 home（默认 `~/.gemini`）。
+### 核心设置
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `VIBEUSAGE_HTTP_TIMEOUT_MS` | CLI HTTP 超时（毫秒，`0` 表示关闭，范围 `1000..120000`） | `20000` |
+| `VITE_VIBEUSAGE_HTTP_TIMEOUT_MS` | Dashboard 请求超时（毫秒，`0` 表示关闭，范围 `1000..30000`） | `15000` |
+| `VIBEUSAGE_DEBUG` | 启用调试输出（`1` 或 `true` 开启） | - |
+| `VIBEUSAGE_DASHBOARD_URL` | 自定义 Dashboard URL | `https://www.vibeusage.cc` |
+| `VIBEUSAGE_INSFORGE_BASE_URL` | 自定义 API 基础 URL | `https://5tmappuk.us-east.insforge.app` |
+| `VIBEUSAGE_DEVICE_TOKEN` | 预配置设备令牌（用于 CI） | - |
+
+### CLI 工具覆盖
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `CODEX_HOME` | Codex CLI 目录覆盖 | `~/.codex` |
+| `CODE_HOME` | Every Code 目录覆盖 | `~/.code` |
+| `GEMINI_HOME` | Gemini CLI 目录覆盖 | `~/.gemini` |
+
+### 已废弃
+
+- `VIBEUSAGE_ROLLUP_ENABLED`：当前被忽略；rollup 聚合在代码层禁用，等待 rollup 表部署完成后再恢复。
 
 ## 🧰 常见问题
+
+### 调试模式
+
+启用调试输出以查看详细的请求/响应信息：
+
+```bash
+VIBEUSAGE_DEBUG=1 npx --yes vibeusage sync
+# 或
+npx --yes vibeusage sync --debug
+```
+
+### 健康检查
+
+运行内置的 doctor 命令诊断问题：
+
+```bash
+# 基础健康检查
+npx --yes vibeusage doctor
+
+# JSON 输出用于调试
+npx --yes vibeusage doctor --json --out doctor.json
+
+# 测试不同端点
+npx --yes vibeusage doctor --base-url https://your-instance.insforge.app
+```
 
 ### Streak 显示 0 天但总量正常
 
@@ -127,15 +213,45 @@ location.reload();
 - 刷新后重新走一遍 landing page 的登录流程。
 - 说明：Dashboard 不使用 `insforge-auth-token`，实际存储在 `vibeusage.dashboard.auth.v1`。
 
+### 同步问题
+
+如果数据未出现在控制台：
+
+1. 检查状态：`npx --yes vibeusage status`
+2. 强制手动同步：`npx --yes vibeusage sync`
+3. 验证 CLI 工具 hooks 是否已配置（需要时重新运行 `init`）
+4. 检查调试输出：`VIBEUSAGE_DEBUG=1 npx vibeusage sync`
+
+### 超时错误
+
+为慢速连接增加 HTTP 超时：
+
+```bash
+VIBEUSAGE_HTTP_TIMEOUT_MS=60000 npx --yes vibeusage sync
+```
+
 ## 🏗️ 系统架构
 
 ```mermaid
 graph TD
-    A[Codex CLI] -->|Rollout Logs| B(Tracker CLI)
-    B -->|AI Tokens| C{Core Relay}
-    C --> D[VibeUsage Dashboard]
-    C --> E[AI Analytics Engine]
+    A[Codex CLI] -->|Rollout Logs| F(Tracker CLI)
+    B[Every Code] -->|Rollout Logs| F
+    C[Gemini CLI] -->|Session Logs| F
+    D[Opencode] -->|Message Logs| F
+    E[Claude Code] -->|Hook Output| F
+    F -->|AI Tokens| G{Core Relay}
+    G --> H[VibeUsage Dashboard]
+    G --> I[AI Analytics Engine]
+    G --> J[Leaderboard Service]
+    G --> K[Public View API]
 ```
+
+### 组件说明
+
+- **Tracker CLI** (`src/`): Node.js CLI，解析多个 AI 工具的日志并同步 Token 数据
+- **Core Relay** (InsForge Edge Functions): 无服务器后端，处理摄取、聚合和 API
+- **Dashboard** (`dashboard/`): React + Vite 前端可视化
+- **AI Analytics Engine**: 成本计算、模型分解和使用预测
 
 ## 💻 开发者指南
 

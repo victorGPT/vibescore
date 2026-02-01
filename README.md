@@ -42,13 +42,23 @@ We believe your code and thoughts are your own. VibeUsage is built with strict p
 
 ## 🚀 Key Features
 
-- 📡 **Auto-Sync**: Real-time interception of Codex CLI pipes with **automatic background synchronization**. Once initialized, your tokens are tracked and synced without any manual commands.
-- 🧭 **Universal-Sync**: Native support for **Codex CLI**, **Every Code**, and the latest **Claude Code**. Whether it's GPT-4, Claude 3.5 Sonnet, or o1/Gemini, token consumption from all models is unified and counted.
+- 📡 **Auto-Sync**: Real-time interception of AI CLI pipes with **automatic background synchronization**. Once initialized, your tokens are tracked and synced without any manual commands.
+- 🧭 **Universal-Sync**: Native support for multiple AI CLI tools:
+  - **Codex CLI** - OpenAI's official CLI
+  - **Every Code** - Community Codex alternative
+  - **Gemini CLI** - Google's AI CLI
+  - **Opencode** - AI coding assistant
+  - **Claude Code** - Anthropic's official CLI
+  - Whether it's GPT-4, Claude 3.5 Sonnet, or o1/Gemini, token consumption from all models is unified and counted.
 - 📊 **Matrix Dashboard**: High-performance dashboard built with React + Vite, featuring the new **Matrix-A** design language.
   - **Neural Divergence Map**: Visualize multi-engine load balancing and compute distribution.
   - **Cost Intelligence**: Real-time, multi-dimensional cost breakdown and forecasting.
+  - **Activity Heatmap**: GitHub-style contribution graph with streak tracking.
   - **Smart Notifications**: Non-intrusive system-level alerts using a Golden (Gold/Amber) visual style for high-value information.
 - ⚡ **AI Analytics**: Deep analysis of Input/Output tokens, with dedicated tracking for Cached and Reasoning components.
+- 📈 **Leaderboard**: Daily, weekly, monthly, and all-time rankings with privacy-safe display names.
+- 🌐 **Public View**: Share your AI usage journey with a privacy-safe public profile.
+- 📁 **Project Stats**: Track token usage by project/repository across all time.
 - 🔒 **Identity Core**: Robust authentication and permission management to secure your development data.
 
 ### 🌌 Visual Preview
@@ -65,14 +75,33 @@ Initialize your environment once and forget it. VibeUsage handles all synchroniz
 npx --yes vibeusage init
 ```
 
-Note: `init` shows a consent prompt in interactive shells. Use `--yes` to skip prompts in non-interactive environments.
-Optional: `--dry-run` previews planned changes without writing files.
-Note: If `~/.code/config.toml` exists (or `CODE_HOME`), `init` also configures Every Code `notify` automatically. No further user intervention is required for data sync.
-Note: If Gemini CLI home exists, `init` installs a `SessionEnd` hook in `~/.gemini/settings.json` and sets `tools.enableHooks = true` so hooks execute. This enables all Gemini hooks; disable by setting `tools.enableHooks = false` (or disabling the `vibeusage-tracker` hook).
+**Authentication Methods:**
+
+1. **Browser Auth** (default) - Opens browser for secure authentication
+2. **Link Code** - Use `--link-code` to authenticate via dashboard-generated code
+3. **Password** - Direct password authentication (fallback)
+4. **Access Token** - For CI/automated environments
+
+**CLI Options:**
+- `--yes` - Skip consent prompts in non-interactive environments
+- `--dry-run` - Preview changes without writing files
+- `--link-code <code>` - Authenticate using a link code from dashboard
+- `--base-url <url>` - Override the default API endpoint
+
+**Supported CLI Tools Auto-Configuration:**
+
+| Tool | Config Location | Method |
+|------|----------------|--------|
+| Codex CLI | `~/.codex/config.toml` | `notify` hook |
+| Every Code | `~/.code/config.toml` (or `CODE_HOME`) | `notify` hook |
+| Gemini CLI | `~/.gemini/settings.json` (or `GEMINI_HOME`) | `SessionEnd` hook |
+| Opencode | Global plugins | Message parser plugin |
+| Claude Code | `~/.claude/hooks/` | Hook configuration |
+
+Once `init` completes, all supported CLI tools are automatically configured for data sync. No further intervention required.
 
 ### Sync & Status
 
-````bash
 While sync happens automatically, you can manually trigger a synchronization or check status anytime:
 
 ```bash
@@ -81,7 +110,7 @@ npx --yes vibeusage sync
 
 # Check current link status
 npx --yes vibeusage status
-````
+```
 
 ### Doctor
 
@@ -96,20 +125,77 @@ npx --yes vibeusage doctor --json --out doctor.json
 npx --yes vibeusage doctor --base-url https://example.invalid
 ```
 
-### Sources
+### Uninstall
 
-- Codex CLI logs: `~/.codex/sessions/**/rollout-*.jsonl` (override with `CODEX_HOME`)
-- Every Code logs: `~/.code/sessions/**/rollout-*.jsonl` (override with `CODE_HOME`)
-- Gemini CLI logs: `~/.gemini/tmp/**/chats/session-*.json` (override with `GEMINI_HOME`)
+```bash
+# Standard uninstall (keeps data)
+npx --yes vibeusage uninstall
+
+# Full purge - removes all data including config and cached sessions
+npx --yes vibeusage uninstall --purge
+```
+
+### Log Sources
+
+| Tool | Log Location | Override Env |
+|------|-------------|--------------|
+| Codex CLI | `~/.codex/sessions/**/rollout-*.jsonl` | `CODEX_HOME` |
+| Every Code | `~/.code/sessions/**/rollout-*.jsonl` | `CODE_HOME` |
+| Gemini CLI | `~/.gemini/tmp/**/chats/session-*.json` | `GEMINI_HOME` |
+| Opencode | `~/.opencode/messages/*.json` | - |
+| Claude Code | Parsed from hook output | - |
 
 ## 🔧 Environment Variables
 
-- `VIBEUSAGE_HTTP_TIMEOUT_MS`: CLI HTTP timeout in ms (default `20000`, `0` disables, clamped to `1000..120000`).
-- `VITE_VIBEUSAGE_HTTP_TIMEOUT_MS`: Dashboard request timeout in ms (default `15000`, `0` disables, clamped to `1000..30000`).
-- `VIBEUSAGE_ROLLUP_ENABLED`: Currently ignored; rollup aggregation is disabled in code until the daily rollup table is deployed.
-- `GEMINI_HOME`: Override Gemini CLI home (defaults to `~/.gemini`).
+### Core Settings
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `VIBEUSAGE_HTTP_TIMEOUT_MS` | CLI HTTP timeout in ms (`0` disables, clamped `1000..120000`) | `20000` |
+| `VITE_VIBEUSAGE_HTTP_TIMEOUT_MS` | Dashboard request timeout in ms (`0` disables, clamped `1000..30000`) | `15000` |
+| `VIBEUSAGE_DEBUG` | Enable debug output (`1` or `true` to enable) | - |
+| `VIBEUSAGE_DASHBOARD_URL` | Custom dashboard URL | `https://www.vibeusage.cc` |
+| `VIBEUSAGE_INSFORGE_BASE_URL` | Custom API base URL | `https://5tmappuk.us-east.insforge.app` |
+| `VIBEUSAGE_DEVICE_TOKEN` | Pre-configured device token (for CI) | - |
+
+### CLI Tool Overrides
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CODEX_HOME` | Codex CLI directory override | `~/.codex` |
+| `CODE_HOME` | Every Code directory override | `~/.code` |
+| `GEMINI_HOME` | Gemini CLI directory override | `~/.gemini` |
+
+### Deprecated
+
+- `VIBEUSAGE_ROLLUP_ENABLED`: Currently ignored; rollup aggregation is disabled pending table deployment.
 
 ## 🧰 Troubleshooting
+
+### Debug Mode
+
+Enable debug output to see detailed request/response information:
+
+```bash
+VIBEUSAGE_DEBUG=1 npx --yes vibeusage sync
+# or
+npx --yes vibeusage sync --debug
+```
+
+### Health Check
+
+Run the built-in doctor command to diagnose issues:
+
+```bash
+# Basic health check
+npx --yes vibeusage doctor
+
+# JSON output for debugging
+npx --yes vibeusage doctor --json --out doctor.json
+
+# Test against a different endpoint
+npx --yes vibeusage doctor --base-url https://your-instance.insforge.app
+```
 
 ### Streak shows 0 days while totals look correct
 
@@ -127,15 +213,45 @@ location.reload();
 - Complete the landing page sign-in flow again after reload.
 - Note: `insforge-auth-token` is not used by the dashboard; use `vibeusage.dashboard.auth.v1`.
 
+### Sync Issues
+
+If data isn't appearing in the dashboard:
+
+1. Check status: `npx --yes vibeusage status`
+2. Force manual sync: `npx --yes vibeusage sync`
+3. Verify CLI tool hooks are configured (re-run `init` if needed)
+4. Check debug output: `VIBEUSAGE_DEBUG=1 npx vibeusage sync`
+
+### Timeout Errors
+
+Increase HTTP timeout for slow connections:
+
+```bash
+VIBEUSAGE_HTTP_TIMEOUT_MS=60000 npx --yes vibeusage sync
+```
+
 ## 🏗️ Architecture
 
 ```mermaid
 graph TD
-    A[Codex CLI] -->|Rollout Logs| B(Tracker CLI)
-    B -->|AI Tokens| C{Core Relay}
-    C --> D[VibeUsage Dashboard]
-    C --> E[AI Analytics Engine]
+    A[Codex CLI] -->|Rollout Logs| F(Tracker CLI)
+    B[Every Code] -->|Rollout Logs| F
+    C[Gemini CLI] -->|Session Logs| F
+    D[Opencode] -->|Message Logs| F
+    E[Claude Code] -->|Hook Output| F
+    F -->|AI Tokens| G{Core Relay}
+    G --> H[VibeUsage Dashboard]
+    G --> I[AI Analytics Engine]
+    G --> J[Leaderboard Service]
+    G --> K[Public View API]
 ```
+
+### Components
+
+- **Tracker CLI** (`src/`): Node.js CLI that parses logs from multiple AI tools and syncs token data
+- **Core Relay** (InsForge Edge Functions): Serverless backend handling ingestion, aggregation, and API
+- **Dashboard** (`dashboard/`): React + Vite frontend for visualization
+- **AI Analytics Engine**: Cost calculation, model breakdown, and usage forecasting
 
 ## 💻 Developer Guide
 
