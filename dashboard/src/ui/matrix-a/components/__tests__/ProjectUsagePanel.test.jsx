@@ -1,7 +1,10 @@
 import React from "react";
+import { screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { render } from "../../../../test/test-utils";
+import { copy } from "../../../../lib/copy";
+import { formatCompactNumber } from "../../../../lib/format";
 import { ProjectUsagePanel } from "../ProjectUsagePanel.jsx";
 
 describe("ProjectUsagePanel", () => {
@@ -28,5 +31,25 @@ describe("ProjectUsagePanel", () => {
     expect(card?.querySelector('[data-card-line="identity"]')).toBeTruthy();
     expect(card?.querySelector('[data-card-line="repo"]')).toBeTruthy();
     expect(card?.querySelector('[data-card-line="tokens"]')).toBeTruthy();
+  });
+
+  it("prefers total tokens when billable tokens are zero", () => {
+    const entryWithBillableZero = {
+      project_key: "octo/alpha",
+      project_ref: "https://github.com/octo/alpha",
+      total_tokens: 12345,
+      billable_total_tokens: 0,
+    };
+
+    render(<ProjectUsagePanel entries={[entryWithBillableZero]} />);
+
+    const expected = formatCompactNumber("12345", {
+      thousandSuffix: copy("shared.unit.thousand_abbrev"),
+      millionSuffix: copy("shared.unit.million_abbrev"),
+      billionSuffix: copy("shared.unit.billion_abbrev"),
+      decimals: 1,
+    });
+
+    expect(screen.getByText(expected)).toBeInTheDocument();
   });
 });

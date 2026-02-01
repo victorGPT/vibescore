@@ -21,7 +21,14 @@ function normalizeStars(value) {
 
 function resolveTokens(entry) {
   if (!entry) return null;
-  return entry.billable_total_tokens ?? entry.total_tokens ?? null;
+  const total = entry.total_tokens ?? null;
+  const billable = entry.billable_total_tokens ?? null;
+  const billableValue = toFiniteNumber(billable);
+  const totalValue = toFiniteNumber(total);
+  if (billableValue === 0 && totalValue != null && totalValue > 0) {
+    return total;
+  }
+  return billable ?? total ?? null;
 }
 
 function resolveRepoMeta(repoId) {
