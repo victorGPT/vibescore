@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.16] - 2026-02-01
+### Changed
+- Project usage summary now always returns all-time totals, ignoring date filters.
+
+### Fixed
+- Dashboard auth callback storage tests now use complete Storage stubs for type safety.
+
 ## [0.2.15] - 2026-01-23
 ### Changed
 - Bundle @insforge/sdk with the CLI package to avoid missing dependency errors at runtime.
