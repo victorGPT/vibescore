@@ -19,6 +19,7 @@ const {
 const { logSlowQuery, withRequestLogging } = require('../shared/logging');
 const { isCanaryTag } = require('../shared/canary');
 const { isDebugEnabled, withSlowQueryDebugPayload } = require('../shared/debug');
+const { toBigInt } = require('../shared/numbers');
 
 const DEFAULT_LIMIT = 3;
 const MAX_LIMIT = 10;
@@ -74,7 +75,7 @@ module.exports = withRequestLogging('vibeusage-project-usage-summary', async fun
   let query = auth.edgeClient.database
     .from('vibeusage_project_usage_hourly')
     .select(
-      'project_key,project_ref,sum_total_tokens:sum(total_tokens),sum_billable_total_tokens:sum(billable_total_tokens)'
+      'project_key,project_ref,sum_total_tokens:total_tokens.sum(),sum_billable_total_tokens:billable_total_tokens.sum()'
     )
     .eq('user_id', auth.userId)
     .gte('hour_start', startIso)
@@ -88,22 +89,37 @@ module.exports = withRequestLogging('vibeusage-project-usage-summary', async fun
     .limit(limit);
 
   const { data, error } = await query;
-  if (error) {
+  let entries = null;
+  if (error && shouldFallbackAggregate(error?.message)) {
+    const fallback = await fetchProjectUsageFallback({
+      edgeClient: auth.edgeClient,
+      userId: auth.userId,
+      startIso,
+      endIso,
+      source,
+      limit
+    });
+    if (!fallback.ok) {
+      const queryDurationMs = Date.now() - queryStartMs;
+      return respond({ error: fallback.error }, 500, queryDurationMs);
+    }
+    entries = fallback.entries;
+  } else if (error) {
     const queryDurationMs = Date.now() - queryStartMs;
     return respond({ error: error.message }, 500, queryDurationMs);
+  } else {
+    entries = (Array.isArray(data) ? data : [])
+      .map((row) => {
+        const totalTokens = normalizeAggregateValue(row?.sum_total_tokens);
+        return {
+          project_key: row?.project_key || null,
+          project_ref: row?.project_ref || null,
+          total_tokens: totalTokens,
+          billable_total_tokens: resolveBillableTotal(totalTokens, row?.sum_billable_total_tokens)
+        };
+      })
+      .filter((row) => row.project_key && row.project_ref);
   }
-
-  const entries = (Array.isArray(data) ? data : [])
-    .map((row) => {
-      const totalTokens = normalizeAggregateValue(row?.sum_total_tokens);
-      return {
-        project_key: row?.project_key || null,
-        project_ref: row?.project_ref || null,
-        total_tokens: totalTokens,
-        billable_total_tokens: resolveBillableTotal(totalTokens, row?.sum_billable_total_tokens)
-      };
-    })
-    .filter((row) => row.project_key && row.project_ref);
 
   const queryDurationMs = Date.now() - queryStartMs;
   logSlowQuery(logger, {
@@ -121,7 +137,7 @@ module.exports = withRequestLogging('vibeusage-project-usage-summary', async fun
       from,
       to,
       generated_at: new Date().toISOString(),
-      entries
+      entries: entries || []
     },
     200,
     queryDurationMs
@@ -149,4 +165,80 @@ function normalizeAggregateValue(value) {
 function resolveBillableTotal(totalTokens, billableRaw) {
   if (billableRaw == null) return totalTokens;
   return normalizeAggregateValue(billableRaw);
+}
+
+function shouldFallbackAggregate(message) {
+  if (typeof message !== 'string') return false;
+  return message.toLowerCase().includes('aggregate functions is not allowed');
+}
+
+async function fetchProjectUsageFallback({ edgeClient, userId, startIso, endIso, source, limit }) {
+  try {
+    let query = edgeClient.database
+      .from('vibeusage_project_usage_hourly')
+      .select('project_key,project_ref,total_tokens,billable_total_tokens')
+      .eq('user_id', userId)
+      .gte('hour_start', startIso)
+      .lt('hour_start', endIso);
+
+    if (source) query = query.eq('source', source);
+    if (!isCanaryTag(source)) query = query.neq('source', 'canary');
+
+    const { data, error } = await query;
+    if (error) return { ok: false, error: error.message };
+    const entries = aggregateProjectRows(data, limit);
+    return { ok: true, entries };
+  } catch (err) {
+    return { ok: false, error: err?.message || 'Fallback query failed' };
+  }
+}
+
+function aggregateProjectRows(rows, limit) {
+  const map = new Map();
+  for (const row of Array.isArray(rows) ? rows : []) {
+    const projectKey = typeof row?.project_key === 'string' ? row.project_key : null;
+    const projectRef = typeof row?.project_ref === 'string' ? row.project_ref : null;
+    if (!projectKey || !projectRef) continue;
+    const key = `${projectKey}::${projectRef}`;
+    let entry = map.get(key);
+    if (!entry) {
+      entry = {
+        project_key: projectKey,
+        project_ref: projectRef,
+        total: 0n,
+        billable: 0n
+      };
+      map.set(key, entry);
+    }
+    entry.total += toBigInt(row?.total_tokens);
+    const billableRaw =
+      row && Object.prototype.hasOwnProperty.call(row, 'billable_total_tokens')
+        ? row.billable_total_tokens
+        : null;
+    const billable = billableRaw == null ? row?.total_tokens : billableRaw;
+    entry.billable += toBigInt(billable);
+  }
+
+  const entries = Array.from(map.values()).map((entry) => ({
+    project_key: entry.project_key,
+    project_ref: entry.project_ref,
+    total_tokens: entry.total.toString(),
+    billable_total_tokens: entry.billable.toString()
+  }));
+
+  entries.sort((a, b) => {
+    const aBillable = toBigInt(a.billable_total_tokens);
+    const bBillable = toBigInt(b.billable_total_tokens);
+    if (aBillable === bBillable) {
+      const aTotal = toBigInt(a.total_tokens);
+      const bTotal = toBigInt(b.total_tokens);
+      if (aTotal === bTotal) return 0;
+      return aTotal > bTotal ? -1 : 1;
+    }
+    return aBillable > bBillable ? -1 : 1;
+  });
+
+  if (!Number.isFinite(limit)) return entries;
+  const safeLimit = Math.max(1, Math.floor(limit));
+  return entries.slice(0, safeLimit);
 }
