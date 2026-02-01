@@ -25,6 +25,7 @@ const {
   formatDateParts,
   getLocalParts,
   getUsageMaxDays,
+  getUsageMaxDaysNonUtc,
   getUsageTimeZoneContext,
   isUtcTimeZone,
   listDateStrings,
@@ -103,10 +104,17 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
   );
 
   const dayKeys = listDateStrings(from, to);
+  const rangeDays = dayKeys.length;
   const maxDays = getUsageMaxDays();
-  if (dayKeys.length > maxDays) {
+  const maxHourlyDays = Math.min(maxDays, getUsageMaxDaysNonUtc());
+  const rollupFeatureEnabled = isRollupEnabled();
+  if (rangeDays > maxDays) {
     return respond({ error: `Date range too large (max ${maxDays} days)` }, 400, 0);
   }
+  if (rangeDays > maxHourlyDays && !rollupFeatureEnabled) {
+    return respond({ error: `Date range too large (max ${maxHourlyDays} days)` }, 400, 0);
+  }
+  const useRollupForRange = rollupFeatureEnabled && rangeDays > maxHourlyDays;
 
   const startParts = parseDateParts(from);
   const endParts = parseDateParts(to);
@@ -150,7 +158,7 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
   const queryStartMs = Date.now();
   let rowCount = 0;
   let rollupHit = false;
-  const rollupEnabled = isRollupEnabled();
+  const rollupEnabled = rollupFeatureEnabled;
 
   const resetAggregation = () => {
     totals = createTotals();
@@ -345,6 +353,7 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
     rangeEndIso,
     rangeStartUtc,
     rangeEndUtc,
+    rollupEnabled: rollupEnabledForRange,
     onRow,
     onReset
   }) => {
@@ -363,7 +372,7 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
     const startIsBoundary = rangeStartUtc.getTime() === rangeStartDayUtc.getTime();
     const endIsBoundary = rangeEndUtc.getTime() === rangeEndDayUtc.getTime();
 
-    if (!rollupEnabled) {
+    if (!rollupEnabledForRange) {
       return sumHourlyRangeInto(rangeStartIso, rangeEndIso, onRow);
     }
 
@@ -418,6 +427,8 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
   };
 
   const buildRollingWindow = async ({ fromDay, toDay }) => {
+    const windowDays = listDateStrings(fromDay, toDay).length;
+    const rollupEnabledForRolling = rollupEnabled && windowDays > maxHourlyDays;
     const rangeStartParts = parseDateParts(fromDay);
     const rangeEndParts = parseDateParts(toDay);
     if (!rangeStartParts || !rangeEndParts) {
@@ -434,7 +445,7 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
     const rangeEndIso = rangeEndUtc.toISOString();
     const totals = createTotals();
     const activeByDay = new Map();
-    const shouldUseHourlyForActiveDays = rollupEnabled && !isUtcTimeZone(tzContext);
+    const shouldUseHourlyForActiveDays = rollupEnabledForRolling && !isUtcTimeZone(tzContext);
     const resetRollingAggregation = () => {
       totals.total_tokens = 0n;
       totals.billable_total_tokens = 0n;
@@ -473,6 +484,7 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
       rangeEndIso,
       rangeStartUtc,
       rangeEndUtc,
+      rollupEnabled: rollupEnabledForRolling,
       onRow: ingestRollingRow,
       onReset: resetRollingAggregation
     });
@@ -488,7 +500,6 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
       if (!activeRes.ok) return activeRes;
     }
 
-    const windowDays = listDateStrings(fromDay, toDay).length;
     const activeDays = Array.from(activeByDay.values()).filter((value) => value > 0n).length;
     const avg = activeDays > 0 ? totals.billable_total_tokens / BigInt(activeDays) : 0n;
     const avgPerDay = windowDays > 0 ? totals.billable_total_tokens / BigInt(windowDays) : 0n;
@@ -522,7 +533,7 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
   const startIsBoundary = startUtc.getTime() === startDayUtc.getTime();
   const endIsBoundary = endUtc.getTime() === endDayUtc.getTime();
 
-  if (!rollupEnabled) {
+  if (!useRollupForRange) {
     const hourlyRes = await sumHourlyRange(startIso, endIso);
     if (!hourlyRes.ok) {
       const queryDurationMs = Date.now() - queryStartMs;

@@ -1656,6 +1656,91 @@ test('vibeusage-usage-daily ignores rollup flag', () =>
     assert.equal(res.status, 200);
   }));
 
+test('vibeusage-usage-daily uses rollup for oversized ranges when enabled', { concurrency: 1 }, () =>
+  withRollupEnabled(async () => {
+    const fn = require('../insforge-functions/vibeusage-usage-daily');
+
+    const prevMaxDays = process.env.VIBEUSAGE_USAGE_MAX_DAYS;
+    const prevMaxLocalDays = process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC;
+    const userId = '66666666-6666-6666-6666-666666666666';
+    const userJwt = createUserJwt(userId);
+    let rollupTouched = false;
+    let hourlyTouched = false;
+
+    try {
+      process.env.VIBEUSAGE_USAGE_MAX_DAYS = '30';
+      process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC = '7';
+
+      globalThis.createClient = (args) => {
+        if (args && args.edgeFunctionToken === userJwt) {
+          return {
+            auth: {
+              getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+            },
+            database: {
+              from: (table) => {
+                if (table === 'vibeusage_tracker_daily_rollup') {
+                  rollupTouched = true;
+                  const query = createQueryMock({
+                    rows: [
+                      {
+                        day: '2025-01-01',
+                        source: 'codex',
+                        model: 'gpt-4o',
+                        billable_total_tokens: '10',
+                        total_tokens: '12',
+                        input_tokens: '4',
+                        cached_input_tokens: '1',
+                        output_tokens: '5',
+                        reasoning_output_tokens: '2'
+                      }
+                    ]
+                  });
+                  return { select: () => query };
+                }
+                if (table === 'vibeusage_tracker_hourly') {
+                  hourlyTouched = true;
+                  throw new Error('hourly should not be used for rollup ranges');
+                }
+                if (table === 'vibeusage_model_aliases') {
+                  return createQueryMock({ rows: [] });
+                }
+                if (table === 'vibeusage_pricing_profiles') {
+                  const query = createQueryMock({ rows: [] });
+                  query.or = () => query;
+                  return query;
+                }
+                if (table === 'vibeusage_pricing_model_aliases') {
+                  return createQueryMock({ rows: [] });
+                }
+                throw new Error(`Unexpected table ${table}`);
+              }
+            }
+          };
+        }
+        throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+      };
+
+      const req = new Request(
+        'http://localhost/functions/vibeusage-usage-daily?from=2025-01-01&to=2025-01-10&tz=Asia/Tokyo&tz_offset_minutes=540',
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${userJwt}` }
+        }
+      );
+
+      const res = await fn(req);
+      assert.equal(res.status, 200);
+      assert.equal(rollupTouched, true);
+      assert.equal(hourlyTouched, false);
+    } finally {
+      if (prevMaxDays === undefined) delete process.env.VIBEUSAGE_USAGE_MAX_DAYS;
+      else process.env.VIBEUSAGE_USAGE_MAX_DAYS = prevMaxDays;
+      if (prevMaxLocalDays === undefined) delete process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC;
+      else process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC = prevMaxLocalDays;
+    }
+  }));
+
 test('vibeusage-usage-daily applies optional source filter', () =>
   withRollupEnabled(async () => {
   const fn = require('../insforge-functions/vibeusage-usage-daily');
@@ -2977,6 +3062,91 @@ test('vibeusage-usage-summary uses hourly when rollup disabled', () =>
         (f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-23T00:00:00.000Z'
       )
     );
+  }));
+
+test('vibeusage-usage-summary uses rollup for oversized ranges when enabled', { concurrency: 1 }, () =>
+  withRollupEnabled(async () => {
+    const fn = require('../insforge-functions/vibeusage-usage-summary');
+
+    const prevMaxDays = process.env.VIBEUSAGE_USAGE_MAX_DAYS;
+    const prevMaxLocalDays = process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC;
+    const userId = '99999999-9999-9999-9999-999999999999';
+    const userJwt = createUserJwt(userId);
+    let rollupTouched = false;
+    let hourlyTouched = false;
+
+    try {
+      process.env.VIBEUSAGE_USAGE_MAX_DAYS = '30';
+      process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC = '7';
+
+      globalThis.createClient = (args) => {
+        if (args && args.edgeFunctionToken === userJwt) {
+          return {
+            auth: {
+              getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+            },
+            database: {
+              from: (table) => {
+                if (table === 'vibeusage_tracker_daily_rollup') {
+                  rollupTouched = true;
+                  const query = createQueryMock({
+                    rows: [
+                      {
+                        day: '2025-01-01',
+                        source: 'codex',
+                        model: 'gpt-4o',
+                        billable_total_tokens: '10',
+                        total_tokens: '12',
+                        input_tokens: '4',
+                        cached_input_tokens: '1',
+                        output_tokens: '5',
+                        reasoning_output_tokens: '2'
+                      }
+                    ]
+                  });
+                  return { select: () => query };
+                }
+                if (table === 'vibeusage_tracker_hourly') {
+                  hourlyTouched = true;
+                  throw new Error('hourly should not be used for rollup ranges');
+                }
+                if (table === 'vibeusage_model_aliases') {
+                  return createQueryMock({ rows: [] });
+                }
+                if (table === 'vibeusage_pricing_profiles') {
+                  const query = createQueryMock({ rows: [] });
+                  query.or = () => query;
+                  return query;
+                }
+                if (table === 'vibeusage_pricing_model_aliases') {
+                  return createQueryMock({ rows: [] });
+                }
+                throw new Error(`Unexpected table ${table}`);
+              }
+            }
+          };
+        }
+        throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+      };
+
+      const req = new Request(
+        'http://localhost/functions/vibeusage-usage-summary?from=2025-01-01&to=2025-01-10',
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${userJwt}` }
+        }
+      );
+
+      const res = await fn(req);
+      assert.equal(res.status, 200);
+      assert.equal(rollupTouched, true);
+      assert.equal(hourlyTouched, false);
+    } finally {
+      if (prevMaxDays === undefined) delete process.env.VIBEUSAGE_USAGE_MAX_DAYS;
+      else process.env.VIBEUSAGE_USAGE_MAX_DAYS = prevMaxDays;
+      if (prevMaxLocalDays === undefined) delete process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC;
+      else process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC = prevMaxLocalDays;
+    }
   }));
 
 test('vibeusage-usage-summary returns rolling metrics when requested', () =>

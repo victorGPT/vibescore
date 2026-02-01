@@ -861,7 +861,7 @@ var require_date = __commonJS({
       if (n <= 0) return 800;
       return clampInt(n, 1, 5e3);
     }
-    function getUsageMaxDaysNonUtc() {
+    function getUsageMaxDaysNonUtc2() {
       const hardCap = 180;
       const raw = readEnvValue("VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC");
       if (raw == null || raw === "") return hardCap;
@@ -915,7 +915,7 @@ var require_date = __commonJS({
       normalizeDateRangeLocal: normalizeDateRangeLocal2,
       listDateStrings: listDateStrings2,
       getUsageMaxDays: getUsageMaxDays2,
-      getUsageMaxDaysNonUtc
+      getUsageMaxDaysNonUtc: getUsageMaxDaysNonUtc2
     };
   }
 });
@@ -1060,8 +1060,27 @@ var require_usage_rollup = __commonJS({
       }
       return totals;
     }
+    function readEnvValue(key) {
+      try {
+        if (typeof Deno !== "undefined" && Deno?.env?.get) {
+          const value = Deno.env.get(key);
+          if (value !== void 0) return value;
+        }
+      } catch (_e) {
+      }
+      try {
+        if (typeof process !== "undefined" && process?.env) {
+          return process.env[key];
+        }
+      } catch (_e) {
+      }
+      return null;
+    }
     function isRollupEnabled2() {
-      return false;
+      const raw = readEnvValue("VIBEUSAGE_ROLLUP_ENABLED");
+      if (raw == null) return false;
+      const value = String(raw).trim().toLowerCase();
+      return value === "1" || value === "true" || value === "yes";
     }
     module2.exports = {
       createTotals: createTotals2,
@@ -1804,6 +1823,7 @@ var {
   formatDateParts,
   getLocalParts,
   getUsageMaxDays,
+  getUsageMaxDaysNonUtc,
   getUsageTimeZoneContext,
   isUtcTimeZone,
   listDateStrings,
@@ -1874,10 +1894,17 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
     tzContext
   );
   const dayKeys = listDateStrings(from, to);
+  const rangeDays = dayKeys.length;
   const maxDays = getUsageMaxDays();
-  if (dayKeys.length > maxDays) {
+  const maxHourlyDays = Math.min(maxDays, getUsageMaxDaysNonUtc());
+  const rollupFeatureEnabled = isRollupEnabled();
+  if (rangeDays > maxDays) {
     return respond({ error: `Date range too large (max ${maxDays} days)` }, 400, 0);
   }
+  if (rangeDays > maxHourlyDays && !rollupFeatureEnabled) {
+    return respond({ error: `Date range too large (max ${maxHourlyDays} days)` }, 400, 0);
+  }
+  const useRollupForRange = rollupFeatureEnabled && rangeDays > maxHourlyDays;
   const startParts = parseDateParts(from);
   const endParts = parseDateParts(to);
   if (!startParts || !endParts) return respond({ error: "Invalid date range" }, 400, 0);
@@ -1915,7 +1942,7 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
     const queryStartMs = Date.now();
     let rowCount = 0;
     let rollupHit = false;
-    const rollupEnabled = isRollupEnabled();
+    const rollupEnabled = rollupFeatureEnabled;
     const resetAggregation = () => {
       totals = createTotals();
       sourcesMap = /* @__PURE__ */ new Map();
@@ -2083,6 +2110,7 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
       rangeEndIso,
       rangeStartUtc,
       rangeEndUtc,
+      rollupEnabled: rollupEnabledForRange,
       onRow,
       onReset
     }) => {
@@ -2099,7 +2127,7 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
       const sameUtcDay2 = rangeStartDayUtc.getTime() === rangeEndDayUtc.getTime();
       const startIsBoundary2 = rangeStartUtc.getTime() === rangeStartDayUtc.getTime();
       const endIsBoundary2 = rangeEndUtc.getTime() === rangeEndDayUtc.getTime();
-      if (!rollupEnabled) {
+      if (!rollupEnabledForRange) {
         return sumHourlyRangeInto(rangeStartIso, rangeEndIso, onRow);
       }
       let hourlyError = null;
@@ -2145,6 +2173,8 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
       return { ok: true };
     };
     const buildRollingWindow = async ({ fromDay, toDay }) => {
+      const windowDays = listDateStrings(fromDay, toDay).length;
+      const rollupEnabledForRolling = rollupEnabled && windowDays > maxHourlyDays;
       const rangeStartParts = parseDateParts(fromDay);
       const rangeEndParts = parseDateParts(toDay);
       if (!rangeStartParts || !rangeEndParts) {
@@ -2159,7 +2189,7 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
       const rangeEndIso = rangeEndUtc.toISOString();
       const totals2 = createTotals();
       const activeByDay = /* @__PURE__ */ new Map();
-      const shouldUseHourlyForActiveDays = rollupEnabled && !isUtcTimeZone(tzContext);
+      const shouldUseHourlyForActiveDays = rollupEnabledForRolling && !isUtcTimeZone(tzContext);
       const resetRollingAggregation = () => {
         totals2.total_tokens = 0n;
         totals2.billable_total_tokens = 0n;
@@ -2196,6 +2226,7 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
         rangeEndIso,
         rangeStartUtc,
         rangeEndUtc,
+        rollupEnabled: rollupEnabledForRolling,
         onRow: ingestRollingRow,
         onReset: resetRollingAggregation
       });
@@ -2210,7 +2241,6 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
         });
         if (!activeRes.ok) return activeRes;
       }
-      const windowDays = listDateStrings(fromDay, toDay).length;
       const activeDays = Array.from(activeByDay.values()).filter((value) => value > 0n).length;
       const avg = activeDays > 0 ? totals2.billable_total_tokens / BigInt(activeDays) : 0n;
       const avgPerDay = windowDays > 0 ? totals2.billable_total_tokens / BigInt(windowDays) : 0n;
@@ -2240,7 +2270,7 @@ module.exports = withRequestLogging("vibeusage-usage-summary", async function(re
     const sameUtcDay = startDayUtc.getTime() === endDayUtc.getTime();
     const startIsBoundary = startUtc.getTime() === startDayUtc.getTime();
     const endIsBoundary = endUtc.getTime() === endDayUtc.getTime();
-    if (!rollupEnabled) {
+    if (!useRollupForRange) {
       const hourlyRes = await sumHourlyRange(startIso, endIso);
       if (!hourlyRes.ok) {
         const queryDurationMs2 = Date.now() - queryStartMs;

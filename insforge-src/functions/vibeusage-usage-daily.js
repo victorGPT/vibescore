@@ -20,7 +20,6 @@ const {
   getUsageMaxDays,
   getUsageMaxDaysNonUtc,
   getUsageTimeZoneContext,
-  isUtcTimeZone,
   listDateStrings,
   localDatePartsToUtc,
   normalizeDateRangeLocal,
@@ -96,13 +95,17 @@ module.exports = withRequestLogging('vibeusage-usage-daily', async function(requ
   );
 
   const dayKeys = listDateStrings(from, to);
-  let maxDays = getUsageMaxDays();
-  if (!isUtcTimeZone(tzContext)) {
-    maxDays = Math.min(maxDays, getUsageMaxDaysNonUtc());
-  }
-  if (dayKeys.length > maxDays) {
+  const rangeDays = dayKeys.length;
+  const maxDays = getUsageMaxDays();
+  const maxHourlyDays = Math.min(maxDays, getUsageMaxDaysNonUtc());
+  const rollupFeatureEnabled = isRollupEnabled();
+  if (rangeDays > maxDays) {
     return respond({ error: `Date range too large (max ${maxDays} days)` }, 400, 0);
   }
+  if (rangeDays > maxHourlyDays && !rollupFeatureEnabled) {
+    return respond({ error: `Date range too large (max ${maxHourlyDays} days)` }, 400, 0);
+  }
+  const useRollup = rollupFeatureEnabled && rangeDays > maxHourlyDays;
 
   const startParts = parseDateParts(from);
   const endParts = parseDateParts(to);
@@ -179,7 +182,7 @@ module.exports = withRequestLogging('vibeusage-usage-daily', async function(requ
   let rowCount = 0;
   let rollupHit = false;
   let hourlyError = null;
-  const rollupEnabled = isRollupEnabled();
+  const rollupEnabled = useRollup;
 
   const sumHourlyRange = async () => {
     const { error } = await forEachPage({
@@ -234,7 +237,7 @@ module.exports = withRequestLogging('vibeusage-usage-daily', async function(requ
     return { ok: true, hasRows: Array.isArray(data) && data.length > 0 };
   };
 
-  if (rollupEnabled && isUtcTimeZone(tzContext)) {
+  if (rollupEnabled) {
     const rollupRes = await fetchRollupRows({
       edgeClient: auth.edgeClient,
       userId: auth.userId,

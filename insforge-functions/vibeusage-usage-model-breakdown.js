@@ -1385,8 +1385,27 @@ var require_usage_rollup = __commonJS({
       }
       return totals;
     }
+    function readEnvValue(key) {
+      try {
+        if (typeof Deno !== "undefined" && Deno?.env?.get) {
+          const value = Deno.env.get(key);
+          if (value !== void 0) return value;
+        }
+      } catch (_e) {
+      }
+      try {
+        if (typeof process !== "undefined" && process?.env) {
+          return process.env[key];
+        }
+      } catch (_e) {
+      }
+      return null;
+    }
     function isRollupEnabled() {
-      return false;
+      const raw = readEnvValue("VIBEUSAGE_ROLLUP_ENABLED");
+      if (raw == null) return false;
+      const value = String(raw).trim().toLowerCase();
+      return value === "1" || value === "true" || value === "yes";
     }
     module2.exports = {
       createTotals: createTotals2,
