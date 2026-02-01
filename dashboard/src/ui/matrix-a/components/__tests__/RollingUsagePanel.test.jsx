@@ -28,7 +28,7 @@ it("renders rolling usage values", () => {
     });
 
   expect(copy("dashboard.rolling.title")).toBe("RECENT_USAGE");
-  expect(copy("dashboard.rolling.avg_active_day")).toBe("AVG_DAY");
+  expect(copy("dashboard.rolling.avg_active_day")).toBe("AVG_30_DAY");
   expect(screen.getByText(copy("dashboard.rolling.title"))).toBeInTheDocument();
   expect(screen.getByText(copy("dashboard.rolling.last_7d"))).toBeInTheDocument();
   expect(screen.getByText(copy("dashboard.rolling.last_30d"))).toBeInTheDocument();

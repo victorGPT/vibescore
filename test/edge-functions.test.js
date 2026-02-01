@@ -3018,7 +3018,7 @@ test('vibeusage-project-usage-summary aggregates project usage', async () => {
   const fn = require('../insforge-functions/vibeusage-project-usage-summary');
 
   const userId = '99999999-9999-9999-9999-999999999999';
-  const userJwt = 'user_jwt_test';
+  const userJwt = createUserJwt(userId);
   const filters = [];
   const orders = [];
 
@@ -3095,7 +3095,7 @@ test('vibeusage-usage-summary returns rolling metrics when requested', () =>
     const fn = require('../insforge-functions/vibeusage-usage-summary');
 
     const userId = '99999999-9999-9999-9999-999999999999';
-    const userJwt = 'user_jwt_test';
+    const userJwt = createUserJwt(userId);
 
     const rows = [
       {
@@ -3187,7 +3187,7 @@ test('vibeusage-usage-summary counts rolling active days in local timezone', () 
     const fn = require('../insforge-functions/vibeusage-usage-summary');
 
     const userId = '99999999-9999-9999-9999-999999999999';
-    const userJwt = 'user_jwt_test';
+    const userJwt = createUserJwt(userId);
 
     const rows = [
       {
@@ -3265,7 +3265,7 @@ test('vibeusage-usage-summary rolling fallback does not double count hourly rows
     const fn = require('../insforge-functions/vibeusage-usage-summary');
 
     const userId = '99999999-9999-9999-9999-999999999999';
-    const userJwt = 'user_jwt_test';
+    const userJwt = createUserJwt(userId);
 
     const rows = [
       {
@@ -3345,7 +3345,7 @@ test('vibeusage-usage-summary derives active days from hourly when rollup spans 
     const fn = require('../insforge-functions/vibeusage-usage-summary');
 
     const userId = '99999999-9999-9999-9999-999999999999';
-    const userJwt = 'user_jwt_test';
+    const userJwt = createUserJwt(userId);
 
     const hourlyRows = [
       {
@@ -3441,7 +3441,7 @@ test('vibeusage-usage-summary derives active days from hourly for IANA tz', () =
     const fn = require('../insforge-functions/vibeusage-usage-summary');
 
     const userId = '99999999-9999-9999-9999-999999999999';
-    const userJwt = 'user_jwt_test';
+    const userJwt = createUserJwt(userId);
 
     const hourlyRows = [
       {
@@ -3537,7 +3537,7 @@ test('vibeusage-usage-summary clamps rolling windows to local yesterday', () =>
     const fn = require('../insforge-functions/vibeusage-usage-summary');
 
     const userId = '99999999-9999-9999-9999-999999999999';
-    const userJwt = 'user_jwt_test';
+    const userJwt = createUserJwt(userId);
 
     const rows = [
       {
