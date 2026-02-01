@@ -7,9 +7,18 @@ import {
   shouldRedirectFromAuthCallback,
 } from "../auth-callback";
 
-function createMemoryStorage() {
+function createMemoryStorage(): Storage {
   const store = new Map<string, string>();
   return {
+    get length() {
+      return store.size;
+    },
+    clear() {
+      store.clear();
+    },
+    key(index: number) {
+      return Array.from(store.keys())[index] ?? null;
+    },
     getItem(key: string) {
       return store.has(key) ? store.get(key)! : null;
     },
@@ -18,6 +27,33 @@ function createMemoryStorage() {
     },
     removeItem(key: string) {
       store.delete(key);
+    },
+  };
+}
+
+function createThrowingStorage(): Storage {
+  const fail = () => {
+    throw new Error("storage blocked");
+  };
+
+  return {
+    get length() {
+      return fail();
+    },
+    clear() {
+      fail();
+    },
+    key(_index: number) {
+      return fail();
+    },
+    getItem(_key: string) {
+      return fail();
+    },
+    setItem(_key: string, _value: string) {
+      fail();
+    },
+    removeItem(_key: string) {
+      fail();
     },
   };
 }
@@ -76,17 +112,7 @@ describe("shouldRedirectFromAuthCallback", () => {
   });
 
   it("handles storage errors without crashing", () => {
-    const storage = {
-      getItem() {
-        throw new Error("storage blocked");
-      },
-      setItem() {
-        throw new Error("storage blocked");
-      },
-      removeItem() {
-        throw new Error("storage blocked");
-      },
-    };
+    const storage = createThrowingStorage();
     const first = shouldRedirectFromAuthCallback({
       pathname: "/auth/callback",
       search: "",
