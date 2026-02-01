@@ -7,15 +7,6 @@ const { handleOptions, json } = require('../shared/http');
 const { getBearerToken, getAccessContext } = require('../shared/auth');
 const { getBaseUrl } = require('../shared/env');
 const { getSourceParam } = require('../shared/source');
-const {
-  addDatePartsDays,
-  getUsageMaxDays,
-  getUsageTimeZoneContext,
-  listDateStrings,
-  localDatePartsToUtc,
-  normalizeDateRangeLocal,
-  parseDateParts
-} = require('../shared/date');
 const { logSlowQuery, withRequestLogging } = require('../shared/logging');
 const { isCanaryTag } = require('../shared/canary');
 const { isDebugEnabled, withSlowQueryDebugPayload } = require('../shared/debug');
@@ -44,30 +35,11 @@ module.exports = withRequestLogging('vibeusage-project-usage-summary', async fun
   const auth = await getAccessContext({ baseUrl, bearer, allowPublic: true });
   if (!auth.ok) return respond({ error: 'Unauthorized' }, 401, 0);
 
-  const tzContext = getUsageTimeZoneContext(url);
   const sourceResult = getSourceParam(url);
   if (!sourceResult.ok) return respond({ error: sourceResult.error }, 400, 0);
   const source = sourceResult.source;
-  const { from, to } = normalizeDateRangeLocal(
-    url.searchParams.get('from'),
-    url.searchParams.get('to'),
-    tzContext
-  );
-
-  const dayKeys = listDateStrings(from, to);
-  const maxDays = getUsageMaxDays();
-  if (dayKeys.length > maxDays) {
-    return respond({ error: `Date range too large (max ${maxDays} days)` }, 400, 0);
-  }
-
-  const startParts = parseDateParts(from);
-  const endParts = parseDateParts(to);
-  if (!startParts || !endParts) return respond({ error: 'Invalid date range' }, 400, 0);
-
-  const startUtc = localDatePartsToUtc(startParts, tzContext);
-  const endUtc = localDatePartsToUtc(addDatePartsDays(endParts, 1), tzContext);
-  const startIso = startUtc.toISOString();
-  const endIso = endUtc.toISOString();
+  const from = null;
+  const to = null;
 
   const limit = normalizeLimit(url.searchParams.get('limit'));
   const queryStartMs = Date.now();
@@ -78,8 +50,6 @@ module.exports = withRequestLogging('vibeusage-project-usage-summary', async fun
       'project_key,project_ref,sum_total_tokens:total_tokens.sum(),sum_billable_total_tokens:billable_total_tokens.sum()'
     )
     .eq('user_id', auth.userId)
-    .gte('hour_start', startIso)
-    .lt('hour_start', endIso);
 
   if (source) query = query.eq('source', source);
   if (!isCanaryTag(source)) query = query.neq('source', 'canary');
@@ -94,8 +64,6 @@ module.exports = withRequestLogging('vibeusage-project-usage-summary', async fun
     const fallback = await fetchProjectUsageFallback({
       edgeClient: auth.edgeClient,
       userId: auth.userId,
-      startIso,
-      endIso,
       source,
       limit
     });
@@ -126,16 +94,17 @@ module.exports = withRequestLogging('vibeusage-project-usage-summary', async fun
     query_label: 'project_usage_summary',
     duration_ms: queryDurationMs,
     row_count: entries.length,
-    range_days: dayKeys.length,
+    range_days: null,
     source: source || null,
-    tz: tzContext?.timeZone || null,
-    tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
+    tz: null,
+    tz_offset_minutes: null
   });
 
   return respond(
     {
       from,
       to,
+      all_time: true,
       generated_at: new Date().toISOString(),
       entries: entries || []
     },
@@ -172,14 +141,12 @@ function shouldFallbackAggregate(message) {
   return message.toLowerCase().includes('aggregate functions is not allowed');
 }
 
-async function fetchProjectUsageFallback({ edgeClient, userId, startIso, endIso, source, limit }) {
+async function fetchProjectUsageFallback({ edgeClient, userId, source, limit }) {
   try {
     let query = edgeClient.database
       .from('vibeusage_project_usage_hourly')
       .select('project_key,project_ref,total_tokens,billable_total_tokens')
       .eq('user_id', userId)
-      .gte('hour_start', startIso)
-      .lt('hour_start', endIso);
 
     if (source) query = query.eq('source', source);
     if (!isCanaryTag(source)) query = query.neq('source', 'canary');

@@ -409,303 +409,6 @@ var require_source = __commonJS({
   }
 });
 
-// insforge-src/shared/date.js
-var require_date = __commonJS({
-  "insforge-src/shared/date.js"(exports2, module2) {
-    "use strict";
-    function isDate(s) {
-      return typeof s === "string" && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(s);
-    }
-    function toUtcDay(d) {
-      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-    }
-    function formatDateUTC(d) {
-      return toUtcDay(d).toISOString().slice(0, 10);
-    }
-    function normalizeDateRange(fromRaw, toRaw) {
-      const today = /* @__PURE__ */ new Date();
-      const toDefault = formatDateUTC(today);
-      const fromDefault = formatDateUTC(
-        new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 29))
-      );
-      const from = isDate(fromRaw) ? fromRaw : fromDefault;
-      const to = isDate(toRaw) ? toRaw : toDefault;
-      return { from, to };
-    }
-    function parseUtcDateString(yyyyMmDd) {
-      if (!isDate(yyyyMmDd)) return null;
-      const [y, m, d] = yyyyMmDd.split("-").map((n) => Number(n));
-      const dt = new Date(Date.UTC(y, m - 1, d));
-      if (!Number.isFinite(dt.getTime())) return null;
-      return formatDateUTC(dt) === yyyyMmDd ? dt : null;
-    }
-    function addUtcDays(date, days) {
-      return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
-    }
-    function computeHeatmapWindowUtc({ weeks, weekStartsOn, to }) {
-      const end = parseUtcDateString(to) || /* @__PURE__ */ new Date();
-      const desired = weekStartsOn === "mon" ? 1 : 0;
-      const endDow = end.getUTCDay();
-      const endWeekStart = addUtcDays(end, -((endDow - desired + 7) % 7));
-      const gridStart = addUtcDays(endWeekStart, -7 * (weeks - 1));
-      return { from: formatDateUTC(gridStart), gridStart, end };
-    }
-    var TIMEZONE_FORMATTERS = /* @__PURE__ */ new Map();
-    function getTimeZoneFormatter(timeZone) {
-      if (TIMEZONE_FORMATTERS.has(timeZone)) return TIMEZONE_FORMATTERS.get(timeZone);
-      const formatter = new Intl.DateTimeFormat("en-US", {
-        timeZone,
-        hour12: false,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit"
-      });
-      TIMEZONE_FORMATTERS.set(timeZone, formatter);
-      return formatter;
-    }
-    function parseDateParts2(yyyyMmDd) {
-      if (!isDate(yyyyMmDd)) return null;
-      const [y, m, d] = yyyyMmDd.split("-").map((n) => Number(n));
-      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
-      return { year: y, month: m, day: d };
-    }
-    function formatDateParts(parts) {
-      if (!parts) return null;
-      const y = Number(parts.year);
-      const m = Number(parts.month);
-      const d = Number(parts.day);
-      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
-      return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-    }
-    function dateFromPartsUTC(parts) {
-      if (!parts) return null;
-      const y = Number(parts.year);
-      const m = Number(parts.month) - 1;
-      const d = Number(parts.day);
-      const h = Number(parts.hour || 0);
-      const min = Number(parts.minute || 0);
-      const s = Number(parts.second || 0);
-      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
-      return new Date(Date.UTC(y, m, d, h, min, s));
-    }
-    function datePartsFromDateUTC(date) {
-      return {
-        year: date.getUTCFullYear(),
-        month: date.getUTCMonth() + 1,
-        day: date.getUTCDate(),
-        hour: date.getUTCHours(),
-        minute: date.getUTCMinutes(),
-        second: date.getUTCSeconds()
-      };
-    }
-    function addDatePartsDays2(parts, days) {
-      const base = dateFromPartsUTC(parts);
-      if (!base) return null;
-      return datePartsFromDateUTC(addUtcDays(base, days));
-    }
-    function addDatePartsMonths(parts, months) {
-      if (!parts) return null;
-      const y = Number(parts.year);
-      const m = Number(parts.month) - 1 + Number(months || 0);
-      const d = Number(parts.day || 1);
-      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
-      const dt = new Date(Date.UTC(y, m, d));
-      return {
-        year: dt.getUTCFullYear(),
-        month: dt.getUTCMonth() + 1,
-        day: dt.getUTCDate()
-      };
-    }
-    function parseOffsetMinutes(raw) {
-      if (raw == null || raw === "") return null;
-      const s = String(raw).trim();
-      if (!/^-?\d+$/.test(s)) return null;
-      const v = Number(s);
-      if (!Number.isFinite(v)) return null;
-      if (v < -840 || v > 840) return null;
-      return Math.trunc(v);
-    }
-    function normalizeTimeZone(tzRaw, offsetRaw) {
-      const tz = typeof tzRaw === "string" ? tzRaw.trim() : "";
-      let timeZone = null;
-      if (tz) {
-        try {
-          if (typeof Intl !== "undefined" && Intl.DateTimeFormat) {
-            getTimeZoneFormatter(tz).format(/* @__PURE__ */ new Date(0));
-            timeZone = tz;
-          }
-        } catch (_e) {
-          timeZone = null;
-        }
-      }
-      const offsetMinutes = parseOffsetMinutes(offsetRaw);
-      if (timeZone) return { timeZone, offsetMinutes: null, source: "iana" };
-      if (offsetMinutes != null) return { timeZone: null, offsetMinutes, source: "offset" };
-      return { timeZone: null, offsetMinutes: 0, source: "utc" };
-    }
-    function getUsageTimeZoneContext2(url) {
-      if (!url || !url.searchParams) return normalizeTimeZone();
-      const tz = url.searchParams.get("tz");
-      const offset = url.searchParams.get("tz_offset_minutes");
-      return normalizeTimeZone(tz, offset);
-    }
-    function isUtcTimeZone(tzContext) {
-      if (!tzContext) return true;
-      const tz = tzContext.timeZone;
-      if (tz) {
-        const upper = tz.toUpperCase();
-        return upper === "UTC" || upper === "ETC/UTC" || upper === "ETC/GMT";
-      }
-      return Number(tzContext.offsetMinutes || 0) === 0;
-    }
-    function getTimeZoneParts(date, timeZone) {
-      const formatter = getTimeZoneFormatter(timeZone);
-      const parts = formatter.formatToParts(date);
-      let year = 0;
-      let month = 0;
-      let day = 0;
-      let hour = 0;
-      let minute = 0;
-      let second = 0;
-      for (const part of parts) {
-        if (part.type === "year") year = Number(part.value);
-        if (part.type === "month") month = Number(part.value);
-        if (part.type === "day") day = Number(part.value);
-        if (part.type === "hour") hour = Number(part.value);
-        if (part.type === "minute") minute = Number(part.value);
-        if (part.type === "second") second = Number(part.value);
-      }
-      return { year, month, day, hour, minute, second };
-    }
-    function getTimeZoneOffsetMinutes(date, timeZone) {
-      const parts = getTimeZoneParts(date, timeZone);
-      const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
-      return Math.round((asUtc - date.getTime()) / 6e4);
-    }
-    function getLocalParts(date, tzContext) {
-      if (tzContext?.timeZone) {
-        return getTimeZoneParts(date, tzContext.timeZone);
-      }
-      const offsetMinutes = Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : 0;
-      const shifted = new Date(date.getTime() + offsetMinutes * 6e4);
-      return {
-        year: shifted.getUTCFullYear(),
-        month: shifted.getUTCMonth() + 1,
-        day: shifted.getUTCDate(),
-        hour: shifted.getUTCHours(),
-        minute: shifted.getUTCMinutes(),
-        second: shifted.getUTCSeconds()
-      };
-    }
-    function formatLocalDateKey(date, tzContext) {
-      return formatDateParts(getLocalParts(date, tzContext));
-    }
-    function localDatePartsToUtc2(parts, tzContext) {
-      const baseUtc = Date.UTC(
-        Number(parts.year),
-        Number(parts.month) - 1,
-        Number(parts.day),
-        Number(parts.hour || 0),
-        Number(parts.minute || 0),
-        Number(parts.second || 0)
-      );
-      if (tzContext?.timeZone) {
-        let offset = getTimeZoneOffsetMinutes(new Date(baseUtc), tzContext.timeZone);
-        let utc = baseUtc - offset * 6e4;
-        const offset2 = getTimeZoneOffsetMinutes(new Date(utc), tzContext.timeZone);
-        if (offset2 !== offset) {
-          utc = baseUtc - offset2 * 6e4;
-        }
-        return new Date(utc);
-      }
-      const offsetMinutes = Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : 0;
-      return new Date(baseUtc - offsetMinutes * 6e4);
-    }
-    function normalizeDateRangeLocal2(fromRaw, toRaw, tzContext) {
-      const todayParts = getLocalParts(/* @__PURE__ */ new Date(), tzContext);
-      const toDefault = formatDateParts(todayParts);
-      const fromDefaultParts = addDatePartsDays2(
-        { year: todayParts.year, month: todayParts.month, day: todayParts.day },
-        -29
-      );
-      const fromDefault = formatDateParts(fromDefaultParts);
-      const from = isDate(fromRaw) ? fromRaw : fromDefault;
-      const to = isDate(toRaw) ? toRaw : toDefault;
-      return { from, to };
-    }
-    function listDateStrings2(from, to) {
-      const startParts = parseDateParts2(from);
-      const endParts = parseDateParts2(to);
-      if (!startParts || !endParts) return [];
-      const start = dateFromPartsUTC(startParts);
-      const end = dateFromPartsUTC(endParts);
-      if (!start || !end || end < start) return [];
-      const days = [];
-      for (let cursor = start; cursor <= end; cursor = addUtcDays(cursor, 1)) {
-        days.push(formatDateUTC(cursor));
-      }
-      return days;
-    }
-    function getUsageMaxDays2() {
-      const raw = readEnvValue("VIBEUSAGE_USAGE_MAX_DAYS");
-      if (raw == null || raw === "") return 800;
-      const n = Number(raw);
-      if (!Number.isFinite(n)) return 800;
-      if (n <= 0) return 800;
-      return clampInt(n, 1, 5e3);
-    }
-    function readEnvValue(key) {
-      try {
-        if (typeof Deno !== "undefined" && Deno?.env?.get) {
-          const value = Deno.env.get(key);
-          if (value !== void 0) return value;
-        }
-      } catch (_e) {
-      }
-      try {
-        if (typeof process !== "undefined" && process?.env) {
-          return process.env[key];
-        }
-      } catch (_e) {
-      }
-      return null;
-    }
-    function clampInt(value, min, max) {
-      const n = Number(value);
-      if (!Number.isFinite(n)) return min;
-      return Math.min(max, Math.max(min, Math.floor(n)));
-    }
-    module2.exports = {
-      isDate,
-      toUtcDay,
-      formatDateUTC,
-      normalizeDateRange,
-      parseUtcDateString,
-      addUtcDays,
-      computeHeatmapWindowUtc,
-      parseDateParts: parseDateParts2,
-      formatDateParts,
-      dateFromPartsUTC,
-      datePartsFromDateUTC,
-      addDatePartsDays: addDatePartsDays2,
-      addDatePartsMonths,
-      normalizeTimeZone,
-      getUsageTimeZoneContext: getUsageTimeZoneContext2,
-      isUtcTimeZone,
-      getTimeZoneOffsetMinutes,
-      getLocalParts,
-      formatLocalDateKey,
-      localDatePartsToUtc: localDatePartsToUtc2,
-      normalizeDateRangeLocal: normalizeDateRangeLocal2,
-      listDateStrings: listDateStrings2,
-      getUsageMaxDays: getUsageMaxDays2
-    };
-  }
-});
-
 // insforge-src/shared/logging.js
 var require_logging = __commonJS({
   "insforge-src/shared/logging.js"(exports2, module2) {
@@ -966,15 +669,6 @@ var { handleOptions, json } = require_http();
 var { getBearerToken, getAccessContext } = require_auth();
 var { getBaseUrl } = require_env();
 var { getSourceParam } = require_source();
-var {
-  addDatePartsDays,
-  getUsageMaxDays,
-  getUsageTimeZoneContext,
-  listDateStrings,
-  localDatePartsToUtc,
-  normalizeDateRangeLocal,
-  parseDateParts
-} = require_date();
 var { logSlowQuery, withRequestLogging } = require_logging();
 var { isCanaryTag } = require_canary();
 var { isDebugEnabled, withSlowQueryDebugPayload } = require_debug();
@@ -996,32 +690,16 @@ module.exports = withRequestLogging("vibeusage-project-usage-summary", async fun
   const baseUrl = getBaseUrl();
   const auth = await getAccessContext({ baseUrl, bearer, allowPublic: true });
   if (!auth.ok) return respond({ error: "Unauthorized" }, 401, 0);
-  const tzContext = getUsageTimeZoneContext(url);
   const sourceResult = getSourceParam(url);
   if (!sourceResult.ok) return respond({ error: sourceResult.error }, 400, 0);
   const source = sourceResult.source;
-  const { from, to } = normalizeDateRangeLocal(
-    url.searchParams.get("from"),
-    url.searchParams.get("to"),
-    tzContext
-  );
-  const dayKeys = listDateStrings(from, to);
-  const maxDays = getUsageMaxDays();
-  if (dayKeys.length > maxDays) {
-    return respond({ error: `Date range too large (max ${maxDays} days)` }, 400, 0);
-  }
-  const startParts = parseDateParts(from);
-  const endParts = parseDateParts(to);
-  if (!startParts || !endParts) return respond({ error: "Invalid date range" }, 400, 0);
-  const startUtc = localDatePartsToUtc(startParts, tzContext);
-  const endUtc = localDatePartsToUtc(addDatePartsDays(endParts, 1), tzContext);
-  const startIso = startUtc.toISOString();
-  const endIso = endUtc.toISOString();
+  const from = null;
+  const to = null;
   const limit = normalizeLimit(url.searchParams.get("limit"));
   const queryStartMs = Date.now();
   let query = auth.edgeClient.database.from("vibeusage_project_usage_hourly").select(
     "project_key,project_ref,sum_total_tokens:total_tokens.sum(),sum_billable_total_tokens:billable_total_tokens.sum()"
-  ).eq("user_id", auth.userId).gte("hour_start", startIso).lt("hour_start", endIso);
+  ).eq("user_id", auth.userId);
   if (source) query = query.eq("source", source);
   if (!isCanaryTag(source)) query = query.neq("source", "canary");
   query = query.order("sum_billable_total_tokens", { ascending: false }).order("sum_total_tokens", { ascending: false }).limit(limit);
@@ -1031,8 +709,6 @@ module.exports = withRequestLogging("vibeusage-project-usage-summary", async fun
     const fallback = await fetchProjectUsageFallback({
       edgeClient: auth.edgeClient,
       userId: auth.userId,
-      startIso,
-      endIso,
       source,
       limit
     });
@@ -1060,15 +736,16 @@ module.exports = withRequestLogging("vibeusage-project-usage-summary", async fun
     query_label: "project_usage_summary",
     duration_ms: queryDurationMs,
     row_count: entries.length,
-    range_days: dayKeys.length,
+    range_days: null,
     source: source || null,
-    tz: tzContext?.timeZone || null,
-    tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
+    tz: null,
+    tz_offset_minutes: null
   });
   return respond(
     {
       from,
       to,
+      all_time: true,
       generated_at: (/* @__PURE__ */ new Date()).toISOString(),
       entries: entries || []
     },
@@ -1100,9 +777,9 @@ function shouldFallbackAggregate(message) {
   if (typeof message !== "string") return false;
   return message.toLowerCase().includes("aggregate functions is not allowed");
 }
-async function fetchProjectUsageFallback({ edgeClient, userId, startIso, endIso, source, limit }) {
+async function fetchProjectUsageFallback({ edgeClient, userId, source, limit }) {
   try {
-    let query = edgeClient.database.from("vibeusage_project_usage_hourly").select("project_key,project_ref,total_tokens,billable_total_tokens").eq("user_id", userId).gte("hour_start", startIso).lt("hour_start", endIso);
+    let query = edgeClient.database.from("vibeusage_project_usage_hourly").select("project_key,project_ref,total_tokens,billable_total_tokens").eq("user_id", userId);
     if (source) query = query.eq("source", source);
     if (!isCanaryTag(source)) query = query.neq("source", "canary");
     const { data, error } = await query;

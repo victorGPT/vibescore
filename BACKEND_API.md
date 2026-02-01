@@ -417,26 +417,24 @@ Notes:
 
 ### GET /functions/vibeusage-project-usage-summary
 
-Return top project usage totals for the authenticated user over a date range in the requested timezone (default UTC).
+Return top project usage totals for the authenticated user across all recorded history.
 
 Auth:
 - `Authorization: Bearer <user_jwt>`
 
 Query:
-- `from=YYYY-MM-DD` (optional; default last 30 days)
-- `to=YYYY-MM-DD` (optional; default today in requested timezone)
 - `source=codex|every-code|...` (optional; filter by source; omit to aggregate all sources)
 - `limit=1..10` (optional; default 3)
-- `tz=IANA` (optional; e.g. `America/Los_Angeles`)
-- `tz_offset_minutes` (optional; fixed offset minutes from UTC to local, e.g. `-480`)
 - `debug=1` (optional; include debug payload for query timing)
+- `from`, `to`, `tz`, `tz_offset_minutes` are accepted for compatibility but ignored (all-time totals only).
 
 Response (bigints as strings):
 
 ```json
 {
-  "from": "YYYY-MM-DD",
-  "to": "YYYY-MM-DD",
+  "from": null,
+  "to": null,
+  "all_time": true,
   "generated_at": "iso",
   "entries": [
     {

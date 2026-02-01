@@ -3074,21 +3074,69 @@ test('vibeusage-project-usage-summary aggregates project usage', async () => {
   assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
   assert.ok(filters.some((f) => f.op === 'neq' && f.col === 'source' && f.value === 'canary'));
   assert.ok(!filters.some((f) => f.col === 'model'));
-  assert.ok(
-    filters.some(
-      (f) => f.op === 'gte' && f.col === 'hour_start' && f.value === '2025-12-20T00:00:00.000Z'
-    )
-  );
-  assert.ok(
-    filters.some(
-      (f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-22T00:00:00.000Z'
-    )
-  );
+  assert.ok(!filters.some((f) => f.col === 'hour_start'));
   const billableOrderIndex = orders.findIndex((o) => o.col === 'sum_billable_total_tokens');
   const totalOrderIndex = orders.findIndex((o) => o.col === 'sum_total_tokens');
   assert.ok(billableOrderIndex >= 0);
   assert.ok(totalOrderIndex >= 0);
   assert.ok(billableOrderIndex < totalOrderIndex);
+});
+
+test('vibeusage-project-usage-summary ignores date range for all-time totals', async () => {
+  const fn = require('../insforge-functions/vibeusage-project-usage-summary');
+
+  const userId = '11111111-1111-1111-1111-111111111111';
+  const userJwt = createUserJwt(userId);
+  const filters = [];
+
+  const rows = [
+    {
+      project_key: 'acme/omega',
+      project_ref: 'https://github.com/acme/omega',
+      sum_total_tokens: '250',
+      sum_billable_total_tokens: '0'
+    }
+  ];
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            assert.equal(table, 'vibeusage_project_usage_hourly');
+            const query = createQueryMock({
+              rows,
+              onFilter: (entry) => {
+                filters.push(entry);
+              }
+            });
+            return { select: () => query };
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request(
+    'http://localhost/functions/vibeusage-project-usage-summary?from=2020-01-01&to=2030-01-01&limit=3',
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${userJwt}` }
+    }
+  );
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+
+  const body = await res.json();
+  assert.equal(body.entries.length, 1);
+  assert.equal(body.entries[0].project_key, 'acme/omega');
+  assert.equal(body.entries[0].total_tokens, '250');
+  assert.ok(!filters.some((f) => f.col === 'hour_start'));
 });
 
 test('vibeusage-project-usage-summary uses PostgREST sum() syntax', async () => {
