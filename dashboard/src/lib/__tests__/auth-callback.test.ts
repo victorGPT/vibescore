@@ -64,4 +64,33 @@ describe("shouldRedirectFromAuthCallback", () => {
     expect(shouldRedirect).toBe(false);
     expect(storage.getItem(AUTH_CALLBACK_RETRY_KEY)).toBeNull();
   });
+
+  it("handles storage errors without crashing", () => {
+    const storage = {
+      getItem() {
+        throw new Error("storage blocked");
+      },
+      setItem() {
+        throw new Error("storage blocked");
+      },
+      removeItem() {
+        throw new Error("storage blocked");
+      },
+    };
+    const first = shouldRedirectFromAuthCallback({
+      pathname: "/auth/callback",
+      search: "",
+      hasSession: false,
+      storage,
+    });
+    expect(first).toBe(true);
+
+    const second = shouldRedirectFromAuthCallback({
+      pathname: "/auth/callback",
+      search: "",
+      hasSession: false,
+      storage,
+    });
+    expect(second).toBe(false);
+  });
 });

@@ -1,5 +1,32 @@
 export const AUTH_CALLBACK_RETRY_KEY =
   "vibeusage.dashboard.auth_callback_retry.v1";
+let memoryRetry: string | null = null;
+
+function safeGet(storage: Storage | null | undefined, key: string) {
+  try {
+    return storage?.getItem?.(key) ?? null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+function safeSet(storage: Storage | null | undefined, key: string, value: string) {
+  try {
+    storage?.setItem?.(key, value);
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
+function safeRemove(storage: Storage | null | undefined, key: string) {
+  try {
+    storage?.removeItem?.(key);
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
 
 function normalizeSearch(search: any) {
   if (typeof search !== "string") return "";
@@ -37,17 +64,26 @@ export function shouldRedirectFromAuthCallback({
   storage?: Storage | null;
 }) {
   if (hasSession) {
-    storage?.removeItem?.(AUTH_CALLBACK_RETRY_KEY);
+    safeRemove(storage, AUTH_CALLBACK_RETRY_KEY);
+    memoryRetry = null;
     return false;
   }
   const normalizedPath = normalizePathname(pathname);
   if (normalizedPath !== "/auth/callback") return false;
   if (hasAuthCallbackParams(search)) {
-    storage?.removeItem?.(AUTH_CALLBACK_RETRY_KEY);
+    safeRemove(storage, AUTH_CALLBACK_RETRY_KEY);
+    memoryRetry = null;
     return false;
   }
-  const hasRetry = storage?.getItem?.(AUTH_CALLBACK_RETRY_KEY);
+  const storedRetry = safeGet(storage, AUTH_CALLBACK_RETRY_KEY);
+  if (storedRetry) {
+    memoryRetry = null;
+  }
+  const hasRetry = storedRetry || memoryRetry;
   if (hasRetry) return false;
-  storage?.setItem?.(AUTH_CALLBACK_RETRY_KEY, new Date().toISOString());
+  const nextRetry = new Date().toISOString();
+  if (!safeSet(storage, AUTH_CALLBACK_RETRY_KEY, nextRetry)) {
+    memoryRetry = nextRetry;
+  }
   return true;
 }
