@@ -234,6 +234,7 @@ export default function App() {
       pathname: window.location.pathname,
       search: window.location.search,
       hasSession: Boolean(insforgeSession?.accessToken),
+      sessionResolved: insforgeSession !== undefined,
       storage: window.sessionStorage,
     });
     if (!shouldRedirect) return;

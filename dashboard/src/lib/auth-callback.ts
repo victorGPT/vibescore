@@ -2,6 +2,10 @@ export const AUTH_CALLBACK_RETRY_KEY =
   "vibeusage.dashboard.auth_callback_retry.v1";
 let memoryRetry: string | null = null;
 
+export function resetAuthCallbackRetryState() {
+  memoryRetry = null;
+}
+
 function safeGet(storage: Storage | null | undefined, key: string) {
   try {
     return storage?.getItem?.(key) ?? null;
@@ -56,13 +60,16 @@ export function shouldRedirectFromAuthCallback({
   pathname,
   search,
   hasSession,
+  sessionResolved = true,
   storage,
 }: {
   pathname: any;
   search: any;
   hasSession: boolean;
+  sessionResolved?: boolean;
   storage?: Storage | null;
 }) {
+  if (!sessionResolved) return false;
   if (hasSession) {
     safeRemove(storage, AUTH_CALLBACK_RETRY_KEY);
     memoryRetry = null;
