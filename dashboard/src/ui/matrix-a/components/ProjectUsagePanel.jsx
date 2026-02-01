@@ -243,6 +243,7 @@ function ProjectUsageCard({
         className="absolute right-4 top-4 flex items-center gap-1 text-caption uppercase tracking-[0.2em] text-matrix-muted"
         data-card-line="stars"
         data-star-slot="corner"
+        data-star-position="top-right"
       >
         <span className="sr-only">{starsLabel}</span>
         <span className="inline-flex items-center justify-center h-[1.3em] w-[1.3em]">
