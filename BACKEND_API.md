@@ -85,6 +85,7 @@ Alias mapping:
 To reduce runaway scans and runtime resets, usage read endpoints enforce bounded ranges and emit slow-query logs.
 
 - `VIBEUSAGE_USAGE_MAX_DAYS`: max day span for `GET /functions/vibeusage-usage-summary`, `.../vibeusage-usage-daily`, and `.../vibeusage-usage-model-breakdown`. Default `800`. Oversized ranges return `400` with `Date range too large (max N days)`.
+- `VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC`: max day span for non-UTC requests. Hard-capped at `180` days to avoid runtime resets; oversized ranges return `400`.
 - `VIBEUSAGE_SLOW_QUERY_MS`: slow-query log threshold in milliseconds. Default `2000`. When exceeded, a `stage: slow_query` log is emitted with `query_label`, `duration_ms`, and `row_count`.
 
 ## Client backpressure defaults

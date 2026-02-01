@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { logSlowQuery } = require('../insforge-src/shared/logging');
-const { getUsageMaxDays } = require('../insforge-src/shared/date');
+const { getUsageMaxDays, getUsageMaxDaysNonUtc } = require('../insforge-src/shared/date');
 const { normalizeUsageModel, applyUsageModelFilter } = require('../insforge-src/shared/model');
 const { resolveIdentityAtDate } = require('../insforge-src/shared/model-alias-timeline');
 const pricing = require('../insforge-src/shared/pricing');
@@ -147,6 +147,18 @@ test('getUsageMaxDays ignores VIBESCORE env when VIBEUSAGE missing', () => {
     else process.env.VIBEUSAGE_USAGE_MAX_DAYS = prevNewMax;
     if (prevLegacyMax === undefined) delete process.env.VIBESCORE_USAGE_MAX_DAYS;
     else process.env.VIBESCORE_USAGE_MAX_DAYS = prevLegacyMax;
+  }
+});
+
+test('getUsageMaxDaysNonUtc hard caps at 180 even if env higher', () => {
+  const prevMaxLocal = process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC;
+
+  try {
+    process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC = '365';
+    assert.equal(getUsageMaxDaysNonUtc(), 180);
+  } finally {
+    if (prevMaxLocal === undefined) delete process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC;
+    else process.env.VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC = prevMaxLocal;
   }
 });
 

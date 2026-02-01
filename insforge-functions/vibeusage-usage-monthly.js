@@ -842,12 +842,13 @@ var require_date = __commonJS({
       return clampInt(n, 1, 5e3);
     }
     function getUsageMaxDaysNonUtc() {
+      const hardCap = 180;
       const raw = readEnvValue("VIBEUSAGE_USAGE_MAX_DAYS_NON_UTC");
-      if (raw == null || raw === "") return 180;
+      if (raw == null || raw === "") return hardCap;
       const n = Number(raw);
-      if (!Number.isFinite(n)) return 180;
-      if (n <= 0) return 180;
-      return clampInt(n, 1, 5e3);
+      if (!Number.isFinite(n)) return hardCap;
+      if (n <= 0) return hardCap;
+      return clampInt(n, 1, hardCap);
     }
     function readEnvValue(key) {
       try {
