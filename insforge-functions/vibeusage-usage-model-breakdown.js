@@ -1611,6 +1611,111 @@ var require_debug = __commonJS({
   }
 });
 
+// insforge-src/shared/concurrency.js
+var require_concurrency = __commonJS({
+  "insforge-src/shared/concurrency.js"(exports2, module2) {
+    "use strict";
+    var LIMITERS = /* @__PURE__ */ new Map();
+    function createConcurrencyGuard({
+      name,
+      envKey,
+      defaultMax = 0,
+      retryAfterEnvKey,
+      defaultRetryAfterMs = 1e3
+    }) {
+      const maxInflight = readEnvInt(envKey, defaultMax);
+      if (!Number.isFinite(maxInflight) || maxInflight <= 0) return null;
+      const retryAfterMs = readEnvInt(retryAfterEnvKey, defaultRetryAfterMs);
+      return getLimiter({ name, maxInflight, retryAfterMs });
+    }
+    function getLimiter({ name, maxInflight, retryAfterMs }) {
+      const key = name || "default";
+      const existing = LIMITERS.get(key);
+      if (existing && existing.maxInflight === maxInflight && existing.retryAfterMs === retryAfterMs) return existing;
+      const limiter = createLimiter({ maxInflight, retryAfterMs });
+      LIMITERS.set(key, limiter);
+      return limiter;
+    }
+    function createLimiter({ maxInflight, retryAfterMs }) {
+      let inflight = 0;
+      function acquire() {
+        if (inflight >= maxInflight) {
+          const retryAfterSeconds = Math.max(1, Math.ceil(Math.max(0, retryAfterMs) / 1e3));
+          return {
+            ok: false,
+            retryAfterMs,
+            headers: {
+              "Retry-After": String(retryAfterSeconds)
+            }
+          };
+        }
+        inflight += 1;
+        return {
+          ok: true,
+          release() {
+            inflight = Math.max(0, inflight - 1);
+          }
+        };
+      }
+      return {
+        maxInflight,
+        retryAfterMs,
+        acquire
+      };
+    }
+    function readEnvInt(key, fallback) {
+      if (!key) return fallback;
+      const keys = Array.isArray(key) ? key : [key];
+      for (const candidate of keys) {
+        if (!candidate) continue;
+        const raw = readEnvValue(candidate);
+        if (raw == null || raw === "") continue;
+        const n = Number(raw);
+        if (!Number.isFinite(n)) continue;
+        return Math.floor(n);
+      }
+      return fallback;
+    }
+    function readEnvValue(key) {
+      try {
+        if (typeof Deno !== "undefined" && Deno?.env?.get) {
+          const value = Deno.env.get(key);
+          if (value !== void 0) return value;
+        }
+      } catch (_e) {
+      }
+      try {
+        if (typeof process !== "undefined" && process?.env) {
+          return process.env[key];
+        }
+      } catch (_e) {
+      }
+      return null;
+    }
+    module2.exports = {
+      createConcurrencyGuard
+    };
+  }
+});
+
+// insforge-src/shared/usage-guard.js
+var require_usage_guard = __commonJS({
+  "insforge-src/shared/usage-guard.js"(exports2, module2) {
+    "use strict";
+    var { createConcurrencyGuard } = require_concurrency();
+    var usageGuard2 = createConcurrencyGuard({
+      name: "vibeusage-usage",
+      envKey: ["VIBEUSAGE_USAGE_MAX_INFLIGHT"],
+      defaultMax: 8,
+      retryAfterEnvKey: ["VIBEUSAGE_USAGE_RETRY_AFTER_MS"],
+      defaultRetryAfterMs: 1e3
+    });
+    module2.exports = {
+      usageGuard: usageGuard2
+    };
+  }
+});
+
 // insforge-src/functions/vibeusage-usage-model-breakdown.js
 var { handleOptions, json } = require_http();
 var { getBearerToken, getAccessContext } = require_auth();
@@ -1645,6 +1750,7 @@ var {
 var { resolveBillableTotals } = require_usage_aggregate();
 var { logSlowQuery, withRequestLogging } = require_logging();
 var { isDebugEnabled, withSlowQueryDebugPayload } = require_debug();
+var { usageGuard } = require_usage_guard();
 var DEFAULT_SOURCE = "codex";
 var DEFAULT_MODEL = "unknown";
 module.exports = withRequestLogging("vibeusage-usage-model-breakdown", async function(request, logger) {
@@ -1652,9 +1758,10 @@ module.exports = withRequestLogging("vibeusage-usage-model-breakdown", async fun
   if (opt) return opt;
   const url = new URL(request.url);
   const debugEnabled = isDebugEnabled(url);
-  const respond = (body, status, durationMs) => json(
+  const respond = (body, status, durationMs, extraHeaders) => json(
     debugEnabled ? withSlowQueryDebugPayload(body, { logger, durationMs, status }) : body,
-    status
+    status,
+    extraHeaders
   );
   if (request.method !== "GET") return respond({ error: "Method not allowed" }, 405, 0);
   const bearer = getBearerToken(request.headers.get("Authorization"));
@@ -1683,159 +1790,167 @@ module.exports = withRequestLogging("vibeusage-usage-model-breakdown", async fun
   const endUtc = localDatePartsToUtc(addDatePartsDays(endParts, 1), tzContext);
   const startIso = startUtc.toISOString();
   const endIso = endUtc.toISOString();
-  const rowsBuffer = [];
-  const distinctModels = /* @__PURE__ */ new Set();
-  const queryStartMs = Date.now();
-  let rowCount = 0;
-  const { error } = await forEachPage({
-    createQuery: () => {
-      let query = auth.edgeClient.database.from("vibeusage_tracker_hourly").select(
-        "hour_start,source,model,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens"
-      ).eq("user_id", auth.userId);
-      if (sourceFilter) query = query.eq("source", sourceFilter);
-      query = applyCanaryFilter(query, { source: sourceFilter, model: null });
-      return query.gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
-    },
-    onPage: (rows) => {
-      const pageRows = Array.isArray(rows) ? rows : [];
-      rowCount += pageRows.length;
-      for (const row of pageRows) {
-        const source = normalizeSource(row?.source) || DEFAULT_SOURCE;
-        const model = normalizeUsageModel(row?.model) || DEFAULT_MODEL;
-        const usageKey = normalizeUsageModelKey(model);
-        const { billable, hasStoredBillable } = resolveBillableTotals({ row, source });
-        rowsBuffer.push({
-          source,
-          model,
-          usageKey,
-          hour_start: row?.hour_start,
-          total_tokens: row?.total_tokens,
-          billable_total_tokens: hasStoredBillable ? row.billable_total_tokens : billable.toString(),
-          input_tokens: row?.input_tokens,
-          cached_input_tokens: row?.cached_input_tokens,
-          output_tokens: row?.output_tokens,
-          reasoning_output_tokens: row?.reasoning_output_tokens
-        });
-        if (usageKey && usageKey !== DEFAULT_MODEL) {
-          distinctModels.add(usageKey);
+  const guard = usageGuard?.acquire();
+  if (guard && !guard.ok) {
+    return respond({ error: "Too many requests" }, 429, 0, guard.headers);
+  }
+  try {
+    const rowsBuffer = [];
+    const distinctModels = /* @__PURE__ */ new Set();
+    const queryStartMs = Date.now();
+    let rowCount = 0;
+    const { error } = await forEachPage({
+      createQuery: () => {
+        let query = auth.edgeClient.database.from("vibeusage_tracker_hourly").select(
+          "hour_start,source,model,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens"
+        ).eq("user_id", auth.userId);
+        if (sourceFilter) query = query.eq("source", sourceFilter);
+        query = applyCanaryFilter(query, { source: sourceFilter, model: null });
+        return query.gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
+      },
+      onPage: (rows) => {
+        const pageRows = Array.isArray(rows) ? rows : [];
+        rowCount += pageRows.length;
+        for (const row of pageRows) {
+          const source = normalizeSource(row?.source) || DEFAULT_SOURCE;
+          const model = normalizeUsageModel(row?.model) || DEFAULT_MODEL;
+          const usageKey = normalizeUsageModelKey(model);
+          const { billable, hasStoredBillable } = resolveBillableTotals({ row, source });
+          rowsBuffer.push({
+            source,
+            model,
+            usageKey,
+            hour_start: row?.hour_start,
+            total_tokens: row?.total_tokens,
+            billable_total_tokens: hasStoredBillable ? row.billable_total_tokens : billable.toString(),
+            input_tokens: row?.input_tokens,
+            cached_input_tokens: row?.cached_input_tokens,
+            output_tokens: row?.output_tokens,
+            reasoning_output_tokens: row?.reasoning_output_tokens
+          });
+          if (usageKey && usageKey !== DEFAULT_MODEL) {
+            distinctModels.add(usageKey);
+          }
         }
       }
-    }
-  });
-  const queryDurationMs = Date.now() - queryStartMs;
-  logSlowQuery(logger, {
-    query_label: "usage_model_breakdown",
-    duration_ms: queryDurationMs,
-    row_count: rowCount,
-    range_days: dayKeys.length,
-    source: sourceFilter || null,
-    tz: tzContext?.timeZone || null,
-    tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
-  });
-  if (error) return respond({ error: error.message }, 500, queryDurationMs);
-  const usageModels = Array.from(distinctModels.values());
-  const aliasRows = await fetchAliasRows({
-    edgeClient: auth.edgeClient,
-    usageModels,
-    effectiveDate: to
-  });
-  const aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
-  const sourcesMap = /* @__PURE__ */ new Map();
-  const costBuckets = /* @__PURE__ */ new Map();
-  const canonicalModels = /* @__PURE__ */ new Set();
-  const grandTotals = createTotals();
-  for (const row of rowsBuffer) {
-    const sourceEntry = getSourceEntry(sourcesMap, row.source);
-    addTotals(sourceEntry.totals, row);
-    addTotals(grandTotals, row);
-    const dateKey = extractDateKey(row.hour_start) || to;
-    const identity = resolveIdentityAtDate({
-      rawModel: row.model,
-      usageKey: row.usageKey,
-      dateKey,
-      timeline: aliasTimeline
     });
-    if (identity.model_id && identity.model_id !== DEFAULT_MODEL) {
-      canonicalModels.add(identity.model_id);
-    }
-    const canonicalEntry = getCanonicalEntry(sourceEntry.models, identity);
-    addTotals(canonicalEntry.totals, row);
-    const bucketModelId = identity?.model_id || DEFAULT_MODEL;
-    const bucketModelName = identity?.model || bucketModelId;
-    const bucketKey = buildCostBucketKey(row.source, bucketModelId, dateKey);
-    const bucket = costBuckets.get(bucketKey) || {
-      source: row.source,
-      model_id: bucketModelId,
-      model: bucketModelName,
-      dateKey,
-      totals: createTotals()
-    };
-    addTotals(bucket.totals, row);
-    costBuckets.set(bucketKey, bucket);
-  }
-  const pricingModes = /* @__PURE__ */ new Set();
-  const profileCache = /* @__PURE__ */ new Map();
-  const getProfile = async (modelId, dateKey) => {
-    const key = `${modelId || ""}::${dateKey || ""}`;
-    if (profileCache.has(key)) return profileCache.get(key);
-    const profile = await resolvePricingProfile({
+    const queryDurationMs = Date.now() - queryStartMs;
+    logSlowQuery(logger, {
+      query_label: "usage_model_breakdown",
+      duration_ms: queryDurationMs,
+      row_count: rowCount,
+      range_days: dayKeys.length,
+      source: sourceFilter || null,
+      tz: tzContext?.timeZone || null,
+      tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
+    });
+    if (error) return respond({ error: error.message }, 500, queryDurationMs);
+    const usageModels = Array.from(distinctModels.values());
+    const aliasRows = await fetchAliasRows({
       edgeClient: auth.edgeClient,
-      model: modelId || null,
-      effectiveDate: dateKey || to
+      usageModels,
+      effectiveDate: to
     });
-    profileCache.set(key, profile);
-    return profile;
-  };
-  for (const bucket of costBuckets.values()) {
-    const profile = await getProfile(bucket.model_id, bucket.dateKey);
-    const cost = computeUsageCost(bucket.totals, profile);
-    pricingModes.add(cost.pricing_mode);
-    const sourceEntry = sourcesMap.get(bucket.source);
-    addCostMicros(sourceEntry, cost.cost_micros);
-    if (sourceEntry) {
-      const modelEntry = getCanonicalEntry(sourceEntry.models, {
-        model_id: bucket.model_id,
-        model: bucket.model
+    const aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
+    const sourcesMap = /* @__PURE__ */ new Map();
+    const costBuckets = /* @__PURE__ */ new Map();
+    const canonicalModels = /* @__PURE__ */ new Set();
+    const grandTotals = createTotals();
+    for (const row of rowsBuffer) {
+      const sourceEntry = getSourceEntry(sourcesMap, row.source);
+      addTotals(sourceEntry.totals, row);
+      addTotals(grandTotals, row);
+      const dateKey = extractDateKey(row.hour_start) || to;
+      const identity = resolveIdentityAtDate({
+        rawModel: row.model,
+        usageKey: row.usageKey,
+        dateKey,
+        timeline: aliasTimeline
       });
-      addCostMicros(modelEntry, cost.cost_micros);
+      if (identity.model_id && identity.model_id !== DEFAULT_MODEL) {
+        canonicalModels.add(identity.model_id);
+      }
+      const canonicalEntry = getCanonicalEntry(sourceEntry.models, identity);
+      addTotals(canonicalEntry.totals, row);
+      const bucketModelId = identity?.model_id || DEFAULT_MODEL;
+      const bucketModelName = identity?.model || bucketModelId;
+      const bucketKey = buildCostBucketKey(row.source, bucketModelId, dateKey);
+      const bucket = costBuckets.get(bucketKey) || {
+        source: row.source,
+        model_id: bucketModelId,
+        model: bucketModelName,
+        dateKey,
+        totals: createTotals()
+      };
+      addTotals(bucket.totals, row);
+      costBuckets.set(bucketKey, bucket);
     }
-  }
-  const impliedModelId = canonicalModels.size === 1 ? Array.from(canonicalModels)[0] : null;
-  const pricingProfile = await resolvePricingProfile({
-    edgeClient: auth.edgeClient,
-    model: impliedModelId,
-    effectiveDate: to
-  });
-  const sources = Array.from(sourcesMap.values()).map((entry) => {
-    const models = Array.from(entry.models.values()).map((modelEntry) => formatTotals(modelEntry, pricingProfile)).sort(compareTotals);
-    const totals = formatTotals(entry, pricingProfile).totals;
-    return {
-      source: entry.source,
-      totals,
-      models
+    const pricingModes = /* @__PURE__ */ new Set();
+    const profileCache = /* @__PURE__ */ new Map();
+    const getProfile = async (modelId, dateKey) => {
+      const key = `${modelId || ""}::${dateKey || ""}`;
+      if (profileCache.has(key)) return profileCache.get(key);
+      const profile = await resolvePricingProfile({
+        edgeClient: auth.edgeClient,
+        model: modelId || null,
+        effectiveDate: dateKey || to
+      });
+      profileCache.set(key, profile);
+      return profile;
     };
-  }).sort((a, b) => a.source.localeCompare(b.source));
-  const overallCost = computeUsageCost(grandTotals, pricingProfile);
-  let summaryPricingMode = overallCost.pricing_mode;
-  if (pricingModes.size === 1) {
-    summaryPricingMode = Array.from(pricingModes)[0];
-  } else if (pricingModes.size > 1) {
-    summaryPricingMode = "mixed";
+    for (const bucket of costBuckets.values()) {
+      const profile = await getProfile(bucket.model_id, bucket.dateKey);
+      const cost = computeUsageCost(bucket.totals, profile);
+      pricingModes.add(cost.pricing_mode);
+      const sourceEntry = sourcesMap.get(bucket.source);
+      addCostMicros(sourceEntry, cost.cost_micros);
+      if (sourceEntry) {
+        const modelEntry = getCanonicalEntry(sourceEntry.models, {
+          model_id: bucket.model_id,
+          model: bucket.model
+        });
+        addCostMicros(modelEntry, cost.cost_micros);
+      }
+    }
+    const impliedModelId = canonicalModels.size === 1 ? Array.from(canonicalModels)[0] : null;
+    const pricingProfile = await resolvePricingProfile({
+      edgeClient: auth.edgeClient,
+      model: impliedModelId,
+      effectiveDate: to
+    });
+    const sources = Array.from(sourcesMap.values()).map((entry) => {
+      const models = Array.from(entry.models.values()).map((modelEntry) => formatTotals(modelEntry, pricingProfile)).sort(compareTotals);
+      const totals = formatTotals(entry, pricingProfile).totals;
+      return {
+        source: entry.source,
+        totals,
+        models
+      };
+    }).sort((a, b) => a.source.localeCompare(b.source));
+    const overallCost = computeUsageCost(grandTotals, pricingProfile);
+    let summaryPricingMode = overallCost.pricing_mode;
+    if (pricingModes.size === 1) {
+      summaryPricingMode = Array.from(pricingModes)[0];
+    } else if (pricingModes.size > 1) {
+      summaryPricingMode = "mixed";
+    }
+    return respond(
+      {
+        from,
+        to,
+        days: dayKeys.length,
+        sources,
+        pricing: buildPricingMetadata({
+          profile: overallCost.profile,
+          pricingMode: summaryPricingMode
+        })
+      },
+      200,
+      queryDurationMs
+    );
+  } finally {
+    guard?.release?.();
   }
-  return respond(
-    {
-      from,
-      to,
-      days: dayKeys.length,
-      sources,
-      pricing: buildPricingMetadata({
-        profile: overallCost.profile,
-        pricingMode: summaryPricingMode
-      })
-    },
-    200,
-    queryDurationMs
-  );
 });
 function createTotals() {
   return {

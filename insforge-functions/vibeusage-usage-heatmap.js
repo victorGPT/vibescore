@@ -1408,6 +1408,111 @@ var require_usage_aggregate = __commonJS({
   }
 });
 
+// insforge-src/shared/concurrency.js
+var require_concurrency = __commonJS({
+  "insforge-src/shared/concurrency.js"(exports2, module2) {
+    "use strict";
+    var LIMITERS = /* @__PURE__ */ new Map();
+    function createConcurrencyGuard({
+      name,
+      envKey,
+      defaultMax = 0,
+      retryAfterEnvKey,
+      defaultRetryAfterMs = 1e3
+    }) {
+      const maxInflight = readEnvInt(envKey, defaultMax);
+      if (!Number.isFinite(maxInflight) || maxInflight <= 0) return null;
+      const retryAfterMs = readEnvInt(retryAfterEnvKey, defaultRetryAfterMs);
+      return getLimiter({ name, maxInflight, retryAfterMs });
+    }
+    function getLimiter({ name, maxInflight, retryAfterMs }) {
+      const key = name || "default";
+      const existing = LIMITERS.get(key);
+      if (existing && existing.maxInflight === maxInflight && existing.retryAfterMs === retryAfterMs) return existing;
+      const limiter = createLimiter({ maxInflight, retryAfterMs });
+      LIMITERS.set(key, limiter);
+      return limiter;
+    }
+    function createLimiter({ maxInflight, retryAfterMs }) {
+      let inflight = 0;
+      function acquire() {
+        if (inflight >= maxInflight) {
+          const retryAfterSeconds = Math.max(1, Math.ceil(Math.max(0, retryAfterMs) / 1e3));
+          return {
+            ok: false,
+            retryAfterMs,
+            headers: {
+              "Retry-After": String(retryAfterSeconds)
+            }
+          };
+        }
+        inflight += 1;
+        return {
+          ok: true,
+          release() {
+            inflight = Math.max(0, inflight - 1);
+          }
+        };
+      }
+      return {
+        maxInflight,
+        retryAfterMs,
+        acquire
+      };
+    }
+    function readEnvInt(key, fallback) {
+      if (!key) return fallback;
+      const keys = Array.isArray(key) ? key : [key];
+      for (const candidate of keys) {
+        if (!candidate) continue;
+        const raw = readEnvValue(candidate);
+        if (raw == null || raw === "") continue;
+        const n = Number(raw);
+        if (!Number.isFinite(n)) continue;
+        return Math.floor(n);
+      }
+      return fallback;
+    }
+    function readEnvValue(key) {
+      try {
+        if (typeof Deno !== "undefined" && Deno?.env?.get) {
+          const value = Deno.env.get(key);
+          if (value !== void 0) return value;
+        }
+      } catch (_e) {
+      }
+      try {
+        if (typeof process !== "undefined" && process?.env) {
+          return process.env[key];
+        }
+      } catch (_e) {
+      }
+      return null;
+    }
+    module2.exports = {
+      createConcurrencyGuard
+    };
+  }
+});
+
+// insforge-src/shared/usage-guard.js
+var require_usage_guard = __commonJS({
+  "insforge-src/shared/usage-guard.js"(exports2, module2) {
+    "use strict";
+    var { createConcurrencyGuard } = require_concurrency();
+    var usageGuard2 = createConcurrencyGuard({
+      name: "vibeusage-usage",
+      envKey: ["VIBEUSAGE_USAGE_MAX_INFLIGHT"],
+      defaultMax: 8,
+      retryAfterEnvKey: ["VIBEUSAGE_USAGE_RETRY_AFTER_MS"],
+      defaultRetryAfterMs: 1e3
+    });
+    module2.exports = {
+      usageGuard: usageGuard2
+    };
+  }
+});
+
 // insforge-src/functions/vibeusage-usage-heatmap.js
 var { handleOptions, json } = require_http();
 var { getBearerToken, getAccessContext } = require_auth();
@@ -1442,14 +1547,16 @@ var {
   resolveIdentityAtDate
 } = require_model_alias_timeline();
 var { resolveBillableTotals } = require_usage_aggregate();
+var { usageGuard } = require_usage_guard();
 module.exports = withRequestLogging("vibeusage-usage-heatmap", async function(request, logger) {
   const opt = handleOptions(request);
   if (opt) return opt;
   const url = new URL(request.url);
   const debugEnabled = isDebugEnabled(url);
-  const respond = (body, status, durationMs) => json(
+  const respond = (body, status, durationMs, extraHeaders) => json(
     debugEnabled ? withSlowQueryDebugPayload(body, { logger, durationMs, status }) : body,
-    status
+    status,
+    extraHeaders
   );
   if (request.method !== "GET") return respond({ error: "Method not allowed" }, 405, 0);
   const bearer = getBearerToken(request.headers.get("Authorization"));
@@ -1468,295 +1575,300 @@ module.exports = withRequestLogging("vibeusage-usage-heatmap", async function(re
   const weekStartsOn = normalizeWeekStartsOn(weekStartsOnRaw);
   if (!weekStartsOn) return respond({ error: "Invalid week_starts_on" }, 400, 0);
   const toRaw = url.searchParams.get("to");
-  if (isUtcTimeZone(tzContext)) {
-    const to2 = normalizeToDate(toRaw);
-    if (!to2) return respond({ error: "Invalid to" }, 400, 0);
-    const { from: from2, gridStart: gridStart2, end: end2 } = computeHeatmapWindowUtc({
-      weeks,
-      weekStartsOn,
-      to: to2
-    });
-    const baseUrl2 = getBaseUrl();
-    const auth2 = await getAccessContext({ baseUrl: baseUrl2, bearer, allowPublic: true });
-    if (!auth2.ok) return respond({ error: "Unauthorized" }, 401, 0);
-    const startIso2 = gridStart2.toISOString();
-    const endUtc2 = addUtcDays(end2, 1);
-    const endIso2 = endUtc2.toISOString();
-    const modelFilter2 = await resolveUsageModelsForCanonical({
-      edgeClient: auth2.edgeClient,
-      canonicalModel: model,
-      effectiveDate: to2
-    });
-    const canonicalModel2 = modelFilter2.canonical;
-    const usageModels2 = modelFilter2.usageModels;
-    const hasModelFilter2 = Array.isArray(usageModels2) && usageModels2.length > 0;
-    let aliasTimeline2 = null;
-    if (hasModelFilter2) {
-      const aliasRows = await fetchAliasRows({
-        edgeClient: auth2.edgeClient,
-        usageModels: usageModels2,
+  const baseUrl = getBaseUrl();
+  const auth = await getAccessContext({ baseUrl, bearer, allowPublic: true });
+  if (!auth.ok) return respond({ error: "Unauthorized" }, 401, 0);
+  const guard = usageGuard?.acquire();
+  if (guard && !guard.ok) {
+    return respond({ error: "Too many requests" }, 429, 0, guard.headers);
+  }
+  try {
+    if (isUtcTimeZone(tzContext)) {
+      const to2 = normalizeToDate(toRaw);
+      if (!to2) return respond({ error: "Invalid to" }, 400, 0);
+      const { from: from2, gridStart: gridStart2, end: end2 } = computeHeatmapWindowUtc({
+        weeks,
+        weekStartsOn,
+        to: to2
+      });
+      const startIso2 = gridStart2.toISOString();
+      const endUtc2 = addUtcDays(end2, 1);
+      const endIso2 = endUtc2.toISOString();
+      const modelFilter2 = await resolveUsageModelsForCanonical({
+        edgeClient: auth.edgeClient,
+        canonicalModel: model,
         effectiveDate: to2
       });
-      aliasTimeline2 = buildAliasTimeline({ usageModels: usageModels2, aliasRows });
+      const canonicalModel2 = modelFilter2.canonical;
+      const usageModels2 = modelFilter2.usageModels;
+      const hasModelFilter2 = Array.isArray(usageModels2) && usageModels2.length > 0;
+      let aliasTimeline2 = null;
+      if (hasModelFilter2) {
+        const aliasRows = await fetchAliasRows({
+          edgeClient: auth.edgeClient,
+          usageModels: usageModels2,
+          effectiveDate: to2
+        });
+        aliasTimeline2 = buildAliasTimeline({ usageModels: usageModels2, aliasRows });
+      }
+      const valuesByDay2 = /* @__PURE__ */ new Map();
+      const queryStartMs2 = Date.now();
+      let rowCount2 = 0;
+      const { error: error2 } = await forEachPage({
+        createQuery: () => {
+          let query = auth.edgeClient.database.from("vibeusage_tracker_hourly").select("hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
+          if (source) query = query.eq("source", source);
+          if (hasModelFilter2) query = applyUsageModelFilter(query, usageModels2);
+          query = applyCanaryFilter(query, { source, model: canonicalModel2 });
+          return query.gte("hour_start", startIso2).lt("hour_start", endIso2).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
+        },
+        onPage: (rows) => {
+          const pageRows = Array.isArray(rows) ? rows : [];
+          rowCount2 += pageRows.length;
+          for (const row of pageRows) {
+            const ts = row?.hour_start;
+            if (!ts) continue;
+            const dt = new Date(ts);
+            if (!Number.isFinite(dt.getTime())) continue;
+            if (hasModelFilter2) {
+              const rawModel = normalizeUsageModel(row?.model);
+              const dateKey = extractDateKey(ts) || to2;
+              const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline2 });
+              const filterIdentity = resolveIdentityAtDate({
+                rawModel: canonicalModel2,
+                usageKey: canonicalModel2,
+                dateKey,
+                timeline: aliasTimeline2
+              });
+              if (identity.model_id !== filterIdentity.model_id) continue;
+            }
+            const day = formatDateUTC(dt);
+            const prev = valuesByDay2.get(day) || 0n;
+            const { billable } = resolveBillableTotals({
+              row,
+              source: row?.source || source
+            });
+            valuesByDay2.set(day, prev + billable);
+          }
+        }
+      });
+      const queryDurationMs2 = Date.now() - queryStartMs2;
+      logSlowQuery(logger, {
+        query_label: "usage_heatmap",
+        duration_ms: queryDurationMs2,
+        row_count: rowCount2,
+        range_weeks: weeks,
+        range_days: weeks * 7,
+        source: source || null,
+        model: canonicalModel2 || null,
+        tz: tzContext?.timeZone || null,
+        tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
+      });
+      if (error2) return respond({ error: error2.message }, 500, queryDurationMs2);
+      const nz2 = [];
+      let activeDays2 = 0;
+      for (let i = 0; i < weeks * 7; i++) {
+        const dt = addUtcDays(gridStart2, i);
+        if (dt.getTime() > end2.getTime()) break;
+        const value = valuesByDay2.get(formatDateUTC(dt)) || 0n;
+        if (value > 0n) {
+          activeDays2 += 1;
+          nz2.push(value);
+        }
+      }
+      nz2.sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
+      const t12 = quantileNearestRank(nz2, 0.5);
+      const t22 = quantileNearestRank(nz2, 0.75);
+      const t32 = quantileNearestRank(nz2, 0.9);
+      const levelFor2 = (value) => {
+        if (!value || value <= 0n) return 0;
+        if (value <= t12) return 1;
+        if (value <= t22) return 2;
+        if (value <= t32) return 3;
+        return 4;
+      };
+      const weeksOut2 = [];
+      for (let w = 0; w < weeks; w++) {
+        const week = [];
+        for (let d = 0; d < 7; d++) {
+          const dt = addUtcDays(gridStart2, w * 7 + d);
+          if (dt.getTime() > end2.getTime()) {
+            week.push(null);
+            continue;
+          }
+          const day = formatDateUTC(dt);
+          const value = valuesByDay2.get(day) || 0n;
+          week.push({ day, value: value.toString(), level: levelFor2(value) });
+        }
+        weeksOut2.push(week);
+      }
+      const streakDays2 = computeActiveStreakDays({
+        valuesByDay: valuesByDay2,
+        to: end2
+      });
+      return respond(
+        {
+          from: from2,
+          to: to2,
+          week_starts_on: weekStartsOn,
+          thresholds: { t1: t12.toString(), t2: t22.toString(), t3: t32.toString() },
+          active_days: activeDays2,
+          streak_days: streakDays2,
+          weeks: weeksOut2
+        },
+        200,
+        queryDurationMs2
+      );
     }
-    const valuesByDay2 = /* @__PURE__ */ new Map();
-    const queryStartMs2 = Date.now();
-    let rowCount2 = 0;
-    const { error: error2 } = await forEachPage({
+    const todayParts = getLocalParts(/* @__PURE__ */ new Date(), tzContext);
+    const toParts = toRaw ? parseDateParts(toRaw) : {
+      year: todayParts.year,
+      month: todayParts.month,
+      day: todayParts.day
+    };
+    if (!toParts) return respond({ error: "Invalid to" }, 400, 0);
+    const end = dateFromPartsUTC(toParts);
+    if (!end) return respond({ error: "Invalid to" }, 400, 0);
+    const desired = weekStartsOn === "mon" ? 1 : 0;
+    const endDow = end.getUTCDay();
+    const endWeekStart = addUtcDays(end, -((endDow - desired + 7) % 7));
+    const gridStart = addUtcDays(endWeekStart, -7 * (weeks - 1));
+    const from = formatDateUTC(gridStart);
+    const to = formatDateParts(toParts);
+    const startParts = parseDateParts(from);
+    if (!startParts) return respond({ error: "Invalid to" }, 400, 0);
+    const startUtc = localDatePartsToUtc(startParts, tzContext);
+    const endUtc = localDatePartsToUtc(addDatePartsDays(toParts, 1), tzContext);
+    const startIso = startUtc.toISOString();
+    const endIso = endUtc.toISOString();
+    const modelFilter = await resolveUsageModelsForCanonical({
+      edgeClient: auth.edgeClient,
+      canonicalModel: model,
+      effectiveDate: to
+    });
+    const canonicalModel = modelFilter.canonical;
+    const usageModels = modelFilter.usageModels;
+    const hasModelFilter = Array.isArray(usageModels) && usageModels.length > 0;
+    let aliasTimeline = null;
+    if (hasModelFilter) {
+      const aliasRows = await fetchAliasRows({
+        edgeClient: auth.edgeClient,
+        usageModels,
+        effectiveDate: to
+      });
+      aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
+    }
+    const valuesByDay = /* @__PURE__ */ new Map();
+    const queryStartMs = Date.now();
+    let rowCount = 0;
+    const { error } = await forEachPage({
       createQuery: () => {
-        let query = auth2.edgeClient.database.from("vibeusage_tracker_hourly").select("hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth2.userId);
+        let query = auth.edgeClient.database.from("vibeusage_tracker_hourly").select("hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
         if (source) query = query.eq("source", source);
-        if (hasModelFilter2) query = applyUsageModelFilter(query, usageModels2);
-        query = applyCanaryFilter(query, { source, model: canonicalModel2 });
-        return query.gte("hour_start", startIso2).lt("hour_start", endIso2).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
+        if (hasModelFilter) query = applyUsageModelFilter(query, usageModels);
+        query = applyCanaryFilter(query, { source, model: canonicalModel });
+        return query.gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
       },
       onPage: (rows) => {
         const pageRows = Array.isArray(rows) ? rows : [];
-        rowCount2 += pageRows.length;
+        rowCount += pageRows.length;
         for (const row of pageRows) {
           const ts = row?.hour_start;
           if (!ts) continue;
           const dt = new Date(ts);
           if (!Number.isFinite(dt.getTime())) continue;
-          if (hasModelFilter2) {
+          if (hasModelFilter) {
             const rawModel = normalizeUsageModel(row?.model);
-            const dateKey = extractDateKey(ts) || to2;
-            const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline2 });
+            const dateKey = extractDateKey(ts) || to;
+            const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
             const filterIdentity = resolveIdentityAtDate({
-              rawModel: canonicalModel2,
-              usageKey: canonicalModel2,
+              rawModel: canonicalModel,
+              usageKey: canonicalModel,
               dateKey,
-              timeline: aliasTimeline2
+              timeline: aliasTimeline
             });
             if (identity.model_id !== filterIdentity.model_id) continue;
           }
-          const day = formatDateUTC(dt);
-          const prev = valuesByDay2.get(day) || 0n;
+          const key = formatLocalDateKey(dt, tzContext);
+          const prev = valuesByDay.get(key) || 0n;
           const { billable } = resolveBillableTotals({
             row,
             source: row?.source || source
           });
-          valuesByDay2.set(day, prev + billable);
+          valuesByDay.set(key, prev + billable);
         }
       }
     });
-    const queryDurationMs2 = Date.now() - queryStartMs2;
+    const queryDurationMs = Date.now() - queryStartMs;
     logSlowQuery(logger, {
       query_label: "usage_heatmap",
-      duration_ms: queryDurationMs2,
-      row_count: rowCount2,
+      duration_ms: queryDurationMs,
+      row_count: rowCount,
       range_weeks: weeks,
       range_days: weeks * 7,
       source: source || null,
-      model: canonicalModel2 || null,
+      model: canonicalModel || null,
       tz: tzContext?.timeZone || null,
       tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
     });
-    if (error2) return respond({ error: error2.message }, 500, queryDurationMs2);
-    const nz2 = [];
-    let activeDays2 = 0;
+    if (error) return respond({ error: error.message }, 500, queryDurationMs);
+    const nz = [];
+    let activeDays = 0;
     for (let i = 0; i < weeks * 7; i++) {
-      const dt = addUtcDays(gridStart2, i);
-      if (dt.getTime() > end2.getTime()) break;
-      const value = valuesByDay2.get(formatDateUTC(dt)) || 0n;
+      const dt = addUtcDays(gridStart, i);
+      if (dt.getTime() > end.getTime()) break;
+      const value = valuesByDay.get(formatDateUTC(dt)) || 0n;
       if (value > 0n) {
-        activeDays2 += 1;
-        nz2.push(value);
+        activeDays += 1;
+        nz.push(value);
       }
     }
-    nz2.sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
-    const t12 = quantileNearestRank(nz2, 0.5);
-    const t22 = quantileNearestRank(nz2, 0.75);
-    const t32 = quantileNearestRank(nz2, 0.9);
-    const levelFor2 = (value) => {
+    nz.sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
+    const t1 = quantileNearestRank(nz, 0.5);
+    const t2 = quantileNearestRank(nz, 0.75);
+    const t3 = quantileNearestRank(nz, 0.9);
+    const levelFor = (value) => {
       if (!value || value <= 0n) return 0;
-      if (value <= t12) return 1;
-      if (value <= t22) return 2;
-      if (value <= t32) return 3;
+      if (value <= t1) return 1;
+      if (value <= t2) return 2;
+      if (value <= t3) return 3;
       return 4;
     };
-    const weeksOut2 = [];
+    const weeksOut = [];
     for (let w = 0; w < weeks; w++) {
       const week = [];
       for (let d = 0; d < 7; d++) {
-        const dt = addUtcDays(gridStart2, w * 7 + d);
-        if (dt.getTime() > end2.getTime()) {
+        const dt = addUtcDays(gridStart, w * 7 + d);
+        if (dt.getTime() > end.getTime()) {
           week.push(null);
           continue;
         }
         const day = formatDateUTC(dt);
-        const value = valuesByDay2.get(day) || 0n;
-        week.push({ day, value: value.toString(), level: levelFor2(value) });
+        const value = valuesByDay.get(day) || 0n;
+        week.push({ day, value: value.toString(), level: levelFor(value) });
       }
-      weeksOut2.push(week);
+      weeksOut.push(week);
     }
-    const streakDays2 = computeActiveStreakDays({
-      valuesByDay: valuesByDay2,
-      to: end2
+    const streakDays = computeActiveStreakDays({
+      valuesByDay,
+      to: end
     });
     return respond(
       {
-        from: from2,
-        to: to2,
+        from,
+        to,
         week_starts_on: weekStartsOn,
-        thresholds: { t1: t12.toString(), t2: t22.toString(), t3: t32.toString() },
-        active_days: activeDays2,
-        streak_days: streakDays2,
-        weeks: weeksOut2
+        thresholds: { t1: t1.toString(), t2: t2.toString(), t3: t3.toString() },
+        active_days: activeDays,
+        streak_days: streakDays,
+        weeks: weeksOut
       },
       200,
-      queryDurationMs2
+      queryDurationMs
     );
+  } finally {
+    guard?.release?.();
   }
-  const todayParts = getLocalParts(/* @__PURE__ */ new Date(), tzContext);
-  const toParts = toRaw ? parseDateParts(toRaw) : {
-    year: todayParts.year,
-    month: todayParts.month,
-    day: todayParts.day
-  };
-  if (!toParts) return respond({ error: "Invalid to" }, 400, 0);
-  const end = dateFromPartsUTC(toParts);
-  if (!end) return respond({ error: "Invalid to" }, 400, 0);
-  const desired = weekStartsOn === "mon" ? 1 : 0;
-  const endDow = end.getUTCDay();
-  const endWeekStart = addUtcDays(end, -((endDow - desired + 7) % 7));
-  const gridStart = addUtcDays(endWeekStart, -7 * (weeks - 1));
-  const from = formatDateUTC(gridStart);
-  const to = formatDateParts(toParts);
-  const startParts = parseDateParts(from);
-  if (!startParts) return respond({ error: "Invalid to" }, 400, 0);
-  const startUtc = localDatePartsToUtc(startParts, tzContext);
-  const endUtc = localDatePartsToUtc(addDatePartsDays(toParts, 1), tzContext);
-  const startIso = startUtc.toISOString();
-  const endIso = endUtc.toISOString();
-  const baseUrl = getBaseUrl();
-  const auth = await getAccessContext({ baseUrl, bearer, allowPublic: true });
-  if (!auth.ok) return respond({ error: "Unauthorized" }, 401, 0);
-  const modelFilter = await resolveUsageModelsForCanonical({
-    edgeClient: auth.edgeClient,
-    canonicalModel: model,
-    effectiveDate: to
-  });
-  const canonicalModel = modelFilter.canonical;
-  const usageModels = modelFilter.usageModels;
-  const hasModelFilter = Array.isArray(usageModels) && usageModels.length > 0;
-  let aliasTimeline = null;
-  if (hasModelFilter) {
-    const aliasRows = await fetchAliasRows({
-      edgeClient: auth.edgeClient,
-      usageModels,
-      effectiveDate: to
-    });
-    aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
-  }
-  const valuesByDay = /* @__PURE__ */ new Map();
-  const queryStartMs = Date.now();
-  let rowCount = 0;
-  const { error } = await forEachPage({
-    createQuery: () => {
-      let query = auth.edgeClient.database.from("vibeusage_tracker_hourly").select("hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
-      if (source) query = query.eq("source", source);
-      if (hasModelFilter) query = applyUsageModelFilter(query, usageModels);
-      query = applyCanaryFilter(query, { source, model: canonicalModel });
-      return query.gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
-    },
-    onPage: (rows) => {
-      const pageRows = Array.isArray(rows) ? rows : [];
-      rowCount += pageRows.length;
-      for (const row of pageRows) {
-        const ts = row?.hour_start;
-        if (!ts) continue;
-        const dt = new Date(ts);
-        if (!Number.isFinite(dt.getTime())) continue;
-        if (hasModelFilter) {
-          const rawModel = normalizeUsageModel(row?.model);
-          const dateKey = extractDateKey(ts) || to;
-          const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
-          const filterIdentity = resolveIdentityAtDate({
-            rawModel: canonicalModel,
-            usageKey: canonicalModel,
-            dateKey,
-            timeline: aliasTimeline
-          });
-          if (identity.model_id !== filterIdentity.model_id) continue;
-        }
-        const key = formatLocalDateKey(dt, tzContext);
-        const prev = valuesByDay.get(key) || 0n;
-        const { billable } = resolveBillableTotals({
-          row,
-          source: row?.source || source
-        });
-        valuesByDay.set(key, prev + billable);
-      }
-    }
-  });
-  const queryDurationMs = Date.now() - queryStartMs;
-  logSlowQuery(logger, {
-    query_label: "usage_heatmap",
-    duration_ms: queryDurationMs,
-    row_count: rowCount,
-    range_weeks: weeks,
-    range_days: weeks * 7,
-    source: source || null,
-    model: canonicalModel || null,
-    tz: tzContext?.timeZone || null,
-    tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
-  });
-  if (error) return respond({ error: error.message }, 500, queryDurationMs);
-  const nz = [];
-  let activeDays = 0;
-  for (let i = 0; i < weeks * 7; i++) {
-    const dt = addUtcDays(gridStart, i);
-    if (dt.getTime() > end.getTime()) break;
-    const value = valuesByDay.get(formatDateUTC(dt)) || 0n;
-    if (value > 0n) {
-      activeDays += 1;
-      nz.push(value);
-    }
-  }
-  nz.sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
-  const t1 = quantileNearestRank(nz, 0.5);
-  const t2 = quantileNearestRank(nz, 0.75);
-  const t3 = quantileNearestRank(nz, 0.9);
-  const levelFor = (value) => {
-    if (!value || value <= 0n) return 0;
-    if (value <= t1) return 1;
-    if (value <= t2) return 2;
-    if (value <= t3) return 3;
-    return 4;
-  };
-  const weeksOut = [];
-  for (let w = 0; w < weeks; w++) {
-    const week = [];
-    for (let d = 0; d < 7; d++) {
-      const dt = addUtcDays(gridStart, w * 7 + d);
-      if (dt.getTime() > end.getTime()) {
-        week.push(null);
-        continue;
-      }
-      const day = formatDateUTC(dt);
-      const value = valuesByDay.get(day) || 0n;
-      week.push({ day, value: value.toString(), level: levelFor(value) });
-    }
-    weeksOut.push(week);
-  }
-  const streakDays = computeActiveStreakDays({
-    valuesByDay,
-    to: end
-  });
-  return respond(
-    {
-      from,
-      to,
-      week_starts_on: weekStartsOn,
-      thresholds: { t1: t1.toString(), t2: t2.toString(), t3: t3.toString() },
-      active_days: activeDays,
-      streak_days: streakDays,
-      weeks: weeksOut
-    },
-    200,
-    queryDurationMs
-  );
 });
 function normalizeWeeks(raw) {
   if (raw == null || raw === "") return 52;

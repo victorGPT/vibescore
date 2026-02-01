@@ -1408,6 +1408,111 @@ var require_usage_aggregate = __commonJS({
   }
 });
 
+// insforge-src/shared/concurrency.js
+var require_concurrency = __commonJS({
+  "insforge-src/shared/concurrency.js"(exports2, module2) {
+    "use strict";
+    var LIMITERS = /* @__PURE__ */ new Map();
+    function createConcurrencyGuard({
+      name,
+      envKey,
+      defaultMax = 0,
+      retryAfterEnvKey,
+      defaultRetryAfterMs = 1e3
+    }) {
+      const maxInflight = readEnvInt(envKey, defaultMax);
+      if (!Number.isFinite(maxInflight) || maxInflight <= 0) return null;
+      const retryAfterMs = readEnvInt(retryAfterEnvKey, defaultRetryAfterMs);
+      return getLimiter({ name, maxInflight, retryAfterMs });
+    }
+    function getLimiter({ name, maxInflight, retryAfterMs }) {
+      const key = name || "default";
+      const existing = LIMITERS.get(key);
+      if (existing && existing.maxInflight === maxInflight && existing.retryAfterMs === retryAfterMs) return existing;
+      const limiter = createLimiter({ maxInflight, retryAfterMs });
+      LIMITERS.set(key, limiter);
+      return limiter;
+    }
+    function createLimiter({ maxInflight, retryAfterMs }) {
+      let inflight = 0;
+      function acquire() {
+        if (inflight >= maxInflight) {
+          const retryAfterSeconds = Math.max(1, Math.ceil(Math.max(0, retryAfterMs) / 1e3));
+          return {
+            ok: false,
+            retryAfterMs,
+            headers: {
+              "Retry-After": String(retryAfterSeconds)
+            }
+          };
+        }
+        inflight += 1;
+        return {
+          ok: true,
+          release() {
+            inflight = Math.max(0, inflight - 1);
+          }
+        };
+      }
+      return {
+        maxInflight,
+        retryAfterMs,
+        acquire
+      };
+    }
+    function readEnvInt(key, fallback) {
+      if (!key) return fallback;
+      const keys = Array.isArray(key) ? key : [key];
+      for (const candidate of keys) {
+        if (!candidate) continue;
+        const raw = readEnvValue(candidate);
+        if (raw == null || raw === "") continue;
+        const n = Number(raw);
+        if (!Number.isFinite(n)) continue;
+        return Math.floor(n);
+      }
+      return fallback;
+    }
+    function readEnvValue(key) {
+      try {
+        if (typeof Deno !== "undefined" && Deno?.env?.get) {
+          const value = Deno.env.get(key);
+          if (value !== void 0) return value;
+        }
+      } catch (_e) {
+      }
+      try {
+        if (typeof process !== "undefined" && process?.env) {
+          return process.env[key];
+        }
+      } catch (_e) {
+      }
+      return null;
+    }
+    module2.exports = {
+      createConcurrencyGuard
+    };
+  }
+});
+
+// insforge-src/shared/usage-guard.js
+var require_usage_guard = __commonJS({
+  "insforge-src/shared/usage-guard.js"(exports2, module2) {
+    "use strict";
+    var { createConcurrencyGuard } = require_concurrency();
+    var usageGuard2 = createConcurrencyGuard({
+      name: "vibeusage-usage",
+      envKey: ["VIBEUSAGE_USAGE_MAX_INFLIGHT"],
+      defaultMax: 8,
+      retryAfterEnvKey: ["VIBEUSAGE_USAGE_RETRY_AFTER_MS"],
+      defaultRetryAfterMs: 1e3
+    });
+    module2.exports = {
+      usageGuard: usageGuard2
+    };
+  }
+});
+
 // insforge-src/functions/vibeusage-usage-hourly.js
 var { handleOptions, json } = require_http();
 var { getBearerToken, getAccessContext } = require_auth();
@@ -1439,15 +1544,17 @@ var {
   resolveIdentityAtDate
 } = require_model_alias_timeline();
 var { resolveBillableTotals } = require_usage_aggregate();
+var { usageGuard } = require_usage_guard();
 var MIN_INTERVAL_MINUTES = 30;
 module.exports = withRequestLogging("vibeusage-usage-hourly", async function(request, logger) {
   const opt = handleOptions(request);
   if (opt) return opt;
   const url = new URL(request.url);
   const debugEnabled = isDebugEnabled(url);
-  const respond = (body, status, durationMs) => json(
+  const respond = (body, status, durationMs, extraHeaders) => json(
     debugEnabled ? withSlowQueryDebugPayload(body, { logger, durationMs, status }) : body,
-    status
+    status,
+    extraHeaders
   );
   if (request.method !== "GET") return respond({ error: "Method not allowed" }, 405, 0);
   const bearer = getBearerToken(request.headers.get("Authorization"));
@@ -1462,97 +1569,172 @@ module.exports = withRequestLogging("vibeusage-usage-hourly", async function(req
   const modelResult = getModelParam(url);
   if (!modelResult.ok) return respond({ error: modelResult.error }, 400, 0);
   const model = modelResult.model;
-  if (isUtcTimeZone(tzContext)) {
-    const dayRaw2 = url.searchParams.get("day");
-    const today = parseUtcDateString(formatDateUTC(/* @__PURE__ */ new Date()));
-    const day = dayRaw2 ? parseUtcDateString(dayRaw2) : today;
-    if (!day) return respond({ error: "Invalid day" }, 400, 0);
-    const startUtc2 = new Date(
-      Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 0, 0, 0)
-    );
-    const startIso2 = startUtc2.toISOString();
-    const endDate = addUtcDays(day, 1);
-    const endUtc2 = new Date(
-      Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 0, 0, 0)
-    );
-    const endIso2 = endUtc2.toISOString();
-    const dayLabel = formatDateUTC(day);
-    const { hourKeys: hourKeys2, buckets: buckets2, bucketMap: bucketMap2 } = initHourlyBuckets(dayLabel);
-    const syncMeta2 = await getSyncMeta({
-      edgeClient: auth.edgeClient,
-      userId: auth.userId,
-      startUtc: startUtc2,
-      endUtc: endUtc2,
-      tzContext
-    });
-    const modelFilter2 = await resolveUsageModelsForCanonical({
-      edgeClient: auth.edgeClient,
-      canonicalModel: model,
-      effectiveDate: dayLabel
-    });
-    const canonicalModel2 = modelFilter2.canonical;
-    const usageModels2 = modelFilter2.usageModels;
-    const hasModelFilter2 = Array.isArray(usageModels2) && usageModels2.length > 0;
-    let aliasTimeline2 = null;
-    if (hasModelFilter2) {
-      const aliasRows = await fetchAliasRows({
+  const guard = usageGuard?.acquire();
+  if (guard && !guard.ok) {
+    return respond({ error: "Too many requests" }, 429, 0, guard.headers);
+  }
+  try {
+    if (isUtcTimeZone(tzContext)) {
+      const dayRaw2 = url.searchParams.get("day");
+      const today = parseUtcDateString(formatDateUTC(/* @__PURE__ */ new Date()));
+      const day = dayRaw2 ? parseUtcDateString(dayRaw2) : today;
+      if (!day) return respond({ error: "Invalid day" }, 400, 0);
+      const startUtc2 = new Date(
+        Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 0, 0, 0)
+      );
+      const startIso2 = startUtc2.toISOString();
+      const endDate = addUtcDays(day, 1);
+      const endUtc2 = new Date(
+        Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 0, 0, 0)
+      );
+      const endIso2 = endUtc2.toISOString();
+      const dayLabel = formatDateUTC(day);
+      const { hourKeys: hourKeys2, buckets: buckets2, bucketMap: bucketMap2 } = initHourlyBuckets(dayLabel);
+      const syncMeta2 = await getSyncMeta({
         edgeClient: auth.edgeClient,
-        usageModels: usageModels2,
+        userId: auth.userId,
+        startUtc: startUtc2,
+        endUtc: endUtc2,
+        tzContext
+      });
+      const modelFilter2 = await resolveUsageModelsForCanonical({
+        edgeClient: auth.edgeClient,
+        canonicalModel: model,
         effectiveDate: dayLabel
       });
-      aliasTimeline2 = buildAliasTimeline({ usageModels: usageModels2, aliasRows });
-    }
-    const aggregateStartMs = Date.now();
-    const aggregateRows = hasModelFilter2 ? null : await tryAggregateHourlyTotals({
-      edgeClient: auth.edgeClient,
-      userId: auth.userId,
-      startIso: startIso2,
-      endIso: endIso2,
-      source,
-      canonicalModel: canonicalModel2,
-      usageModels: usageModels2
-    });
-    const aggregateDurationMs = Date.now() - aggregateStartMs;
-    logSlowQuery(logger, {
-      query_label: "usage_hourly_aggregate",
-      duration_ms: aggregateDurationMs,
-      row_count: Array.isArray(aggregateRows) ? aggregateRows.length : 0,
-      range_days: 1,
-      source: source || null,
-      model: canonicalModel2 || null,
-      tz: tzContext?.timeZone || null,
-      tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null,
-      agg_hit: Boolean(aggregateRows)
-    });
-    if (aggregateRows) {
-      for (const row of aggregateRows) {
-        const key = formatHourKeyFromValue(row?.hour);
-        const bucket = key ? bucketMap2.get(key) : null;
-        if (!bucket) continue;
-        bucket.total += toBigInt(row?.sum_total_tokens);
-        const rowCount3 = Number(row?.count_rows);
-        const billableCount = Number(row?.count_billable_total_tokens);
-        const hasCompleteBillable = Number.isFinite(rowCount3) && Number.isFinite(billableCount) && rowCount3 > 0 && billableCount === rowCount3;
-        const hasStoredBillable = row && Object.prototype.hasOwnProperty.call(row, "sum_billable_total_tokens") && row.sum_billable_total_tokens != null && hasCompleteBillable;
-        const { billable } = resolveBillableTotals({
-          row,
-          source: row?.source || source,
-          billableField: "sum_billable_total_tokens",
-          totals: {
-            total_tokens: row?.sum_total_tokens,
-            input_tokens: row?.sum_input_tokens,
-            cached_input_tokens: row?.sum_cached_input_tokens,
-            output_tokens: row?.sum_output_tokens,
-            reasoning_output_tokens: row?.sum_reasoning_output_tokens
-          },
-          hasStoredBillable
+      const canonicalModel2 = modelFilter2.canonical;
+      const usageModels2 = modelFilter2.usageModels;
+      const hasModelFilter2 = Array.isArray(usageModels2) && usageModels2.length > 0;
+      let aliasTimeline2 = null;
+      if (hasModelFilter2) {
+        const aliasRows = await fetchAliasRows({
+          edgeClient: auth.edgeClient,
+          usageModels: usageModels2,
+          effectiveDate: dayLabel
         });
-        bucket.billable += billable;
-        bucket.input += toBigInt(row?.sum_input_tokens);
-        bucket.cached += toBigInt(row?.sum_cached_input_tokens);
-        bucket.output += toBigInt(row?.sum_output_tokens);
-        bucket.reasoning += toBigInt(row?.sum_reasoning_output_tokens);
+        aliasTimeline2 = buildAliasTimeline({ usageModels: usageModels2, aliasRows });
       }
+      const aggregateStartMs = Date.now();
+      const aggregateRows = hasModelFilter2 ? null : await tryAggregateHourlyTotals({
+        edgeClient: auth.edgeClient,
+        userId: auth.userId,
+        startIso: startIso2,
+        endIso: endIso2,
+        source,
+        canonicalModel: canonicalModel2,
+        usageModels: usageModels2
+      });
+      const aggregateDurationMs = Date.now() - aggregateStartMs;
+      logSlowQuery(logger, {
+        query_label: "usage_hourly_aggregate",
+        duration_ms: aggregateDurationMs,
+        row_count: Array.isArray(aggregateRows) ? aggregateRows.length : 0,
+        range_days: 1,
+        source: source || null,
+        model: canonicalModel2 || null,
+        tz: tzContext?.timeZone || null,
+        tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null,
+        agg_hit: Boolean(aggregateRows)
+      });
+      if (aggregateRows) {
+        for (const row of aggregateRows) {
+          const key = formatHourKeyFromValue(row?.hour);
+          const bucket = key ? bucketMap2.get(key) : null;
+          if (!bucket) continue;
+          bucket.total += toBigInt(row?.sum_total_tokens);
+          const rowCount3 = Number(row?.count_rows);
+          const billableCount = Number(row?.count_billable_total_tokens);
+          const hasCompleteBillable = Number.isFinite(rowCount3) && Number.isFinite(billableCount) && rowCount3 > 0 && billableCount === rowCount3;
+          const hasStoredBillable = row && Object.prototype.hasOwnProperty.call(row, "sum_billable_total_tokens") && row.sum_billable_total_tokens != null && hasCompleteBillable;
+          const { billable } = resolveBillableTotals({
+            row,
+            source: row?.source || source,
+            billableField: "sum_billable_total_tokens",
+            totals: {
+              total_tokens: row?.sum_total_tokens,
+              input_tokens: row?.sum_input_tokens,
+              cached_input_tokens: row?.sum_cached_input_tokens,
+              output_tokens: row?.sum_output_tokens,
+              reasoning_output_tokens: row?.sum_reasoning_output_tokens
+            },
+            hasStoredBillable
+          });
+          bucket.billable += billable;
+          bucket.input += toBigInt(row?.sum_input_tokens);
+          bucket.cached += toBigInt(row?.sum_cached_input_tokens);
+          bucket.output += toBigInt(row?.sum_output_tokens);
+          bucket.reasoning += toBigInt(row?.sum_reasoning_output_tokens);
+        }
+        return respond(
+          {
+            day: dayLabel,
+            data: buildHourlyResponse(hourKeys2, bucketMap2, syncMeta2?.missingAfterSlot),
+            sync: buildSyncResponse(syncMeta2)
+          },
+          200,
+          aggregateDurationMs
+        );
+      }
+      const queryStartMs2 = Date.now();
+      let rowCount2 = 0;
+      const { error: error2 } = await forEachPage({
+        createQuery: () => {
+          let query = auth.edgeClient.database.from("vibeusage_tracker_hourly").select("hour_start,model,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
+          if (source) query = query.eq("source", source);
+          if (hasModelFilter2) query = applyUsageModelFilter(query, usageModels2);
+          query = applyCanaryFilter(query, { source, model: canonicalModel2 });
+          return query.gte("hour_start", startIso2).lt("hour_start", endIso2).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
+        },
+        onPage: (rows) => {
+          const pageRows = Array.isArray(rows) ? rows : [];
+          rowCount2 += pageRows.length;
+          for (const row of pageRows) {
+            const ts = row?.hour_start;
+            if (!ts) continue;
+            const dt = new Date(ts);
+            if (!Number.isFinite(dt.getTime())) continue;
+            if (hasModelFilter2) {
+              const rawModel = normalizeUsageModel(row?.model);
+              const dateKey = extractDateKey(ts) || dayLabel;
+              const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline2 });
+              const filterIdentity = resolveIdentityAtDate({
+                rawModel: canonicalModel2,
+                usageKey: canonicalModel2,
+                dateKey,
+                timeline: aliasTimeline2
+              });
+              if (identity.model_id !== filterIdentity.model_id) continue;
+            }
+            const hour = dt.getUTCHours();
+            const minute = dt.getUTCMinutes();
+            const slot = hour * 2 + (minute >= 30 ? 1 : 0);
+            if (slot < 0 || slot > 47) continue;
+            const bucket = buckets2[slot];
+            bucket.total += toBigInt(row?.total_tokens);
+            const { billable } = resolveBillableTotals({
+              row,
+              source: row?.source || source
+            });
+            bucket.billable += billable;
+            bucket.input += toBigInt(row?.input_tokens);
+            bucket.cached += toBigInt(row?.cached_input_tokens);
+            bucket.output += toBigInt(row?.output_tokens);
+            bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
+          }
+        }
+      });
+      const queryDurationMs2 = Date.now() - queryStartMs2;
+      logSlowQuery(logger, {
+        query_label: "usage_hourly_raw",
+        duration_ms: queryDurationMs2,
+        row_count: rowCount2,
+        range_days: 1,
+        source: source || null,
+        model: canonicalModel2 || null,
+        tz: tzContext?.timeZone || null,
+        tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
+      });
+      if (error2) return respond({ error: error2.message }, 500, queryDurationMs2);
       return respond(
         {
           day: dayLabel,
@@ -1560,44 +1742,85 @@ module.exports = withRequestLogging("vibeusage-usage-hourly", async function(req
           sync: buildSyncResponse(syncMeta2)
         },
         200,
-        aggregateDurationMs
+        queryDurationMs2
       );
     }
-    const queryStartMs2 = Date.now();
-    let rowCount2 = 0;
-    const { error: error2 } = await forEachPage({
+    const dayRaw = url.searchParams.get("day");
+    const todayKey = formatDateParts(getLocalParts(/* @__PURE__ */ new Date(), tzContext));
+    if (dayRaw && !parseDateParts(dayRaw)) return respond({ error: "Invalid day" }, 400, 0);
+    const dayKey = dayRaw || todayKey;
+    const dayParts = parseDateParts(dayKey);
+    if (!dayParts) return respond({ error: "Invalid day" }, 400, 0);
+    const modelFilter = await resolveUsageModelsForCanonical({
+      edgeClient: auth.edgeClient,
+      canonicalModel: model,
+      effectiveDate: dayKey
+    });
+    const canonicalModel = modelFilter.canonical;
+    const usageModels = modelFilter.usageModels;
+    const hasModelFilter = Array.isArray(usageModels) && usageModels.length > 0;
+    let aliasTimeline = null;
+    if (hasModelFilter) {
+      const aliasRows = await fetchAliasRows({
+        edgeClient: auth.edgeClient,
+        usageModels,
+        effectiveDate: dayKey
+      });
+      aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
+    }
+    const startUtc = localDatePartsToUtc({ ...dayParts, hour: 0, minute: 0, second: 0 }, tzContext);
+    const endUtc = localDatePartsToUtc(addDatePartsDays(dayParts, 1), tzContext);
+    const startIso = startUtc.toISOString();
+    const endIso = endUtc.toISOString();
+    const { hourKeys, buckets, bucketMap } = initHourlyBuckets(dayKey);
+    const syncMeta = await getSyncMeta({
+      edgeClient: auth.edgeClient,
+      userId: auth.userId,
+      startUtc,
+      endUtc,
+      tzContext
+    });
+    const queryStartMs = Date.now();
+    let rowCount = 0;
+    const { error } = await forEachPage({
       createQuery: () => {
-        let query = auth.edgeClient.database.from("vibeusage_tracker_hourly").select("hour_start,model,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
+        let query = auth.edgeClient.database.from("vibeusage_tracker_hourly").select(
+          "hour_start,model,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens"
+        ).eq("user_id", auth.userId);
         if (source) query = query.eq("source", source);
-        if (hasModelFilter2) query = applyUsageModelFilter(query, usageModels2);
-        query = applyCanaryFilter(query, { source, model: canonicalModel2 });
-        return query.gte("hour_start", startIso2).lt("hour_start", endIso2).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
+        if (hasModelFilter) query = applyUsageModelFilter(query, usageModels);
+        query = applyCanaryFilter(query, { source, model: canonicalModel });
+        return query.gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
       },
       onPage: (rows) => {
         const pageRows = Array.isArray(rows) ? rows : [];
-        rowCount2 += pageRows.length;
+        rowCount += pageRows.length;
         for (const row of pageRows) {
           const ts = row?.hour_start;
           if (!ts) continue;
           const dt = new Date(ts);
           if (!Number.isFinite(dt.getTime())) continue;
-          if (hasModelFilter2) {
+          if (hasModelFilter) {
             const rawModel = normalizeUsageModel(row?.model);
-            const dateKey = extractDateKey(ts) || dayLabel;
-            const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline2 });
+            const dateKey = extractDateKey(ts) || dayKey;
+            const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
             const filterIdentity = resolveIdentityAtDate({
-              rawModel: canonicalModel2,
-              usageKey: canonicalModel2,
+              rawModel: canonicalModel,
+              usageKey: canonicalModel,
               dateKey,
-              timeline: aliasTimeline2
+              timeline: aliasTimeline
             });
             if (identity.model_id !== filterIdentity.model_id) continue;
           }
-          const hour = dt.getUTCHours();
-          const minute = dt.getUTCMinutes();
+          const localParts = getLocalParts(dt, tzContext);
+          const localDay = formatDateParts(localParts);
+          if (localDay !== dayKey) continue;
+          const hour = Number(localParts.hour);
+          const minute = Number(localParts.minute);
+          if (!Number.isFinite(hour) || !Number.isFinite(minute)) continue;
           const slot = hour * 2 + (minute >= 30 ? 1 : 0);
           if (slot < 0 || slot > 47) continue;
-          const bucket = buckets2[slot];
+          const bucket = buckets[slot];
           bucket.total += toBigInt(row?.total_tokens);
           const { billable } = resolveBillableTotals({
             row,
@@ -1611,138 +1834,30 @@ module.exports = withRequestLogging("vibeusage-usage-hourly", async function(req
         }
       }
     });
-    const queryDurationMs2 = Date.now() - queryStartMs2;
+    const queryDurationMs = Date.now() - queryStartMs;
     logSlowQuery(logger, {
       query_label: "usage_hourly_raw",
-      duration_ms: queryDurationMs2,
-      row_count: rowCount2,
+      duration_ms: queryDurationMs,
+      row_count: rowCount,
       range_days: 1,
       source: source || null,
-      model: canonicalModel2 || null,
+      model: canonicalModel || null,
       tz: tzContext?.timeZone || null,
       tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
     });
-    if (error2) return respond({ error: error2.message }, 500, queryDurationMs2);
+    if (error) return respond({ error: error.message }, 500, queryDurationMs);
     return respond(
       {
-        day: dayLabel,
-        data: buildHourlyResponse(hourKeys2, bucketMap2, syncMeta2?.missingAfterSlot),
-        sync: buildSyncResponse(syncMeta2)
+        day: dayKey,
+        data: buildHourlyResponse(hourKeys, bucketMap, syncMeta?.missingAfterSlot),
+        sync: buildSyncResponse(syncMeta)
       },
       200,
-      queryDurationMs2
+      queryDurationMs
     );
+  } finally {
+    guard?.release?.();
   }
-  const dayRaw = url.searchParams.get("day");
-  const todayKey = formatDateParts(getLocalParts(/* @__PURE__ */ new Date(), tzContext));
-  if (dayRaw && !parseDateParts(dayRaw)) return respond({ error: "Invalid day" }, 400, 0);
-  const dayKey = dayRaw || todayKey;
-  const dayParts = parseDateParts(dayKey);
-  if (!dayParts) return respond({ error: "Invalid day" }, 400, 0);
-  const modelFilter = await resolveUsageModelsForCanonical({
-    edgeClient: auth.edgeClient,
-    canonicalModel: model,
-    effectiveDate: dayKey
-  });
-  const canonicalModel = modelFilter.canonical;
-  const usageModels = modelFilter.usageModels;
-  const hasModelFilter = Array.isArray(usageModels) && usageModels.length > 0;
-  let aliasTimeline = null;
-  if (hasModelFilter) {
-    const aliasRows = await fetchAliasRows({
-      edgeClient: auth.edgeClient,
-      usageModels,
-      effectiveDate: dayKey
-    });
-    aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
-  }
-  const startUtc = localDatePartsToUtc({ ...dayParts, hour: 0, minute: 0, second: 0 }, tzContext);
-  const endUtc = localDatePartsToUtc(addDatePartsDays(dayParts, 1), tzContext);
-  const startIso = startUtc.toISOString();
-  const endIso = endUtc.toISOString();
-  const { hourKeys, buckets, bucketMap } = initHourlyBuckets(dayKey);
-  const syncMeta = await getSyncMeta({
-    edgeClient: auth.edgeClient,
-    userId: auth.userId,
-    startUtc,
-    endUtc,
-    tzContext
-  });
-  const queryStartMs = Date.now();
-  let rowCount = 0;
-  const { error } = await forEachPage({
-    createQuery: () => {
-      let query = auth.edgeClient.database.from("vibeusage_tracker_hourly").select(
-        "hour_start,model,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens"
-      ).eq("user_id", auth.userId);
-      if (source) query = query.eq("source", source);
-      if (hasModelFilter) query = applyUsageModelFilter(query, usageModels);
-      query = applyCanaryFilter(query, { source, model: canonicalModel });
-      return query.gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
-    },
-    onPage: (rows) => {
-      const pageRows = Array.isArray(rows) ? rows : [];
-      rowCount += pageRows.length;
-      for (const row of pageRows) {
-        const ts = row?.hour_start;
-        if (!ts) continue;
-        const dt = new Date(ts);
-        if (!Number.isFinite(dt.getTime())) continue;
-        if (hasModelFilter) {
-          const rawModel = normalizeUsageModel(row?.model);
-          const dateKey = extractDateKey(ts) || dayKey;
-          const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
-          const filterIdentity = resolveIdentityAtDate({
-            rawModel: canonicalModel,
-            usageKey: canonicalModel,
-            dateKey,
-            timeline: aliasTimeline
-          });
-          if (identity.model_id !== filterIdentity.model_id) continue;
-        }
-        const localParts = getLocalParts(dt, tzContext);
-        const localDay = formatDateParts(localParts);
-        if (localDay !== dayKey) continue;
-        const hour = Number(localParts.hour);
-        const minute = Number(localParts.minute);
-        if (!Number.isFinite(hour) || !Number.isFinite(minute)) continue;
-        const slot = hour * 2 + (minute >= 30 ? 1 : 0);
-        if (slot < 0 || slot > 47) continue;
-        const bucket = buckets[slot];
-        bucket.total += toBigInt(row?.total_tokens);
-        const { billable } = resolveBillableTotals({
-          row,
-          source: row?.source || source
-        });
-        bucket.billable += billable;
-        bucket.input += toBigInt(row?.input_tokens);
-        bucket.cached += toBigInt(row?.cached_input_tokens);
-        bucket.output += toBigInt(row?.output_tokens);
-        bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
-      }
-    }
-  });
-  const queryDurationMs = Date.now() - queryStartMs;
-  logSlowQuery(logger, {
-    query_label: "usage_hourly_raw",
-    duration_ms: queryDurationMs,
-    row_count: rowCount,
-    range_days: 1,
-    source: source || null,
-    model: canonicalModel || null,
-    tz: tzContext?.timeZone || null,
-    tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
-  });
-  if (error) return respond({ error: error.message }, 500, queryDurationMs);
-  return respond(
-    {
-      day: dayKey,
-      data: buildHourlyResponse(hourKeys, bucketMap, syncMeta?.missingAfterSlot),
-      sync: buildSyncResponse(syncMeta)
-    },
-    200,
-    queryDurationMs
-  );
 });
 function initHourlyBuckets(dayLabel) {
   const hourKeys = [];

@@ -36,6 +36,7 @@ const {
   resolveIdentityAtDate
 } = require('../shared/model-alias-timeline');
 const { resolveBillableTotals } = require('../shared/usage-aggregate');
+const { usageGuard } = require('../shared/usage-guard');
 
 module.exports = withRequestLogging('vibeusage-usage-heatmap', async function(request, logger) {
   const opt = handleOptions(request);
@@ -43,9 +44,10 @@ module.exports = withRequestLogging('vibeusage-usage-heatmap', async function(re
 
   const url = new URL(request.url);
   const debugEnabled = isDebugEnabled(url);
-  const respond = (body, status, durationMs) => json(
+  const respond = (body, status, durationMs, extraHeaders) => json(
     debugEnabled ? withSlowQueryDebugPayload(body, { logger, durationMs, status }) : body,
-    status
+    status,
+    extraHeaders
   );
 
   if (request.method !== 'GET') return respond({ error: 'Method not allowed' }, 405, 0);
@@ -71,6 +73,16 @@ module.exports = withRequestLogging('vibeusage-usage-heatmap', async function(re
 
   const toRaw = url.searchParams.get('to');
 
+  const baseUrl = getBaseUrl();
+  const auth = await getAccessContext({ baseUrl, bearer, allowPublic: true });
+  if (!auth.ok) return respond({ error: 'Unauthorized' }, 401, 0);
+
+  const guard = usageGuard?.acquire();
+  if (guard && !guard.ok) {
+    return respond({ error: 'Too many requests' }, 429, 0, guard.headers);
+  }
+
+  try {
   if (isUtcTimeZone(tzContext)) {
     const to = normalizeToDate(toRaw);
     if (!to) return respond({ error: 'Invalid to' }, 400, 0);
@@ -80,10 +92,6 @@ module.exports = withRequestLogging('vibeusage-usage-heatmap', async function(re
       weekStartsOn,
       to
     });
-
-    const baseUrl = getBaseUrl();
-    const auth = await getAccessContext({ baseUrl, bearer, allowPublic: true });
-    if (!auth.ok) return respond({ error: 'Unauthorized' }, 401, 0);
 
     const startIso = gridStart.toISOString();
     const endUtc = addUtcDays(end, 1);
@@ -259,10 +267,6 @@ module.exports = withRequestLogging('vibeusage-usage-heatmap', async function(re
   const startIso = startUtc.toISOString();
   const endIso = endUtc.toISOString();
 
-  const baseUrl = getBaseUrl();
-  const auth = await getAccessContext({ baseUrl, bearer, allowPublic: true });
-  if (!auth.ok) return respond({ error: 'Unauthorized' }, 401, 0);
-
   const modelFilter = await resolveUsageModelsForCanonical({
     edgeClient: auth.edgeClient,
     canonicalModel: model,
@@ -405,6 +409,9 @@ module.exports = withRequestLogging('vibeusage-usage-heatmap', async function(re
     200,
     queryDurationMs
   );
+  } finally {
+    guard?.release?.();
+  }
 });
 
 function normalizeWeeks(raw) {

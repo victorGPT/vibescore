@@ -28,6 +28,7 @@ const {
   buildAliasTimeline,
   fetchAliasRows
 } = require('../shared/model-alias-timeline');
+const { usageGuard } = require('../shared/usage-guard');
 
 const MAX_MONTHS = 24;
 
@@ -37,9 +38,10 @@ module.exports = withRequestLogging('vibeusage-usage-monthly', async function(re
 
   const url = new URL(request.url);
   const debugEnabled = isDebugEnabled(url);
-  const respond = (body, status, durationMs) => json(
+  const respond = (body, status, durationMs, extraHeaders) => json(
     debugEnabled ? withSlowQueryDebugPayload(body, { logger, durationMs, status }) : body,
-    status
+    status,
+    extraHeaders
   );
 
   if (request.method !== 'GET') return respond({ error: 'Method not allowed' }, 405, 0);
@@ -85,6 +87,13 @@ module.exports = withRequestLogging('vibeusage-usage-monthly', async function(re
   const endUtc = localDatePartsToUtc(addDatePartsDays(toParts, 1), tzContext);
   const startIso = startUtc.toISOString();
   const endIso = endUtc.toISOString();
+
+  const guard = usageGuard?.acquire();
+  if (guard && !guard.ok) {
+    return respond({ error: 'Too many requests' }, 429, 0, guard.headers);
+  }
+
+  try {
   const modelFilter = await resolveUsageModelsForCanonical({
     edgeClient: auth.edgeClient,
     canonicalModel: model,
@@ -172,4 +181,7 @@ module.exports = withRequestLogging('vibeusage-usage-monthly', async function(re
   });
 
   return respond({ from, to, months, data: monthly }, 200, queryDurationMs);
+  } finally {
+    guard?.release?.();
+  }
 });

@@ -33,6 +33,7 @@ const {
   resolveIdentityAtDate
 } = require('../shared/model-alias-timeline');
 const { resolveBillableTotals } = require('../shared/usage-aggregate');
+const { usageGuard } = require('../shared/usage-guard');
 
 const MIN_INTERVAL_MINUTES = 30;
 
@@ -42,9 +43,10 @@ module.exports = withRequestLogging('vibeusage-usage-hourly', async function(req
 
   const url = new URL(request.url);
   const debugEnabled = isDebugEnabled(url);
-  const respond = (body, status, durationMs) => json(
+  const respond = (body, status, durationMs, extraHeaders) => json(
     debugEnabled ? withSlowQueryDebugPayload(body, { logger, durationMs, status }) : body,
-    status
+    status,
+    extraHeaders
   );
 
   if (request.method !== 'GET') return respond({ error: 'Method not allowed' }, 405, 0);
@@ -64,6 +66,12 @@ module.exports = withRequestLogging('vibeusage-usage-hourly', async function(req
   if (!modelResult.ok) return respond({ error: modelResult.error }, 400, 0);
   const model = modelResult.model;
 
+  const guard = usageGuard?.acquire();
+  if (guard && !guard.ok) {
+    return respond({ error: 'Too many requests' }, 429, 0, guard.headers);
+  }
+
+  try {
   if (isUtcTimeZone(tzContext)) {
     const dayRaw = url.searchParams.get('day');
     const today = parseUtcDateString(formatDateUTC(new Date()));
@@ -392,6 +400,9 @@ module.exports = withRequestLogging('vibeusage-usage-hourly', async function(req
     200,
     queryDurationMs
   );
+  } finally {
+    guard?.release?.();
+  }
 });
 
 function initHourlyBuckets(dayLabel) {

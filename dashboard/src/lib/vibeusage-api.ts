@@ -15,6 +15,8 @@ import {
 
 const BACKEND_RUNTIME_UNAVAILABLE =
   "Backend runtime unavailable (InsForge). Please retry later.";
+const BACKEND_CIRCUIT_DEFAULT_MS = 5000;
+const BACKEND_CIRCUIT_MAX_MS = 20000;
 
 const PATHS = {
   usageSummary: "vibeusage-usage-summary",
@@ -39,6 +41,9 @@ const REQUEST_KIND = {
 type AnyRecord = Record<string, any>;
 
 let refreshInFlight: Promise<any> | null = null;
+let backendDownUntil = 0;
+let backendDownCount = 0;
+let backendDownReason: string | null = null;
 
 async function resolveAccessToken(accessToken: any) {
   return await resolveAuthAccessToken(accessToken);
@@ -318,6 +323,7 @@ async function requestJson({
 
   while (true) {
     try {
+      if (isBackendCircuitOpen()) throw createBackendCircuitError();
       const result = await requestWithFallback({
         http,
         primaryPath,
@@ -325,6 +331,7 @@ async function requestJson({
         params,
         fetchOptions,
       });
+      closeBackendCircuit();
       clearSessionSoftExpiredIfNeeded({
         hadAccessToken,
         accessToken: activeAccessToken,
@@ -335,7 +342,9 @@ async function requestJson({
       if (errInput?.name === "AbortError") throw e;
       let err: any = null;
       const status = errInput?.statusCode ?? errInput?.status;
-      if (
+      if (errInput?.circuit) {
+        err = errInput;
+      } else if (
         allowRefresh &&
         shouldAttemptSessionRefresh({
           status,
@@ -409,6 +418,9 @@ async function requestJson({
         accessToken: activeAccessToken,
         skipSessionExpiry: normalizedRequestKind === REQUEST_KIND.probe,
       });
+      if (!err?.circuit && shouldOpenBackendCircuit(err)) {
+        openBackendCircuit(err);
+      }
       if (!shouldRetry({ err, attempt, retryOptions })) throw err;
       const delayMs = computeRetryDelayMs({ retryOptions, attempt });
       await sleep(delayMs);
@@ -442,6 +454,7 @@ async function requestPostJson({
 
   while (true) {
     try {
+      if (isBackendCircuitOpen()) throw createBackendCircuitError();
       const result = await requestWithFallbackPost({
         http,
         primaryPath,
@@ -449,6 +462,7 @@ async function requestPostJson({
         body,
         fetchOptions,
       });
+      closeBackendCircuit();
       clearSessionSoftExpiredIfNeeded({
         hadAccessToken,
         accessToken: activeAccessToken,
@@ -459,7 +473,9 @@ async function requestPostJson({
       if (errInput?.name === "AbortError") throw e;
       let err: any = null;
       const status = errInput?.statusCode ?? errInput?.status;
-      if (
+      if (errInput?.circuit) {
+        err = errInput;
+      } else if (
         allowRefresh &&
         shouldAttemptSessionRefresh({
           status,
@@ -533,6 +549,9 @@ async function requestPostJson({
         accessToken: activeAccessToken,
         skipSessionExpiry: normalizedRequestKind === REQUEST_KIND.probe,
       });
+      if (!err?.circuit && shouldOpenBackendCircuit(err)) {
+        openBackendCircuit(err);
+      }
       if (!shouldRetry({ err, attempt, retryOptions })) throw err;
       const delayMs = computeRetryDelayMs({ retryOptions, attempt });
       await sleep(delayMs);
@@ -686,6 +705,92 @@ function normalizeBackendErrorMessage(message: any) {
   return BACKEND_RUNTIME_UNAVAILABLE;
 }
 
+function isBackendCircuitOpen() {
+  return backendDownUntil > Date.now();
+}
+
+function createBackendCircuitError() {
+  const retryAfterMs = Math.max(0, backendDownUntil - Date.now());
+  const err: any = new Error(backendDownReason || BACKEND_RUNTIME_UNAVAILABLE);
+  err.status = 503;
+  err.statusCode = 503;
+  err.retryable = true;
+  err.circuit = true;
+  err.retryAfterMs = retryAfterMs;
+  return err;
+}
+
+function shouldOpenBackendCircuit(err: any) {
+  if (!err) return false;
+  const status = err?.status ?? err?.statusCode;
+  if (status === 429) return true;
+  if (status === 502 || status === 503 || status === 504) return true;
+  if (isBackendRuntimeDownMessage(err?.message)) return true;
+  if (isBackendRuntimeDownMessage(err?.originalMessage)) return true;
+  return false;
+}
+
+function openBackendCircuit(err: any) {
+  const retryAfterMs = getRetryAfterMs(err) ?? BACKEND_CIRCUIT_DEFAULT_MS;
+  const multiplier = Math.min(4, 1 + backendDownCount);
+  const targetMs = retryAfterMs * multiplier;
+  const backoffMs = Math.min(
+    BACKEND_CIRCUIT_MAX_MS,
+    Math.max(1000, Math.trunc(targetMs))
+  );
+  backendDownCount = Math.min(10, backendDownCount + 1);
+  backendDownReason = err?.message || BACKEND_RUNTIME_UNAVAILABLE;
+  backendDownUntil = Date.now() + backoffMs;
+}
+
+function closeBackendCircuit() {
+  backendDownUntil = 0;
+  backendDownCount = 0;
+  backendDownReason = null;
+}
+
+function getRetryAfterMs(err: any) {
+  const header = readRetryAfterHeader(err);
+  if (!header) return null;
+  const raw = String(header || "").trim();
+  if (!raw) return null;
+  const seconds = Number(raw);
+  if (Number.isFinite(seconds) && seconds >= 0) {
+    return Math.trunc(seconds * 1000);
+  }
+  const parsedMs = Date.parse(raw);
+  if (Number.isFinite(parsedMs)) {
+    return Math.max(0, parsedMs - Date.now());
+  }
+  return null;
+}
+
+function readRetryAfterHeader(err: any) {
+  const candidates = [
+    err?.context?.response?.headers,
+    err?.response?.headers,
+    err?.headers,
+    err?.context?.headers,
+  ];
+  for (const headers of candidates) {
+    const value = getHeaderValue(headers, "retry-after");
+    if (value) return value;
+  }
+  return null;
+}
+
+function getHeaderValue(headers: any, key: string) {
+  if (!headers) return null;
+  if (typeof headers.get === "function") {
+    return headers.get(key) || headers.get(key.toLowerCase()) || headers.get(key.toUpperCase());
+  }
+  const direct =
+    headers[key] ??
+    headers[key.toLowerCase?.() || key] ??
+    headers[key.toUpperCase?.() || key];
+  return direct || null;
+}
+
 function isBackendRuntimeDownMessage(message: any) {
   const s = String(message || "").toLowerCase();
   if (!s) return false;
@@ -722,7 +827,7 @@ async function refreshSessionOnce() {
 }
 
 function isRetryableStatus(status: any) {
-  return status === 502 || status === 503 || status === 504;
+  return status === 429 || status === 502 || status === 503 || status === 504;
 }
 
 function isRetryableMessage(message: any) {
@@ -774,6 +879,7 @@ function isJwtAccessToken(accessToken: any) {
 function shouldRetry({ err, attempt, retryOptions }: AnyRecord = {}) {
   if (!retryOptions || retryOptions.maxRetries <= 0) return false;
   if (attempt >= retryOptions.maxRetries) return false;
+  if (err?.circuit) return false;
   return Boolean(err && err.retryable);
 }
 
