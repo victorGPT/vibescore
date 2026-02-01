@@ -18,6 +18,10 @@ import { isScreenshotModeEnabled } from "./lib/screenshot-mode";
 import { getAppVersion } from "./lib/app-version";
 import { resolveAuthGate } from "./lib/auth-gate";
 import {
+  getSafeSessionStorage,
+  shouldRedirectFromAuthCallback,
+} from "./lib/auth-callback";
+import {
   clearAuthStorage,
   clearSessionExpired,
   clearSessionSoftExpired,
@@ -225,6 +229,20 @@ export default function App() {
   const publicMode = Boolean(publicToken);
   const signInUrl = "/sign-in";
   const signUpUrl = "/sign-up";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!insforgeLoaded) return;
+    const shouldRedirect = shouldRedirectFromAuthCallback({
+      pathname: window.location.pathname,
+      search: window.location.search,
+      hasSession: Boolean(insforgeSession?.accessToken),
+      sessionResolved: insforgeSession !== undefined,
+      storage: getSafeSessionStorage(),
+    });
+    if (!shouldRedirect) return;
+    window.location.replace(signInUrl);
+  }, [insforgeLoaded, insforgeSession, signInUrl]);
 
   const loadingShell = <div className="min-h-screen bg-[#050505]" />;
   const authPending =

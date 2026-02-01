@@ -13,7 +13,10 @@ import "./styles.css";
 
 const insforgeBaseUrl = getInsforgeBaseUrl();
 const router = createBrowserRouter([
-  ...getInsforgeRoutes({ baseUrl: insforgeBaseUrl, afterSignInUrl: "/" }),
+  ...getInsforgeRoutes({
+    baseUrl: insforgeBaseUrl,
+    afterSignInUrl: "/auth/callback",
+  }),
   { path: "*", element: <App /> },
 ]);
 
