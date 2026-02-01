@@ -713,7 +713,7 @@
     {
       "id": "test_edge-functions_test_deffefcc",
       "type": "text",
-      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- extends (7033 行)\n- toBase64Url (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- extends (7183 行)\n- toBase64Url (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1180,
       "y": 16236,
       "width": 280,
@@ -4478,7 +4478,7 @@
     {
       "id": "edge-function_vibeusage-project-usage-summary_f09eaead",
       "type": "text",
-      "text": "**vibeusage-project-usage-summary**\n`insforge-src/functions/vibeusage-project-usage-summary.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-project-usage-summary (153 行)\n- normalizeLimit (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibeusage-project-usage-summary**\n`insforge-src/functions/vibeusage-project-usage-summary.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-project-usage-summary (245 行)\n- normalizeLimit (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1540,
       "y": 6016,
       "width": 280,
@@ -5204,7 +5204,7 @@
     {
       "id": "frontend_ProjectUsagePanel_70e1ac72",
       "type": "text",
-      "text": "**ProjectUsagePanel**\n`dashboard/src/ui/matrix-a/components/ProjectUsagePanel.jsx`\n\nUI component layer.\n\n包含：\n- ProjectUsagePanel (318 行)\n- splitRepoKey (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**ProjectUsagePanel**\n`dashboard/src/ui/matrix-a/components/ProjectUsagePanel.jsx`\n\nUI component layer.\n\n包含：\n- ProjectUsagePanel (326 行)\n- splitRepoKey (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2620,
       "y": 3152,
       "width": 280,
@@ -5374,7 +5374,7 @@
     {
       "id": "test_ProjectUsagePanel_test_f97e1740",
       "type": "text",
-      "text": "**ProjectUsagePanel.test**\n`dashboard/src/ui/matrix-a/components/__tests__/ProjectUsagePanel.test.jsx`\n\nTest module.\n\n包含：\n- ProjectUsagePanel.test (33 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**ProjectUsagePanel.test**\n`dashboard/src/ui/matrix-a/components/__tests__/ProjectUsagePanel.test.jsx`\n\nTest module.\n\n包含：\n- ProjectUsagePanel.test (56 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2980,
       "y": 2432,
       "width": 280,
