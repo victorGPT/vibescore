@@ -102,9 +102,12 @@ var require_public_view = __commonJS({
     "use strict";
     var { getAnonKey, getServiceRoleKey } = require_env();
     var { sha256Hex } = require_crypto();
+    var SHARE_TOKEN_RE = /^[a-f0-9]{64}$/;
     async function resolvePublicView({ baseUrl, shareToken }) {
-      const token = normalizeToken(shareToken);
-      if (!token) return { ok: false, edgeClient: null, userId: null };
+      const token = normalizeShareToken(shareToken);
+      if (!token) {
+        return { ok: false, edgeClient: null, userId: null };
+      }
       const serviceRoleKey = getServiceRoleKey();
       if (!serviceRoleKey) return { ok: false, edgeClient: null, userId: null };
       const anonKey = getAnonKey();
@@ -127,8 +130,20 @@ var require_public_view = __commonJS({
       if (token.length > 256) return null;
       return token;
     }
+    function normalizeShareToken(value) {
+      const token = normalizeToken(value);
+      if (!token) return null;
+      const normalized = token.toLowerCase();
+      if (token !== normalized) return null;
+      if (!SHARE_TOKEN_RE.test(normalized)) return null;
+      return normalized;
+    }
+    function isPublicShareToken(value) {
+      return Boolean(normalizeShareToken(value));
+    }
     module2.exports = {
-      resolvePublicView
+      resolvePublicView,
+      isPublicShareToken
     };
   }
 });
@@ -138,7 +153,7 @@ var require_auth = __commonJS({
   "insforge-src/shared/auth.js"(exports2, module2) {
     "use strict";
     var { getAnonKey, getJwtSecret } = require_env();
-    var { resolvePublicView } = require_public_view();
+    var { resolvePublicView, isPublicShareToken } = require_public_view();
     function getBearerToken2(headerValue) {
       if (!headerValue) return null;
       const prefix = "Bearer ";
@@ -287,7 +302,10 @@ var require_auth = __commonJS({
       const anonKey = getAnonKey();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const local = await verifyUserJwtHs256({ token: bearer });
-      if (!local.ok) return { ok: false, edgeClient: null, userId: null, error: local };
+      const allowRemoteOnly = !local.ok && local?.code === "missing_jwt_secret";
+      if (!local.ok && !allowRemoteOnly) {
+        return { ok: false, edgeClient: null, userId: null, error: local };
+      }
       if (typeof edgeClient?.auth?.getCurrentUser !== "function") {
         return {
           ok: false,
@@ -316,7 +334,7 @@ var require_auth = __commonJS({
           error: { error: authResult?.error?.message || "Auth lookup failed", code: "auth_lookup_failed" }
         };
       }
-      if (authUserId !== local.userId) {
+      if (!allowRemoteOnly && authUserId !== local.userId) {
         return {
           ok: false,
           edgeClient: null,
@@ -333,6 +351,9 @@ var require_auth = __commonJS({
         return { ok: true, edgeClient: auth.edgeClient, userId: auth.userId, accessType: "user" };
       }
       if (!allowPublic) {
+        return { ok: false, edgeClient: null, userId: null, accessType: null };
+      }
+      if (!isPublicShareToken(bearer)) {
         return { ok: false, edgeClient: null, userId: null, accessType: null };
       }
       const publicView = await resolvePublicView({ baseUrl, shareToken: bearer });
@@ -735,7 +756,7 @@ var require_date = __commonJS({
       const offset = url.searchParams.get("tz_offset_minutes");
       return normalizeTimeZone(tz, offset);
     }
-    function isUtcTimeZone(tzContext) {
+    function isUtcTimeZone2(tzContext) {
       if (!tzContext) return true;
       const tz = tzContext.timeZone;
       if (tz) {
@@ -768,7 +789,7 @@ var require_date = __commonJS({
       const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
       return Math.round((asUtc - date.getTime()) / 6e4);
     }
-    function getLocalParts(date, tzContext) {
+    function getLocalParts2(date, tzContext) {
       if (tzContext?.timeZone) {
         return getTimeZoneParts(date, tzContext.timeZone);
       }
@@ -783,8 +804,8 @@ var require_date = __commonJS({
         second: shifted.getUTCSeconds()
       };
     }
-    function formatLocalDateKey(date, tzContext) {
-      return formatDateParts2(getLocalParts(date, tzContext));
+    function formatLocalDateKey2(date, tzContext) {
+      return formatDateParts2(getLocalParts2(date, tzContext));
     }
     function localDatePartsToUtc2(parts, tzContext) {
       const baseUtc = Date.UTC(
@@ -808,7 +829,7 @@ var require_date = __commonJS({
       return new Date(baseUtc - offsetMinutes * 6e4);
     }
     function normalizeDateRangeLocal2(fromRaw, toRaw, tzContext) {
-      const todayParts = getLocalParts(/* @__PURE__ */ new Date(), tzContext);
+      const todayParts = getLocalParts2(/* @__PURE__ */ new Date(), tzContext);
       const toDefault = formatDateParts2(todayParts);
       const fromDefaultParts = addDatePartsDays2(
         { year: todayParts.year, month: todayParts.month, day: todayParts.day },
@@ -877,10 +898,10 @@ var require_date = __commonJS({
       addDatePartsMonths,
       normalizeTimeZone,
       getUsageTimeZoneContext: getUsageTimeZoneContext2,
-      isUtcTimeZone,
+      isUtcTimeZone: isUtcTimeZone2,
       getTimeZoneOffsetMinutes,
-      getLocalParts,
-      formatLocalDateKey,
+      getLocalParts: getLocalParts2,
+      formatLocalDateKey: formatLocalDateKey2,
       localDatePartsToUtc: localDatePartsToUtc2,
       normalizeDateRangeLocal: normalizeDateRangeLocal2,
       listDateStrings: listDateStrings2,
@@ -1669,6 +1690,7 @@ var {
   getLocalParts,
   getUsageMaxDays,
   getUsageTimeZoneContext,
+  isUtcTimeZone,
   listDateStrings,
   localDatePartsToUtc,
   normalizeDateRangeLocal,

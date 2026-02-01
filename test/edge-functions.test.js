@@ -126,6 +126,28 @@ test('local jwt verification rejects when secret missing', async () => {
   assert.equal(res.code, 'missing_jwt_secret');
 });
 
+test('getEdgeClientAndUserIdFast falls back to remote auth when jwt secret missing', async () => {
+  const userId = '22222222-2222-2222-2222-222222222224';
+  const userJwt = createUserJwt(userId);
+  let authCalls = 0;
+
+  globalThis.createClient = () => ({
+    auth: {
+      getCurrentUser: async () => {
+        authCalls += 1;
+        return { data: { user: { id: userId } }, error: null };
+      }
+    }
+  });
+
+  setDenoEnv({ INSFORGE_JWT_SECRET: undefined, INSFORGE_ANON_KEY: ANON_KEY });
+  const { getEdgeClientAndUserIdFast } = require('../insforge-src/shared/auth');
+  const res = await getEdgeClientAndUserIdFast({ baseUrl: BASE_URL, bearer: userJwt });
+  assert.equal(res.ok, true);
+  assert.equal(res.userId, userId);
+  assert.equal(authCalls, 1);
+});
+
 test('getEdgeClientAndUserIdFast rejects when auth lookup fails', async () => {
   const userId = '33333333-3333-3333-3333-333333333333';
   const userJwt = createUserJwt(userId);

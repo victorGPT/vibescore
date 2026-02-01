@@ -713,7 +713,7 @@
     {
       "id": "test_edge-functions_test_deffefcc",
       "type": "text",
-      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- extends (7011 行)\n- toBase64Url (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- extends (7033 行)\n- toBase64Url (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1180,
       "y": 16236,
       "width": 280,
@@ -3781,7 +3781,7 @@
     {
       "id": "utils_auth_7a311011",
       "type": "text",
-      "text": "**auth**\n`insforge-src/shared/auth.js`\n\nShared utilities.\n\n包含：\n- auth (247 行)\n- getBearerToken (1 个参数)\n\n依赖：0 个模块\n被依赖：5 次",
+      "text": "**auth**\n`insforge-src/shared/auth.js`\n\nShared utilities.\n\n包含：\n- auth (250 行)\n- getBearerToken (1 个参数)\n\n依赖：0 个模块\n被依赖：5 次",
       "x": 460,
       "y": 6736,
       "width": 280,

@@ -164,7 +164,10 @@ async function getEdgeClientAndUserIdFast({ baseUrl, bearer }) {
   const anonKey = getAnonKey();
   const edgeClient = createClient({ baseUrl, anonKey: anonKey || undefined, edgeFunctionToken: bearer });
   const local = await verifyUserJwtHs256({ token: bearer });
-  if (!local.ok) return { ok: false, edgeClient: null, userId: null, error: local };
+  const allowRemoteOnly = !local.ok && local?.code === 'missing_jwt_secret';
+  if (!local.ok && !allowRemoteOnly) {
+    return { ok: false, edgeClient: null, userId: null, error: local };
+  }
 
   if (typeof edgeClient?.auth?.getCurrentUser !== 'function') {
     return {
@@ -197,7 +200,7 @@ async function getEdgeClientAndUserIdFast({ baseUrl, bearer }) {
     };
   }
 
-  if (authUserId !== local.userId) {
+  if (!allowRemoteOnly && authUserId !== local.userId) {
     return {
       ok: false,
       edgeClient: null,
