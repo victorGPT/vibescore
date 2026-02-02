@@ -30,6 +30,23 @@ const MOCK_PROJECT_REPOS = [
   "lumen/core",
   "delta/horizon",
 ];
+const MOCK_LEADERBOARD_NAMES = [
+  "NEO",
+  "TRINITY",
+  "MORPHEUS",
+  "ORACLE",
+  "CYPHER",
+  "SWITCH",
+  "APOC",
+  "TANK",
+  "SMITH",
+  "SERAPH",
+  "NIOBE",
+  "MOUSE",
+  "DOZER",
+  "LINK",
+  "BLADE",
+];
 
 export function isMockEnabled() {
   if (typeof import.meta !== "undefined" && import.meta.env) {
@@ -435,6 +452,55 @@ export function getMockProjectUsageSummary({
   return {
     generated_at: new Date().toISOString(),
     entries,
+  };
+}
+
+function computeLeaderboardWindow(period: string) {
+  const today = parseUtcDate(formatDateLocal(new Date())) || new Date();
+  const to = formatDateUTC(today);
+  if (period === "day") return { from: to, to };
+  if (period === "week") return { from: formatDateUTC(addUtcDays(today, -6)), to };
+  if (period === "month") return { from: formatDateUTC(addUtcDays(today, -29)), to };
+  if (period === "total") return { from: formatDateUTC(addUtcDays(today, -365)), to };
+  return { from: to, to };
+}
+
+export function getMockLeaderboard({
+  seed,
+  period = "total",
+  limit = 20,
+}: AnyRecord = {}) {
+  const seedValue = toSeed(seed);
+  const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 20)));
+  const { from, to } = computeLeaderboardWindow(period);
+  const entries = Array.from({ length: safeLimit }, (_, index) => {
+    const name = MOCK_LEADERBOARD_NAMES[index % MOCK_LEADERBOARD_NAMES.length];
+    const hash = hashString(`${seedValue}:${name}:${index}`);
+    const base = 180000 + (hash % 900000);
+    const total = Math.max(0, base + index * 1200);
+    const isAnon = index % 7 === 0;
+    return {
+      rank: index + 1,
+      is_me: false,
+      display_name: isAnon ? null : name,
+      avatar_url: null,
+      total_tokens: String(total),
+    };
+  });
+
+  const meRank = Math.max(1, Math.min(safeLimit, Math.floor(safeLimit / 2)));
+  const meEntry = entries[meRank - 1];
+  if (meEntry) meEntry.is_me = true;
+
+  return {
+    period,
+    from,
+    to,
+    generated_at: new Date().toISOString(),
+    entries,
+    me: meEntry
+      ? { rank: meEntry.rank, total_tokens: meEntry.total_tokens }
+      : { rank: meRank, total_tokens: String(100000) },
   };
 }
 

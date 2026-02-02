@@ -139,6 +139,47 @@ test('project usage summary prefers /functions and falls back on 404', async () 
   assert.ok(calls[1]?.includes('/api/functions/'));
 });
 
+test('leaderboard prefers /functions and falls back on 404', async () => {
+  const { getLeaderboard } = await loadVibescoreApi();
+  const calls = [];
+
+  globalThis.fetch = async (url) => {
+    const target = String(url);
+    calls.push(target);
+
+    if (target.includes('/api/functions/vibeusage-leaderboard')) {
+      return jsonResponse(
+        {
+          period: 'total',
+          from: '2025-01-01',
+          to: '2025-01-31',
+          entries: [
+            { rank: 1, display_name: 'NEO', total_tokens: '1000', is_me: false }
+          ],
+          me: { rank: 9, total_tokens: '200' }
+        },
+        200
+      );
+    }
+    if (target.includes('/functions/vibeusage-leaderboard')) {
+      return jsonResponse({ error: 'Not Found', message: 'Not Found' }, 404);
+    }
+
+    return jsonResponse({ error: 'Unexpected', message: 'Unexpected' }, 500);
+  };
+
+  const res = await getLeaderboard({
+    baseUrl: 'https://example.test',
+    accessToken: 'token',
+    period: 'total',
+    limit: 20
+  });
+
+  assert.equal(res?.entries?.[0]?.display_name, 'NEO');
+  assert.ok(calls[0]?.includes('/functions/'));
+  assert.ok(calls[1]?.includes('/api/functions/'));
+});
+
 test('link code init posts to /functions', async () => {
   const { requestInstallLinkCode } = await loadVibescoreApi();
   const calls = [];

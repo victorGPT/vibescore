@@ -11,6 +11,7 @@ import {
   getMockUsageModelBreakdown,
   getMockUsageSummary,
   getMockProjectUsageSummary,
+  getMockLeaderboard,
   isMockEnabled,
 } from "./mock-data";
 
@@ -25,6 +26,7 @@ const PATHS = {
   usageHeatmap: "vibeusage-usage-heatmap",
   usageModelBreakdown: "vibeusage-usage-model-breakdown",
   projectUsageSummary: "vibeusage-project-usage-summary",
+  leaderboard: "vibeusage-leaderboard",
   linkCodeInit: "vibeusage-link-code-init",
   publicViewStatus: "vibeusage-public-view-status",
   publicViewIssue: "vibeusage-public-view-issue",
@@ -111,6 +113,26 @@ export async function getProjectUsageSummary({
     baseUrl,
     accessToken: resolvedAccessToken,
     slug: PATHS.projectUsageSummary,
+    params,
+  });
+}
+
+export async function getLeaderboard({
+  baseUrl,
+  accessToken,
+  period = "total",
+  limit,
+}: AnyRecord = {}) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
+  if (isMockEnabled()) {
+    return getMockLeaderboard({ seed: resolvedAccessToken, period, limit });
+  }
+  const params: AnyRecord = { period: String(period || "total") };
+  if (limit != null) params.limit = String(limit);
+  return requestJson({
+    baseUrl,
+    accessToken: resolvedAccessToken,
+    slug: PATHS.leaderboard,
     params,
   });
 }

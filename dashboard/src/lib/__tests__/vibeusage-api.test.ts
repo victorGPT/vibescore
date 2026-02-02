@@ -22,6 +22,7 @@ vi.mock("../auth-token", () => ({
 vi.mock("../mock-data", () => ({
   isMockEnabled: vi.fn(() => false),
   getMockUsageSummary: vi.fn(),
+  getMockLeaderboard: vi.fn(),
 }));
 
 let api: typeof import("../vibeusage-api");

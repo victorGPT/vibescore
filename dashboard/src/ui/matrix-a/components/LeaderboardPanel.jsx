@@ -18,6 +18,7 @@ export function LeaderboardPanel({
   summary,
   summaryPeriod = "ALL",
   loadMoreLabel = copy("leaderboard.load_more"),
+  emptyLabel = copy("leaderboard.empty"),
   onLoadMore,
   className = "",
 }) {
@@ -96,7 +97,7 @@ export function LeaderboardPanel({
             ))
           ) : (
             <div className="text-center text-caption text-matrix-muted py-2">
-              {copy("leaderboard.empty")}
+              {emptyLabel}
             </div>
           )}
           {rows.length && loadMoreLabel ? (

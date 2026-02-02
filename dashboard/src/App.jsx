@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { useLocation } from "react-router-dom";
 
 import { useAuth as useInsforgeAuth } from "@insforge/react-router";
 
@@ -46,8 +47,14 @@ const DashboardPage = React.lazy(() =>
     default: mod.DashboardPage,
   }))
 );
+const LeaderboardPage = React.lazy(() =>
+  import("./pages/LeaderboardPage.jsx").then((mod) => ({
+    default: mod.LeaderboardPage,
+  }))
+);
 
 export default function App() {
+  const location = useLocation();
   const baseUrl = useMemo(() => getInsforgeBaseUrl(), []);
   const {
     isLoaded: insforgeLoaded,
@@ -258,6 +265,9 @@ export default function App() {
     signedIn,
     authPending,
   });
+  const pathname = location?.pathname || "/";
+  const isLeaderboard = pathname.startsWith("/leaderboard");
+  const PageComponent = isLeaderboard ? LeaderboardPage : DashboardPage;
   let content = null;
   if (gate === "loading") {
     content = loadingShell;
@@ -269,7 +279,7 @@ export default function App() {
         {!publicMode && !screenshotMode ? (
           <UpgradeAlertModal requiredVersion={latestVersion} />
         ) : null}
-        <DashboardPage
+        <PageComponent
           baseUrl={baseUrl}
           auth={auth}
           signedIn={signedIn}
