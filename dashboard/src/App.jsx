@@ -230,8 +230,8 @@ export default function App() {
   }, [insforgeSignOut, useInsforge]);
 
   const pageUrl = new URL(window.location.href);
-  const pathname = pageUrl.pathname.replace(/\/+$/, "");
-  const shareMatch = pathname.match(/^\/share\/([^/]+)$/i);
+  const sharePathname = pageUrl.pathname.replace(/\/+$/, "");
+  const shareMatch = sharePathname.match(/^\/share\/([^/]+)$/i);
   const publicToken = shareMatch ? shareMatch[1] : null;
   const publicMode = Boolean(publicToken);
   const signInUrl = "/sign-in";

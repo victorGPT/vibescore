@@ -10,12 +10,12 @@ const DEFAULT_PERIOD = "total";
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 
-export function LeaderboardPage({ baseUrl, auth }: any = {}) {
+export function LeaderboardPage({ baseUrl, auth } = {}) {
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [limit, setLimit] = useState(DEFAULT_LIMIT);
-  const [entries, setEntries] = useState<any[]>([]);
+  const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState(null);
   const mockEnabled = isMockEnabled();
   const tokenReady = isAccessTokenReady(auth);
 
@@ -49,7 +49,7 @@ export function LeaderboardPage({ baseUrl, auth }: any = {}) {
       });
       setEntries(Array.isArray(res?.entries) ? res.entries : []);
     } catch (err) {
-      const message = (err as any)?.message || String(err);
+      const message = err?.message || String(err);
       setError(message);
       setEntries([]);
     } finally {
@@ -67,7 +67,7 @@ export function LeaderboardPage({ baseUrl, auth }: any = {}) {
     refresh();
   }, [mockEnabled, refresh, tokenReady]);
 
-  const handlePeriodChange = useCallback((next: string) => {
+  const handlePeriodChange = useCallback((next) => {
     if (!next || next === period) return;
     setPeriod(next);
     setLimit(DEFAULT_LIMIT);
