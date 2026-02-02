@@ -74,3 +74,9 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 # 部署规则（Deployment）
 
 - 所有函数都通过 Insforge2 MCP 部署。
+
+# Insforge 聚合与契约（PostgREST）
+
+- 聚合查询统一使用 `sum(column)` 语法，禁止使用 `column.sum()`。
+- 新增/修改聚合接口必须有真实 Insforge2 环境 smoke 验证（至少 1 次请求 200 + 合理响应）。
+- 若出现 `schema cache` / `relationship` + `'sum'` 相关错误，应直接走聚合 fallback 逻辑并记录根因。

@@ -3186,8 +3186,113 @@ test('vibeusage-project-usage-summary uses PostgREST sum() syntax', async () => 
 
   const res = await fn(req);
   assert.equal(res.status, 200);
-  assert.ok(selectColumns && selectColumns.includes('total_tokens.sum()'));
-  assert.ok(selectColumns && selectColumns.includes('billable_total_tokens.sum()'));
+  assert.ok(selectColumns && selectColumns.includes('sum(total_tokens)'));
+  assert.ok(selectColumns && selectColumns.includes('sum(billable_total_tokens)'));
+});
+
+test('vibeusage-project-usage-summary falls back on schema cache aggregate error', async () => {
+  const fn = require('../insforge-functions/vibeusage-project-usage-summary');
+
+  const userId = '99999999-9999-9999-9999-999999999999';
+  const userJwt = createUserJwt(userId);
+  const selects = [];
+  const rows = [
+    {
+      project_key: 'acme/alpha',
+      project_ref: 'https://github.com/acme/alpha',
+      total_tokens: '10',
+      billable_total_tokens: '5'
+    },
+    {
+      project_key: 'acme/alpha',
+      project_ref: 'https://github.com/acme/alpha',
+      total_tokens: '7',
+      billable_total_tokens: '7'
+    },
+    {
+      project_key: 'acme/bravo',
+      project_ref: 'https://github.com/acme/bravo',
+      total_tokens: '3',
+      billable_total_tokens: '2'
+    }
+  ];
+
+  const createErrorQuery = () => {
+    const query = {
+      select: () => query,
+      eq: () => query,
+      neq: () => query,
+      gte: () => query,
+      lt: () => query,
+      order: () => query,
+      limit: async () => ({
+        data: null,
+        error: {
+          message:
+            "Could not find a relationship between 'vibeusage_project_usage_hourly' and 'sum' in the schema cache"
+        }
+      }),
+      then: (resolve, reject) =>
+        Promise.resolve({
+          data: null,
+          error: {
+            message:
+              "Could not find a relationship between 'vibeusage_project_usage_hourly' and 'sum' in the schema cache"
+          }
+        }).then(resolve, reject)
+    };
+    return query;
+  };
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            assert.equal(table, 'vibeusage_project_usage_hourly');
+            const query = createQueryMock({ rows });
+            return {
+              select: (columns) => {
+                selects.push(columns);
+                if (String(columns).includes('sum_total_tokens')) {
+                  return createErrorQuery();
+                }
+                return query;
+              }
+            };
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request(
+    'http://localhost/functions/vibeusage-project-usage-summary?from=2025-12-20&to=2025-12-21&limit=3',
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${userJwt}` }
+    }
+  );
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+
+  const body = await res.json();
+  assert.equal(body.entries.length, 2);
+  assert.equal(body.entries[0].project_key, 'acme/alpha');
+  assert.equal(body.entries[0].total_tokens, '17');
+  assert.equal(body.entries[0].billable_total_tokens, '12');
+  assert.equal(body.entries[1].project_key, 'acme/bravo');
+  assert.ok(selects.some((value) => String(value).includes('sum_total_tokens')));
+  assert.ok(
+    selects.some((value) =>
+      String(value).includes('project_key,project_ref,total_tokens,billable_total_tokens')
+    )
+  );
 });
 
 test('vibeusage-project-usage-summary falls back when aggregates are blocked', async () => {

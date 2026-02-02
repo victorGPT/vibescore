@@ -698,7 +698,7 @@ module.exports = withRequestLogging("vibeusage-project-usage-summary", async fun
   const limit = normalizeLimit(url.searchParams.get("limit"));
   const queryStartMs = Date.now();
   let query = auth.edgeClient.database.from("vibeusage_project_usage_hourly").select(
-    "project_key,project_ref,sum_total_tokens:total_tokens.sum(),sum_billable_total_tokens:billable_total_tokens.sum()"
+    "project_key,project_ref,sum_total_tokens:sum(total_tokens),sum_billable_total_tokens:sum(billable_total_tokens)"
   ).eq("user_id", auth.userId);
   if (source) query = query.eq("source", source);
   if (!isCanaryTag(source)) query = query.neq("source", "canary");
@@ -775,7 +775,9 @@ function resolveBillableTotal(totalTokens, billableRaw) {
 }
 function shouldFallbackAggregate(message) {
   if (typeof message !== "string") return false;
-  return message.toLowerCase().includes("aggregate functions is not allowed");
+  const normalized = message.toLowerCase();
+  if (normalized.includes("aggregate functions is not allowed")) return true;
+  return normalized.includes("schema cache") && normalized.includes("relationship") && normalized.includes("'sum'");
 }
 async function fetchProjectUsageFallback({ edgeClient, userId, source, limit }) {
   try {
