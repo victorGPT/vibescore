@@ -67,6 +67,13 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 - 每次提交必须执行回归用例（至少覆盖本次变更相关路径），并记录执行命令与结果。
 
+# PR 预检与风险层门禁
+
+- PR 模板必须填写 `Affected Modules / Dependency Notes` 与 `Codex Context`，跨模块变更需附 Canvas evidence（聚焦画布或更新说明）。
+- 若 Risk Layer Trigger 勾选任一项，必须补全 Addendum（Rules/Invariants、Boundary Matrix ≥ 3、Evidence）。
+- CI 会执行 `node scripts/ops/pr-risk-layer-gate.cjs`；本地可用 `--body-file` 预检。
+- 详细流程见 `docs/ops/pr-review-preflight.md`。
+
 # 工作流规则（Workflow）
 
 - 完成代码后仅执行本地提交（git commit），未经用户明确指示不得推送（git push）。
