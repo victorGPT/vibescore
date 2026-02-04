@@ -266,8 +266,8 @@ export default function App() {
     authPending,
   });
   const pathname = location?.pathname || "/";
-  const isLeaderboard = pathname.startsWith("/leaderboard");
-  const PageComponent = isLeaderboard ? LeaderboardPage : DashboardPage;
+  const isRankings = pathname.startsWith("/rankings");
+  const PageComponent = isRankings ? LeaderboardPage : DashboardPage;
   let content = null;
   if (gate === "loading") {
     content = loadingShell;

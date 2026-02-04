@@ -24,3 +24,14 @@ test("LeaderboardPage.jsx parses as JSX (no TS annotations)", async () => {
     parseDashboardFile("dashboard/src/pages/LeaderboardPage.jsx")
   );
 });
+
+test("App.jsx routes rankings without using /leaderboard", () => {
+  const appPath = path.join(repoRoot, "dashboard/src/App.jsx");
+  const source = fs.readFileSync(appPath, "utf8");
+  assert.ok(source.includes('"/rankings"'), "Expected /rankings route");
+  assert.equal(
+    source.includes('"/leaderboard"'),
+    false,
+    "Legacy /leaderboard route should be removed"
+  );
+});

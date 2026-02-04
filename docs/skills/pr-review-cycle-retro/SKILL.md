@@ -69,6 +69,10 @@ Then isolate Codex Cloud feedback per PR:
 gh pr view <num> --json reviews,comments --jq '(.reviews + .comments) | map(select(.author.login == "chatgpt-codex-connector"))'
 ```
 
+Output notes:
+- `docs/retrospective/YYYY-MM-DD-pr-retro.json` keeps summary fields for all PRs; `picked` contains full detail (reviews/comments/commits/files) for the selected PRs only.
+- `docs/retrospective/YYYY-MM-DD-pr-retro.csv` is built from the `picked` list.
+
 ## Risk-Layer Gate (Preventive)
 Before requesting @codex review, check `.github/PULL_REQUEST_TEMPLATE.md`:
 - If any **Risk Layer Trigger** is checked, you MUST fill the **Risk Layer Addendum**.

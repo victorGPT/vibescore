@@ -77,6 +77,37 @@ function summarizeText(text) {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+function countItems(items) {
+  return Array.isArray(items) ? items.length : 0;
+}
+
+function summarizePr(pr) {
+  return {
+    number: pr.number,
+    title: pr.title,
+    url: pr.url,
+    closedAt: pr.closedAt,
+    mergedAt: pr.mergedAt,
+    author: pr.author,
+    labels: pr.labels || [],
+    frontend: pr.frontend,
+    backend: pr.backend,
+    cycles: pr.cycles,
+    reviewCount: countItems(pr.reviews),
+    commentCount: countItems(pr.comments),
+    commitCount: countItems(pr.commits),
+    fileCount: countItems(pr.files)
+  };
+}
+
+function shapeRetroOutput(prs, pickedNumbers) {
+  const picked = pickedNumbers
+    .map((number) => prs.find((pr) => pr.number === number))
+    .filter(Boolean);
+  const summaries = prs.map((pr) => summarizePr(pr));
+  return { prs: summaries, picked };
+}
+
 function computeCycles(reviews, codeCommits) {
   const events = [];
   for (const review of reviews) {
@@ -272,6 +303,8 @@ async function main() {
   });
 
   const picked = selected.slice(0, args.limit);
+  const pickedNumbers = picked.map((row) => row.number);
+  const shaped = shapeRetroOutput(prs, pickedNumbers);
 
   const outDir = path.resolve(args.outDir);
   fs.mkdirSync(outDir, { recursive: true });
@@ -290,8 +323,8 @@ async function main() {
     eligibleMerged: eligibleMerged.length,
     selectedCount: picked.length,
     selected: picked.map((row) => row.number),
-    prs,
-    picked
+    prs: shaped.prs,
+    picked: shaped.picked
   };
 
   fs.writeFileSync(jsonPath, `${JSON.stringify(payload, null, 2)}\n`);
@@ -312,4 +345,8 @@ if (require.main === module) {
   });
 }
 
-module.exports = { main };
+module.exports = {
+  main,
+  summarizePr,
+  shapeRetroOutput
+};

@@ -172,9 +172,9 @@ leaderboard.period.week,leaderboard,LeaderboardPage,LeaderboardView,period_label
 leaderboard.period.month,leaderboard,LeaderboardPage,LeaderboardView,period_label,"MONTH",,active
 leaderboard.period.total,leaderboard,LeaderboardPage,LeaderboardView,period_label,"TOTAL",,active
 leaderboard.load_more,ui,LeaderboardPanel,LeaderboardPanel,load_more,"-- LOAD_NEXT_BATCH --",,active
-leaderboard.empty,ui,LeaderboardPanel,LeaderboardPanel,empty_state,"No leaderboard data.",,active
-leaderboard.loading,leaderboard,LeaderboardPage,LeaderboardView,loading_state,"Loading leaderboard...",,active
-leaderboard.page.title,leaderboard,LeaderboardPage,LeaderboardView,title,"LEADERBOARD",,active
+leaderboard.empty,ui,LeaderboardPanel,LeaderboardPanel,empty_state,"No ranking data.",,active
+leaderboard.loading,leaderboard,LeaderboardPage,LeaderboardView,loading_state,"Loading rankings...",,active
+leaderboard.page.title,leaderboard,LeaderboardPage,LeaderboardView,title,"RANKINGS",,active
 leaderboard.page.subtitle,leaderboard,LeaderboardPage,LeaderboardView,subtitle,"CORE_INDEX_RANKINGS",,active
 
 trend.chart.unit_label,ui,TrendChart,TrendChart,unit_label,"TKNS",,active
