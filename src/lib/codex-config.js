@@ -117,14 +117,25 @@ async function readEveryCodeNotify(codeConfigPath) {
 
 function extractNotify(text) {
   // Heuristic parse: find a line that starts with "notify =".
+  // Supports single-line arrays:
+  // - notify = ["a", "b"]
+  // And multi-line arrays:
+  // - notify = [
+  //     "a",
+  //     "b"
+  //   ]
   const lines = text.split(/\r?\n/);
-  for (const line of lines) {
-    const m = line.match(/^\s*notify\s*=\s*(.+)\s*$/);
-    if (m) {
-      const rhs = m[1].trim();
-      const parsed = parseTomlStringArray(rhs);
-      if (parsed) return parsed;
-    }
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const m = line.match(/^\s*notify\s*=\s*(.*)\s*$/);
+    if (!m) continue;
+
+    const rhs = (m[1] || '').trim();
+    const literal = readTomlArrayLiteral(lines, i, rhs);
+    if (!literal) continue;
+
+    const parsed = parseTomlStringArray(literal);
+    if (parsed) return parsed;
   }
   return null;
 }
@@ -137,12 +148,15 @@ function setNotify(text, notifyCmd) {
   let replaced = false;
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const isNotify = /^\s*notify\s*=/.test(line);
-    if (isNotify) {
+    const m = line.match(/^\s*notify\s*=\s*(.*)\s*$/);
+    if (m) {
       if (!replaced) {
         out.push(notifyLine);
         replaced = true;
       }
+
+      const rhs = (m[1] || '').trim();
+      i = findTomlArrayBlockEnd(lines, i, rhs);
       continue;
     }
     out.push(line);
@@ -160,7 +174,17 @@ function setNotify(text, notifyCmd) {
 
 function removeNotify(text) {
   const lines = text.split(/\r?\n/);
-  const out = lines.filter((l) => !/^\s*notify\s*=/.test(l));
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const m = line.match(/^\s*notify\s*=\s*(.*)\s*$/);
+    if (m) {
+      const rhs = (m[1] || '').trim();
+      i = findTomlArrayBlockEnd(lines, i, rhs);
+      continue;
+    }
+    out.push(line);
+  }
   return out.join('\n').replace(/\n+$/, '\n');
 }
 
@@ -199,6 +223,104 @@ function parseTomlStringArray(rhs) {
 
 function formatTomlStringArray(arr) {
   return `[${arr.map((s) => JSON.stringify(String(s))).join(', ')}]`;
+}
+
+function readTomlArrayLiteral(lines, startIndex, rhs) {
+  const first = rhs.trim();
+  if (!first.startsWith('[')) return null;
+
+  let inString = false;
+  let quote = null;
+  let depth = 0;
+  let sawOpen = false;
+
+  function scanChunk(chunk) {
+    for (let i = 0; i < chunk.length; i++) {
+      const ch = chunk[i];
+      if (!inString) {
+        if (ch === '"' || ch === "'") {
+          inString = true;
+          quote = ch;
+          continue;
+        }
+        if (ch === '[') {
+          depth += 1;
+          sawOpen = true;
+          continue;
+        }
+        if (ch === ']') {
+          depth -= 1;
+          if (sawOpen && depth === 0) return i;
+        }
+        continue;
+      }
+      if (ch === quote) {
+        inString = false;
+        quote = null;
+      }
+    }
+    return -1;
+  }
+
+  const parts = [first];
+  let endPos = scanChunk(first);
+  if (endPos !== -1) return first.slice(0, endPos + 1).trim();
+
+  for (let j = startIndex + 1; j < lines.length; j++) {
+    const line = lines[j];
+    endPos = scanChunk(line);
+    if (endPos !== -1) {
+      parts.push(line.slice(0, endPos + 1));
+      return parts.join('\n').trim();
+    }
+    parts.push(line);
+  }
+
+  return null;
+}
+
+function findTomlArrayBlockEnd(lines, startIndex, rhs) {
+  const first = rhs.trim();
+  if (!first.startsWith('[')) return startIndex;
+
+  let inString = false;
+  let quote = null;
+  let depth = 0;
+  let sawOpen = false;
+
+  function scanChunk(chunk) {
+    for (let i = 0; i < chunk.length; i++) {
+      const ch = chunk[i];
+      if (!inString) {
+        if (ch === '"' || ch === "'") {
+          inString = true;
+          quote = ch;
+          continue;
+        }
+        if (ch === '[') {
+          depth += 1;
+          sawOpen = true;
+          continue;
+        }
+        if (ch === ']') {
+          depth -= 1;
+          if (sawOpen && depth === 0) return true;
+        }
+        continue;
+      }
+      if (ch === quote) {
+        inString = false;
+        quote = null;
+      }
+    }
+    return false;
+  }
+
+  if (scanChunk(first)) return startIndex;
+  for (let j = startIndex + 1; j < lines.length; j++) {
+    if (scanChunk(lines[j])) return j;
+  }
+  return startIndex;
 }
 
 function arraysEqual(a, b) {
