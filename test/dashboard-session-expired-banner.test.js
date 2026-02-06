@@ -48,10 +48,10 @@ test("App uses hosted auth routes for Landing login", () => {
   assert.match(src, /\"\/sign-up\"/);
 });
 
-test("App passes hosted auth routes to DashboardPage", () => {
+test("App passes hosted auth routes to page component", () => {
   const src = read("dashboard/src/App.jsx");
-  assert.match(src, /<DashboardPage[\s\S]*signInUrl=/);
-  assert.match(src, /<DashboardPage[\s\S]*signUpUrl=/);
+  assert.match(src, /signInUrl=\{signInUrl\}/);
+  assert.match(src, /signUpUrl=\{signUpUrl\}/);
 });
 
 test("App routes LandingPage when signed out", () => {
