@@ -57,3 +57,22 @@ describe("getUsageSummary", () => {
     expect(options?.params?.rolling).toBe("1");
   });
 });
+
+describe("error normalization", () => {
+  it("uses the InsForgeError `error` field when message is empty", async () => {
+    http.get.mockRejectedValueOnce({
+      name: "InsForgeError",
+      message: "",
+      error: "Missing bearer token",
+      statusCode: 401,
+    });
+
+    await expect(
+      api.probeBackend({ baseUrl: "https://example.com", accessToken: null })
+    ).rejects.toMatchObject({
+      message: "Missing bearer token",
+      status: 401,
+      statusCode: 401,
+    });
+  });
+});

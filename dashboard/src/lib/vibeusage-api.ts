@@ -671,7 +671,11 @@ function normalizeSdkError(
   error: any,
   { errorPrefix, hadAccessToken, accessToken, skipSessionExpiry }: AnyRecord = {}
 ) {
-  const raw = error?.message || String(error || "Unknown error");
+  // InsForgeError may have an empty `message` but a meaningful `error` field.
+  const rawMessage =
+    typeof error?.message === "string" ? error.message.trim() : "";
+  const rawError = typeof error?.error === "string" ? error.error.trim() : "";
+  const raw = rawMessage || rawError || String(error || "Unknown error");
   const msg = normalizeBackendErrorMessage(raw);
   const err: any = new Error(errorPrefix ? `${errorPrefix}: ${msg}` : msg);
   err.cause = error;
