@@ -30,6 +30,13 @@ it("respects disabled state", async () => {
   expect(onClick).not.toHaveBeenCalled();
 });
 
+it("defaults to type=button", () => {
+  const label = copy("usage.button.refresh");
+  render(<MatrixButton>{label}</MatrixButton>);
+  const button = screen.getByRole("button", { name: label });
+  expect(button).toHaveAttribute("type", "button");
+});
+
 it("sets aria-disabled and ignores clicks when rendered as a link with disabled", async () => {
   const label = copy("usage.button.refresh");
   const onClick = vi.fn();

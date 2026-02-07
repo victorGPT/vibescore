@@ -26,7 +26,7 @@ export function MatrixButton({
 
   if (Comp === "button") {
     return (
-      <Button className={mergedClassName} {...props} type={props.type}>
+      <Button className={mergedClassName} {...props}>
         {children}
       </Button>
     );
