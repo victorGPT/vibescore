@@ -30,6 +30,7 @@ async function run() {
       String(job.dpr),
       "--wait",
       "1200",
+      "--no-full-page",
     ]);
     console.log(`Captured ${job.name}: ${out}`);
   }

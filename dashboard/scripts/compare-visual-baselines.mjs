@@ -103,6 +103,7 @@ async function captureJob(job, outPath) {
       String(job.dpr),
       "--wait",
       "1200",
+      "--no-full-page",
     ],
     { cwd: repoRoot }
   );
