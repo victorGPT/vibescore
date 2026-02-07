@@ -61,6 +61,8 @@ function createThrowingStorage(): Storage {
 describe("shouldRedirectFromAuthCallback", () => {
   beforeEach(() => {
     resetAuthCallbackRetryState();
+    // Prevent cross-test leakage from the window.name fallback marker.
+    window.name = "";
   });
 
   it("redirects once on naked /auth/callback without a session", () => {
@@ -150,5 +152,40 @@ describe("shouldRedirectFromAuthCallback", () => {
       throw new Error("storage blocked");
     });
     expect(storage).toBeNull();
+  });
+
+  it("uses window.name fallback when storage is unavailable (prevents reload loops)", () => {
+    const marker = "__vibeusage_auth_callback_retry_v1__=";
+    const first = shouldRedirectFromAuthCallback({
+      pathname: "/auth/callback",
+      search: "",
+      hasSession: false,
+      sessionResolved: true,
+      storage: null,
+    });
+    expect(first).toBe(true);
+    expect(window.name.includes(marker)).toBe(true);
+
+    // Simulate a full page reload: module memory is reset, window.name survives.
+    resetAuthCallbackRetryState();
+    const second = shouldRedirectFromAuthCallback({
+      pathname: "/auth/callback",
+      search: "",
+      hasSession: false,
+      sessionResolved: true,
+      storage: null,
+    });
+    expect(second).toBe(false);
+
+    // Once session exists, the fallback marker should be cleared.
+    const third = shouldRedirectFromAuthCallback({
+      pathname: "/auth/callback",
+      search: "",
+      hasSession: true,
+      sessionResolved: true,
+      storage: null,
+    });
+    expect(third).toBe(false);
+    expect(window.name.includes(marker)).toBe(false);
   });
 });
