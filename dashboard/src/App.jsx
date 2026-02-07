@@ -212,8 +212,8 @@ export default function App() {
 
   const hasInsforgeSession = Boolean(insforgeSession?.accessToken);
   const hasInsforgeIdentity = Boolean(insforgeSession?.user);
-  const useInsforge =
-    insforgeLoaded && (insforgeSignedIn || hasInsforgeSession);
+  const insforgeReady = insforgeLoaded && insforgeSignedIn;
+  const useInsforge = insforgeReady || (insforgeLoaded && hasInsforgeSession);
   const signedIn = useInsforge && hasInsforgeSession && hasInsforgeIdentity;
   const auth = useMemo(() => {
     if (!useInsforge || !hasInsforgeIdentity) return null;

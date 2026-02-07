@@ -23,7 +23,7 @@ function toNumber(value, fallback) {
 
 const url =
   readArg("--url", process.env.VIBESCORE_SCREENSHOT_URL) ||
-  "http://localhost:5180/?screenshot=1";
+  "http://localhost:5173/?screenshot=1";
 const out =
   readArg(
     "--out",

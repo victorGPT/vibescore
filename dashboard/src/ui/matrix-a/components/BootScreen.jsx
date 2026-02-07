@@ -1,29 +1,17 @@
 import React from "react";
-import { useButton } from "@base-ui/react/use-button";
+import { Button } from "@base-ui/react/button";
 
 import { copy } from "../../../lib/copy";
 
 export function BootScreen({ onSkip }) {
   const canSkip = Boolean(onSkip);
-  const { getButtonProps, buttonRef } = useButton({
-    disabled: !canSkip,
-    native: false,
-  });
-  const skipProps = canSkip
-    ? getButtonProps({
-        onClick: onSkip,
-        "aria-label": copy("boot.skip_aria"),
-      })
-    : undefined;
 
-  return (
-    <div
-      className={`min-h-screen bg-matrix-dark text-matrix-primary font-matrix flex flex-col items-center justify-center p-8 text-center text-body ${
-        canSkip ? "cursor-pointer" : ""
-      }`}
-      {...skipProps}
-      ref={canSkip ? buttonRef : undefined}
-    >
+  const className = `min-h-screen bg-matrix-dark text-matrix-primary font-matrix flex flex-col items-center justify-center p-8 text-center text-body ${
+    canSkip ? "cursor-pointer" : ""
+  }`;
+
+  const content = (
+    <>
       <pre className="text-caption leading-[1.2] mb-6 text-matrix-muted select-none">
         {copy("boot.ascii_art")}
       </pre>
@@ -39,6 +27,29 @@ export function BootScreen({ onSkip }) {
         </p>
       ) : null}
       <style>{`@keyframes loader { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }`}</style>
-    </div>
+    </>
+  );
+
+  if (!canSkip) {
+    return <div className={className}>{content}</div>;
+  }
+
+  return (
+    <Button
+      className={className}
+      onClick={onSkip}
+      aria-label={copy("boot.skip_aria")}
+      nativeButton={false}
+      render={(renderProps) => {
+        const { children, ...rest } = renderProps;
+        return (
+          <div {...rest}>
+            {children}
+          </div>
+        );
+      }}
+    >
+      {content}
+    </Button>
   );
 }
