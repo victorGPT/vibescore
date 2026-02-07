@@ -1,4 +1,5 @@
 import React from "react";
+import { Input } from "@base-ui/react/input";
 
 import { MatrixAvatar } from "../../foundation/MatrixAvatar.jsx";
 import { LiveSniffer } from "./LiveSniffer.jsx";
@@ -26,7 +27,7 @@ export function LandingExtras({
               <label className="text-caption text-matrix-muted uppercase mb-2 font-bold">
                 {copy("landing.handle.label")}
               </label>
-              <input
+              <Input
                 type="text"
                 value={handle}
                 onChange={onHandleChange}

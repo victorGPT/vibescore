@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Input } from "@base-ui/react/input";
 import { copy } from "../../../lib/copy";
 import {
   safeGetItem,
@@ -108,7 +109,7 @@ export function UpgradeAlertModal({ requiredVersion, installCommand, onClose }) 
             <span className="text-caption text-gold/80 shrink-0">
               {promptLabel}
             </span>
-            <input
+            <Input
               readOnly
               value={resolvedInstallCommand}
               className="bg-transparent border-none text-body text-gray-300 w-full px-2 py-1 outline-none pointer-events-none"
