@@ -210,9 +210,10 @@ export default function App() {
     window.location.assign(redirectUrl);
   }, [insforgeSession, sessionExpired]);
 
-  const useInsforge = insforgeLoaded && insforgeSignedIn;
-  const hasInsforgeSession = Boolean(insforgeSession);
+  const hasInsforgeSession = Boolean(insforgeSession?.accessToken);
   const hasInsforgeIdentity = Boolean(insforgeSession?.user);
+  const useInsforge =
+    insforgeLoaded && (insforgeSignedIn || hasInsforgeSession);
   const signedIn = useInsforge && hasInsforgeSession && hasInsforgeIdentity;
   const auth = useMemo(() => {
     if (!useInsforge || !hasInsforgeIdentity) return null;
@@ -256,8 +257,7 @@ export default function App() {
     !publicMode &&
     !mockEnabled &&
     !sessionSoftExpired &&
-    (!insforgeLoaded ||
-      (insforgeLoaded && insforgeSignedIn && insforgeSession === undefined));
+    (!insforgeLoaded || insforgeSession === undefined);
   const gate = resolveAuthGate({
     publicMode,
     mockEnabled,
