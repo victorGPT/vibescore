@@ -1,26 +1,28 @@
 import React from "react";
+import { useButton } from "@base-ui/react/use-button";
 
 import { copy } from "../../../lib/copy";
 
 export function BootScreen({ onSkip }) {
   const canSkip = Boolean(onSkip);
+  const { getButtonProps, buttonRef } = useButton({
+    disabled: !canSkip,
+    native: false,
+  });
+  const skipProps = canSkip
+    ? getButtonProps({
+        onClick: onSkip,
+        "aria-label": copy("boot.skip_aria"),
+      })
+    : undefined;
 
   return (
     <div
       className={`min-h-screen bg-matrix-dark text-matrix-primary font-matrix flex flex-col items-center justify-center p-8 text-center text-body ${
         canSkip ? "cursor-pointer" : ""
       }`}
-      onClick={canSkip ? onSkip : undefined}
-      role={canSkip ? "button" : undefined}
-      tabIndex={canSkip ? 0 : undefined}
-      onKeyDown={
-        canSkip
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") onSkip?.();
-            }
-          : undefined
-      }
-      aria-label={canSkip ? copy("boot.skip_aria") : undefined}
+      {...skipProps}
+      ref={canSkip ? buttonRef : undefined}
     >
       <pre className="text-caption leading-[1.2] mb-6 text-matrix-muted select-none">
         {copy("boot.ascii_art")}
