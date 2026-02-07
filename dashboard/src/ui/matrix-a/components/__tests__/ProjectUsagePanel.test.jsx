@@ -1,6 +1,7 @@
 import React from "react";
-import { screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { act, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { render } from "../../../../test/test-utils";
 import { copy } from "../../../../lib/copy";
@@ -51,5 +52,23 @@ describe("ProjectUsagePanel", () => {
     });
 
     expect(screen.getByText(expected)).toBeInTheDocument();
+  });
+
+  it("closes the limit popup on Escape", async () => {
+    const limitAria = copy("dashboard.projects.limit_aria");
+    const onLimitChange = vi.fn();
+    const user = userEvent.setup();
+
+    render(<ProjectUsagePanel entries={[entry]} onLimitChange={onLimitChange} />);
+
+    await act(async () => {
+      await user.click(screen.getByLabelText(limitAria));
+    });
+    expect(screen.getByRole("listbox", { name: limitAria })).toBeVisible();
+
+    await act(async () => {
+      await user.keyboard("{Escape}");
+    });
+    expect(screen.queryByRole("listbox", { name: limitAria })).not.toBeInTheDocument();
   });
 });

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Select } from "@base-ui/react/select";
 
 import { copy } from "../../../lib/copy";
 import { formatCompactNumber, toDisplayNumber, toFiniteNumber } from "../../../lib/format";
@@ -110,7 +111,7 @@ export function ProjectUsagePanel({
     6: copy("dashboard.projects.limit_top_6"),
     10: copy("dashboard.projects.limit_top_10"),
   };
-  const [menuOpen, setMenuOpen] = useState(false);
+  const resolvedLimit = LIMIT_OPTIONS.includes(limit) ? limit : LIMIT_OPTIONS[0];
 
   const sortedEntries = useMemo(() => {
     const list = Array.isArray(entries) ? entries.slice() : [];
@@ -142,46 +143,50 @@ export function ProjectUsagePanel({
           {limitLabel}
         </span>
         <div className="relative">
-          <button
-            type="button"
-            onClick={() => setMenuOpen((prev) => !prev)}
-            aria-haspopup="listbox"
-            aria-expanded={menuOpen}
-            aria-label={limitAria}
-            className="matrix-header-chip matrix-header-action text-caption uppercase font-bold tracking-[0.2em] gap-2"
+          <Select.Root
+            value={resolvedLimit}
+            modal={false}
+            items={LIMIT_OPTIONS.map((value) => ({
+              value,
+              label: optionLabels[value],
+            }))}
+            onValueChange={(value) => {
+              if (typeof onLimitChange === "function" && value != null) {
+                onLimitChange(value);
+              }
+            }}
           >
-            {optionLabels[limit] || optionLabels[3]}
-            <span className="text-matrix-bright">▾</span>
-          </button>
-          {menuOpen ? (
-            <div
-              role="listbox"
+            <Select.Trigger
               aria-label={limitAria}
-              className="absolute right-0 mt-2 w-40 border border-matrix-ghost bg-matrix-panelStrong backdrop-blur-md z-20"
+              className="matrix-header-chip matrix-header-action text-caption uppercase font-bold tracking-[0.2em] gap-2"
             >
-              {LIMIT_OPTIONS.map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="option"
-                  aria-selected={value === limit}
-                  onClick={() => {
-                    setMenuOpen(false);
-                    if (typeof onLimitChange === "function") {
-                      onLimitChange(value);
-                    }
-                  }}
-                  className={`w-full text-left px-3 py-2 text-caption uppercase tracking-[0.2em] transition-colors ${
-                    value === limit
-                      ? "bg-matrix-panel border-l-2 border-matrix-primary"
-                      : "hover:bg-matrix-panel"
-                  }`}
-                >
-                  {optionLabels[value]}
-                </button>
-              ))}
-            </div>
-          ) : null}
+              <Select.Value />
+              <span className="text-matrix-bright">▾</span>
+            </Select.Trigger>
+            <Select.Portal>
+              <Select.Positioner align="end" side="bottom" sideOffset={8}>
+                <Select.Popup className="w-40 border border-matrix-ghost bg-matrix-panelStrong backdrop-blur-md z-20">
+                  <Select.List aria-label={limitAria}>
+                    {LIMIT_OPTIONS.map((value) => (
+                      <Select.Item
+                        key={value}
+                        value={value}
+                        className={({ selected }) =>
+                          `w-full text-left px-3 py-2 text-caption uppercase tracking-[0.2em] transition-colors ${
+                            selected
+                              ? "bg-matrix-panel border-l-2 border-matrix-primary"
+                              : "hover:bg-matrix-panel data-[highlighted]:bg-matrix-panel"
+                          }`
+                        }
+                      >
+                        <Select.ItemText>{optionLabels[value]}</Select.ItemText>
+                      </Select.Item>
+                    ))}
+                  </Select.List>
+                </Select.Popup>
+              </Select.Positioner>
+            </Select.Portal>
+          </Select.Root>
         </div>
       </div>
 
