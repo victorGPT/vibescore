@@ -11,11 +11,13 @@
     "lint:ts": "eslint \"src/**/*.{ts,tsx}\"",
     "preview": "vite preview",
     "screenshot": "node scripts/capture-dashboard-screenshot.mjs",
+    "compare:baselines": "node scripts/compare-visual-baselines.mjs",
     "verify:share-clipboard": "node scripts/verify-share-clipboard.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@base-ui/react": "1.1.0",
     "@fontsource/geist-mono": "^5.2.0",
     "@insforge/react-router": "^1.1.7",
     "@insforge/sdk": "^1.1.5",
@@ -38,7 +40,9 @@
     "eslint-plugin-react": "^7.35.0",
     "eslint-plugin-react-hooks": "^4.6.2",
     "jsdom": "^24.0.0",
+    "pixelmatch": "7.1.0",
     "playwright": "^1.57.0",
+    "pngjs": "7.0.0",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.9.3",
