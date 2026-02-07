@@ -1,4 +1,5 @@
 import React from "react";
+import { Button } from "@base-ui/react/button";
 
 export function MatrixButton({
   as: Comp = "button",
@@ -21,9 +22,38 @@ export function MatrixButton({
   const disabled =
     "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-matrix-panel";
 
+  const mergedClassName = `${base} ${variant} ${disabled} ${className}`;
+
+  if (Comp === "button") {
+    return (
+      <Button className={mergedClassName} {...props} type={props.type}>
+        {children}
+      </Button>
+    );
+  }
+
+  const userRole = props.role;
+
   return (
-    <Comp className={`${base} ${variant} ${disabled} ${className}`} {...props}>
+    <Button
+      className={mergedClassName}
+      {...props}
+      nativeButton={false}
+      render={(renderProps) => {
+        const { children: renderChildren, role: resolvedRole, ...rest } =
+          renderProps;
+
+        const role =
+          Comp === "a" && userRole === undefined ? undefined : resolvedRole;
+
+        return (
+          <Comp {...rest} role={role}>
+            {renderChildren}
+          </Comp>
+        );
+      }}
+    >
       {children}
-    </Comp>
+    </Button>
   );
 }
