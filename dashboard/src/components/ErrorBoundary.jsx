@@ -1,4 +1,5 @@
 import React from "react";
+import { Button } from "@base-ui/react/button";
 
 import { copy } from "../lib/copy";
 
@@ -50,13 +51,13 @@ export class ErrorBoundary extends React.Component {
           <div className="text-[10px] text-[#00FF41]/80 break-words">
             {errorLabel}
           </div>
-          <button
+          <Button
             type="button"
             onClick={this.handleReload}
             className="inline-flex items-center justify-center px-4 py-2 border border-[#00FF41] text-[10px] font-black uppercase tracking-[0.4em] text-[#00FF41] hover:bg-[#00FF41] hover:text-black transition-colors"
           >
             {copy("error.boundary.action.reload")}
-          </button>
+          </Button>
         </div>
       </div>
     );

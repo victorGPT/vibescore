@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Button } from "@base-ui/react/button";
 
 import { copy } from "../../../lib/copy";
 import { AsciiBox } from "../../foundation/AsciiBox.jsx";
@@ -107,13 +108,13 @@ export function IdentityCard({
             </div>
 
             {!isPublic && onDecrypt ? (
-              <button
+              <Button
                 type="button"
                 onClick={onDecrypt}
                 className="text-caption text-black bg-matrix-primary px-3 py-1 font-bold uppercase hover:bg-white transition-colors"
               >
                 {copy("identity_card.decrypt")}
-              </button>
+              </Button>
             ) : null}
 
             {shouldShowStats ? (

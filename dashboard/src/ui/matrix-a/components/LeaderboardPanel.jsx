@@ -1,4 +1,5 @@
 import React from "react";
+import { Button } from "@base-ui/react/button";
 
 import { copy } from "../../../lib/copy";
 import { AsciiBox } from "../../foundation/AsciiBox.jsx";
@@ -27,22 +28,22 @@ export function LeaderboardPanel({
 
   return (
     <AsciiBox title={title} className={className}>
-      <div className="flex border-b border-matrix-ghost mb-3 pb-2 gap-4 px-2">
-        {periods.map((p) => (
-          <button
-            key={p.key}
-            type="button"
-            className={`text-caption uppercase font-bold ${
-              period === p.key
-                ? "text-matrix-bright border-b-2 border-matrix-primary"
-                : "text-matrix-muted"
-            }`}
-            onClick={() => onPeriodChange?.(p.key)}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
+        <div className="flex border-b border-matrix-ghost mb-3 pb-2 gap-4 px-2">
+          {periods.map((p) => (
+            <Button
+              key={p.key}
+              type="button"
+              className={`text-caption uppercase font-bold ${
+                period === p.key
+                  ? "text-matrix-bright border-b-2 border-matrix-primary"
+                  : "text-matrix-muted"
+              }`}
+              onClick={() => onPeriodChange?.(p.key)}
+            >
+              {p.label}
+            </Button>
+          ))}
+        </div>
 
       {showSummary ? (
         <div className="flex-1 flex flex-col items-center justify-center space-y-6 opacity-90 py-4">
@@ -101,13 +102,13 @@ export function LeaderboardPanel({
             </div>
           )}
           {rows.length && loadMoreLabel ? (
-            <button
+            <Button
               type="button"
               onClick={onLoadMore}
               className="w-full text-center text-caption text-matrix-muted py-2 hover:text-matrix-primary"
             >
               {loadMoreLabel}
-            </button>
+            </Button>
           ) : null}
         </div>
       )}

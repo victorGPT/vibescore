@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@base-ui/react/button";
 import { Input } from "@base-ui/react/input";
 import { copy } from "../../../lib/copy";
 import {
@@ -114,23 +115,23 @@ export function UpgradeAlertModal({ requiredVersion, installCommand, onClose }) 
               value={resolvedInstallCommand}
               className="bg-transparent border-none text-body text-gray-300 w-full px-2 py-1 outline-none pointer-events-none"
             />
-            <button
+            <Button
               onClick={handleCopy}
               className="shrink-0 bg-gold/10 hover:bg-gold/20 border-l border-gold/20 px-3 py-1.5 text-caption font-black uppercase text-gold transition-all"
             >
               {copied ? copiedLabel : copyLabel}
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* Right Side: Actions */}
         <div className="flex items-center space-x-4">
-          <button
+          <Button
             onClick={handleDismiss}
             className="text-caption font-black uppercase text-gold/40 hover:text-gold transition-all tracking-[0.2em]"
           >
             {ignoreLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

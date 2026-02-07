@@ -1,4 +1,5 @@
 import React from "react";
+import { Button } from "@base-ui/react/button";
 
 import { AsciiBox } from "../../foundation/AsciiBox.jsx";
 import { MatrixButton } from "../../foundation/MatrixButton.jsx";
@@ -305,7 +306,7 @@ export function DashboardView(props) {
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <button
+                        <Button
                           type="button"
                           onClick={handleTogglePublicView}
                           disabled={publicViewBusy}
@@ -326,7 +327,7 @@ export function DashboardView(props) {
                                 : "translate-x-0"
                             }`}
                           />
-                        </button>
+                        </Button>
                         <span className="text-[10px] uppercase tracking-[0.2em] text-[#00FF41]/80">
                           {publicViewStatusLabel}
                         </span>
@@ -460,7 +461,7 @@ export function DashboardView(props) {
                               aria-sort={ariaSortFor(c.key)}
                               className="text-left p-0"
                             >
-                              <button
+                              <Button
                                 type="button"
                                 onClick={() => toggleSort(c.key)}
                                 title={c.title}
@@ -472,7 +473,7 @@ export function DashboardView(props) {
                                     {sortIconFor(c.key)}
                                   </span>
                                 </span>
-                              </button>
+                              </Button>
                             </th>
                           ))}
                         </tr>

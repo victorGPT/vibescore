@@ -1,4 +1,5 @@
 import React from "react";
+import { Button } from "@base-ui/react/button";
 
 import { copy } from "../../../lib/copy";
 import { AsciiBox } from "../../foundation/AsciiBox.jsx";
@@ -91,7 +92,7 @@ export const UsagePanel = React.memo(function UsagePanel({
         <div className="flex flex-wrap items-center justify-between border-b border-matrix-ghost mb-3 pb-2 gap-4 px-2">
           <div className="flex flex-wrap gap-4">
             {tabs.map((p) => (
-              <button
+              <Button
                 key={p.key}
                 type="button"
                 className={`text-caption uppercase font-bold ${
@@ -102,7 +103,7 @@ export const UsagePanel = React.memo(function UsagePanel({
                 onClick={() => onPeriodChange?.(p.key)}
               >
                 {p.label}
-              </button>
+              </Button>
             ))}
           </div>
           {onRefresh || statusLabel ? (
@@ -173,7 +174,7 @@ export const UsagePanel = React.memo(function UsagePanel({
                   {summaryCostValue}
                 </span>
                 {onCostInfo ? (
-                  <button
+                  <Button
                     type="button"
                     onClick={onCostInfo}
                     title={costInfoLabel}
@@ -195,7 +196,7 @@ export const UsagePanel = React.memo(function UsagePanel({
                     ) : (
                       <span>{costInfoIcon}</span>
                     )}
-                  </button>
+                  </Button>
                 ) : null}
               </div>
             ) : null}
