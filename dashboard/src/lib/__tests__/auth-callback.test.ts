@@ -99,6 +99,18 @@ describe("shouldRedirectFromAuthCallback", () => {
     expect(shouldRedirect).toBe(false);
   });
 
+  it("does not redirect when PKCE OAuth code is present", () => {
+    const storage = createMemoryStorage();
+    const shouldRedirect = shouldRedirectFromAuthCallback({
+      pathname: "/auth/callback",
+      search: "?insforge_code=code",
+      hasSession: false,
+      sessionResolved: true,
+      storage,
+    });
+    expect(shouldRedirect).toBe(false);
+  });
+
   it("clears retry flag once session exists", () => {
     const storage = createMemoryStorage();
     storage.setItem(AUTH_CALLBACK_RETRY_KEY, "1");
