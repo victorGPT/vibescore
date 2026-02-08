@@ -12,6 +12,7 @@ const {
   buildGeminiHookCommand
 } = require('../lib/gemini-config');
 const { resolveOpencodeConfigDir, isOpencodePluginInstalled } = require('../lib/opencode-config');
+const { collectLocalSubscriptions } = require('../lib/subscriptions');
 const { normalizeState: normalizeUploadState } = require('../lib/upload-throttle');
 const { collectTrackerDiagnostics } = require('../lib/diagnostics');
 const { resolveTrackerPaths } = require('../lib/tracker-paths');
@@ -89,6 +90,12 @@ async function cmdStatus(argv = []) {
       )} bytes)`
     : null;
 
+  const subscriptions = await collectLocalSubscriptions({ home, env: process.env });
+  const subscriptionLines =
+    subscriptions.length > 0
+      ? subscriptions.map(formatSubscriptionLine)
+      : [];
+
   process.stdout.write(
     [
       'Status:',
@@ -108,11 +115,36 @@ async function cmdStatus(argv = []) {
       `- Claude hooks: ${claudeHookConfigured ? 'set' : 'unset'}`,
       `- Gemini hooks: ${geminiHookConfigured ? 'set' : 'unset'}`,
       `- Opencode plugin: ${opencodePluginConfigured ? 'set' : 'unset'}`,
+      ...subscriptionLines,
       ''
     ]
       .filter(Boolean)
       .join('\n')
   );
+}
+
+function formatSubscriptionLine(entry = {}) {
+  const tool = String(entry.tool || '');
+  const provider = String(entry.provider || '');
+  const product = String(entry.product || '');
+  const planType = String(entry.planType || '');
+  const toolLabel =
+    tool === 'codex'
+      ? 'Codex'
+      : tool === 'opencode'
+        ? 'OpenCode'
+        : tool === 'claude'
+          ? 'Claude Code'
+          : tool;
+
+  if (!planType) return null;
+
+  if (provider === 'openai' && product === 'chatgpt') {
+    return `- ${toolLabel} ChatGPT plan: ${planType}`;
+  }
+
+  const productLabel = product ? product.replace(/_/g, ' ') : 'subscription';
+  return `- ${toolLabel} ${productLabel}: ${planType}`;
 }
 
 function parseArgs(argv) {
