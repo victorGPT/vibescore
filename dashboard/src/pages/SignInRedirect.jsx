@@ -74,5 +74,5 @@ export function SignInRedirect() {
     };
   }, [callbackUrl, navigate]);
 
-  return <div className="min-h-screen bg-[#050505]" />;
+  return <div className="min-h-screen bg-matrix-dark" />;
 }

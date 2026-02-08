@@ -255,6 +255,39 @@ details.pagination.next,dashboard,DashboardPage,DailyTable,pagination_next,"Next
 details.pagination.page,dashboard,DashboardPage,DailyTable,pagination_label,"Page {{page}}/{{total}}",,active
 
 
+leaderboard.nav.open,dashboard,DashboardPage,Header,nav_leaderboard,"$ leaderboard",,active
+
+leaderboard.nav.back,dashboard,LeaderboardPage,Header,nav_back,"$ dashboard",,active
+leaderboard.title,dashboard,LeaderboardPage,LeaderboardPage,title,"LEADERBOARD",,active
+leaderboard.range,dashboard,LeaderboardPage,LeaderboardPage,range,"UTC_WEEK: {{from}}..{{to}}",,active
+leaderboard.range_loading,dashboard,LeaderboardPage,LeaderboardPage,range_loading,"UTC_WEEK: ...",,active
+leaderboard.generated_at,dashboard,LeaderboardPage,LeaderboardPage,generated_at,"UPDATED_AT: {{ts}}",,active
+
+leaderboard.me_label,dashboard,LeaderboardPage,LeaderboardPage,me_label,"YOU",,active
+leaderboard.anon_label,dashboard,LeaderboardPage,LeaderboardPage,anon_label,"Anonymous",,active
+leaderboard.error.unknown,dashboard,LeaderboardPage,LeaderboardPage,error_unknown,"UNKNOWN_ERROR",,active
+leaderboard.me_card.title,dashboard,LeaderboardPage,AsciiBox,me_card_title,"MY_RANK",,active
+leaderboard.me_card.subtitle,dashboard,LeaderboardPage,AsciiBox,me_card_subtitle,"WEEKLY",,active
+
+leaderboard.top10.title,dashboard,LeaderboardPage,AsciiBox,top10_title,"TOP_10",,active
+leaderboard.top10.subtitle,dashboard,LeaderboardPage,AsciiBox,top10_subtitle,"TOP_9_PLUS_YOU",,active
+leaderboard.table.title,dashboard,LeaderboardPage,AsciiBox,table_title,"ALL_RANKS",,active
+leaderboard.table.subtitle,dashboard,LeaderboardPage,AsciiBox,table_subtitle,"PAGED",,active
+
+leaderboard.loading,dashboard,LeaderboardPage,LeaderboardPage,state_loading,"LOADING...",,active
+leaderboard.empty,dashboard,LeaderboardPage,LeaderboardPage,state_empty,"NO_DATA",,active
+
+leaderboard.column.rank,dashboard,LeaderboardPage,LeaderboardPage,column_rank,"RANK",,active
+leaderboard.column.user,dashboard,LeaderboardPage,LeaderboardPage,column_user,"USER",,active
+leaderboard.column.total,dashboard,LeaderboardPage,LeaderboardPage,column_total,"TOTAL",,active
+leaderboard.column.gpt,dashboard,LeaderboardPage,LeaderboardPage,column_gpt,"GPT_MODEL",,active
+leaderboard.column.claude,dashboard,LeaderboardPage,LeaderboardPage,column_claude,"CLAUDE_MODEL",,active
+
+leaderboard.pagination.prev,dashboard,LeaderboardPage,LeaderboardPage,pagination_prev,"PREV",,active
+leaderboard.pagination.next,dashboard,LeaderboardPage,LeaderboardPage,pagination_next,"NEXT",,active
+leaderboard.pagination.ellipsis,dashboard,LeaderboardPage,LeaderboardPage,pagination_ellipsis,"...",,active
+leaderboard.pagination.page_unknown,dashboard,LeaderboardPage,LeaderboardPage,pagination_unknown,"PAGE {{page}}",,active
+
 dashboard.sign_out,dashboard,DashboardPage,Header,sign_out,"Sign out",,active
 dashboard.not_signed_in,dashboard,DashboardPage,Header,not_signed_in,"Not signed in",,active
 

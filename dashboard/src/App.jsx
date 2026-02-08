@@ -58,6 +58,12 @@ const DashboardPage = React.lazy(() =>
   }))
 );
 
+const LeaderboardPage = React.lazy(() =>
+  import("./pages/LeaderboardPage.jsx").then((mod) => ({
+    default: mod.LeaderboardPage,
+  }))
+);
+
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -305,7 +311,9 @@ export default function App() {
     signedIn,
     authPending,
   });
-  const PageComponent = DashboardPage;
+  const normalizedPath = pathname.replace(/\/+$/, "") || "/";
+  const PageComponent =
+    normalizedPath === "/leaderboard" ? LeaderboardPage : DashboardPage;
   let content = null;
   if (gate === "loading") {
     content = loadingShell;

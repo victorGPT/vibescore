@@ -1207,6 +1207,9 @@ export function DashboardPage({
 
   const headerRight = (
     <div className="flex items-center gap-4">
+      <MatrixButton as="a" size="header" href="/leaderboard">
+        {copy("leaderboard.nav.open")}
+      </MatrixButton>
       <GithubStar isFixed={false} size="header" />
 
       {publicMode ? (

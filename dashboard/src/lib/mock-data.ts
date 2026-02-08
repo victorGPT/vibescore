@@ -457,50 +457,70 @@ export function getMockProjectUsageSummary({
 
 function computeLeaderboardWindow(period: string) {
   const today = parseUtcDate(formatDateLocal(new Date())) || new Date();
-  const to = formatDateUTC(today);
-  if (period === "day") return { from: to, to };
-  if (period === "week") return { from: formatDateUTC(addUtcDays(today, -6)), to };
-  if (period === "month") return { from: formatDateUTC(addUtcDays(today, -29)), to };
-  if (period === "total") return { from: formatDateUTC(addUtcDays(today, -365)), to };
-  return { from: to, to };
+  const dow = today.getUTCDay(); // 0=Sunday
+  const from = formatDateUTC(addUtcDays(today, -dow));
+  const to = formatDateUTC(addUtcDays(today, -dow + 6));
+  if (period === "week") return { from, to };
+  return { from, to };
 }
 
 export function getMockLeaderboard({
   seed,
-  period = "total",
   limit = 20,
+  offset = 0,
 }: AnyRecord = {}) {
   const seedValue = toSeed(seed);
   const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 20)));
+  const safeOffset = Math.max(0, Math.min(10_000, Math.floor(Number(offset) || 0)));
+  const period = "week";
   const { from, to } = computeLeaderboardWindow(period);
-  const entries = Array.from({ length: safeLimit }, (_, index) => {
-    const name = MOCK_LEADERBOARD_NAMES[index % MOCK_LEADERBOARD_NAMES.length];
-    const hash = hashString(`${seedValue}:${name}:${index}`);
+  const totalEntries = 250;
+  const totalPages = totalEntries > 0 ? Math.ceil(totalEntries / safeLimit) : 0;
+  const page = Math.floor(safeOffset / safeLimit) + 1;
+  const rows = Math.max(0, Math.min(safeLimit, totalEntries - safeOffset));
+
+  const entries = Array.from({ length: rows }, (_, index) => {
+    const rank = safeOffset + index + 1;
+    const name = MOCK_LEADERBOARD_NAMES[rank % MOCK_LEADERBOARD_NAMES.length];
+    const hash = hashString(`${seedValue}:${name}:${rank}`);
     const base = 180000 + (hash % 900000);
-    const total = Math.max(0, base + index * 1200);
-    const isAnon = index % 7 === 0;
+    const total = Math.max(0, base + rank * 1200);
+    const gpt = Math.floor(total * 0.62);
+    const claude = Math.max(0, total - gpt);
+    const isAnon = rank % 7 === 0;
     return {
-      rank: index + 1,
+      rank,
       is_me: false,
-      display_name: isAnon ? null : name,
+      display_name: isAnon ? "Anonymous" : name,
       avatar_url: null,
+      gpt_tokens: String(gpt),
+      claude_tokens: String(claude),
       total_tokens: String(total),
     };
   });
 
-  const meRank = Math.max(1, Math.min(safeLimit, Math.floor(safeLimit / 2)));
-  const meEntry = entries[meRank - 1];
-  if (meEntry) meEntry.is_me = true;
+  const meRank = Math.max(11, Math.min(totalEntries, Math.floor(totalEntries * 0.8)));
+  const meHash = hashString(`${seedValue}:me:${meRank}`);
+  const meTotal = 90000 + (meHash % 90000);
+  const meGpt = Math.floor(meTotal * 0.58);
+  const meClaude = Math.max(0, meTotal - meGpt);
+  const me = { rank: meRank, gpt_tokens: String(meGpt), claude_tokens: String(meClaude), total_tokens: String(meTotal) };
+
+  const meIndex = entries.findIndex((entry: any) => entry?.rank === meRank);
+  if (meIndex >= 0) entries[meIndex].is_me = true;
 
   return {
     period,
     from,
     to,
     generated_at: new Date().toISOString(),
+    page,
+    limit: safeLimit,
+    offset: safeOffset,
+    total_entries: totalEntries,
+    total_pages: totalPages,
     entries,
-    me: meEntry
-      ? { rank: meEntry.rank, total_tokens: meEntry.total_tokens }
-      : { rank: meRank, total_tokens: String(100000) },
+    me,
   };
 }
 

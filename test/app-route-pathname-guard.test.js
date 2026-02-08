@@ -19,7 +19,7 @@ test("App.jsx parses without duplicate identifier errors", async () => {
   await assert.doesNotReject(parseDashboardFile("dashboard/src/App.jsx"));
 });
 
-test("App.jsx does not route to removed leaderboard page", () => {
+test("App.jsx routes to /leaderboard page", () => {
   const appPath = path.join(repoRoot, "dashboard/src/App.jsx");
   const source = fs.readFileSync(appPath, "utf8");
   assert.equal(
@@ -27,14 +27,6 @@ test("App.jsx does not route to removed leaderboard page", () => {
     false,
     "Removed /rankings route should not exist"
   );
-  assert.equal(
-    source.includes('"/leaderboard"'),
-    false,
-    "Removed /leaderboard route should not exist"
-  );
-  assert.equal(
-    source.includes("LeaderboardPage"),
-    false,
-    "Removed LeaderboardPage should not be referenced"
-  );
+  assert.equal(source.includes('"/leaderboard"'), true, "/leaderboard route should exist");
+  assert.equal(source.includes("LeaderboardPage"), true, "LeaderboardPage should be referenced");
 });
