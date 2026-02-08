@@ -304,11 +304,12 @@ Response:
 
 ### GET /functions/vibeusage-leaderboard
 
-Leaderboard entries for a UTC window.
+Leaderboard entries for the current UTC week (Sunday start).
 
 Query:
-- `period=day|week|month|total` (required)
+- `period=week` (required)
 - `limit=1..100` (optional; default 20)
+- `offset=0..10000` (optional; default 0)
 
 Response:
 
@@ -318,10 +319,15 @@ Response:
   "from": "YYYY-MM-DD",
   "to": "YYYY-MM-DD",
   "generated_at": "iso",
+  "page": 1,
+  "limit": 20,
+  "offset": 0,
+  "total_entries": 0,
+  "total_pages": 0,
   "entries": [
-    { "rank": 1, "is_me": false, "display_name": "Anonymous", "avatar_url": null, "total_tokens": "0" }
+    { "rank": 1, "is_me": false, "display_name": "Anonymous", "avatar_url": null, "gpt_tokens": "0", "claude_tokens": "0", "total_tokens": "0" }
   ],
-  "me": { "rank": null, "total_tokens": "0" }
+  "me": { "rank": null, "gpt_tokens": "0", "claude_tokens": "0", "total_tokens": "0" }
 }
 ```
 

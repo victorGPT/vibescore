@@ -101,14 +101,14 @@ async function main() {
   }
 
   const leaderboardWeek = await withAuthRetry(() =>
-    usageLeaderboard({ baseUrl, accessToken, period: 'week', limit: 20 })
+    usageLeaderboard({ baseUrl, accessToken, period: 'week', limit: 20, offset: 0 })
   );
   validateLeaderboardContract(leaderboardWeek);
 
-  const leaderboardTotal = await withAuthRetry(() =>
-    usageLeaderboard({ baseUrl, accessToken, period: 'total', limit: 20 })
+  const leaderboardWeekPage2 = await withAuthRetry(() =>
+    usageLeaderboard({ baseUrl, accessToken, period: 'week', limit: 20, offset: 20 })
   );
-  validateLeaderboardContract(leaderboardTotal);
+  validateLeaderboardContract(leaderboardWeekPage2);
 
   console.log(
     JSON.stringify(
@@ -140,12 +140,12 @@ async function main() {
             entries: Array.isArray(leaderboardWeek.entries) ? leaderboardWeek.entries.length : null,
             me: leaderboardWeek.me || null
           },
-          total: {
-            period: leaderboardTotal.period,
-            from: leaderboardTotal.from,
-            to: leaderboardTotal.to,
-            entries: Array.isArray(leaderboardTotal.entries) ? leaderboardTotal.entries.length : null,
-            me: leaderboardTotal.me || null
+          week_page2: {
+            period: leaderboardWeekPage2.period,
+            from: leaderboardWeekPage2.from,
+            to: leaderboardWeekPage2.to,
+            entries: Array.isArray(leaderboardWeekPage2.entries) ? leaderboardWeekPage2.entries.length : null,
+            me: leaderboardWeekPage2.me || null
           }
         }
       },
@@ -174,7 +174,7 @@ function buildEvent() {
     event: {
       hour_start: hourStart.toISOString(),
       source: 'codex',
-      model: 'smoke',
+      model: 'gpt-smoke',
       input_tokens: 1,
       cached_input_tokens: 0,
       output_tokens: 2,
@@ -306,10 +306,11 @@ function validateHeatmapContract(data) {
   }
 }
 
-async function usageLeaderboard({ baseUrl, accessToken, period, limit }) {
+async function usageLeaderboard({ baseUrl, accessToken, period, limit, offset }) {
   const url = new URL('/functions/vibeusage-leaderboard', baseUrl);
   if (period) url.searchParams.set('period', period);
   if (limit != null) url.searchParams.set('limit', String(limit));
+  if (offset != null) url.searchParams.set('offset', String(offset));
 
   const res = await fetch(url.toString(), {
     method: 'GET',
@@ -324,13 +325,15 @@ async function usageLeaderboard({ baseUrl, accessToken, period, limit }) {
 
 function validateLeaderboardContract(data) {
   assert.ok(data && typeof data === 'object');
-  assert.ok(data.period === 'day' || data.period === 'week' || data.period === 'month' || data.period === 'total');
+  assert.equal(data.period, 'week');
   assert.ok(typeof data.from === 'string' && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(data.from));
   assert.ok(typeof data.to === 'string' && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(data.to));
   assert.ok(typeof data.generated_at === 'string' && data.generated_at.includes('T'));
   assert.ok(Array.isArray(data.entries));
   assert.ok(data.me && typeof data.me === 'object');
   assert.ok(data.me.rank === null || Number.isInteger(data.me.rank));
+  assert.ok(typeof data.me.gpt_tokens === 'string' && /^[0-9]+$/.test(data.me.gpt_tokens));
+  assert.ok(typeof data.me.claude_tokens === 'string' && /^[0-9]+$/.test(data.me.claude_tokens));
   assert.ok(typeof data.me.total_tokens === 'string' && /^[0-9]+$/.test(data.me.total_tokens));
 
   for (const e of data.entries) {
@@ -339,6 +342,8 @@ function validateLeaderboardContract(data) {
     assert.equal(typeof e.is_me, 'boolean');
     assert.equal(typeof e.display_name, 'string');
     assert.ok(e.avatar_url === null || typeof e.avatar_url === 'string');
+    assert.ok(typeof e.gpt_tokens === 'string' && /^[0-9]+$/.test(e.gpt_tokens));
+    assert.ok(typeof e.claude_tokens === 'string' && /^[0-9]+$/.test(e.claude_tokens));
     assert.ok(typeof e.total_tokens === 'string' && /^[0-9]+$/.test(e.total_tokens));
   }
 }

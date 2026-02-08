@@ -29,9 +29,10 @@ class QueryStub {
     return this;
   }
 
-  limit(value) {
-    this.parent.limitValue = value;
-    return { data: this.parent.fallbackEntries, error: null };
+  range(from, to) {
+    this.parent.rangeValue = { from, to };
+    const rows = this.parent.fallbackEntries.slice(from, to + 1);
+    return { data: rows, error: null };
   }
 
   maybeSingle() {
@@ -47,7 +48,7 @@ class DatabaseStub {
     this.fallbackEntries = fallbackEntries;
     this.meRow = meRow;
     this.singleError = singleError;
-    this.limitValue = null;
+    this.rangeValue = null;
     this.tables = [];
   }
 
@@ -69,19 +70,19 @@ function createClientStub(db) {
 }
 
 async function runScenario({ name, singleError }) {
-  const entriesView = 'vibeusage_leaderboard_day_current';
-  const meView = 'vibeusage_leaderboard_me_day_current';
+  const entriesView = 'vibeusage_leaderboard_week_current';
+  const meView = 'vibeusage_leaderboard_me_week_current';
 
   const singleRows = [
-    { rank: 1, is_me: false, display_name: 'Alpha', avatar_url: null, total_tokens: '10' },
-    { rank: 99, is_me: true, display_name: 'Me', avatar_url: null, total_tokens: '9' }
+    { rank: 1, is_me: false, display_name: 'Alpha', avatar_url: null, gpt_tokens: '6', claude_tokens: '4', total_tokens: '10' },
+    { rank: 99, is_me: true, display_name: 'Me', avatar_url: null, gpt_tokens: '7', claude_tokens: '2', total_tokens: '9' }
   ];
 
   const fallbackEntries = [
-    { rank: 1, is_me: false, display_name: 'Alpha', avatar_url: null, total_tokens: '10' }
+    { rank: 1, is_me: false, display_name: 'Alpha', avatar_url: null, gpt_tokens: '6', claude_tokens: '4', total_tokens: '10' }
   ];
 
-  const meRow = { rank: 99, total_tokens: '9' };
+  const meRow = { rank: 99, gpt_tokens: '7', claude_tokens: '2', total_tokens: '9' };
 
   const db = new DatabaseStub({
     entriesView,
@@ -97,7 +98,7 @@ async function runScenario({ name, singleError }) {
   const leaderboard = require('../../insforge-src/functions/vibeusage-leaderboard.js');
 
   const res = await leaderboard(
-    new Request('http://local/functions/vibeusage-leaderboard?period=day&limit=1', {
+    new Request('http://local/functions/vibeusage-leaderboard?period=week&limit=1&offset=0', {
       method: 'GET',
       headers: { Authorization: 'Bearer user-jwt' }
     })
@@ -108,7 +109,7 @@ async function runScenario({ name, singleError }) {
 
   if (singleError) {
     assert.ok(db.tables.includes(meView), `${name}: fallback should query me view`);
-    assert.equal(db.limitValue, 1, `${name}: limit should be applied`);
+    assert.deepEqual(db.rangeValue, { from: 0, to: 0 }, `${name}: range should be applied`);
     assert.equal(body.entries.length, 1, `${name}: entries length`);
     assert.equal(body.me.rank, 99, `${name}: me rank`);
   } else {

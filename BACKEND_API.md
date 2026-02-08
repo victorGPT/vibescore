@@ -724,17 +724,18 @@ Notes:
 
 ### GET /functions/vibeusage-leaderboard
 
-Return token usage leaderboards for the current UTC calendar window.
+Return token usage leaderboard for the current UTC calendar week (Sunday start).
 
 Auth:
 - `Authorization: Bearer <user_jwt>`
 
 Query:
-- `period=day|week|month|total` (required)
+- `period=week` (required)
 - `limit=1..100` (optional; default `20`)
+- `offset=0..10000` (optional; default `0`)
 
 Rules:
-- UTC calendar windows; week starts Sunday (UTC).
+- UTC calendar week; week starts Sunday (UTC).
 - Privacy-safe: no email, no user_id, no raw logs.
 - Response includes `me` even when not in Top N.
 
@@ -746,10 +747,15 @@ Response:
   "from": "YYYY-MM-DD",
   "to": "YYYY-MM-DD",
   "generated_at": "iso",
+  "page": 1,
+  "limit": 20,
+  "offset": 0,
+  "total_entries": 0,
+  "total_pages": 0,
   "entries": [
-    { "rank": 1, "is_me": false, "display_name": "Anonymous", "avatar_url": null, "total_tokens": "0" }
+    { "rank": 1, "is_me": false, "display_name": "Anonymous", "avatar_url": null, "gpt_tokens": "0", "claude_tokens": "0", "total_tokens": "0" }
   ],
-  "me": { "rank": null, "total_tokens": "0" }
+  "me": { "rank": null, "gpt_tokens": "0", "claude_tokens": "0", "total_tokens": "0" }
 }
 ```
 
@@ -757,13 +763,13 @@ Response:
 
 ### POST /functions/vibeusage-leaderboard-refresh
 
-Rebuild leaderboard snapshots for the current UTC windows (`day|week|month|total`). Intended for automation (service role only).
+Rebuild leaderboard snapshots for the current UTC week (`week` only). Intended for automation (service role only).
 
 Auth:
 - `Authorization: Bearer <service_role_key|api_key>`
 
 Query (optional):
-- `period=day|week|month|total` (when omitted, refreshes all periods)
+- `period=week` (when omitted, refreshes `week`)
 
 Response:
 
@@ -783,13 +789,10 @@ Manual refresh runbook:
 BASE_URL="https://5tmappuk.us-east.insforge.app"
 ADMIN_TOKEN="<service_role_key or api_key>"
 
-for period in day week month total; do
-  echo "period=$period"
-  curl -s -X POST "$BASE_URL/functions/vibeusage-leaderboard-refresh?period=${period}" \
-    -H "Authorization: Bearer $ADMIN_TOKEN" \
-    -H "Content-Type: application/json" \
-    --data "{}"
-done
+curl -s -X POST "$BASE_URL/functions/vibeusage-leaderboard-refresh?period=week" \
+  -H "Authorization: Bearer $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  --data "{}"
 ```
 
 Verification:

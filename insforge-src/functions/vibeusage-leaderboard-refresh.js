@@ -1,5 +1,5 @@
 // Edge function: vibeusage-leaderboard-refresh
-// Rebuilds leaderboard snapshots for current UTC windows (day/week/month/total).
+// Rebuilds leaderboard snapshots for current UTC window (week only).
 // Auth: Authorization: Bearer <service_role_key>
 
 'use strict';
@@ -7,10 +7,12 @@
 const { handleOptions, json, requireMethod } = require('../shared/http');
 const { getBearerToken } = require('../shared/auth');
 const { getAnonKey, getBaseUrl, getServiceRoleKey } = require('../shared/env');
-const { isDate, toUtcDay, addUtcDays, formatDateUTC } = require('../shared/date');
+const { toUtcDay, addUtcDays, formatDateUTC } = require('../shared/date');
+const { forEachPage } = require('../shared/pagination');
 const { toBigInt, toPositiveInt } = require('../shared/numbers');
 
-const PERIODS = ['day', 'week', 'month', 'total'];
+const PERIODS = ['week'];
+const SOURCE_PAGE_SIZE = 1000;
 const INSERT_BATCH_SIZE = 500;
 
 module.exports = async function(request) {
@@ -26,6 +28,10 @@ module.exports = async function(request) {
   const bearer = getBearerToken(request.headers.get('Authorization'));
   if (!bearer || bearer !== serviceRoleKey) return json({ error: 'Unauthorized' }, 401);
 
+  const url = new URL(request.url);
+  const requested = normalizePeriod(url.searchParams.get('period'));
+  if (url.searchParams.has('period') && !requested) return json({ error: 'Invalid period' }, 400);
+
   const baseUrl = getBaseUrl();
   const anonKey = getAnonKey();
   const serviceClient = createClient({
@@ -34,17 +40,13 @@ module.exports = async function(request) {
     edgeFunctionToken: serviceRoleKey
   });
 
-  const url = new URL(request.url);
-  const requested = normalizePeriod(url.searchParams.get('period'));
-  if (url.searchParams.has('period') && !requested) return json({ error: 'Invalid period' }, 400);
-
   const targetPeriods = requested ? [requested] : PERIODS;
   const generatedAt = new Date().toISOString();
   const results = [];
 
   try {
     for (const period of targetPeriods) {
-      const window = await computeWindow({ period, serviceClient });
+      const window = await computeWindow({ period });
       if (!window.ok) return json({ error: window.error }, 500);
 
       const { from, to } = window;
@@ -68,17 +70,12 @@ module.exports = async function(request) {
 function normalizePeriod(raw) {
   if (typeof raw !== 'string') return null;
   const v = raw.trim().toLowerCase();
-  return PERIODS.includes(v) ? v : null;
+  return v === 'week' ? v : null;
 }
 
-async function computeWindow({ period, serviceClient }) {
+async function computeWindow({ period }) {
   const now = new Date();
   const today = toUtcDay(now);
-
-  if (period === 'day') {
-    const day = formatDateUTC(today);
-    return { ok: true, from: day, to: day };
-  }
 
   if (period === 'week') {
     const dow = today.getUTCDay();
@@ -87,23 +84,7 @@ async function computeWindow({ period, serviceClient }) {
     return { ok: true, from: formatDateUTC(from), to: formatDateUTC(to) };
   }
 
-  if (period === 'month') {
-    const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-    const to = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
-    return { ok: true, from: formatDateUTC(from), to: formatDateUTC(to) };
-  }
-
-  const { data: meta, error } = await serviceClient.database
-    .from('vibeusage_leaderboard_source_total')
-    .select('from_day,to_day')
-    .limit(1)
-    .maybeSingle();
-
-  if (error) return { ok: false, error: error.message };
-
-  const from = isDate(meta?.from_day) ? meta.from_day : formatDateUTC(today);
-  const to = isDate(meta?.to_day) ? meta.to_day : formatDateUTC(today);
-  return { ok: true, from, to };
+  return { ok: false, error: `Invalid period: ${String(period)}` };
 }
 
 async function refreshPeriod({ serviceClient, period, from, to, generatedAt }) {
@@ -119,23 +100,31 @@ async function refreshPeriod({ serviceClient, period, from, to, generatedAt }) {
   }
 
   const sourceView = `vibeusage_leaderboard_source_${period}`;
-  const { data: rows, error } = await serviceClient.database
-    .from(sourceView)
-    .select('user_id,rank,total_tokens,display_name,avatar_url,from_day,to_day')
-    .order('rank', { ascending: true });
+  let inserted = 0;
+
+  const { error } = await forEachPage({
+    pageSize: SOURCE_PAGE_SIZE,
+    createQuery: () =>
+      serviceClient.database
+        .from(sourceView)
+        .select('user_id,rank,gpt_tokens,claude_tokens,total_tokens,display_name,avatar_url')
+        .order('rank', { ascending: true }),
+    onPage: async (rows) => {
+      const normalized = (rows || [])
+        .map((row) => normalizeSnapshotRow({ row, period, from, to, generatedAt }))
+        .filter(Boolean);
+
+      for (const batch of chunkRows(normalized, INSERT_BATCH_SIZE)) {
+        const { error: insertErr } = await serviceClient.database.from('vibeusage_leaderboard_snapshots').insert(batch);
+        if (insertErr) throw new Error(insertErr.message);
+      }
+
+      inserted += normalized.length;
+    }
+  });
 
   if (error) throw new Error(error.message);
-
-  const normalized = (rows || [])
-    .map((row) => normalizeSnapshotRow({ row, period, from, to, generatedAt }))
-    .filter(Boolean);
-
-  for (const batch of chunkRows(normalized, INSERT_BATCH_SIZE)) {
-    const { error: insertErr } = await serviceClient.database.from('vibeusage_leaderboard_snapshots').insert(batch);
-    if (insertErr) throw new Error(insertErr.message);
-  }
-
-  return { inserted: normalized.length };
+  return { inserted };
 }
 
 function normalizeSnapshotRow({ row, period, from, to, generatedAt }) {
@@ -143,6 +132,8 @@ function normalizeSnapshotRow({ row, period, from, to, generatedAt }) {
   const rank = toPositiveInt(row.rank);
   if (rank <= 0) return null;
 
+  const gptTokens = toBigInt(row.gpt_tokens).toString();
+  const claudeTokens = toBigInt(row.claude_tokens).toString();
   const totalTokens = toBigInt(row.total_tokens).toString();
   const displayName = normalizeDisplayName(row.display_name);
   const avatarUrl = normalizeAvatarUrl(row.avatar_url);
@@ -153,6 +144,8 @@ function normalizeSnapshotRow({ row, period, from, to, generatedAt }) {
     to_day: to,
     user_id: row.user_id,
     rank,
+    gpt_tokens: gptTokens,
+    claude_tokens: claudeTokens,
     total_tokens: totalTokens,
     display_name: displayName,
     avatar_url: avatarUrl,

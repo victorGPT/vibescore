@@ -382,7 +382,7 @@ var require_auth = __commonJS({
 var require_date = __commonJS({
   "insforge-src/shared/date.js"(exports2, module2) {
     "use strict";
-    function isDate2(s) {
+    function isDate(s) {
       return typeof s === "string" && /^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(s);
     }
     function toUtcDay2(d) {
@@ -397,12 +397,12 @@ var require_date = __commonJS({
       const fromDefault = formatDateUTC2(
         new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 29))
       );
-      const from = isDate2(fromRaw) ? fromRaw : fromDefault;
-      const to = isDate2(toRaw) ? toRaw : toDefault;
+      const from = isDate(fromRaw) ? fromRaw : fromDefault;
+      const to = isDate(toRaw) ? toRaw : toDefault;
       return { from, to };
     }
     function parseUtcDateString(yyyyMmDd) {
-      if (!isDate2(yyyyMmDd)) return null;
+      if (!isDate(yyyyMmDd)) return null;
       const [y, m, d] = yyyyMmDd.split("-").map((n) => Number(n));
       const dt = new Date(Date.UTC(y, m - 1, d));
       if (!Number.isFinite(dt.getTime())) return null;
@@ -436,7 +436,7 @@ var require_date = __commonJS({
       return formatter;
     }
     function parseDateParts(yyyyMmDd) {
-      if (!isDate2(yyyyMmDd)) return null;
+      if (!isDate(yyyyMmDd)) return null;
       const [y, m, d] = yyyyMmDd.split("-").map((n) => Number(n));
       if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return null;
       return { year: y, month: m, day: d };
@@ -601,8 +601,8 @@ var require_date = __commonJS({
         -29
       );
       const fromDefault = formatDateParts(fromDefaultParts);
-      const from = isDate2(fromRaw) ? fromRaw : fromDefault;
-      const to = isDate2(toRaw) ? toRaw : toDefault;
+      const from = isDate(fromRaw) ? fromRaw : fromDefault;
+      const to = isDate(toRaw) ? toRaw : toDefault;
       return { from, to };
     }
     function listDateStrings(from, to) {
@@ -648,7 +648,7 @@ var require_date = __commonJS({
       return Math.min(max, Math.max(min, Math.floor(n)));
     }
     module2.exports = {
-      isDate: isDate2,
+      isDate,
       toUtcDay: toUtcDay2,
       formatDateUTC: formatDateUTC2,
       normalizeDateRange,
@@ -672,6 +672,47 @@ var require_date = __commonJS({
       listDateStrings,
       getUsageMaxDays
     };
+  }
+});
+
+// insforge-src/shared/pagination.js
+var require_pagination = __commonJS({
+  "insforge-src/shared/pagination.js"(exports2, module2) {
+    "use strict";
+    var MAX_PAGE_SIZE = 1e3;
+    function normalizePageSize(value) {
+      const size = Number(value);
+      if (!Number.isFinite(size) || size <= 0) return MAX_PAGE_SIZE;
+      return Math.min(MAX_PAGE_SIZE, Math.floor(size));
+    }
+    async function forEachPage2({ createQuery, pageSize, onPage }) {
+      if (typeof createQuery !== "function") {
+        throw new Error("createQuery must be a function");
+      }
+      if (typeof onPage !== "function") {
+        throw new Error("onPage must be a function");
+      }
+      const size = normalizePageSize(pageSize);
+      let offset = 0;
+      while (true) {
+        const query = createQuery();
+        if (!query || typeof query.range !== "function") {
+          const { data: data2, error: error2 } = await query;
+          if (error2) return { error: error2 };
+          const rows2 = Array.isArray(data2) ? data2 : [];
+          if (rows2.length) await onPage(rows2);
+          return { error: null };
+        }
+        const { data, error } = await query.range(offset, offset + size - 1);
+        if (error) return { error };
+        const rows = Array.isArray(data) ? data : [];
+        if (rows.length) await onPage(rows);
+        if (rows.length < size) break;
+        offset += size;
+      }
+      return { error: null };
+    }
+    module2.exports = { forEachPage: forEachPage2 };
   }
 });
 
@@ -727,9 +768,11 @@ var require_numbers = __commonJS({
 var { handleOptions, json, requireMethod } = require_http();
 var { getBearerToken } = require_auth();
 var { getAnonKey, getBaseUrl, getServiceRoleKey } = require_env();
-var { isDate, toUtcDay, addUtcDays, formatDateUTC } = require_date();
+var { toUtcDay, addUtcDays, formatDateUTC } = require_date();
+var { forEachPage } = require_pagination();
 var { toBigInt, toPositiveInt } = require_numbers();
-var PERIODS = ["day", "week", "month", "total"];
+var PERIODS = ["week"];
+var SOURCE_PAGE_SIZE = 1e3;
 var INSERT_BATCH_SIZE = 500;
 module.exports = async function(request) {
   const opt = handleOptions(request);
@@ -740,6 +783,9 @@ module.exports = async function(request) {
   if (!serviceRoleKey) return json({ error: "Admin key missing" }, 500);
   const bearer = getBearerToken(request.headers.get("Authorization"));
   if (!bearer || bearer !== serviceRoleKey) return json({ error: "Unauthorized" }, 401);
+  const url = new URL(request.url);
+  const requested = normalizePeriod(url.searchParams.get("period"));
+  if (url.searchParams.has("period") && !requested) return json({ error: "Invalid period" }, 400);
   const baseUrl = getBaseUrl();
   const anonKey = getAnonKey();
   const serviceClient = createClient({
@@ -747,15 +793,12 @@ module.exports = async function(request) {
     anonKey: anonKey || serviceRoleKey,
     edgeFunctionToken: serviceRoleKey
   });
-  const url = new URL(request.url);
-  const requested = normalizePeriod(url.searchParams.get("period"));
-  if (url.searchParams.has("period") && !requested) return json({ error: "Invalid period" }, 400);
   const targetPeriods = requested ? [requested] : PERIODS;
   const generatedAt = (/* @__PURE__ */ new Date()).toISOString();
   const results = [];
   try {
     for (const period of targetPeriods) {
-      const window = await computeWindow({ period, serviceClient });
+      const window = await computeWindow({ period });
       if (!window.ok) return json({ error: window.error }, 500);
       const { from, to } = window;
       const { inserted } = await refreshPeriod({
@@ -775,31 +818,18 @@ module.exports = async function(request) {
 function normalizePeriod(raw) {
   if (typeof raw !== "string") return null;
   const v = raw.trim().toLowerCase();
-  return PERIODS.includes(v) ? v : null;
+  return v === "week" ? v : null;
 }
-async function computeWindow({ period, serviceClient }) {
+async function computeWindow({ period }) {
   const now = /* @__PURE__ */ new Date();
   const today = toUtcDay(now);
-  if (period === "day") {
-    const day = formatDateUTC(today);
-    return { ok: true, from: day, to: day };
-  }
   if (period === "week") {
     const dow = today.getUTCDay();
-    const from2 = addUtcDays(today, -dow);
-    const to2 = addUtcDays(from2, 6);
-    return { ok: true, from: formatDateUTC(from2), to: formatDateUTC(to2) };
+    const from = addUtcDays(today, -dow);
+    const to = addUtcDays(from, 6);
+    return { ok: true, from: formatDateUTC(from), to: formatDateUTC(to) };
   }
-  if (period === "month") {
-    const from2 = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-    const to2 = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
-    return { ok: true, from: formatDateUTC(from2), to: formatDateUTC(to2) };
-  }
-  const { data: meta, error } = await serviceClient.database.from("vibeusage_leaderboard_source_total").select("from_day,to_day").limit(1).maybeSingle();
-  if (error) return { ok: false, error: error.message };
-  const from = isDate(meta?.from_day) ? meta.from_day : formatDateUTC(today);
-  const to = isDate(meta?.to_day) ? meta.to_day : formatDateUTC(today);
-  return { ok: true, from, to };
+  return { ok: false, error: `Invalid period: ${String(period)}` };
 }
 async function refreshPeriod({ serviceClient, period, from, to, generatedAt }) {
   const deleteRes = await serviceClient.database.from("vibeusage_leaderboard_snapshots").delete().eq("period", period).eq("from_day", from).eq("to_day", to);
@@ -807,19 +837,28 @@ async function refreshPeriod({ serviceClient, period, from, to, generatedAt }) {
     throw new Error(deleteRes.error.message);
   }
   const sourceView = `vibeusage_leaderboard_source_${period}`;
-  const { data: rows, error } = await serviceClient.database.from(sourceView).select("user_id,rank,total_tokens,display_name,avatar_url,from_day,to_day").order("rank", { ascending: true });
+  let inserted = 0;
+  const { error } = await forEachPage({
+    pageSize: SOURCE_PAGE_SIZE,
+    createQuery: () => serviceClient.database.from(sourceView).select("user_id,rank,gpt_tokens,claude_tokens,total_tokens,display_name,avatar_url").order("rank", { ascending: true }),
+    onPage: async (rows) => {
+      const normalized = (rows || []).map((row) => normalizeSnapshotRow({ row, period, from, to, generatedAt })).filter(Boolean);
+      for (const batch of chunkRows(normalized, INSERT_BATCH_SIZE)) {
+        const { error: insertErr } = await serviceClient.database.from("vibeusage_leaderboard_snapshots").insert(batch);
+        if (insertErr) throw new Error(insertErr.message);
+      }
+      inserted += normalized.length;
+    }
+  });
   if (error) throw new Error(error.message);
-  const normalized = (rows || []).map((row) => normalizeSnapshotRow({ row, period, from, to, generatedAt })).filter(Boolean);
-  for (const batch of chunkRows(normalized, INSERT_BATCH_SIZE)) {
-    const { error: insertErr } = await serviceClient.database.from("vibeusage_leaderboard_snapshots").insert(batch);
-    if (insertErr) throw new Error(insertErr.message);
-  }
-  return { inserted: normalized.length };
+  return { inserted };
 }
 function normalizeSnapshotRow({ row, period, from, to, generatedAt }) {
   if (!row?.user_id) return null;
   const rank = toPositiveInt(row.rank);
   if (rank <= 0) return null;
+  const gptTokens = toBigInt(row.gpt_tokens).toString();
+  const claudeTokens = toBigInt(row.claude_tokens).toString();
   const totalTokens = toBigInt(row.total_tokens).toString();
   const displayName = normalizeDisplayName(row.display_name);
   const avatarUrl = normalizeAvatarUrl(row.avatar_url);
@@ -829,6 +868,8 @@ function normalizeSnapshotRow({ row, period, from, to, generatedAt }) {
     to_day: to,
     user_id: row.user_id,
     rank,
+    gpt_tokens: gptTokens,
+    claude_tokens: claudeTokens,
     total_tokens: totalTokens,
     display_name: displayName,
     avatar_url: avatarUrl,

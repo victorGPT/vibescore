@@ -6232,11 +6232,11 @@ test('vibeusage-leaderboard returns a week window and slices entries to limit', 
   const userJwt = createUserJwt(userId);
 
   const entriesRows = [
-    { rank: 1, is_me: false, display_name: 'Anonymous', avatar_url: null, total_tokens: '100' },
-    { rank: 2, is_me: true, display_name: 'Anonymous', avatar_url: null, total_tokens: '50' }
+    { rank: 1, is_me: false, display_name: 'Anonymous', avatar_url: null, gpt_tokens: '60', claude_tokens: '40', total_tokens: '100' },
+    { rank: 2, is_me: true, display_name: 'Anonymous', avatar_url: null, gpt_tokens: '30', claude_tokens: '20', total_tokens: '50' }
   ];
 
-  const meRow = { rank: 2, total_tokens: '50' };
+  const meRow = { rank: 2, gpt_tokens: '30', claude_tokens: '20', total_tokens: '50' };
 
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
@@ -6254,7 +6254,11 @@ test('vibeusage-leaderboard returns a week window and slices entries to limit', 
                     assert.equal(col, 'rank');
                     assert.equal(opts?.ascending, true);
                     return {
-                      limit: async () => ({ data: entriesRows, error: null })
+                      range: async (from, to) => {
+                        assert.equal(from, 0);
+                        assert.equal(to, 0);
+                        return { data: entriesRows, error: null };
+                      }
                     };
                   }
                 })
@@ -6303,12 +6307,44 @@ test('vibeusage-leaderboard returns a week window and slices entries to limit', 
   assert.ok(Array.isArray(body.entries));
   assert.equal(body.entries.length, 1);
   assert.equal(body.entries[0].rank, 1);
+  assert.equal(body.entries[0].gpt_tokens, '60');
+  assert.equal(body.entries[0].claude_tokens, '40');
   assert.equal(body.entries[0].total_tokens, '100');
 
-  assert.deepEqual(body.me, { rank: 2, total_tokens: '50' });
+  assert.deepEqual(body.me, { rank: 2, gpt_tokens: '30', claude_tokens: '20', total_tokens: '50' });
 });
 
-test('vibeusage-leaderboard uses system earliest day for total window', async () => {
+test('vibeusage-leaderboard rejects non-week period', async () => {
+  const fn = require('../insforge-functions/vibeusage-leaderboard');
+  const userId = '77777777-7777-7777-7777-777777777777';
+  const userJwt = createUserJwt(userId);
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: () => {
+            throw new Error('Unexpected database access');
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard?period=total', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${userJwt}` }
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 400);
+});
+
+test('vibeusage-leaderboard supports offset pagination', async () => {
   setDenoEnv({
     INSFORGE_INTERNAL_URL: BASE_URL,
     ANON_KEY
@@ -6316,12 +6352,15 @@ test('vibeusage-leaderboard uses system earliest day for total window', async ()
 
   const fn = require('../insforge-functions/vibeusage-leaderboard');
 
-  const userId = '77777777-7777-7777-7777-777777777777';
+  const userId = '99999999-6666-6666-6666-666666666666';
   const userJwt = createUserJwt(userId);
 
-  const metaRow = { from_day: '2025-12-01', to_day: '2025-12-19' };
-  const entriesRows = [{ rank: 1, is_me: true, display_name: 'Anonymous', avatar_url: null, total_tokens: '42' }];
-  const meRow = { rank: 1, total_tokens: '42' };
+  const entriesRows = [
+    { rank: 2, is_me: false, display_name: 'Anonymous', avatar_url: null, gpt_tokens: '2', claude_tokens: '3', total_tokens: '5' },
+    { rank: 3, is_me: false, display_name: 'Anonymous', avatar_url: null, gpt_tokens: '4', claude_tokens: '1', total_tokens: '5' }
+  ];
+
+  const meRow = { rank: 99, gpt_tokens: '0', claude_tokens: '0', total_tokens: '0' };
 
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
@@ -6331,25 +6370,21 @@ test('vibeusage-leaderboard uses system earliest day for total window', async ()
         },
         database: {
           from: (table) => {
-            if (table === 'vibeusage_leaderboard_meta_total_current') {
-              return {
-                select: () => ({
-                  maybeSingle: async () => ({ data: metaRow, error: null })
-                })
-              };
-            }
-
-            if (table === 'vibeusage_leaderboard_total_current') {
+            if (table === 'vibeusage_leaderboard_week_current') {
               return {
                 select: () => ({
                   order: () => ({
-                    limit: async () => ({ data: entriesRows, error: null })
+                    range: async (from, to) => {
+                      assert.equal(from, 1);
+                      assert.equal(to, 2);
+                      return { data: entriesRows, error: null };
+                    }
                   })
                 })
               };
             }
 
-            if (table === 'vibeusage_leaderboard_me_total_current') {
+            if (table === 'vibeusage_leaderboard_me_week_current') {
               return {
                 select: () => ({
                   maybeSingle: async () => ({ data: meRow, error: null })
@@ -6366,21 +6401,24 @@ test('vibeusage-leaderboard uses system earliest day for total window', async ()
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibeusage-leaderboard?period=total', {
-    method: 'GET',
-    headers: { Authorization: `Bearer ${userJwt}` }
-  });
+  const req = new Request(
+    'http://localhost/functions/vibeusage-leaderboard?period=week&limit=2&offset=1',
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${userJwt}` }
+    }
+  );
 
   const res = await fn(req);
   assert.equal(res.status, 200);
   const body = await res.json();
 
-  assert.equal(body.period, 'total');
-  assert.equal(body.from, metaRow.from_day);
-  assert.equal(body.to, metaRow.to_day);
+  assert.equal(body.period, 'week');
   assert.ok(Array.isArray(body.entries));
-  assert.equal(body.entries.length, 1);
-  assert.deepEqual(body.me, { rank: 1, total_tokens: '42' });
+  assert.equal(body.entries.length, 2);
+  assert.equal(body.entries[0].rank, 2);
+  assert.equal(body.entries[1].rank, 3);
+  assert.deepEqual(body.me, { rank: 99, gpt_tokens: '0', claude_tokens: '0', total_tokens: '0' });
 });
 
 test('vibeusage-leaderboard rejects invalid period', async () => {
@@ -6411,6 +6449,157 @@ test('vibeusage-leaderboard rejects invalid period', async () => {
 
   const res = await fn(req);
   assert.equal(res.status, 400);
+});
+
+test('vibeusage-leaderboard-refresh rejects non-week period', async () => {
+  setDenoEnv({
+    INSFORGE_INTERNAL_URL: BASE_URL,
+    ANON_KEY,
+    INSFORGE_SERVICE_ROLE_KEY: SERVICE_ROLE_KEY
+  });
+
+  const fn = require('../insforge-functions/vibeusage-leaderboard-refresh');
+
+  globalThis.createClient = () => {
+    throw new Error('Unexpected createClient call');
+  };
+
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard-refresh?period=total', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 400);
+});
+
+test('vibeusage-leaderboard-refresh snapshots weekly leaderboard with token fields', async () => {
+  setDenoEnv({
+    INSFORGE_INTERNAL_URL: BASE_URL,
+    ANON_KEY,
+    INSFORGE_SERVICE_ROLE_KEY: SERVICE_ROLE_KEY
+  });
+
+  const fn = require('../insforge-functions/vibeusage-leaderboard-refresh');
+
+  const deletes = [];
+  const inserts = [];
+
+  const sourceRows = [
+    {
+      user_id: '11111111-1111-1111-1111-111111111111',
+      rank: 1,
+      gpt_tokens: '10',
+      claude_tokens: '5',
+      total_tokens: '15',
+      display_name: 'Alpha',
+      avatar_url: null
+    },
+    {
+      user_id: '22222222-2222-2222-2222-222222222222',
+      rank: 2,
+      gpt_tokens: '3',
+      claude_tokens: '7',
+      total_tokens: '10',
+      display_name: 'Beta',
+      avatar_url: 'https://example.test/avatar.png'
+    }
+  ];
+
+  function makeDeleteQuery() {
+    const query = {
+      filters: [],
+      eq(col, value) {
+        query.filters.push({ col, value });
+        return query;
+      },
+      then(resolve, reject) {
+        return Promise.resolve({ error: null }).then(resolve, reject);
+      }
+    };
+    return query;
+  }
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      assert.equal(args.anonKey, ANON_KEY);
+      return {
+        database: {
+          from: (table) => {
+            if (table === 'vibeusage_leaderboard_snapshots') {
+              return {
+                delete: () => {
+                  const query = makeDeleteQuery();
+                  deletes.push(query);
+                  return query;
+                },
+                insert: async (rows) => {
+                  inserts.push({ table, rows });
+                  return { error: null };
+                }
+              };
+            }
+
+            if (table === 'vibeusage_leaderboard_source_week') {
+              return {
+                select: () => ({
+                  order: () => ({
+                    range: async (from, to) => {
+                      assert.equal(from, 0);
+                      assert.ok(to >= 0);
+                      return { data: sourceRows, error: null };
+                    }
+                  })
+                })
+              };
+            }
+
+            throw new Error(`Unexpected table: ${table}`);
+          }
+        }
+      };
+    }
+
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard-refresh', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+
+  assert.equal(body.success, true);
+  assert.ok(typeof body.generated_at === 'string' && body.generated_at.includes('T'));
+  assert.ok(Array.isArray(body.results));
+  assert.equal(body.results.length, 1);
+  assert.equal(body.results[0].period, 'week');
+  assert.equal(body.results[0].inserted, 2);
+
+  assert.equal(deletes.length, 1);
+  assert.equal(inserts.length, 1);
+
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const from = new Date(today);
+  from.setUTCDate(from.getUTCDate() - today.getUTCDay()); // Sunday start
+  const to = new Date(from);
+  to.setUTCDate(to.getUTCDate() + 6);
+
+  const inserted = inserts[0]?.rows || [];
+  assert.equal(inserted.length, 2);
+  assert.equal(inserted[0].period, 'week');
+  assert.equal(inserted[0].from_day, from.toISOString().slice(0, 10));
+  assert.equal(inserted[0].to_day, to.toISOString().slice(0, 10));
+  assert.equal(inserted[0].generated_at, body.generated_at);
+  assert.equal(inserted[0].gpt_tokens, '10');
+  assert.equal(inserted[0].claude_tokens, '5');
+  assert.equal(inserted[0].total_tokens, '15');
 });
 
 test('vibeusage-leaderboard-settings inserts user setting row', async () => {

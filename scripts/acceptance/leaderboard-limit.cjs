@@ -17,20 +17,21 @@ class QueryStub {
     return this;
   }
 
-  limit(value) {
-    this.parent.limits.set(this.table, value);
-    return { data: this.parent.entries, error: null };
+  range(from, to) {
+    this.parent.ranges.set(this.table, { from, to });
+    const rows = this.parent.entries.slice(from, to + 1);
+    return { data: rows, error: null };
   }
 
   maybeSingle() {
-    return { data: { rank: 2, total_tokens: '99' }, error: null };
+    return { data: { rank: 2, gpt_tokens: '40', claude_tokens: '59', total_tokens: '99' }, error: null };
   }
 }
 
 class DatabaseStub {
   constructor(entries) {
     this.entries = entries;
-    this.limits = new Map();
+    this.ranges = new Map();
   }
 
   from(table) {
@@ -53,8 +54,8 @@ async function main() {
   };
 
   const entries = [
-    { rank: 1, is_me: true, display_name: 'Alpha', avatar_url: null, total_tokens: '10' },
-    { rank: 2, is_me: false, display_name: 'Beta', avatar_url: null, total_tokens: '9' }
+    { rank: 1, is_me: true, display_name: 'Alpha', avatar_url: null, gpt_tokens: '6', claude_tokens: '4', total_tokens: '10' },
+    { rank: 2, is_me: false, display_name: 'Beta', avatar_url: null, gpt_tokens: '5', claude_tokens: '4', total_tokens: '9' }
   ];
 
   const db = new DatabaseStub(entries);
@@ -70,7 +71,7 @@ async function main() {
 
   const leaderboard = require('../../insforge-src/functions/vibeusage-leaderboard.js');
   const res = await leaderboard(
-    new Request('http://local/functions/vibeusage-leaderboard?period=day&limit=1', {
+    new Request('http://local/functions/vibeusage-leaderboard?period=week&limit=1&offset=0', {
       method: 'GET',
       headers: { Authorization: 'Bearer user-jwt' }
     })
@@ -80,14 +81,14 @@ async function main() {
   assert.equal(res.status, 200);
   assert.equal(body.entries.length, 1);
 
-  const entriesView = 'vibeusage_leaderboard_day_current';
-  assert.equal(db.limits.get(entriesView), 1);
+  const entriesView = 'vibeusage_leaderboard_week_current';
+  assert.deepEqual(db.ranges.get(entriesView), { from: 0, to: 0 });
 
   process.stdout.write(
     JSON.stringify(
       {
         ok: true,
-        limit: db.limits.get(entriesView),
+        range: db.ranges.get(entriesView),
         entries: body.entries
       },
       null,

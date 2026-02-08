@@ -1,16 +1,18 @@
 // Edge function: vibeusage-leaderboard
-// Returns token usage leaderboards (UTC calendar day/week/month/total) for authenticated users.
+// Returns token usage leaderboard for the current UTC calendar week (Sunday start) for authenticated users.
 
 'use strict';
 
 const { handleOptions, json, requireMethod } = require('../shared/http');
 const { getBearerToken, getEdgeClientAndUserId } = require('../shared/auth');
 const { getAnonKey, getBaseUrl, getServiceRoleKey } = require('../shared/env');
-const { isDate, toUtcDay, addUtcDays, formatDateUTC } = require('../shared/date');
+const { toUtcDay, addUtcDays, formatDateUTC } = require('../shared/date');
 const { toBigInt, toPositiveInt, toPositiveIntOrNull } = require('../shared/numbers');
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
+const DEFAULT_OFFSET = 0;
+const MAX_OFFSET = 10_000;
 
 module.exports = async function(request) {
   const opt = handleOptions(request);
@@ -31,11 +33,13 @@ module.exports = async function(request) {
   if (!period) return json({ error: 'Invalid period' }, 400);
 
   const limit = normalizeLimit(url.searchParams.get('limit'));
+  const offset = normalizeOffset(url.searchParams.get('offset'));
+  const page = Math.floor(offset / Math.max(1, limit)) + 1;
 
   let from;
   let to;
   try {
-    ({ from, to } = await computeWindow({ period, edgeClient: auth.edgeClient }));
+    ({ from, to } = await computeWindow({ period }));
   } catch (err) {
     return json({ error: String(err && err.message ? err.message : err) }, 500);
   }
@@ -57,7 +61,8 @@ module.exports = async function(request) {
       from,
       to,
       userId: auth.userId,
-      limit
+      limit,
+      offset
     });
 
     if (snapshot.ok) {
@@ -67,6 +72,11 @@ module.exports = async function(request) {
           from,
           to,
           generated_at: snapshot.generated_at,
+          page,
+          limit,
+          offset,
+          total_entries: snapshot.total_entries,
+          total_pages: snapshot.total_pages,
           entries: snapshot.entries,
           me: snapshot.me
         },
@@ -81,7 +91,8 @@ module.exports = async function(request) {
   const singleQuery = await tryLoadSingleQuery({
     edgeClient: auth.edgeClient,
     entriesView,
-    limit
+    limit,
+    offset
   });
 
   if (singleQuery) {
@@ -91,6 +102,11 @@ module.exports = async function(request) {
         from,
         to,
         generated_at: new Date().toISOString(),
+        page,
+        limit,
+        offset,
+        total_entries: null,
+        total_pages: null,
         entries: singleQuery.entries,
         me: singleQuery.me
       },
@@ -100,15 +116,15 @@ module.exports = async function(request) {
 
   const { data: rawEntries, error: entriesErr } = await auth.edgeClient.database
     .from(entriesView)
-    .select('rank,is_me,display_name,avatar_url,total_tokens')
+    .select('rank,is_me,display_name,avatar_url,gpt_tokens,claude_tokens,total_tokens')
     .order('rank', { ascending: true })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
 
   if (entriesErr) return json({ error: entriesErr.message }, 500);
 
   const { data: rawMe, error: meErr } = await auth.edgeClient.database
     .from(meView)
-    .select('rank,total_tokens')
+    .select('rank,gpt_tokens,claude_tokens,total_tokens')
     .maybeSingle();
 
   if (meErr) return json({ error: meErr.message }, 500);
@@ -122,6 +138,11 @@ module.exports = async function(request) {
       from,
       to,
       generated_at: new Date().toISOString(),
+      page,
+      limit,
+      offset,
+      total_entries: null,
+      total_pages: null,
       entries,
       me
     },
@@ -129,12 +150,20 @@ module.exports = async function(request) {
   );
 };
 
-async function tryLoadSingleQuery({ edgeClient, entriesView, limit }) {
+function toSafeCount(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.floor(n);
+}
+
+async function tryLoadSingleQuery({ edgeClient, entriesView, limit, offset }) {
   try {
+    const startRank = offset + 1;
+    const endRank = offset + limit;
     const { data, error } = await edgeClient.database
       .from(entriesView)
-      .select('rank,is_me,display_name,avatar_url,total_tokens')
-      .or(`rank.lte.${limit},is_me.eq.true`)
+      .select('rank,is_me,display_name,avatar_url,gpt_tokens,claude_tokens,total_tokens')
+      .or(`and(rank.gte.${startRank},rank.lte.${endRank}),is_me.eq.true`)
       .order('rank', { ascending: true });
 
     if (error) return null;
@@ -144,7 +173,7 @@ async function tryLoadSingleQuery({ edgeClient, entriesView, limit }) {
 
     for (const row of rows) {
       const rank = toPositiveInt(row?.rank);
-      if (rank < 1 || rank > limit) continue;
+      if (rank < startRank || rank > endRank) continue;
       entries.push(normalizeEntry(row));
     }
 
@@ -160,7 +189,7 @@ async function tryLoadSingleQuery({ edgeClient, entriesView, limit }) {
 function normalizePeriod(raw) {
   if (typeof raw !== 'string') return null;
   const v = raw.trim().toLowerCase();
-  if (v === 'day' || v === 'week' || v === 'month' || v === 'total') return v;
+  if (v === 'week') return v;
   return null;
 }
 
@@ -174,15 +203,41 @@ function normalizeLimit(raw) {
   return i;
 }
 
-async function loadSnapshot({ serviceClient, period, from, to, userId, limit }) {
+function normalizeOffset(raw) {
+  if (typeof raw !== 'string' || raw.trim().length === 0) return DEFAULT_OFFSET;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return DEFAULT_OFFSET;
+  const i = Math.floor(n);
+  if (i < 0) return 0;
+  if (i > MAX_OFFSET) return MAX_OFFSET;
+  return i;
+}
+
+async function loadSnapshot({ serviceClient, period, from, to, userId, limit, offset }) {
+  const countRes = await serviceClient.database
+    .from('vibeusage_leaderboard_snapshots')
+    .select('user_id', { count: 'exact' })
+    .eq('period', period)
+    .eq('from_day', from)
+    .eq('to_day', to)
+    .limit(1);
+
+  if (countRes.error) {
+    console.error('snapshot count error', countRes.error);
+    return { ok: false };
+  }
+
+  const totalEntries = toSafeCount(countRes.count);
+  const totalPages = totalEntries > 0 ? Math.ceil(totalEntries / Math.max(1, limit)) : 0;
+
   const { data: entryRows, error: entriesErr } = await serviceClient.database
     .from('vibeusage_leaderboard_snapshots')
-    .select('user_id,rank,total_tokens,display_name,avatar_url,generated_at')
+    .select('user_id,rank,gpt_tokens,claude_tokens,total_tokens,display_name,avatar_url,generated_at')
     .eq('period', period)
     .eq('from_day', from)
     .eq('to_day', to)
     .order('rank', { ascending: true })
-    .limit(limit);
+    .range(offset, offset + limit - 1);
 
   if (entriesErr) {
     console.error('snapshot entries error', entriesErr);
@@ -191,7 +246,7 @@ async function loadSnapshot({ serviceClient, period, from, to, userId, limit }) 
 
   const { data: meRow, error: meErr } = await serviceClient.database
     .from('vibeusage_leaderboard_snapshots')
-    .select('rank,total_tokens,generated_at')
+    .select('rank,gpt_tokens,claude_tokens,total_tokens,generated_at')
     .eq('period', period)
     .eq('from_day', from)
     .eq('to_day', to)
@@ -208,6 +263,8 @@ async function loadSnapshot({ serviceClient, period, from, to, userId, limit }) 
     is_me: row?.user_id === userId,
     display_name: normalizeDisplayName(row?.display_name),
     avatar_url: normalizeAvatarUrl(row?.avatar_url),
+    gpt_tokens: toBigInt(row?.gpt_tokens).toString(),
+    claude_tokens: toBigInt(row?.claude_tokens).toString(),
     total_tokens: toBigInt(row?.total_tokens).toString()
   }));
 
@@ -216,17 +273,19 @@ async function loadSnapshot({ serviceClient, period, from, to, userId, limit }) 
 
   if (entries.length === 0 && !meRow) return { ok: false };
 
-  return { ok: true, entries, me, generated_at: generatedAt };
+  return {
+    ok: true,
+    total_entries: totalEntries,
+    total_pages: totalPages,
+    entries,
+    me,
+    generated_at: generatedAt
+  };
 }
 
-async function computeWindow({ period, edgeClient }) {
+async function computeWindow({ period }) {
   const now = new Date();
   const today = toUtcDay(now);
-
-  if (period === 'day') {
-    const day = formatDateUTC(today);
-    return { from: day, to: day };
-  }
 
   if (period === 'week') {
     const dow = today.getUTCDay(); // 0=Sunday
@@ -235,22 +294,7 @@ async function computeWindow({ period, edgeClient }) {
     return { from: formatDateUTC(from), to: formatDateUTC(to) };
   }
 
-  if (period === 'month') {
-    const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-    const to = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
-    return { from: formatDateUTC(from), to: formatDateUTC(to) };
-  }
-
-  const { data: meta, error } = await edgeClient.database
-    .from('vibeusage_leaderboard_meta_total_current')
-    .select('from_day,to_day')
-    .maybeSingle();
-
-  if (error) throw new Error(error.message);
-
-  const from = isDate(meta?.from_day) ? meta.from_day : formatDateUTC(today);
-  const to = isDate(meta?.to_day) ? meta.to_day : formatDateUTC(today);
-  return { from, to };
+  throw new Error(`Unsupported period: ${String(period)}`);
 }
 
 function normalizeEntry(row) {
@@ -259,14 +303,23 @@ function normalizeEntry(row) {
     is_me: Boolean(row?.is_me),
     display_name: normalizeDisplayName(row?.display_name),
     avatar_url: normalizeAvatarUrl(row?.avatar_url),
+    gpt_tokens: toBigInt(row?.gpt_tokens).toString(),
+    claude_tokens: toBigInt(row?.claude_tokens).toString(),
     total_tokens: toBigInt(row?.total_tokens).toString()
   };
 }
 
 function normalizeMe(row) {
   const rank = toPositiveIntOrNull(row?.rank);
+  const gptTokens = toBigInt(row?.gpt_tokens);
+  const claudeTokens = toBigInt(row?.claude_tokens);
   const totalTokens = toBigInt(row?.total_tokens);
-  return { rank, total_tokens: totalTokens.toString() };
+  return {
+    rank,
+    gpt_tokens: gptTokens.toString(),
+    claude_tokens: claudeTokens.toString(),
+    total_tokens: totalTokens.toString()
+  };
 }
 
 function normalizeGeneratedAt(entryRows, meRow) {

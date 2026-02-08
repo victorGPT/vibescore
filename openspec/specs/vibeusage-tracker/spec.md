@@ -330,31 +330,44 @@ The dashboard TREND chart SHALL NOT render the trend line into future buckets th
 - **THEN** it SHALL render missing markers (no line) for those hours
 - **AND** it SHALL keep zero-usage buckets (`missing=false`) on the line
 
-### Requirement: Leaderboard endpoint is available (calendar day/week/month/total)
-The system SHALL provide a leaderboard endpoint that ranks users by `total_tokens` over a UTC calendar `day`, `week` (Sunday start), `month`, or `total` (all-time).
+### Requirement: Leaderboard endpoint is available (weekly only)
+The system SHALL provide a weekly leaderboard endpoint that ranks users by `total_tokens` over the current UTC calendar week (Sunday start).
+
+Token accounting:
+- `gpt_tokens` SHALL be the sum of `total_tokens` for GPT-family models.
+- `claude_tokens` SHALL be the sum of `billable_total_tokens` for Claude-family models (falling back to `total_tokens` when billable is missing).
+- `total_tokens` SHALL equal `gpt_tokens + claude_tokens`.
+- Rows with `model = "unknown"` SHALL be excluded.
+- Buckets with `source = "canary"` SHALL be excluded.
+
+Model family matching:
+- GPT-family: `model LIKE 'gpt-%' OR model LIKE 'openai/%' OR model LIKE '%/gpt-%'`.
+- Claude-family: `model LIKE 'claude-%' OR model LIKE 'anthropic/%' OR model LIKE '%/claude-%'`.
 
 #### Scenario: User fetches the current weekly leaderboard
 - **GIVEN** a user is signed in and has a valid `user_jwt`
-- **WHEN** the user calls `GET /functions/vibeusage-leaderboard?period=week`
+- **WHEN** the user calls `GET /functions/vibeusage-leaderboard?period=week&limit=20&offset=0`
 - **THEN** the response SHALL include `from` and `to` in `YYYY-MM-DD` (UTC)
+- **AND** the response SHALL include pagination metadata: `page`, `limit`, `offset`, `total_entries`, `total_pages`
 - **AND** the response SHALL include an ordered `entries` array sorted by `total_tokens` (desc)
+- **AND** each entry SHALL include `rank`, `is_me`, `display_name`, `avatar_url`, `gpt_tokens`, `claude_tokens`, and `total_tokens`
 
 ### Requirement: Leaderboard response includes generation timestamp
 The leaderboard endpoint SHALL include a `generated_at` timestamp indicating when the leaderboard data was produced.
 
 #### Scenario: Response includes generated_at
 - **GIVEN** a user is signed in and has a valid `user_jwt`
-- **WHEN** the user calls `GET /functions/vibeusage-leaderboard?period=month`
+- **WHEN** the user calls `GET /functions/vibeusage-leaderboard?period=week`
 - **THEN** the response SHALL include `generated_at` as an ISO timestamp
 
 ### Requirement: Leaderboard response includes `me`
-The leaderboard endpoint SHALL include a `me` object that reports the current user's `rank` and `total_tokens`, even when the user is not present in the `entries` array.
+The leaderboard endpoint SHALL include a `me` object that reports the current user's `rank`, `gpt_tokens`, `claude_tokens`, and `total_tokens`, even when the user is not present in the `entries` array.
 
 #### Scenario: User is not in Top N but still receives `me`
 - **GIVEN** a user is signed in and has a valid `user_jwt`
-- **AND** the user is not within the top requested `limit`
+- **AND** the user is not within the requested page (`offset..offset+limit`)
 - **WHEN** the user calls `GET /functions/vibeusage-leaderboard?period=week&limit=20`
-- **THEN** the response SHALL include a `me` object with the user's `rank` and `total_tokens`
+- **THEN** the response SHALL include a `me` object with the user's `rank`, `gpt_tokens`, `claude_tokens`, and `total_tokens`
 
 ### Requirement: Leaderboard output is privacy-safe
 The leaderboard endpoint MUST NOT expose PII (e.g., email) or any raw Codex logs. It SHALL only return publicly-safe profile fields and aggregated totals.
@@ -377,11 +390,11 @@ Users SHALL be included in the leaderboard by default, but their identity MUST b
 The leaderboard endpoint MUST validate inputs and enforce reasonable limits to avoid excessive enumeration.
 
 #### Scenario: Invalid parameters are rejected
-- **WHEN** a user calls `GET /functions/vibeusage-leaderboard?period=year`
+- **WHEN** a user calls `GET /functions/vibeusage-leaderboard?period=year` OR `...period=total`
 - **THEN** the endpoint SHALL respond with `400`
 
 ### Requirement: Leaderboard snapshots can be refreshed by automation
-The system SHALL expose an authenticated refresh endpoint that rebuilds the current UTC leaderboard snapshots. It MUST accept an optional `period=day|week|month|total` query and return a structured JSON response (including errors) so automation can log actionable diagnostics per period.
+The system SHALL expose an authenticated refresh endpoint that rebuilds the current UTC weekly leaderboard snapshots. It MUST accept an optional `period=week` query and return a structured JSON response (including errors) so automation can log actionable diagnostics per run.
 
 #### Scenario: Automation logs per-period status
 - **GIVEN** a valid service-role bearer token
@@ -782,12 +795,12 @@ When ingesting with service-role credentials, the system MUST avoid a pre-read o
 - **THEN** the server SHALL attempt an `on_conflict` insert with `ignore-duplicates`
 - **AND** fall back to the legacy path only if upsert is unsupported
 
-### Requirement: Leaderboard fallback query SHALL apply limit at source
-The system SHALL apply the requested `limit` when querying the leaderboard view in the non-snapshot fallback path, so only the top N rows are fetched.
+### Requirement: Leaderboard fallback query SHALL apply pagination at source
+The system SHALL apply the requested `limit` and `offset` when querying the leaderboard view in the non-snapshot fallback path, so only the requested page rows are fetched (plus `me` when needed).
 
 #### Scenario: Limit enforced at query
-- **WHEN** a user requests `GET /functions/vibeusage-leaderboard?limit=20`
-- **THEN** the backend SHALL query only the top 20 leaderboard rows
+- **WHEN** a user requests `GET /functions/vibeusage-leaderboard?limit=20&offset=40`
+- **THEN** the backend SHALL query only the requested page rows (rank `41..60`)
 - **AND** the response payload SHALL remain unchanged
 
 ### Requirement: Leaderboard fallback SHOULD use single query when possible
@@ -795,7 +808,7 @@ The system SHALL attempt a single-query fallback to fetch both Top N entries and
 
 #### Scenario: Single query succeeds
 - **WHEN** a signed-in user requests the leaderboard
-- **THEN** the backend SHALL fetch rows matching `rank <= limit OR is_me = true` in one query
+- **THEN** the backend SHALL fetch rows matching `rank between offset+1 and offset+limit OR is_me = true` in one query
 - **AND** the response payload SHALL remain unchanged
 
 #### Scenario: Single query fails
@@ -1016,12 +1029,12 @@ The dashboard UI SHALL default the DETAILS table date/time sorting to newest-fir
 - **THEN** only the active column SHALL show a visible sort indicator
 
 ### Requirement: Leaderboard is served from precomputed snapshots
-The system SHALL compute leaderboard rankings from a precomputed snapshot that is refreshed asynchronously, without changing the leaderboard API contract.
+The system SHALL compute leaderboard rankings from a precomputed snapshot that is refreshed asynchronously.
 
 #### Scenario: Leaderboard reads from latest snapshot
 - **GIVEN** a snapshot exists for `period=week` with `generated_at`
 - **WHEN** a signed-in user calls `GET /functions/vibeusage-leaderboard?period=week`
-- **THEN** the response SHALL reflect the latest snapshot totals
+- **THEN** the response SHALL reflect the latest snapshot totals (`gpt_tokens`, `claude_tokens`, `total_tokens`)
 - **AND** the response SHALL include the snapshot `generated_at`
 
 ### Requirement: Leaderboard snapshots are refreshable by authorized automation
@@ -1030,7 +1043,7 @@ The system SHALL expose a refresh endpoint that rebuilds the current UTC leaderb
 #### Scenario: Automation refreshes leaderboard snapshots
 - **GIVEN** a valid service-role or project-admin bearer token
 - **WHEN** the caller sends `POST /functions/vibeusage-leaderboard-refresh`
-- **THEN** the snapshots for `day|week|month|total` SHALL be regenerated
+- **THEN** the snapshots for `week` SHALL be regenerated
 - **AND** the response SHALL include the refresh `generated_at` timestamp
 
 ### Requirement: Multi-source usage ingestion
