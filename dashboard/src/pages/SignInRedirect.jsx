@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { insforgeAuthClient } from "../lib/insforge-auth-client";
 import {
@@ -16,6 +17,7 @@ function buildCallbackUrl() {
 
 export function SignInRedirect() {
   const callbackUrl = useMemo(() => buildCallbackUrl(), []);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -46,7 +48,7 @@ export function SignInRedirect() {
           const nextPath = consumePostAuthPath();
           const destination =
             nextPath && nextPath !== "/auth/callback" ? nextPath : "/";
-          window.location.replace(destination);
+          navigate(destination, { replace: true });
           return;
         }
 
@@ -57,12 +59,12 @@ export function SignInRedirect() {
         if (error) {
           // eslint-disable-next-line no-console
           console.error("OAuth init failed:", error);
-          window.location.replace("/");
+          navigate("/", { replace: true });
         }
       } catch (error) {
         // eslint-disable-next-line no-console
         console.error("Sign-in redirect failed:", error);
-        window.location.replace("/");
+        navigate("/", { replace: true });
       }
     };
 
@@ -70,7 +72,7 @@ export function SignInRedirect() {
     return () => {
       active = false;
     };
-  }, [callbackUrl]);
+  }, [callbackUrl, navigate]);
 
   return <div className="min-h-screen bg-[#050505]" />;
 }

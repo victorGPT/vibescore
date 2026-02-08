@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { useAuth as useInsforgeAuth } from "@insforge/react-router";
 
@@ -65,6 +65,7 @@ const LeaderboardPage = React.lazy(() =>
 
 export default function App() {
   const location = useLocation();
+  const navigate = useNavigate();
   const baseUrl = useMemo(() => getInsforgeBaseUrl(), []);
   const {
     isLoaded: insforgeLoaded,
@@ -228,8 +229,8 @@ export default function App() {
     const destination =
       nextPath && nextPath !== "/auth/callback" ? nextPath : "/";
     redirectOnceRef.current = true;
-    window.location.replace(destination);
-  }, [insforgeSession, sessionExpired]);
+    navigate(destination, { replace: true });
+  }, [insforgeSession, navigate, sessionExpired]);
 
   const hasInsforgeSession = Boolean(insforgeSession?.accessToken);
   const hasInsforgeIdentity = Boolean(insforgeSession?.user);
@@ -293,8 +294,8 @@ export default function App() {
       storage: getSafeSessionStorage(),
     });
     if (!shouldRedirect) return;
-    window.location.replace(signInUrl);
-  }, [insforgeLoaded, insforgeSession, signInUrl]);
+    navigate(signInUrl, { replace: true });
+  }, [insforgeLoaded, insforgeSession, navigate, signInUrl]);
 
   const loadingShell = <div className="min-h-screen bg-[#050505]" />;
   const authPending =
