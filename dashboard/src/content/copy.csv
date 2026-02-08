@@ -164,19 +164,6 @@ dashboard.cost_breakdown.calc_dynamic,ui,CostAnalysisModal,CostAnalysisModal,cal
 dashboard.cost_breakdown.close,ui,CostAnalysisModal,CostAnalysisModal,close_label,"[ ESC ] CLOSE",,active
 dashboard.cost_breakdown.footer,ui,CostAnalysisModal,CostAnalysisModal,footer,"Algorithm Build: v9.4.2",,active
 
-leaderboard.panel.title,ui,LeaderboardPanel,LeaderboardPanel,title,"CORE_INDEX",,active
-leaderboard.period.cycle_24h,ui,LeaderboardPanel,LeaderboardPanel,period_label,"Cycle_24h",,active
-leaderboard.period.legacy_all,ui,LeaderboardPanel,LeaderboardPanel,period_label,"Legacy_All",,active
-leaderboard.period.day,leaderboard,LeaderboardPage,LeaderboardView,period_label,"DAY",,active
-leaderboard.period.week,leaderboard,LeaderboardPage,LeaderboardView,period_label,"WEEK",,active
-leaderboard.period.month,leaderboard,LeaderboardPage,LeaderboardView,period_label,"MONTH",,active
-leaderboard.period.total,leaderboard,LeaderboardPage,LeaderboardView,period_label,"TOTAL",,active
-leaderboard.load_more,ui,LeaderboardPanel,LeaderboardPanel,load_more,"-- LOAD_NEXT_BATCH --",,active
-leaderboard.empty,ui,LeaderboardPanel,LeaderboardPanel,empty_state,"No ranking data.",,active
-leaderboard.loading,leaderboard,LeaderboardPage,LeaderboardView,loading_state,"Loading rankings...",,active
-leaderboard.page.title,leaderboard,LeaderboardPage,LeaderboardView,title,"RANKINGS",,active
-leaderboard.page.subtitle,leaderboard,LeaderboardPage,LeaderboardView,subtitle,"CORE_INDEX_RANKINGS",,active
-
 trend.chart.unit_label,ui,TrendChart,TrendChart,unit_label,"TKNS",,active
 trend.chart.left_label,ui,TrendChart,TrendChart,left_label,"T-24H",,active
 trend.chart.right_label,ui,TrendChart,TrendChart,right_label,"Realtime_Flow",,active

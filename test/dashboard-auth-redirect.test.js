@@ -184,12 +184,12 @@ test("resolveRedirectTarget falls back to valid query redirect", async () => {
 
 test("validateNextPath accepts internal paths and rejects external redirects", async () => {
   const { validateNextPath } = await loadRedirectModule();
-  assert.equal(validateNextPath("/rankings"), "/rankings");
+  assert.equal(validateNextPath("/share/demo"), "/share/demo");
   assert.equal(
-    validateNextPath("/rankings?period=week#top"),
-    "/rankings?period=week#top"
+    validateNextPath("/share/demo?period=week#top"),
+    "/share/demo?period=week#top"
   );
-  assert.equal(validateNextPath("rankings"), null);
+  assert.equal(validateNextPath("share/demo"), null);
   assert.equal(validateNextPath("//evil.com"), null);
   assert.equal(validateNextPath("https://evil.com"), null);
 });
@@ -198,10 +198,13 @@ test("post-auth next path is saved and consumed once", async () => {
   const { storePostAuthPathFromSearch, consumePostAuthPath } =
     await loadRedirectModule();
   const storage = createStorage();
-  const result = storePostAuthPathFromSearch("?next=%2Frankings", storage);
-  assert.equal(result.valid, "/rankings");
+  const result = storePostAuthPathFromSearch(
+    "?next=%2Fshare%2Fdemo%3Fperiod%3Dweek%23top",
+    storage
+  );
+  assert.equal(result.valid, "/share/demo?period=week#top");
   assert.equal(result.saved, true);
-  assert.equal(consumePostAuthPath(storage), "/rankings");
+  assert.equal(consumePostAuthPath(storage), "/share/demo?period=week#top");
   assert.equal(consumePostAuthPath(storage), null);
 });
 
@@ -218,7 +221,7 @@ test("post-auth next path ignores external URLs", async () => {
 test("stripNextParam removes next while preserving other query params", async () => {
   const { stripNextParam } = await loadRedirectModule();
   const nextUrl = stripNextParam(
-    "http://127.0.0.1:7777/sign-in?next=%2Frankings&foo=bar"
+    "http://127.0.0.1:7777/sign-in?next=%2Fshare%2Fdemo&foo=bar"
   );
   assert.ok(nextUrl);
   const parsed = new URL(nextUrl);

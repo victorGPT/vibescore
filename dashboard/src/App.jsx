@@ -57,11 +57,6 @@ const DashboardPage = React.lazy(() =>
     default: mod.DashboardPage,
   }))
 );
-const LeaderboardPage = React.lazy(() =>
-  import("./pages/LeaderboardPage.jsx").then((mod) => ({
-    default: mod.LeaderboardPage,
-  }))
-);
 
 export default function App() {
   const location = useLocation();
@@ -310,8 +305,7 @@ export default function App() {
     signedIn,
     authPending,
   });
-  const isRankings = pathname.startsWith("/rankings");
-  const PageComponent = isRankings ? LeaderboardPage : DashboardPage;
+  const PageComponent = DashboardPage;
   let content = null;
   if (gate === "loading") {
     content = loadingShell;
