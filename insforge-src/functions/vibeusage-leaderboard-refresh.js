@@ -107,7 +107,7 @@ async function refreshPeriod({ serviceClient, period, from, to, generatedAt }) {
     createQuery: () =>
       serviceClient.database
         .from(sourceView)
-        .select('user_id,rank,gpt_tokens,claude_tokens,total_tokens,display_name,avatar_url')
+        .select('user_id,rank,rank_gpt,rank_claude,gpt_tokens,claude_tokens,total_tokens,display_name,avatar_url')
         .order('rank', { ascending: true }),
     onPage: async (rows) => {
       const normalized = (rows || [])
@@ -131,6 +131,10 @@ function normalizeSnapshotRow({ row, period, from, to, generatedAt }) {
   if (!row?.user_id) return null;
   const rank = toPositiveInt(row.rank);
   if (rank <= 0) return null;
+  const rankGpt = toPositiveInt(row.rank_gpt);
+  const rankClaude = toPositiveInt(row.rank_claude);
+  if (rankGpt <= 0) return null;
+  if (rankClaude <= 0) return null;
 
   const gptTokens = toBigInt(row.gpt_tokens).toString();
   const claudeTokens = toBigInt(row.claude_tokens).toString();
@@ -144,6 +148,8 @@ function normalizeSnapshotRow({ row, period, from, to, generatedAt }) {
     to_day: to,
     user_id: row.user_id,
     rank,
+    rank_gpt: rankGpt,
+    rank_claude: rankClaude,
     gpt_tokens: gptTokens,
     claude_tokens: claudeTokens,
     total_tokens: totalTokens,

@@ -466,51 +466,74 @@ function computeLeaderboardWindow(period: string) {
 
 export function getMockLeaderboard({
   seed,
+  metric,
   limit = 20,
   offset = 0,
 }: AnyRecord = {}) {
   const seedValue = toSeed(seed);
   const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 20)));
   const safeOffset = Math.max(0, Math.min(10_000, Math.floor(Number(offset) || 0)));
+  const safeMetric = String(metric || "all").trim().toLowerCase() || "all";
   const period = "week";
   const { from, to } = computeLeaderboardWindow(period);
   const totalEntries = 250;
   const totalPages = totalEntries > 0 ? Math.ceil(totalEntries / safeLimit) : 0;
   const page = Math.floor(safeOffset / safeLimit) + 1;
-  const rows = Math.max(0, Math.min(safeLimit, totalEntries - safeOffset));
 
-  const entries = Array.from({ length: rows }, (_, index) => {
-    const rank = safeOffset + index + 1;
-    const name = MOCK_LEADERBOARD_NAMES[rank % MOCK_LEADERBOARD_NAMES.length];
-    const hash = hashString(`${seedValue}:${name}:${rank}`);
+  const raw = Array.from({ length: totalEntries }, (_, index) => {
+    const id = index + 1;
+    const name = MOCK_LEADERBOARD_NAMES[id % MOCK_LEADERBOARD_NAMES.length];
+    const hash = hashString(`${seedValue}:${name}:${id}`);
     const base = 180000 + (hash % 900000);
-    const total = Math.max(0, base + rank * 1200);
+    const total = Math.max(0, base + id * 1200);
     const gpt = Math.floor(total * 0.62);
     const claude = Math.max(0, total - gpt);
-    const isAnon = rank % 7 === 0;
+    const isAnon = id % 7 === 0;
     return {
-      rank,
+      id,
       is_me: false,
       display_name: isAnon ? "Anonymous" : name,
       avatar_url: null,
-      gpt_tokens: String(gpt),
-      claude_tokens: String(claude),
-      total_tokens: String(total),
+      gpt_tokens: gpt,
+      claude_tokens: claude,
+      total_tokens: total,
     };
   });
 
-  const meRank = Math.max(11, Math.min(totalEntries, Math.floor(totalEntries * 0.8)));
-  const meHash = hashString(`${seedValue}:me:${meRank}`);
-  const meTotal = 90000 + (meHash % 90000);
-  const meGpt = Math.floor(meTotal * 0.58);
-  const meClaude = Math.max(0, meTotal - meGpt);
-  const me = { rank: meRank, gpt_tokens: String(meGpt), claude_tokens: String(meClaude), total_tokens: String(meTotal) };
+  const meIndex = Math.max(0, Math.min(totalEntries - 1, Math.floor(totalEntries * 0.8)));
+  if (raw[meIndex]) raw[meIndex].is_me = true;
 
-  const meIndex = entries.findIndex((entry: any) => entry?.rank === meRank);
-  if (meIndex >= 0) entries[meIndex].is_me = true;
+  const metricKey =
+    safeMetric === "gpt" ? "gpt_tokens" : safeMetric === "claude" ? "claude_tokens" : "total_tokens";
+
+  const sorted = raw
+    .slice()
+    .sort((a: any, b: any) => Number(b[metricKey]) - Number(a[metricKey]) || a.id - b.id)
+    .map((entry: any, index: number) => ({
+      rank: index + 1,
+      is_me: Boolean(entry.is_me),
+      display_name: entry.display_name,
+      avatar_url: entry.avatar_url,
+      gpt_tokens: String(entry.gpt_tokens),
+      claude_tokens: String(entry.claude_tokens),
+      total_tokens: String(entry.total_tokens),
+    }));
+
+  const meRow = sorted.find((entry: any) => entry?.is_me) || null;
+  const me = meRow
+    ? {
+        rank: meRow.rank,
+        gpt_tokens: meRow.gpt_tokens,
+        claude_tokens: meRow.claude_tokens,
+        total_tokens: meRow.total_tokens,
+      }
+    : { rank: null, gpt_tokens: "0", claude_tokens: "0", total_tokens: "0" };
+
+  const entries = sorted.slice(safeOffset, safeOffset + safeLimit);
 
   return {
     period,
+    metric: safeMetric,
     from,
     to,
     generated_at: new Date().toISOString(),

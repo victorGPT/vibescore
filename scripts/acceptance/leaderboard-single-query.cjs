@@ -106,6 +106,7 @@ async function runScenario({ name, singleError }) {
 
   const body = await res.json();
   assert.equal(res.status, 200, `${name}: status`);
+  assert.equal(body.metric, 'all', `${name}: metric`);
 
   if (singleError) {
     assert.ok(db.tables.includes(meView), `${name}: fallback should query me view`);

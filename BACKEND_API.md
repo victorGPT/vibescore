@@ -731,11 +731,15 @@ Auth:
 
 Query:
 - `period=week` (required)
+- `metric=all|gpt|claude` (optional; default `all`)
 - `limit=1..100` (optional; default `20`)
 - `offset=0..10000` (optional; default `0`)
 
 Rules:
 - UTC calendar week; week starts Sunday (UTC).
+- `metric=all` ranks by `total_tokens` where `total_tokens = gpt_tokens + claude_tokens`.
+- `metric=gpt` ranks by `gpt_tokens` (users with `gpt_tokens=0` are excluded from `entries`; `me.rank` is `null` when `gpt_tokens=0`).
+- `metric=claude` ranks by `claude_tokens` (users with `claude_tokens=0` are excluded from `entries`; `me.rank` is `null` when `claude_tokens=0`).
 - Privacy-safe: no email, no user_id, no raw logs.
 - Response includes `me` even when not in Top N.
 
@@ -744,6 +748,7 @@ Response:
 ```json
 {
   "period": "week",
+  "metric": "all",
   "from": "YYYY-MM-DD",
   "to": "YYYY-MM-DD",
   "generated_at": "iso",

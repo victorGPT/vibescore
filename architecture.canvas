@@ -747,7 +747,7 @@
     {
       "id": "test_edge-functions_test_deffefcc",
       "type": "text",
-      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- extends (7525 行)\n- toBase64Url (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- extends (7640 行)\n- toBase64Url (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1900,
       "y": 16236,
       "width": 280,
@@ -3307,7 +3307,7 @@
     {
       "id": "undefined_leaderboard-limit_35767c1d",
       "type": "text",
-      "text": "**leaderboard-limit**\n`scripts/acceptance/leaderboard-limit.cjs`\n\nGeneral module.\n\n包含：\n- QueryStub (104 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**leaderboard-limit**\n`scripts/acceptance/leaderboard-limit.cjs`\n\nGeneral module.\n\n包含：\n- QueryStub (105 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2620,
       "y": 8880,
       "width": 280,
@@ -3357,7 +3357,7 @@
     {
       "id": "undefined_leaderboard-single-query_c53b32d5",
       "type": "text",
-      "text": "**leaderboard-single-query**\n`scripts/acceptance/leaderboard-single-query.cjs`\n\nGeneral module.\n\n包含：\n- QueryStub (161 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**leaderboard-single-query**\n`scripts/acceptance/leaderboard-single-query.cjs`\n\nGeneral module.\n\n包含：\n- QueryStub (162 行)\n- exports (0 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 460,
       "y": 9240,
       "width": 280,
@@ -4512,7 +4512,7 @@
     {
       "id": "edge-function_vibeusage-leaderboard-refresh_347cf2c0",
       "type": "text",
-      "text": "**vibeusage-leaderboard-refresh**\n`insforge-src/functions/vibeusage-leaderboard-refresh.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-leaderboard-refresh (176 行)\n- normalizePeriod (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibeusage-leaderboard-refresh**\n`insforge-src/functions/vibeusage-leaderboard-refresh.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-leaderboard-refresh (182 行)\n- normalizePeriod (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2260,
       "y": 5656,
       "width": 280,
@@ -4546,7 +4546,7 @@
     {
       "id": "edge-function_vibeusage-leaderboard_7b2785f0",
       "type": "text",
-      "text": "**vibeusage-leaderboard**\n`insforge-src/functions/vibeusage-leaderboard.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-leaderboard (345 行)\n- toSafeCount (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibeusage-leaderboard**\n`insforge-src/functions/vibeusage-leaderboard.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-leaderboard (418 行)\n- toSafeCount (1 个参数)\n\n依赖：1 个模块\n被依赖：0 次",
       "x": 100,
       "y": 6016,
       "width": 280,
@@ -4597,7 +4597,7 @@
     {
       "id": "edge-function_vibeusage-pricing-sync_2b1ffab3",
       "type": "text",
-      "text": "**vibeusage-pricing-sync**\n`insforge-src/functions/vibeusage-pricing-sync.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-pricing-sync (401 行)\n- getEnvValue (1 个参数)\n\n依赖：2 个模块\n被依赖：0 次",
+      "text": "**vibeusage-pricing-sync**\n`insforge-src/functions/vibeusage-pricing-sync.js`\n\nEdge function handler.\n\n包含：\n- vibeusage-pricing-sync (401 行)\n- getEnvValue (1 个参数)\n\n依赖：1 个模块\n被依赖：0 次",
       "x": 1180,
       "y": 6016,
       "width": 280,
@@ -5782,7 +5782,7 @@
     {
       "id": "frontend_LeaderboardPage_5a005c71",
       "type": "text",
-      "text": "**LeaderboardPage**\n`dashboard/src/pages/LeaderboardPage.jsx`\n\nUI component layer.\n\n包含：\n- LeaderboardPage (430 行)\n- normalizeLeaderboardError (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**LeaderboardPage**\n`dashboard/src/pages/LeaderboardPage.jsx`\n\nUI component layer.\n\n包含：\n- LeaderboardPage (463 行)\n- normalizeLeaderboardError (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2260,
       "y": 2072,
       "width": 280,
@@ -6189,7 +6189,7 @@
     {
       "id": "utils_mock-data_85162df5",
       "type": "text",
-      "text": "**mock-data**\n`dashboard/src/lib/mock-data.ts`\n\nShared utilities.\n\n包含：\n- mock-data (620 行)\n- isMockEnabled (0 个参数)\n\n依赖：0 个模块\n被依赖：1 次",
+      "text": "**mock-data**\n`dashboard/src/lib/mock-data.ts`\n\nShared utilities.\n\n包含：\n- mock-data (643 行)\n- isMockEnabled (0 个参数)\n\n依赖：0 个模块\n被依赖：1 次",
       "x": 1900,
       "y": 1712,
       "width": 280,
@@ -6308,7 +6308,7 @@
     {
       "id": "utils_vibeusage-api_a0f50eaa",
       "type": "text",
-      "text": "**vibeusage-api**\n`dashboard/src/lib/vibeusage-api.ts`\n\nShared utilities.\n\n包含：\n- vibeusage-api (855 行)\n- resolveAccessToken (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibeusage-api**\n`dashboard/src/lib/vibeusage-api.ts`\n\nShared utilities.\n\n包含：\n- vibeusage-api (857 行)\n- resolveAccessToken (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 820,
       "y": 2072,
       "width": 280,
@@ -6744,17 +6744,17 @@
       "toSide": "top"
     },
     {
+      "id": "edge_edge-function_vibeusage-leaderboard_7b2785f0_external_Anthropic_fbd19171",
+      "fromNode": "edge-function_vibeusage-leaderboard_7b2785f0",
+      "fromSide": "bottom",
+      "toNode": "external_Anthropic_fbd19171",
+      "toSide": "top"
+    },
+    {
       "id": "edge_edge-function_vibeusage-pricing-sync_2b1ffab3_external_OpenAI_ac6e26d9",
       "fromNode": "edge-function_vibeusage-pricing-sync_2b1ffab3",
       "fromSide": "bottom",
       "toNode": "external_OpenAI_ac6e26d9",
-      "toSide": "top"
-    },
-    {
-      "id": "edge_edge-function_vibeusage-pricing-sync_2b1ffab3_external_Anthropic_fbd19171",
-      "fromNode": "edge-function_vibeusage-pricing-sync_2b1ffab3",
-      "fromSide": "bottom",
-      "toNode": "external_Anthropic_fbd19171",
       "toSide": "top"
     },
     {

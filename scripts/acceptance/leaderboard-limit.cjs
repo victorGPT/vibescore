@@ -71,7 +71,7 @@ async function main() {
 
   const leaderboard = require('../../insforge-src/functions/vibeusage-leaderboard.js');
   const res = await leaderboard(
-    new Request('http://local/functions/vibeusage-leaderboard?period=week&limit=1&offset=0', {
+    new Request('http://local/functions/vibeusage-leaderboard?period=week&metric=gpt&limit=1&offset=0', {
       method: 'GET',
       headers: { Authorization: 'Bearer user-jwt' }
     })
@@ -79,9 +79,10 @@ async function main() {
 
   const body = await res.json();
   assert.equal(res.status, 200);
+  assert.equal(body.metric, 'gpt');
   assert.equal(body.entries.length, 1);
 
-  const entriesView = 'vibeusage_leaderboard_week_current';
+  const entriesView = 'vibeusage_leaderboard_gpt_week_current';
   assert.deepEqual(db.ranges.get(entriesView), { from: 0, to: 0 });
 
   process.stdout.write(

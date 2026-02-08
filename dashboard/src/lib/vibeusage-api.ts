@@ -120,14 +120,16 @@ export async function getProjectUsageSummary({
 export async function getLeaderboard({
   baseUrl,
   accessToken,
+  metric,
   limit,
   offset,
 }: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
-    return getMockLeaderboard({ seed: resolvedAccessToken, limit, offset });
+    return getMockLeaderboard({ seed: resolvedAccessToken, metric, limit, offset });
   }
   const params: AnyRecord = { period: "week" };
+  if (metric) params.metric = String(metric);
   if (limit != null) params.limit = String(limit);
   if (offset != null) params.offset = String(offset);
   return requestJson({

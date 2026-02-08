@@ -1,7 +1,10 @@
 ## MODIFIED Requirements
 
 ### Requirement: Leaderboard endpoint is available (weekly only)
-The system SHALL provide a weekly leaderboard endpoint that ranks users by `total_tokens` over the current UTC calendar week (Sunday start).
+The system SHALL provide a weekly leaderboard endpoint that ranks users over the current UTC calendar week (Sunday start), scoped by a `metric` category:
+- `metric=all`: rank by `total_tokens`
+- `metric=gpt`: rank by `gpt_tokens`
+- `metric=claude`: rank by `claude_tokens`
 
 Token accounting:
 - `gpt_tokens` SHALL be the sum of `total_tokens` for GPT-family models.
@@ -16,10 +19,11 @@ Model family matching:
 
 #### Scenario: User fetches the current weekly leaderboard
 - **GIVEN** a user is signed in and has a valid `user_jwt`
-- **WHEN** the user calls `GET /functions/vibeusage-leaderboard?period=week&limit=20&offset=0`
+- **WHEN** the user calls `GET /functions/vibeusage-leaderboard?period=week&metric=all&limit=20&offset=0`
 - **THEN** the response SHALL include `from` and `to` in `YYYY-MM-DD` (UTC)
 - **AND** the response SHALL include pagination metadata: `page`, `limit`, `offset`, `total_entries`, `total_pages`
-- **AND** the response SHALL include an ordered `entries` array sorted by `total_tokens` (desc)
+- **AND** the response SHALL include `metric`
+- **AND** the response SHALL include an ordered `entries` array sorted by the requested metric (desc)
 - **AND** each entry SHALL include `rank`, `is_me`, `display_name`, `avatar_url`, `gpt_tokens`, `claude_tokens`, and `total_tokens`
 
 ### Requirement: Leaderboard response includes generation timestamp
@@ -27,7 +31,7 @@ The leaderboard endpoint SHALL include a `generated_at` timestamp indicating whe
 
 #### Scenario: Response includes generated_at
 - **GIVEN** a user is signed in and has a valid `user_jwt`
-- **WHEN** the user calls `GET /functions/vibeusage-leaderboard?period=week`
+- **WHEN** the user calls `GET /functions/vibeusage-leaderboard?period=week&metric=all`
 - **THEN** the response SHALL include `generated_at` as an ISO timestamp
 
 ### Requirement: Leaderboard response includes `me`
@@ -36,7 +40,7 @@ The leaderboard endpoint SHALL include a `me` object that reports the current us
 #### Scenario: User is not in page but still receives `me`
 - **GIVEN** a user is signed in and has a valid `user_jwt`
 - **AND** the user is not within the requested page (`offset..offset+limit`)
-- **WHEN** the user calls `GET /functions/vibeusage-leaderboard?period=week&limit=20&offset=0`
+- **WHEN** the user calls `GET /functions/vibeusage-leaderboard?period=week&metric=all&limit=20&offset=0`
 - **THEN** the response SHALL include a `me` object with the user's `rank`, `gpt_tokens`, `claude_tokens`, and `total_tokens`
 
 ### Requirement: Leaderboard snapshots can be refreshed by automation
@@ -51,13 +55,18 @@ The system SHALL expose an authenticated refresh endpoint that rebuilds the curr
 ## ADDED Requirements
 
 ### Requirement: Dashboard renders weekly leaderboard page
-The dashboard SHALL render a weekly leaderboard page at `/leaderboard`, including a Top 10 panel and a paginated full table.
+The dashboard SHALL render a weekly leaderboard page at `/leaderboard`, including a metric selector, a Top 10 panel, and a paginated full table.
 
 #### Scenario: Signed-in user visits /leaderboard
 - **GIVEN** the user is signed in
 - **WHEN** the user visits `/leaderboard`
-- **THEN** the dashboard SHALL request `GET /functions/vibeusage-leaderboard?period=week`
+- **THEN** the dashboard SHALL request `GET /functions/vibeusage-leaderboard?period=week&metric=all`
 - **AND** the UI SHALL render a Top 10 section and a paginated table using the returned `entries`
+
+#### Scenario: User switches metric category
+- **GIVEN** the user is on `/leaderboard`
+- **WHEN** the user selects `metric=gpt` or `metric=claude`
+- **THEN** the dashboard SHALL request `GET /functions/vibeusage-leaderboard?period=week&metric=<selected>`
 
 ### Requirement: Dashboard injects Top9 + Me into Top 10 when not in Top 10
 When the signed-in user is not within the Top 10 ranks, the dashboard SHALL inject a "Me" card into the Top 10 panel as position 10 while keeping the displayed `rank` as the user's real rank.
@@ -67,4 +76,3 @@ When the signed-in user is not within the Top 10 ranks, the dashboard SHALL inje
 - **WHEN** the dashboard renders the Top 10 panel
 - **THEN** the UI SHALL render ranks `1..9` plus an injected "Me" card
 - **AND** the injected card SHALL display `rank = me.rank` (not `10`)
-

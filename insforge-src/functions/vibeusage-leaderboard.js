@@ -32,6 +32,9 @@ module.exports = async function(request) {
   const period = normalizePeriod(url.searchParams.get('period'));
   if (!period) return json({ error: 'Invalid period' }, 400);
 
+  const metric = normalizeMetric(url.searchParams.get('metric'));
+  if (url.searchParams.has('metric') && !metric) return json({ error: 'Invalid metric' }, 400);
+
   const limit = normalizeLimit(url.searchParams.get('limit'));
   const offset = normalizeOffset(url.searchParams.get('offset'));
   const page = Math.floor(offset / Math.max(1, limit)) + 1;
@@ -58,6 +61,7 @@ module.exports = async function(request) {
     const snapshot = await loadSnapshot({
       serviceClient,
       period,
+      metric,
       from,
       to,
       userId: auth.userId,
@@ -69,6 +73,7 @@ module.exports = async function(request) {
       return json(
         {
           period,
+          metric,
           from,
           to,
           generated_at: snapshot.generated_at,
@@ -85,20 +90,30 @@ module.exports = async function(request) {
     }
   }
 
-  const entriesView = `vibeusage_leaderboard_${period}_current`;
-  const meView = `vibeusage_leaderboard_me_${period}_current`;
+  const entriesView =
+    metric === 'all'
+      ? `vibeusage_leaderboard_${period}_current`
+      : `vibeusage_leaderboard_${metric}_${period}_current`;
+  const meView =
+    metric === 'all'
+      ? `vibeusage_leaderboard_me_${period}_current`
+      : `vibeusage_leaderboard_me_${metric}_${period}_current`;
 
-  const singleQuery = await tryLoadSingleQuery({
-    edgeClient: auth.edgeClient,
-    entriesView,
-    limit,
-    offset
-  });
+  const singleQuery =
+    metric === 'all'
+      ? await tryLoadSingleQuery({
+          edgeClient: auth.edgeClient,
+          entriesView,
+          limit,
+          offset
+        })
+      : null;
 
   if (singleQuery) {
     return json(
       {
         period,
+        metric,
         from,
         to,
         generated_at: new Date().toISOString(),
@@ -135,6 +150,7 @@ module.exports = async function(request) {
   return json(
     {
       period,
+      metric,
       from,
       to,
       generated_at: new Date().toISOString(),
@@ -193,6 +209,16 @@ function normalizePeriod(raw) {
   return null;
 }
 
+function normalizeMetric(raw) {
+  if (typeof raw !== 'string') return 'all';
+  const v = raw.trim().toLowerCase();
+  if (!v) return 'all';
+  if (v === 'all') return v;
+  if (v === 'gpt') return v;
+  if (v === 'claude') return v;
+  return null;
+}
+
 function normalizeLimit(raw) {
   if (typeof raw !== 'string' || raw.trim().length === 0) return DEFAULT_LIMIT;
   const n = Number(raw);
@@ -213,14 +239,33 @@ function normalizeOffset(raw) {
   return i;
 }
 
-async function loadSnapshot({ serviceClient, period, from, to, userId, limit, offset }) {
-  const countRes = await serviceClient.database
-    .from('vibeusage_leaderboard_snapshots')
-    .select('user_id', { count: 'exact' })
-    .eq('period', period)
-    .eq('from_day', from)
-    .eq('to_day', to)
-    .limit(1);
+function applyMetricFilter(query, metric) {
+  if (!query) return query;
+  if (metric === 'gpt') return query.gt('gpt_tokens', 0);
+  if (metric === 'claude') return query.gt('claude_tokens', 0);
+  return query;
+}
+
+function resolveRankColumn(metric) {
+  if (metric === 'gpt') return 'rank_gpt';
+  if (metric === 'claude') return 'rank_claude';
+  return 'rank';
+}
+
+async function loadSnapshot({ serviceClient, period, metric, from, to, userId, limit, offset }) {
+  const rankColumn = resolveRankColumn(metric);
+
+  const countQuery = applyMetricFilter(
+    serviceClient.database
+      .from('vibeusage_leaderboard_snapshots')
+      .select('user_id', { count: 'exact' })
+      .eq('period', period)
+      .eq('from_day', from)
+      .eq('to_day', to),
+    metric
+  );
+
+  const countRes = await countQuery.limit(1);
 
   if (countRes.error) {
     console.error('snapshot count error', countRes.error);
@@ -230,13 +275,21 @@ async function loadSnapshot({ serviceClient, period, from, to, userId, limit, of
   const totalEntries = toSafeCount(countRes.count);
   const totalPages = totalEntries > 0 ? Math.ceil(totalEntries / Math.max(1, limit)) : 0;
 
-  const { data: entryRows, error: entriesErr } = await serviceClient.database
-    .from('vibeusage_leaderboard_snapshots')
-    .select('user_id,rank,gpt_tokens,claude_tokens,total_tokens,display_name,avatar_url,generated_at')
-    .eq('period', period)
-    .eq('from_day', from)
-    .eq('to_day', to)
-    .order('rank', { ascending: true })
+  const entriesQuery = applyMetricFilter(
+    serviceClient.database
+      .from('vibeusage_leaderboard_snapshots')
+      .select(
+        'user_id,rank,rank_gpt,rank_claude,gpt_tokens,claude_tokens,total_tokens,display_name,avatar_url,generated_at'
+      )
+      .eq('period', period)
+      .eq('from_day', from)
+      .eq('to_day', to),
+    metric
+  );
+
+  const { data: entryRows, error: entriesErr } = await entriesQuery
+    .order(rankColumn, { ascending: true })
+    .order('user_id', { ascending: true })
     .range(offset, offset + limit - 1);
 
   if (entriesErr) {
@@ -246,7 +299,7 @@ async function loadSnapshot({ serviceClient, period, from, to, userId, limit, of
 
   const { data: meRow, error: meErr } = await serviceClient.database
     .from('vibeusage_leaderboard_snapshots')
-    .select('rank,gpt_tokens,claude_tokens,total_tokens,generated_at')
+    .select('rank,rank_gpt,rank_claude,gpt_tokens,claude_tokens,total_tokens,generated_at')
     .eq('period', period)
     .eq('from_day', from)
     .eq('to_day', to)
@@ -259,7 +312,7 @@ async function loadSnapshot({ serviceClient, period, from, to, userId, limit, of
   }
 
   const entries = (entryRows || []).map((row) => ({
-    rank: toPositiveInt(row?.rank),
+    rank: toPositiveInt(row?.[rankColumn]),
     is_me: row?.user_id === userId,
     display_name: normalizeDisplayName(row?.display_name),
     avatar_url: normalizeAvatarUrl(row?.avatar_url),
@@ -268,7 +321,7 @@ async function loadSnapshot({ serviceClient, period, from, to, userId, limit, of
     total_tokens: toBigInt(row?.total_tokens).toString()
   }));
 
-  const me = normalizeMe(meRow);
+  const me = normalizeMetricMe(meRow, metric);
   const generatedAt = normalizeGeneratedAt(entryRows, meRow);
 
   if (entries.length === 0 && !meRow) return { ok: false };
@@ -280,6 +333,26 @@ async function loadSnapshot({ serviceClient, period, from, to, userId, limit, of
     entries,
     me,
     generated_at: generatedAt
+  };
+}
+
+function normalizeMetricMe(row, metric) {
+  const gptTokens = toBigInt(row?.gpt_tokens);
+  const claudeTokens = toBigInt(row?.claude_tokens);
+  const totalTokens = toBigInt(row?.total_tokens);
+
+  let rank = toPositiveIntOrNull(row?.rank);
+  if (metric === 'gpt') {
+    rank = gptTokens > 0n ? toPositiveIntOrNull(row?.rank_gpt) : null;
+  } else if (metric === 'claude') {
+    rank = claudeTokens > 0n ? toPositiveIntOrNull(row?.rank_claude) : null;
+  }
+
+  return {
+    rank,
+    gpt_tokens: gptTokens.toString(),
+    claude_tokens: claudeTokens.toString(),
+    total_tokens: totalTokens.toString()
   };
 }
 

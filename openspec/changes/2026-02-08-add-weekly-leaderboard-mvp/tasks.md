@@ -1,11 +1,11 @@
 ## 1. Implementation
-- [ ] 1.1 DB: extend `vibeusage_leaderboard_snapshots` with `gpt_tokens` + `claude_tokens` and backfill existing rows.
+- [ ] 1.1 DB: extend `vibeusage_leaderboard_snapshots` with `gpt_tokens` + `claude_tokens` + per-metric ranks (`rank_gpt`/`rank_claude`) and backfill existing rows.
 - [ ] 1.2 DB: add index `vibeusage_tracker_hourly(hour_start)` to support weekly refresh.
-- [ ] 1.3 DB: replace `vibeusage_leaderboard_source_week` to compute weekly totals from `vibeusage_tracker_hourly` with GPT/Claude rules.
-- [ ] 1.4 DB: update SECURITY DEFINER leaderboard functions and recreate weekly fallback views.
-- [ ] 1.5 Backend: update `GET /functions/vibeusage-leaderboard` to `period=week` only, return `gpt_tokens/claude_tokens/total_tokens`, and support pagination (`limit` + `offset`) + metadata (`page/total_pages/...`).
+- [ ] 1.3 DB: replace `vibeusage_leaderboard_source_week` to compute weekly totals + `rank_gpt`/`rank_claude` from `vibeusage_tracker_hourly` with GPT/Claude rules.
+- [ ] 1.4 DB: update SECURITY DEFINER leaderboard functions and recreate weekly fallback views for `metric=all|gpt|claude`.
+- [ ] 1.5 Backend: update `GET /functions/vibeusage-leaderboard` to `period=week` only, support `metric=all|gpt|claude`, return `metric` + token fields, and support pagination (`limit` + `offset`) + metadata (`page/total_pages/...`).
 - [ ] 1.6 Backend: update `POST /functions/vibeusage-leaderboard-refresh` to refresh `week` only and write the extended snapshot rows.
-- [ ] 1.7 Dashboard: add `/leaderboard` page with sticky “My Rank” card, Top9+Me injection, and paginated table.
+- [ ] 1.7 Dashboard: add `/leaderboard` page with metric selector, sticky “My Rank” card, Top9+Me injection, and paginated table.
 - [ ] 1.8 Dashboard: add header navigation link to `/leaderboard`.
 - [ ] 1.9 Copy: add copy registry entries for the leaderboard UI.
 - [ ] 1.10 Tests: update contract tests, acceptance scripts, and dashboard tests/mocks for the new leaderboard contract.

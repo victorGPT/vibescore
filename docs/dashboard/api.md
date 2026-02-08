@@ -308,6 +308,7 @@ Leaderboard entries for the current UTC week (Sunday start).
 
 Query:
 - `period=week` (required)
+- `metric=all|gpt|claude` (optional; default `all`)
 - `limit=1..100` (optional; default 20)
 - `offset=0..10000` (optional; default 0)
 
@@ -316,6 +317,7 @@ Response:
 ```json
 {
   "period": "week",
+  "metric": "all",
   "from": "YYYY-MM-DD",
   "to": "YYYY-MM-DD",
   "generated_at": "iso",

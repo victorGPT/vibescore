@@ -11,16 +11,19 @@
 ## What Changes
 - Database:
   - Extend `vibeusage_leaderboard_snapshots` to store `gpt_tokens` and `claude_tokens`.
+  - Extend `vibeusage_leaderboard_snapshots` to store per-metric ranks for categories: `rank_gpt` and `rank_claude`.
   - Replace `vibeusage_leaderboard_source_week` to compute weekly totals from `vibeusage_tracker_hourly` (exclude `source='canary'`, exclude `model='unknown'`).
   - Update SECURITY DEFINER leaderboard functions/views to use the same hourly-based accounting.
   - Add an index on `vibeusage_tracker_hourly(hour_start)` to support weekly global scans.
 - Backend:
   - Restrict `GET /functions/vibeusage-leaderboard` to `period=week` only.
+  - Support `metric=all|gpt|claude` for leaderboard categories (ALL/GPT/Claude).
   - Add pagination via `limit` + `offset`, and include pagination metadata in the response.
   - Return `gpt_tokens`, `claude_tokens`, and `total_tokens` for `entries` and `me`.
   - Restrict `POST /functions/vibeusage-leaderboard-refresh` to `week` only and refresh only weekly snapshots.
 - Dashboard:
   - Add a `/leaderboard` page with:
+    - Metric selector for categories: `ALL / GPT / CLAUDE`.
     - Sticky “My Rank” card (rank stays real rank even when injected).
     - Top 10 panel with `Top9 + Me` injection when the user is not in Top 10.
     - Paginated full table with columns: `Rank / User / Total / GPT Model / Claude Model`.
@@ -31,6 +34,7 @@
 ## Scope
 IN:
 - Signed-in weekly leaderboard (UTC calendar week, Sunday start) in the dashboard.
+- Metric categories: `ALL / GPT / CLAUDE` ranking by `total_tokens / gpt_tokens / claude_tokens`.
 - Pagination (`limit` + `offset`) and `Top9 + Me` injection UX.
 - GPT/Claude breakdown columns and total ordering by `total_tokens`.
 

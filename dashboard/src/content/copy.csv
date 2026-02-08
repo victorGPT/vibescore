@@ -262,6 +262,9 @@ leaderboard.title,dashboard,LeaderboardPage,LeaderboardPage,title,"LEADERBOARD",
 leaderboard.range,dashboard,LeaderboardPage,LeaderboardPage,range,"UTC_WEEK: {{from}}..{{to}}",,active
 leaderboard.range_loading,dashboard,LeaderboardPage,LeaderboardPage,range_loading,"UTC_WEEK: ...",,active
 leaderboard.generated_at,dashboard,LeaderboardPage,LeaderboardPage,generated_at,"UPDATED_AT: {{ts}}",,active
+leaderboard.metric.all,dashboard,LeaderboardPage,LeaderboardPage,metric_all,"ALL",,active
+leaderboard.metric.gpt,dashboard,LeaderboardPage,LeaderboardPage,metric_gpt,"GPT",,active
+leaderboard.metric.claude,dashboard,LeaderboardPage,LeaderboardPage,metric_claude,"CLAUDE",,active
 
 leaderboard.me_label,dashboard,LeaderboardPage,LeaderboardPage,me_label,"YOU",,active
 leaderboard.anon_label,dashboard,LeaderboardPage,LeaderboardPage,anon_label,"Anonymous",,active

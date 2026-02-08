@@ -77,12 +77,17 @@ export function LeaderboardPage({
     error: null,
     data: null,
   }));
+  const [metric, setMetric] = useState("all");
   const [listPage, setListPage] = useState(1);
   const [listState, setListState] = useState(() => ({
     loading: false,
     error: null,
     data: null,
   }));
+
+  useEffect(() => {
+    setListPage(1);
+  }, [metric]);
 
   useEffect(() => {
     if (mockEnabled) return;
@@ -102,6 +107,7 @@ export function LeaderboardPage({
       const data = await getLeaderboard({
         baseUrl,
         accessToken: token,
+        metric,
         limit: TOP_LIMIT,
         offset: 0,
       });
@@ -114,7 +120,7 @@ export function LeaderboardPage({
     return () => {
       active = false;
     };
-  }, [baseUrl, effectiveAuthToken, authTokenAllowed, authTokenReady, mockEnabled]);
+  }, [baseUrl, effectiveAuthToken, authTokenAllowed, authTokenReady, metric, mockEnabled]);
 
   const listOffset = useMemo(() => {
     const safePage = clampInt(listPage, { min: 1, max: 1_000_000, fallback: 1 });
@@ -131,6 +137,7 @@ export function LeaderboardPage({
       const data = await getLeaderboard({
         baseUrl,
         accessToken: token,
+        metric,
         limit: PAGE_LIMIT,
         offset: listOffset,
       });
@@ -143,7 +150,7 @@ export function LeaderboardPage({
     return () => {
       active = false;
     };
-  }, [baseUrl, effectiveAuthToken, authTokenAllowed, authTokenReady, listOffset, mockEnabled]);
+  }, [baseUrl, effectiveAuthToken, authTokenAllowed, authTokenReady, listOffset, metric, mockEnabled]);
 
   const topData = topState.data;
   const listData = listState.data;
@@ -339,6 +346,32 @@ export function LeaderboardPage({
             <div className="text-[10px] uppercase tracking-[0.25em] text-matrix-muted">
               {from && to ? copy("leaderboard.range", { from, to }) : copy("leaderboard.range_loading")}
             </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <MatrixButton
+              size="sm"
+              primary={metric === "all"}
+              onClick={() => setMetric("all")}
+              disabled={topState.loading || listState.loading}
+            >
+              {copy("leaderboard.metric.all")}
+            </MatrixButton>
+            <MatrixButton
+              size="sm"
+              primary={metric === "gpt"}
+              onClick={() => setMetric("gpt")}
+              disabled={topState.loading || listState.loading}
+            >
+              {copy("leaderboard.metric.gpt")}
+            </MatrixButton>
+            <MatrixButton
+              size="sm"
+              primary={metric === "claude"}
+              onClick={() => setMetric("claude")}
+              disabled={topState.loading || listState.loading}
+            >
+              {copy("leaderboard.metric.claude")}
+            </MatrixButton>
           </div>
           {generatedAt ? (
             <div className="text-[10px] uppercase text-matrix-dim">

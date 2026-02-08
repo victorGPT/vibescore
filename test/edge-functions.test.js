@@ -6292,6 +6292,7 @@ test('vibeusage-leaderboard returns a week window and slices entries to limit', 
   const body = await res.json();
 
   assert.equal(body.period, 'week');
+  assert.equal(body.metric, 'all');
   assert.ok(typeof body.generated_at === 'string' && body.generated_at.includes('T'));
 
   const now = new Date();
@@ -6414,11 +6415,119 @@ test('vibeusage-leaderboard supports offset pagination', async () => {
   const body = await res.json();
 
   assert.equal(body.period, 'week');
+  assert.equal(body.metric, 'all');
   assert.ok(Array.isArray(body.entries));
   assert.equal(body.entries.length, 2);
   assert.equal(body.entries[0].rank, 2);
   assert.equal(body.entries[1].rank, 3);
   assert.deepEqual(body.me, { rank: 99, gpt_tokens: '0', claude_tokens: '0', total_tokens: '0' });
+});
+
+test('vibeusage-leaderboard supports metric=Gpt', async () => {
+  setDenoEnv({
+    INSFORGE_INTERNAL_URL: BASE_URL,
+    ANON_KEY
+  });
+
+  const fn = require('../insforge-functions/vibeusage-leaderboard');
+
+  const userId = '99999999-7777-7777-7777-777777777777';
+  const userJwt = createUserJwt(userId);
+
+  const entriesRows = [
+    { rank: 1, is_me: false, display_name: 'Anonymous', avatar_url: null, gpt_tokens: '60', claude_tokens: '0', total_tokens: '60' }
+  ];
+
+  const meRow = { rank: 4, gpt_tokens: '5', claude_tokens: '7', total_tokens: '12' };
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      assert.equal(args.anonKey, ANON_KEY);
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            if (table === 'vibeusage_leaderboard_gpt_week_current') {
+              return {
+                select: () => ({
+                  order: (col) => {
+                    assert.equal(col, 'rank');
+                    return {
+                      range: async (from, to) => {
+                        assert.equal(from, 0);
+                        assert.equal(to, 0);
+                        return { data: entriesRows, error: null };
+                      }
+                    };
+                  }
+                })
+              };
+            }
+
+            if (table === 'vibeusage_leaderboard_me_gpt_week_current') {
+              return {
+                select: () => ({
+                  maybeSingle: async () => ({ data: meRow, error: null })
+                })
+              };
+            }
+
+            throw new Error(`Unexpected table: ${table}`);
+          }
+        }
+      };
+    }
+
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard?period=week&metric=gpt&limit=1', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${userJwt}` }
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+
+  assert.equal(body.period, 'week');
+  assert.equal(body.metric, 'gpt');
+  assert.ok(Array.isArray(body.entries));
+  assert.equal(body.entries.length, 1);
+  assert.equal(body.entries[0].rank, 1);
+  assert.deepEqual(body.me, { rank: 4, gpt_tokens: '5', claude_tokens: '7', total_tokens: '12' });
+});
+
+test('vibeusage-leaderboard rejects invalid metric', async () => {
+  const fn = require('../insforge-functions/vibeusage-leaderboard');
+  const userId = '99999999-8888-8888-8888-888888888888';
+  const userJwt = createUserJwt(userId);
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: () => {
+            throw new Error('Unexpected database access');
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard?period=week&metric=banana', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${userJwt}` }
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 400);
 });
 
 test('vibeusage-leaderboard rejects invalid period', async () => {
@@ -6486,23 +6595,27 @@ test('vibeusage-leaderboard-refresh snapshots weekly leaderboard with token fiel
   const deletes = [];
   const inserts = [];
 
-  const sourceRows = [
-    {
-      user_id: '11111111-1111-1111-1111-111111111111',
-      rank: 1,
-      gpt_tokens: '10',
-      claude_tokens: '5',
-      total_tokens: '15',
-      display_name: 'Alpha',
+	  const sourceRows = [
+	    {
+	      user_id: '11111111-1111-1111-1111-111111111111',
+	      rank: 1,
+	      rank_gpt: 1,
+	      rank_claude: 2,
+	      gpt_tokens: '10',
+	      claude_tokens: '5',
+	      total_tokens: '15',
+	      display_name: 'Alpha',
       avatar_url: null
     },
-    {
-      user_id: '22222222-2222-2222-2222-222222222222',
-      rank: 2,
-      gpt_tokens: '3',
-      claude_tokens: '7',
-      total_tokens: '10',
-      display_name: 'Beta',
+	    {
+	      user_id: '22222222-2222-2222-2222-222222222222',
+	      rank: 2,
+	      rank_gpt: 2,
+	      rank_claude: 1,
+	      gpt_tokens: '3',
+	      claude_tokens: '7',
+	      total_tokens: '10',
+	      display_name: 'Beta',
       avatar_url: 'https://example.test/avatar.png'
     }
   ];
@@ -6597,6 +6710,8 @@ test('vibeusage-leaderboard-refresh snapshots weekly leaderboard with token fiel
   assert.equal(inserted[0].from_day, from.toISOString().slice(0, 10));
   assert.equal(inserted[0].to_day, to.toISOString().slice(0, 10));
   assert.equal(inserted[0].generated_at, body.generated_at);
+  assert.equal(inserted[0].rank_gpt, 1);
+  assert.equal(inserted[0].rank_claude, 2);
   assert.equal(inserted[0].gpt_tokens, '10');
   assert.equal(inserted[0].claude_tokens, '5');
   assert.equal(inserted[0].total_tokens, '15');
