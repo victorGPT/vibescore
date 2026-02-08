@@ -90,7 +90,11 @@ async function cmdStatus(argv = []) {
       )} bytes)`
     : null;
 
-  const subscriptions = await collectLocalSubscriptions({ home, env: process.env });
+  const subscriptions = await collectLocalSubscriptions({
+    home,
+    env: process.env,
+    probeKeychain: opts.probeKeychain
+  });
   const subscriptionLines =
     subscriptions.length > 0
       ? subscriptions.map(formatSubscriptionLine)
@@ -148,11 +152,12 @@ function formatSubscriptionLine(entry = {}) {
 }
 
 function parseArgs(argv) {
-  const out = { diagnostics: false };
+  const out = { diagnostics: false, probeKeychain: false };
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--diagnostics' || a === '--json') out.diagnostics = true;
+    else if (a === '--probe-keychain') out.probeKeychain = true;
     else throw new Error(`Unknown option: ${a}`);
   }
 

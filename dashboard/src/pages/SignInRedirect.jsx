@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from "react";
 
 import { insforgeAuthClient } from "../lib/insforge-auth-client";
 import {
+  consumePostAuthPath,
   storePostAuthPathFromSearch,
   storeRedirectFromSearch,
   stripNextParam,
@@ -42,7 +43,10 @@ export function SignInRedirect() {
         const { data } = await insforgeAuthClient.auth.getCurrentSession();
         if (!active) return;
         if (data?.session?.accessToken) {
-          window.location.replace("/");
+          const nextPath = consumePostAuthPath();
+          const destination =
+            nextPath && nextPath !== "/auth/callback" ? nextPath : "/";
+          window.location.replace(destination);
           return;
         }
 

@@ -96,7 +96,8 @@ test('collectLocalSubscriptions can probe Claude Code keychain item existence (n
       home: tmp,
       env: {},
       platform: 'darwin',
-      securityRunner: runner
+      securityRunner: runner,
+      probeKeychain: true
     });
 
     assert.equal(subs.length, 1);
@@ -106,6 +107,30 @@ test('collectLocalSubscriptions can probe Claude Code keychain item existence (n
       product: 'credentials',
       planType: 'present'
     });
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('collectLocalSubscriptions does not probe Claude keychain by default', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-subscriptions-claude-default-'));
+
+  try {
+    let calls = 0;
+    const runner = () => {
+      calls += 1;
+      return { status: 0 };
+    };
+
+    const subs = await collectLocalSubscriptions({
+      home: tmp,
+      env: {},
+      platform: 'darwin',
+      securityRunner: runner
+    });
+
+    assert.deepEqual(subs, []);
+    assert.equal(calls, 0);
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }
@@ -121,7 +146,8 @@ test('collectLocalSubscriptions hides Claude keychain line when probe fails', as
       home: tmp,
       env: {},
       platform: 'darwin',
-      securityRunner: runner
+      securityRunner: runner,
+      probeKeychain: true
     });
 
     assert.deepEqual(subs, []);

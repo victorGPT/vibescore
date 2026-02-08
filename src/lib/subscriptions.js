@@ -191,7 +191,8 @@ async function collectLocalSubscriptions({
   home = os.homedir(),
   env = process.env,
   platform = process.platform,
-  securityRunner
+  securityRunner,
+  probeKeychain = false
 } = {}) {
   const out = [];
 
@@ -201,8 +202,10 @@ async function collectLocalSubscriptions({
   const opencode = await detectOpencodeChatgptSubscription({ home, env });
   if (opencode) out.push(opencode);
 
-  const claude = detectClaudeCodeCredentialsPresence({ platform, securityRunner });
-  if (claude) out.push(claude);
+  if (probeKeychain) {
+    const claude = detectClaudeCodeCredentialsPresence({ platform, securityRunner });
+    if (claude) out.push(claude);
+  }
 
   // Gemini: no stable local subscription/tier signal found yet.
   return out;
