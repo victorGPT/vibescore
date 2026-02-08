@@ -1,7 +1,12 @@
 import React, { useEffect, useMemo } from "react";
 
 import { insforgeAuthClient } from "../lib/insforge-auth-client";
-import { storeRedirectFromSearch, stripRedirectParam } from "../lib/auth-redirect";
+import {
+  storePostAuthPathFromSearch,
+  storeRedirectFromSearch,
+  stripNextParam,
+  stripRedirectParam,
+} from "../lib/auth-redirect";
 
 function buildCallbackUrl() {
   if (typeof window === "undefined") return "/auth/callback";
@@ -14,8 +19,16 @@ export function SignInRedirect() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const { saved } = storeRedirectFromSearch(window.location.search);
-    if (!saved) return;
-    const nextUrl = stripRedirectParam(window.location.href);
+    const { saved: nextSaved } = storePostAuthPathFromSearch(
+      window.location.search
+    );
+    if (!saved && !nextSaved) return;
+
+    let nextUrl = window.location.href;
+    const strippedRedirect = stripRedirectParam(nextUrl);
+    if (strippedRedirect) nextUrl = strippedRedirect;
+    const strippedNext = stripNextParam(nextUrl);
+    if (strippedNext) nextUrl = strippedNext;
     if (!nextUrl || nextUrl === window.location.href) return;
     window.history.replaceState(null, "", nextUrl);
   }, []);
@@ -57,4 +70,3 @@ export function SignInRedirect() {
 
   return <div className="min-h-screen bg-[#050505]" />;
 }
-

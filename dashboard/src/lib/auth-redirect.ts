@@ -1,5 +1,7 @@
 const REDIRECT_STORAGE_KEY = "vibeusage.dashboard.redirect.v1";
+const POST_AUTH_PATH_STORAGE_KEY = "vibeusage.dashboard.post_auth_path.v1";
 let memoryRedirect: string | null = null;
+let memoryPostAuthPath: string | null = null;
 
 function getRedirectStorage() {
   if (typeof window === "undefined") return null;
@@ -19,6 +21,15 @@ export function parseRedirectParam(search: any) {
   return redirect;
 }
 
+export function parseNextParam(search: any) {
+  if (typeof search !== "string" || search.length === 0) return null;
+  const normalized = search.startsWith("?") ? search : `?${search}`;
+  const params = new URLSearchParams(normalized);
+  const next = params.get("next");
+  if (!next) return null;
+  return next;
+}
+
 function isLoopbackHost(hostname: any) {
   return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
 }
@@ -36,11 +47,44 @@ export function validateLoopbackHttpRedirect(value: any) {
   return url.toString();
 }
 
+export function validateNextPath(value: any) {
+  if (typeof value !== "string" || value.length === 0) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (!trimmed.startsWith("/")) return null;
+  // Protocol-relative URL would navigate cross-origin.
+  if (trimmed.startsWith("//")) return null;
+  // Backslashes can be normalized differently across browsers.
+  if (trimmed.includes("\\")) return null;
+  try {
+    const url = new URL(trimmed, "https://vibeusage.local");
+    if (url.origin !== "https://vibeusage.local") return null;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch (_e) {
+    return null;
+  }
+}
+
 export function saveRedirectToStorage(target: any, storage: any = getRedirectStorage()) {
   if (!storage || typeof storage.setItem !== "function") return false;
   if (typeof target !== "string" || target.length === 0) return false;
   try {
     storage.setItem(REDIRECT_STORAGE_KEY, target);
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
+export function savePostAuthPathToStorage(
+  target: any,
+  storage: any = getRedirectStorage()
+) {
+  if (!storage || typeof storage.setItem !== "function") return false;
+  const valid = validateNextPath(target);
+  if (!valid) return false;
+  try {
+    storage.setItem(POST_AUTH_PATH_STORAGE_KEY, valid);
     return true;
   } catch (_e) {
     return false;
@@ -67,6 +111,26 @@ export function consumeRedirectFromStorage(storage: any = getRedirectStorage()) 
   return value;
 }
 
+export function clearPostAuthPathFromStorage(storage: any = getRedirectStorage()) {
+  if (!storage || typeof storage.removeItem !== "function") return false;
+  try {
+    storage.removeItem(POST_AUTH_PATH_STORAGE_KEY);
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
+export function consumePostAuthPathFromStorage(storage: any = getRedirectStorage()) {
+  if (!storage || typeof storage.getItem !== "function") return null;
+  const value = storage.getItem(POST_AUTH_PATH_STORAGE_KEY);
+  if (!value) return null;
+  if (typeof storage.removeItem === "function") {
+    storage.removeItem(POST_AUTH_PATH_STORAGE_KEY);
+  }
+  return value;
+}
+
 export function stripRedirectParam(urlString: any) {
   if (typeof urlString !== "string" || urlString.length === 0) return null;
   let url;
@@ -77,6 +141,19 @@ export function stripRedirectParam(urlString: any) {
   }
   if (!url.searchParams.has("redirect")) return null;
   url.searchParams.delete("redirect");
+  return url.toString();
+}
+
+export function stripNextParam(urlString: any) {
+  if (typeof urlString !== "string" || urlString.length === 0) return null;
+  let url;
+  try {
+    url = new URL(urlString);
+  } catch (_e) {
+    return null;
+  }
+  if (!url.searchParams.has("next")) return null;
+  url.searchParams.delete("next");
   return url.toString();
 }
 
@@ -117,6 +194,23 @@ export function storeRedirectFromSearch(
   return { raw, valid, saved };
 }
 
+export function storePostAuthPathFromSearch(
+  search: any,
+  storage: any = getRedirectStorage()
+) {
+  const raw = parseNextParam(search);
+  const valid = validateNextPath(raw);
+  const saved = valid ? savePostAuthPathToStorage(valid, storage) : false;
+  if (valid && !saved) {
+    memoryPostAuthPath = valid;
+    clearPostAuthPathFromStorage(storage);
+  }
+  if (saved) {
+    memoryPostAuthPath = null;
+  }
+  return { raw, valid, saved };
+}
+
 export function resolveRedirectTarget(
   search: any,
   storage: any = getRedirectStorage()
@@ -143,4 +237,18 @@ export function resolveRedirectTarget(
     }
   }
   return null;
+}
+
+export function consumePostAuthPath(storage: any = getRedirectStorage()) {
+  if (memoryPostAuthPath) {
+    const value = memoryPostAuthPath;
+    memoryPostAuthPath = null;
+    clearPostAuthPathFromStorage(storage);
+    return validateNextPath(value);
+  }
+  const stored = consumePostAuthPathFromStorage(storage);
+  if (!stored) return null;
+  const valid = validateNextPath(stored);
+  if (!valid) return null;
+  return valid;
 }

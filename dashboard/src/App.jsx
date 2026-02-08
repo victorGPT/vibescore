@@ -33,6 +33,7 @@ import {
 } from "./lib/auth-storage";
 import {
   buildRedirectUrl,
+  consumePostAuthPath,
   resolveRedirectTarget,
   storeRedirectFromSearch,
   stripRedirectParam,
@@ -41,6 +42,15 @@ import { insforgeAuthClient } from "./lib/insforge-auth-client";
 
 import { UpgradeAlertModal } from "./ui/matrix-a/components/UpgradeAlertModal.jsx";
 import { VersionBadge } from "./ui/matrix-a/components/VersionBadge.jsx";
+
+function buildAuthEntryUrl(basePath, nextPath) {
+  if (typeof basePath !== "string" || basePath.length === 0) return "/";
+  if (typeof nextPath !== "string" || nextPath.length === 0) return basePath;
+  if (nextPath === "/") return basePath;
+  const params = new URLSearchParams();
+  params.set("next", nextPath);
+  return `${basePath}?${params.toString()}`;
+}
 
 const DashboardPage = React.lazy(() =>
   import("./pages/DashboardPage.jsx").then((mod) => ({
@@ -196,18 +206,29 @@ export default function App() {
     if (redirectOnceRef.current) return;
     if (!insforgeSession?.accessToken || sessionExpired) return;
     const target = resolveRedirectTarget(window.location.search);
-    if (!target) return;
-    const user = insforgeSession.user;
-    const profileName = user?.profile?.name;
-    const displayName = profileName ?? user?.name ?? null;
+    if (target) {
+      const user = insforgeSession.user;
+      const profileName = user?.profile?.name;
+      const displayName = profileName ?? user?.name ?? null;
+      redirectOnceRef.current = true;
+      const redirectUrl = buildRedirectUrl(target, {
+        accessToken: insforgeSession.accessToken,
+        userId: user?.id ?? null,
+        email: user?.email ?? null,
+        name: displayName,
+      });
+      window.location.assign(redirectUrl);
+      return;
+    }
+
+    const normalizedPath = window.location.pathname.replace(/\/+$/, "") || "/";
+    if (normalizedPath !== "/auth/callback") return;
+
+    const nextPath = consumePostAuthPath();
+    const destination =
+      nextPath && nextPath !== "/auth/callback" ? nextPath : "/";
     redirectOnceRef.current = true;
-    const redirectUrl = buildRedirectUrl(target, {
-      accessToken: insforgeSession.accessToken,
-      userId: user?.id ?? null,
-      email: user?.email ?? null,
-      name: displayName,
-    });
-    window.location.assign(redirectUrl);
+    window.location.replace(destination);
   }, [insforgeSession, sessionExpired]);
 
   const hasInsforgeSession = Boolean(insforgeSession?.accessToken);
@@ -230,13 +251,36 @@ export default function App() {
     };
   }, [insforgeSignOut, useInsforge]);
 
+  const pathname = location?.pathname || "/";
   const pageUrl = new URL(window.location.href);
   const sharePathname = pageUrl.pathname.replace(/\/+$/, "");
   const shareMatch = sharePathname.match(/^\/share\/([^/]+)$/i);
   const publicToken = shareMatch ? shareMatch[1] : null;
   const publicMode = Boolean(publicToken);
-  const signInUrl = "/sign-in";
-  const signUpUrl = "/sign-up";
+  const postAuthNext = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const normalizedPath = pathname.replace(/\/+$/, "") || "/";
+    if (normalizedPath === "/auth/callback") return null;
+    const search = location?.search || "";
+    const hash = location?.hash || "";
+    const url = new URL(
+      `${normalizedPath}${search}${hash}`,
+      window.location.origin
+    );
+    // CLI uses these to pass a loopback callback to complete auth. They are not SPA paths.
+    url.searchParams.delete("redirect");
+    url.searchParams.delete("base_url");
+    const candidate = `${url.pathname}${url.search}${url.hash}`;
+    return candidate === "/" ? null : candidate;
+  }, [location?.hash, location?.search, pathname]);
+  const signInUrl = useMemo(
+    () => buildAuthEntryUrl("/sign-in", postAuthNext),
+    [postAuthNext]
+  );
+  const signUpUrl = useMemo(
+    () => buildAuthEntryUrl("/sign-up", postAuthNext),
+    [postAuthNext]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -265,7 +309,6 @@ export default function App() {
     signedIn,
     authPending,
   });
-  const pathname = location?.pathname || "/";
   const isRankings = pathname.startsWith("/rankings");
   const PageComponent = isRankings ? LeaderboardPage : DashboardPage;
   let content = null;
