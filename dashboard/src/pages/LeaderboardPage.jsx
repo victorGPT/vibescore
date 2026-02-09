@@ -252,7 +252,14 @@ export function LeaderboardPage({
   } else if (hasEntries) {
     listBody = (
       <div className="w-full overflow-x-auto">
-        <table className="w-full text-left text-[12px]">
+        <table className="w-full table-fixed text-left text-[12px]">
+          <colgroup>
+            <col className="w-[72px]" />
+            <col />
+            <col className="w-[112px]" />
+            <col className="w-[112px]" />
+            <col className="w-[112px]" />
+          </colgroup>
           <thead className="uppercase text-matrix-dim tracking-[0.25em] text-[10px]">
             <tr className="border-b border-matrix-ghost">
               <th className="px-4 py-3">{copy("leaderboard.column.rank")}</th>
@@ -273,8 +280,8 @@ export function LeaderboardPage({
               if (isMe) {
                 return (
                   <tr key={`row-${entry?.rank}-${name}`} className="border-b border-matrix-ghost/40">
-                    <td colSpan={5} className="px-3 py-3">
-                      <div className="rounded-lg border border-matrix-primary/40 bg-matrix-panelStrong/70 backdrop-blur-panel shadow-matrix-glow">
+                    <td colSpan={5} className="px-0 py-2">
+                      <div className="rounded-none border border-matrix-primary/40 bg-matrix-panelStrong/70 backdrop-blur-panel shadow-matrix-glow">
                         <div className="grid grid-cols-[72px_minmax(0,1fr)_112px_112px_112px] items-center text-[12px]">
                           <div className="px-4 py-3 font-black text-matrix-ink-bright glow-text">
                             {entry?.rank ?? placeholder}
