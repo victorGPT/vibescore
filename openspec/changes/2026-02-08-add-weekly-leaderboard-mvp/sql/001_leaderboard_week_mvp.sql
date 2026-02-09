@@ -57,6 +57,7 @@ totals as (
     on h.hour_start >= (p.from_day::timestamp at time zone 'utc')
    and h.hour_start < ((p.to_day + 1)::timestamp at time zone 'utc')
   where h.source <> 'canary'
+    and h.source in ('codex', 'every-code', 'claude', 'opencode')
     and h.model <> 'unknown'
     and (
       h.model like 'gpt-%'
@@ -179,6 +180,7 @@ begin
     where h.hour_start >= v_from_ts
       and h.hour_start < v_to_ts
       and h.source <> 'canary'
+      and h.source in ('codex', 'every-code', 'claude', 'opencode')
       and h.model <> 'unknown'
       and (
         h.model like 'gpt-%'
@@ -283,6 +285,7 @@ begin
     where h.hour_start >= v_from_ts
       and h.hour_start < v_to_ts
       and h.source <> 'canary'
+      and h.source in ('codex', 'every-code', 'claude', 'opencode')
       and h.model <> 'unknown'
       and (
         h.model like 'gpt-%'
@@ -362,4 +365,3 @@ create view public.vibeusage_leaderboard_me_week_current as
 
 grant select, insert, update, delete on public.vibeusage_leaderboard_week_current to anon, authenticated, project_admin;
 grant select, insert, update, delete on public.vibeusage_leaderboard_me_week_current to anon, authenticated, project_admin;
-

@@ -1,7 +1,7 @@
 ## 1. Implementation
 - [ ] 1.1 DB: extend `vibeusage_leaderboard_snapshots` with `gpt_tokens` + `claude_tokens` + per-metric ranks (`rank_gpt`/`rank_claude`) and backfill existing rows.
 - [ ] 1.2 DB: add index `vibeusage_tracker_hourly(hour_start)` to support weekly refresh.
-- [ ] 1.3 DB: replace `vibeusage_leaderboard_source_week` to compute weekly totals + `rank_gpt`/`rank_claude` from `vibeusage_tracker_hourly` with GPT/Claude rules.
+- [ ] 1.3 DB: replace `vibeusage_leaderboard_source_week` to compute weekly totals + `rank_gpt`/`rank_claude` from `vibeusage_tracker_hourly` with GPT/Claude rules (Code sources only: `codex|every-code|claude|opencode`).
 - [ ] 1.4 DB: update SECURITY DEFINER leaderboard functions and recreate weekly fallback views for `metric=all|gpt|claude`.
 - [ ] 1.5 Backend: update `GET /functions/vibeusage-leaderboard` to `period=week` only, support `metric=all|gpt|claude`, return `metric` + token fields, and support pagination (`limit` + `offset`) + metadata (`page/total_pages/...`).
 - [ ] 1.6 Backend: update `POST /functions/vibeusage-leaderboard-refresh` to refresh `week` only and write the extended snapshot rows.

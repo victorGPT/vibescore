@@ -12,7 +12,7 @@
 - Database:
   - Extend `vibeusage_leaderboard_snapshots` to store `gpt_tokens` and `claude_tokens`.
   - Extend `vibeusage_leaderboard_snapshots` to store per-metric ranks for categories: `rank_gpt` and `rank_claude`.
-  - Replace `vibeusage_leaderboard_source_week` to compute weekly totals from `vibeusage_tracker_hourly` (exclude `source='canary'`, exclude `model='unknown'`).
+  - Replace `vibeusage_leaderboard_source_week` to compute weekly totals from `vibeusage_tracker_hourly` (exclude `source='canary'`, exclude `model='unknown'`, include Code sources only: `codex|every-code|claude|opencode`).
   - Update SECURITY DEFINER leaderboard functions/views to use the same hourly-based accounting.
   - Add an index on `vibeusage_tracker_hourly(hour_start)` to support weekly global scans.
 - Backend:

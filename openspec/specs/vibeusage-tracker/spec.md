@@ -342,6 +342,7 @@ Token accounting:
 - `total_tokens` SHALL equal `gpt_tokens + claude_tokens`.
 - Rows with `model = "unknown"` SHALL be excluded.
 - Buckets with `source = "canary"` SHALL be excluded.
+- Buckets with `source` not in `codex|every-code|claude|opencode` SHALL be excluded (leaderboard tracks Code sources only).
 
 Model family matching:
 - GPT-family: `model LIKE 'gpt-%' OR model LIKE 'openai/%' OR model LIKE '%/gpt-%'`.

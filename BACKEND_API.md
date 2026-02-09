@@ -740,6 +740,7 @@ Rules:
 - `metric=all` ranks by `total_tokens` where `total_tokens = gpt_tokens + claude_tokens`.
 - `metric=gpt` ranks by `gpt_tokens` (users with `gpt_tokens=0` are excluded from `entries`; `me.rank` is `null` when `gpt_tokens=0`).
 - `metric=claude` ranks by `claude_tokens` (users with `claude_tokens=0` are excluded from `entries`; `me.rank` is `null` when `claude_tokens=0`).
+- Code sources only: buckets with `source` not in `codex|every-code|claude|opencode` are excluded.
 - Privacy-safe: no email, no user_id, no raw logs.
 - Response includes `me` even when not in Top N.
 
