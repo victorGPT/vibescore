@@ -27,7 +27,7 @@ jobs:
           echo "Using token from ${TOKEN_SOURCE}"
 
           failures=0
-          for period in day week month total; do
+          for period in week; do
             echo "Refreshing period=${period}"
             response_file=$(mktemp)
             curl_exit=0

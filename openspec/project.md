@@ -92,7 +92,7 @@
 - `GET /functions/vibeusage-usage-heatmap?weeks=52&to=YYYY-MM-DD&week_starts_on=sun|mon`
   - Auth：`Authorization: Bearer <user_jwt>`
   - Out：heatmap grid（详见 `BACKEND_API.md`）
-- `GET /functions/vibeusage-leaderboard?period=day|week|month|total&limit=20`
+- `GET /functions/vibeusage-leaderboard?period=week&metric=all|gpt|claude&limit=20&offset=0`
   - Auth：`Authorization: Bearer <user_jwt>`
   - Out：`{ period, from, to, entries, me }`（详见 `BACKEND_API.md`）
 - `POST /functions/vibeusage-leaderboard-settings`
