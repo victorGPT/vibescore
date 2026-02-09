@@ -122,15 +122,20 @@ export async function getProjectUsageSummary({
 export async function getLeaderboard({
   baseUrl,
   accessToken,
+  period,
   metric,
   limit,
   offset,
 }: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
-    return getMockLeaderboard({ seed: resolvedAccessToken, metric, limit, offset });
+    return getMockLeaderboard({ seed: resolvedAccessToken, period, metric, limit, offset });
   }
-  const params: AnyRecord = { period: "week" };
+  const rawPeriod = typeof period === "string" ? period : "week";
+  const safePeriod = rawPeriod.trim().toLowerCase();
+  const normalizedPeriod =
+    safePeriod === "month" || safePeriod === "total" || safePeriod === "week" ? safePeriod : "week";
+  const params: AnyRecord = { period: normalizedPeriod };
   if (metric) params.metric = String(metric);
   if (limit != null) params.limit = String(limit);
   if (offset != null) params.offset = String(offset);
@@ -175,10 +180,17 @@ export async function getLeaderboardProfile({
   baseUrl,
   accessToken,
   userId,
+  period,
 }: AnyRecord = {}) {
   const resolvedAccessToken = await resolveAccessToken(accessToken);
   if (isMockEnabled()) {
-    const mock = getMockLeaderboard({ seed: resolvedAccessToken, metric: "all", limit: 250, offset: 0 });
+    const mock = getMockLeaderboard({
+      seed: resolvedAccessToken,
+      period,
+      metric: "all",
+      limit: 250,
+      offset: 0,
+    });
     const entries = Array.isArray(mock?.entries) ? mock.entries : [];
     const match = entries.find((entry: any) => entry?.user_id === userId) || null;
     return {
@@ -203,7 +215,7 @@ export async function getLeaderboardProfile({
     baseUrl,
     accessToken: resolvedAccessToken,
     slug: PATHS.leaderboardProfile,
-    params: { user_id: String(userId || "") },
+    params: { user_id: String(userId || ""), period: String(period || "") },
   });
 }
 

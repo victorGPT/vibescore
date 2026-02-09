@@ -863,7 +863,7 @@ var { getAnonKey, getBaseUrl, getServiceRoleKey } = require_env();
 var { toUtcDay, addUtcDays, formatDateUTC } = require_date();
 var { forEachPage } = require_pagination();
 var { toBigInt, toPositiveInt } = require_numbers();
-var PERIODS = ["week"];
+var PERIODS = ["week", "month"];
 var SOURCE_PAGE_SIZE = 1e3;
 var INSERT_BATCH_SIZE = 500;
 module.exports = async function(request) {
@@ -910,7 +910,10 @@ module.exports = async function(request) {
 function normalizePeriod(raw) {
   if (typeof raw !== "string") return null;
   const v = raw.trim().toLowerCase();
-  return v === "week" ? v : null;
+  if (v === "week") return v;
+  if (v === "month") return v;
+  if (v === "total") return v;
+  return null;
 }
 async function computeWindow({ period }) {
   const now = /* @__PURE__ */ new Date();
@@ -920,6 +923,14 @@ async function computeWindow({ period }) {
     const from = addUtcDays(today, -dow);
     const to = addUtcDays(from, 6);
     return { ok: true, from: formatDateUTC(from), to: formatDateUTC(to) };
+  }
+  if (period === "month") {
+    const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+    const to = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
+    return { ok: true, from: formatDateUTC(from), to: formatDateUTC(to) };
+  }
+  if (period === "total") {
+    return { ok: true, from: "1970-01-01", to: "9999-12-31" };
   }
   return { ok: false, error: `Invalid period: ${String(period)}` };
 }

@@ -1,5 +1,5 @@
 // Edge function: vibeusage-leaderboard-profile
-// Returns the requested user's weekly leaderboard snapshot row when it is public (or self).
+// Returns the requested user's leaderboard snapshot row for the requested period when it is public (or self).
 
 'use strict';
 
@@ -26,10 +26,11 @@ module.exports = async function(request) {
   if (!auth.ok) return json({ error: auth.error || 'Unauthorized' }, auth.status || 401);
 
   const url = new URL(request.url);
+  const period = normalizePeriod(url.searchParams.get('period')) || 'week';
   const requestedUserId = normalizeUserId(url.searchParams.get('user_id'));
   if (!requestedUserId) return json({ error: 'user_id is required' }, 400);
 
-  const { from, to } = computeWeekWindow();
+  const { from, to } = computeWindow({ period });
 
   const serviceRoleKey = getServiceRoleKey();
   if (!serviceRoleKey) return json({ error: 'Service unavailable' }, 503);
@@ -56,7 +57,7 @@ module.exports = async function(request) {
   const { data: snapshot, error: snapshotErr } = await serviceClient.database
     .from('vibeusage_leaderboard_snapshots')
     .select('user_id,display_name,avatar_url,rank,gpt_tokens,claude_tokens,total_tokens,generated_at')
-    .eq('period', 'week')
+    .eq('period', period)
     .eq('from_day', from)
     .eq('to_day', to)
     .eq('user_id', requestedUserId)
@@ -67,7 +68,7 @@ module.exports = async function(request) {
 
   return json(
     {
-      period: 'week',
+      period,
       from,
       to,
       generated_at: normalizeGeneratedAt(snapshot.generated_at),
@@ -76,6 +77,15 @@ module.exports = async function(request) {
     200
   );
 };
+
+function normalizePeriod(raw) {
+  if (typeof raw !== 'string') return null;
+  const v = raw.trim().toLowerCase();
+  if (v === 'week') return v;
+  if (v === 'month') return v;
+  if (v === 'total') return v;
+  return null;
+}
 
 function normalizeUserId(value) {
   if (typeof value !== 'string') return null;
@@ -86,13 +96,28 @@ function normalizeUserId(value) {
   return trimmed;
 }
 
-function computeWeekWindow() {
+function computeWindow({ period }) {
   const now = new Date();
   const today = toUtcDay(now);
-  const dow = today.getUTCDay(); // 0=Sunday
-  const from = addUtcDays(today, -dow);
-  const to = addUtcDays(from, 6);
-  return { from: formatDateUTC(from), to: formatDateUTC(to) };
+
+  if (period === 'week') {
+    const dow = today.getUTCDay(); // 0=Sunday
+    const from = addUtcDays(today, -dow);
+    const to = addUtcDays(from, 6);
+    return { from: formatDateUTC(from), to: formatDateUTC(to) };
+  }
+
+  if (period === 'month') {
+    const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+    const to = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
+    return { from: formatDateUTC(from), to: formatDateUTC(to) };
+  }
+
+  if (period === 'total') {
+    return { from: '1970-01-01', to: '9999-12-31' };
+  }
+
+  return computeWindow({ period: 'week' });
 }
 
 function normalizeGeneratedAt(value) {
@@ -127,4 +152,3 @@ function normalizeAvatarUrl(value) {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
 }
-

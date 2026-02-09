@@ -330,8 +330,13 @@ The dashboard TREND chart SHALL NOT render the trend line into future buckets th
 - **THEN** it SHALL render missing markers (no line) for those hours
 - **AND** it SHALL keep zero-usage buckets (`missing=false`) on the line
 
-### Requirement: Leaderboard endpoint is available (weekly only)
-The system SHALL provide a weekly leaderboard endpoint that ranks users over the current UTC calendar week (Sunday start), scoped by a `metric` category:
+### Requirement: Leaderboard endpoint supports week|month|total periods
+The system SHALL provide a leaderboard endpoint that ranks users over the current UTC period window, scoped by a `metric` category and a `period` window:
+- `period=week`: current UTC calendar week (Sunday start)
+- `period=month`: current UTC calendar month (1st..last day)
+- `period=total`: all-time (represented as `from=1970-01-01` and `to=9999-12-31`)
+
+Metric categories:
 - `metric=all`: rank by `total_tokens`
 - `metric=gpt`: rank by `gpt_tokens`
 - `metric=claude`: rank by `claude_tokens`
@@ -348,9 +353,9 @@ Model family matching:
 - GPT-family: `model LIKE 'gpt-%' OR model LIKE 'openai/%' OR model LIKE '%/gpt-%'`.
 - Claude-family: `model LIKE 'claude-%' OR model LIKE 'anthropic/%' OR model LIKE '%/claude-%'`.
 
-#### Scenario: User fetches the current weekly leaderboard
+#### Scenario: User fetches the current leaderboard for a period
 - **GIVEN** a user is signed in and has a valid `user_jwt`
-- **WHEN** the user calls `GET /functions/vibeusage-leaderboard?period=week&metric=all&limit=20&offset=0`
+- **WHEN** the user calls `GET /functions/vibeusage-leaderboard?period=week|month|total&metric=all&limit=20&offset=0`
 - **THEN** the response SHALL include `from` and `to` in `YYYY-MM-DD` (UTC)
 - **AND** the response SHALL include pagination metadata: `page`, `limit`, `offset`, `total_entries`, `total_pages`
 - **AND** the response SHALL include `metric`
@@ -395,16 +400,16 @@ Users SHALL be included in the leaderboard by default, but their identity MUST b
 The leaderboard endpoint MUST validate inputs and enforce reasonable limits to avoid excessive enumeration.
 
 #### Scenario: Invalid parameters are rejected
-- **WHEN** a user calls `GET /functions/vibeusage-leaderboard?period=year` OR `...period=total`
+- **WHEN** a user calls `GET /functions/vibeusage-leaderboard?period=year` OR `...period=day`
 - **THEN** the endpoint SHALL respond with `400`
 - **AND** it SHALL respond with `400` when `metric` is not one of `all|gpt|claude`
 
 ### Requirement: Leaderboard snapshots can be refreshed by automation
-The system SHALL expose an authenticated refresh endpoint that rebuilds the current UTC weekly leaderboard snapshots. It MUST accept an optional `period=week` query and return a structured JSON response (including errors) so automation can log actionable diagnostics per run.
+The system SHALL expose an authenticated refresh endpoint that rebuilds the current UTC leaderboard snapshots for `period=week|month|total`. It MUST accept an optional `period` query and return a structured JSON response (including errors) so automation can log actionable diagnostics per run. When `period` is omitted, automation SHALL refresh `week` + `month`.
 
 #### Scenario: Automation logs per-period status
 - **GIVEN** a valid service-role bearer token
-- **WHEN** automation calls `POST /functions/vibeusage-leaderboard-refresh?period=week`
+- **WHEN** automation calls `POST /functions/vibeusage-leaderboard-refresh?period=week|month|total`
 - **THEN** the response SHALL be JSON with `success: true` or `error`
 - **AND** the automation log SHALL include the HTTP status code and response body for that period
 
@@ -428,28 +433,33 @@ The system SHALL attempt a single upsert when updating leaderboard privacy setti
 - **WHEN** the upsert attempt fails due to unsupported constraints
 - **THEN** the system SHALL fall back to the legacy select/update/insert flow
 
-### Requirement: Dashboard renders weekly leaderboard page
-The dashboard SHALL render a weekly leaderboard page at `/leaderboard`, including a metric selector, a sticky "My Rank" card, a Top 10 panel, and a paginated full table.
+### Requirement: Dashboard renders leaderboard page with period selector
+The dashboard SHALL render a leaderboard page at `/leaderboard`, including:
+- A period selector (`WEEK|MONTH|ALL`) that maps to `period=week|month|total`
+- A "Public Profile" toggle that controls whether the current user's identity is shown to other users on the leaderboard
+- A paginated table of ranks
+
+The dashboard UI SHALL request `metric=all` (no metric selector in MVP).
 
 #### Scenario: Signed-in user visits /leaderboard
 - **GIVEN** the user is signed in
 - **WHEN** the user visits `/leaderboard`
 - **THEN** the dashboard SHALL request `GET /functions/vibeusage-leaderboard?period=week&metric=all`
-- **AND** the UI SHALL render a Top 10 panel and a paginated table using the returned `entries`
+- **AND** the UI SHALL render a period selector and a paginated table using the returned `entries`
 
-#### Scenario: User switches metric category
+#### Scenario: User switches period
 - **GIVEN** the user is on `/leaderboard`
-- **WHEN** the user selects `metric=gpt` or `metric=claude`
-- **THEN** the dashboard SHALL request `GET /functions/vibeusage-leaderboard?period=week&metric=<selected>`
+- **WHEN** the user selects `period=month` or `period=total`
+- **THEN** the dashboard SHALL request `GET /functions/vibeusage-leaderboard?period=<selected>&metric=all`
 
-### Requirement: Dashboard injects Top9 + Me into Top 10 when not in Top 10
-When the signed-in user is not within the Top 10 ranks for the selected metric, the dashboard SHALL inject a "Me" card into the Top 10 panel as position 10 while keeping the displayed `rank` as the user's real rank.
+### Requirement: Dashboard injects YOU row into first page when YOU is not in page
+When the signed-in user is not present within the requested first page (`offset=0..limit-1`), the dashboard SHALL inject a highlighted `YOU` row into the first page to make the user's rank visible without changing the displayed `rank` value.
 
-#### Scenario: Me is outside top 10
-- **GIVEN** the API returns `me.rank > 10`
-- **WHEN** the dashboard renders the Top 10 panel
-- **THEN** the UI SHALL render ranks `1..9` plus an injected "Me" card
-- **AND** the injected card SHALL display `rank = me.rank` (not `10`)
+#### Scenario: YOU rank is outside first page but is still visible
+- **GIVEN** the API returns a `me.rank` that is not within the first page slice
+- **WHEN** the dashboard renders the first page table
+- **THEN** the UI SHALL drop one row from the middle of the first page and insert a highlighted `YOU` row near position 5
+- **AND** the injected row SHALL display `rank = me.rank` (not the injected position)
 
 ### Requirement: Dashboard shows identity information from login state
 The dashboard UI SHALL show an identity panel derived from the login state (name/email/userId). Rank MAY be shown as a placeholder until a backend rank endpoint exists.

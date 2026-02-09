@@ -6371,10 +6371,21 @@ test('vibeusage-leaderboard returns a week window and slices entries to limit', 
   assert.deepEqual(body.me, { rank: 2, gpt_tokens: '30', claude_tokens: '20', total_tokens: '50' });
 });
 
-test('vibeusage-leaderboard rejects non-week period', async () => {
+test('vibeusage-leaderboard supports month period', async () => {
+  setDenoEnv({
+    INSFORGE_INTERNAL_URL: BASE_URL,
+    ANON_KEY
+  });
+
   const fn = require('../insforge-functions/vibeusage-leaderboard');
   const userId = '77777777-7777-7777-7777-777777777777';
   const userJwt = createUserJwt(userId);
+
+  const entriesRows = [
+    { rank: 1, is_me: false, display_name: 'Anonymous', avatar_url: null, gpt_tokens: '6', claude_tokens: '4', total_tokens: '10' }
+  ];
+
+  const meRow = { rank: 7, gpt_tokens: '3', claude_tokens: '2', total_tokens: '5' };
 
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
@@ -6383,8 +6394,26 @@ test('vibeusage-leaderboard rejects non-week period', async () => {
           getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
         },
         database: {
-          from: () => {
-            throw new Error('Unexpected database access');
+          from: (table) => {
+            if (table === 'vibeusage_leaderboard_month_current') {
+              return {
+                select: () => ({
+                  order: () => ({
+                    range: async () => ({ data: entriesRows, error: null })
+                  })
+                })
+              };
+            }
+
+            if (table === 'vibeusage_leaderboard_me_month_current') {
+              return {
+                select: () => ({
+                  maybeSingle: async () => ({ data: meRow, error: null })
+                })
+              };
+            }
+
+            throw new Error(`Unexpected table: ${table}`);
           }
         }
       };
@@ -6392,13 +6421,92 @@ test('vibeusage-leaderboard rejects non-week period', async () => {
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibeusage-leaderboard?period=total', {
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard?period=month&limit=1', {
     method: 'GET',
     headers: { Authorization: `Bearer ${userJwt}` }
   });
 
   const res = await fn(req);
-  assert.equal(res.status, 400);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+
+  assert.equal(body.period, 'month');
+  assert.equal(body.metric, 'all');
+  assert.equal(body.entries?.length, 1);
+  assert.deepEqual(body.me, { rank: 7, gpt_tokens: '3', claude_tokens: '2', total_tokens: '5' });
+
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+  const to = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
+
+  assert.equal(body.from, from.toISOString().slice(0, 10));
+  assert.equal(body.to, to.toISOString().slice(0, 10));
+});
+
+test('vibeusage-leaderboard supports total period', async () => {
+  setDenoEnv({
+    INSFORGE_INTERNAL_URL: BASE_URL,
+    ANON_KEY
+  });
+
+  const fn = require('../insforge-functions/vibeusage-leaderboard');
+  const userId = '77777777-7777-7777-7777-777777777778';
+  const userJwt = createUserJwt(userId);
+
+  const entriesRows = [
+    { rank: 1, is_me: false, display_name: 'Anonymous', avatar_url: null, gpt_tokens: '600', claude_tokens: '400', total_tokens: '1000' }
+  ];
+
+  const meRow = { rank: 399, gpt_tokens: '30', claude_tokens: '20', total_tokens: '50' };
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            if (table === 'vibeusage_leaderboard_total_current') {
+              return {
+                select: () => ({
+                  order: () => ({
+                    range: async () => ({ data: entriesRows, error: null })
+                  })
+                })
+              };
+            }
+
+            if (table === 'vibeusage_leaderboard_me_total_current') {
+              return {
+                select: () => ({
+                  maybeSingle: async () => ({ data: meRow, error: null })
+                })
+              };
+            }
+
+            throw new Error(`Unexpected table: ${table}`);
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard?period=total&limit=1', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${userJwt}` }
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+
+  assert.equal(body.period, 'total');
+  assert.equal(body.metric, 'all');
+  assert.equal(body.from, '1970-01-01');
+  assert.equal(body.to, '9999-12-31');
 });
 
 test('vibeusage-leaderboard supports offset pagination', async () => {
@@ -6731,7 +6839,7 @@ test('vibeusage-leaderboard-refresh rejects non-week period', async () => {
     throw new Error('Unexpected createClient call');
   };
 
-  const req = new Request('http://localhost/functions/vibeusage-leaderboard-refresh?period=total', {
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard-refresh?period=year', {
     method: 'POST',
     headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({})
@@ -6739,6 +6847,87 @@ test('vibeusage-leaderboard-refresh rejects non-week period', async () => {
 
   const res = await fn(req);
   assert.equal(res.status, 400);
+});
+
+test('vibeusage-leaderboard-refresh defaults to week+month periods', async () => {
+  setDenoEnv({
+    INSFORGE_INTERNAL_URL: BASE_URL,
+    ANON_KEY,
+    INSFORGE_SERVICE_ROLE_KEY: SERVICE_ROLE_KEY
+  });
+
+  const fn = require('../insforge-functions/vibeusage-leaderboard-refresh');
+
+  const deletedPeriods = [];
+  const sourceViews = [];
+
+  function makeDeleteQuery() {
+    const query = {
+      filters: [],
+      eq(col, value) {
+        query.filters.push({ col, value });
+        if (col === 'period') deletedPeriods.push(String(value));
+        return query;
+      },
+      then(resolve, reject) {
+        return Promise.resolve({ error: null }).then(resolve, reject);
+      }
+    };
+    return query;
+  }
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return {
+        database: {
+          from: (table) => {
+            if (table === 'vibeusage_leaderboard_snapshots') {
+              return {
+                delete: () => makeDeleteQuery(),
+                insert: async () => ({ error: null })
+              };
+            }
+
+            if (table === 'vibeusage_leaderboard_source_week' || table === 'vibeusage_leaderboard_source_month') {
+              sourceViews.push(table);
+              return {
+                select: () => ({
+                  order: () => ({
+                    range: async () => ({ data: [], error: null })
+                  })
+                })
+              };
+            }
+
+            throw new Error(`Unexpected table: ${table}`);
+          }
+        }
+      };
+    }
+
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard-refresh', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+
+  assert.equal(body.success, true);
+  assert.ok(Array.isArray(body.results));
+  assert.equal(body.results.length, 2);
+  assert.equal(body.results[0].period, 'week');
+  assert.equal(body.results[1].period, 'month');
+
+  assert.equal(sourceViews.includes('vibeusage_leaderboard_source_week'), true);
+  assert.equal(sourceViews.includes('vibeusage_leaderboard_source_month'), true);
+  assert.equal(deletedPeriods.includes('week'), true);
+  assert.equal(deletedPeriods.includes('month'), true);
 });
 
 test('vibeusage-leaderboard-refresh snapshots weekly leaderboard with token fields', async () => {
@@ -6835,7 +7024,7 @@ test('vibeusage-leaderboard-refresh snapshots weekly leaderboard with token fiel
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibeusage-leaderboard-refresh', {
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard-refresh?period=week', {
     method: 'POST',
     headers: { Authorization: `Bearer ${SERVICE_ROLE_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({})

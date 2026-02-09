@@ -1,0 +1,54 @@
+name: Refresh Leaderboard Total Snapshot
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call refresh endpoint (total)
+        env:
+          BASE_URL: ${{ secrets.INSFORGE_BASE_URL }}
+          SERVICE_ROLE_KEY: ${{ secrets.INSFORGE_SERVICE_ROLE_KEY }}
+          API_KEY: ${{ secrets.INSFORGE_API_KEY }}
+        run: |
+          TOKEN="${API_KEY:-$SERVICE_ROLE_KEY}"
+          TOKEN_SOURCE="INSFORGE_API_KEY"
+          if [ -z "$API_KEY" ]; then
+            TOKEN_SOURCE="INSFORGE_SERVICE_ROLE_KEY"
+          fi
+          if [ -z "$BASE_URL" ] || [ -z "$TOKEN" ]; then
+            echo "Missing INSFORGE_BASE_URL or INSFORGE_API_KEY/INSFORGE_SERVICE_ROLE_KEY" >&2
+            exit 1
+          fi
+          echo "Using token from ${TOKEN_SOURCE}"
+
+          echo "Refreshing period=total"
+          response_file=$(mktemp)
+          curl_exit=0
+          status=$(curl --show-error --silent \
+            --retry 3 \
+            --retry-all-errors \
+            --retry-delay 2 \
+            -X POST "$BASE_URL/functions/vibeusage-leaderboard-refresh?period=total" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "{}" \
+            -o "$response_file" \
+            -w "%{http_code}") || curl_exit=$?
+          echo "HTTP ${status}"
+          cat "$response_file"
+          rm -f "$response_file"
+
+          if [ "$curl_exit" -ne 0 ]; then
+            echo "Refresh failed (curl_exit=${curl_exit}) period=total" >&2
+            exit 1
+          fi
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "Refresh failed (HTTP ${status}) period=total" >&2
+            exit 1
+          fi
+

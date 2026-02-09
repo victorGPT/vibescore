@@ -1,5 +1,5 @@
 // Edge function: vibeusage-leaderboard-refresh
-// Rebuilds leaderboard snapshots for current UTC window (week only).
+// Rebuilds leaderboard snapshots for current UTC period window.
 // Auth: Authorization: Bearer <service_role_key>
 
 'use strict';
@@ -11,7 +11,7 @@ const { toUtcDay, addUtcDays, formatDateUTC } = require('../shared/date');
 const { forEachPage } = require('../shared/pagination');
 const { toBigInt, toPositiveInt } = require('../shared/numbers');
 
-const PERIODS = ['week'];
+const PERIODS = ['week', 'month'];
 const SOURCE_PAGE_SIZE = 1000;
 const INSERT_BATCH_SIZE = 500;
 
@@ -70,7 +70,10 @@ module.exports = async function(request) {
 function normalizePeriod(raw) {
   if (typeof raw !== 'string') return null;
   const v = raw.trim().toLowerCase();
-  return v === 'week' ? v : null;
+  if (v === 'week') return v;
+  if (v === 'month') return v;
+  if (v === 'total') return v;
+  return null;
 }
 
 async function computeWindow({ period }) {
@@ -82,6 +85,16 @@ async function computeWindow({ period }) {
     const from = addUtcDays(today, -dow);
     const to = addUtcDays(from, 6);
     return { ok: true, from: formatDateUTC(from), to: formatDateUTC(to) };
+  }
+
+  if (period === 'month') {
+    const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+    const to = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
+    return { ok: true, from: formatDateUTC(from), to: formatDateUTC(to) };
+  }
+
+  if (period === 'total') {
+    return { ok: true, from: '1970-01-01', to: '9999-12-31' };
   }
 
   return { ok: false, error: `Invalid period: ${String(period)}` };

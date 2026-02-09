@@ -457,15 +457,27 @@ export function getMockProjectUsageSummary({
 
 function computeLeaderboardWindow(period: string) {
   const today = parseUtcDate(formatDateLocal(new Date())) || new Date();
+  const safe = String(period || "week").trim().toLowerCase() || "week";
+
+  if (safe === "total") {
+    return { from: "1970-01-01", to: "9999-12-31" };
+  }
+
+  if (safe === "month") {
+    const fromDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+    const toDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
+    return { from: formatDateUTC(fromDate), to: formatDateUTC(toDate) };
+  }
+
   const dow = today.getUTCDay(); // 0=Sunday
   const from = formatDateUTC(addUtcDays(today, -dow));
   const to = formatDateUTC(addUtcDays(today, -dow + 6));
-  if (period === "week") return { from, to };
   return { from, to };
 }
 
 export function getMockLeaderboard({
   seed,
+  period: rawPeriod,
   metric,
   limit = 20,
   offset = 0,
@@ -474,7 +486,8 @@ export function getMockLeaderboard({
   const safeLimit = Math.max(1, Math.min(100, Math.floor(Number(limit) || 20)));
   const safeOffset = Math.max(0, Math.min(10_000, Math.floor(Number(offset) || 0)));
   const safeMetric = String(metric || "all").trim().toLowerCase() || "all";
-  const period = "week";
+  const safePeriod = String(rawPeriod || "week").trim().toLowerCase() || "week";
+  const period = safePeriod === "month" || safePeriod === "total" || safePeriod === "week" ? safePeriod : "week";
   const { from, to } = computeLeaderboardWindow(period);
   const totalEntries = 250;
   const totalPages = totalEntries > 0 ? Math.ceil(totalEntries / safeLimit) : 0;

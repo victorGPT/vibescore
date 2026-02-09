@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { copy } from "../lib/copy";
 import {
@@ -22,6 +23,15 @@ import { MatrixShell } from "../ui/foundation/MatrixShell.jsx";
 import { GithubStar } from "../ui/matrix-a/components/GithubStar.jsx";
 
 const PAGE_LIMIT = 20;
+
+function normalizePeriod(value) {
+  if (typeof value !== "string") return null;
+  const v = value.trim().toLowerCase();
+  if (v === "week") return v;
+  if (v === "month") return v;
+  if (v === "total") return v;
+  return null;
+}
 
 function normalizeLeaderboardError(err) {
   if (!err) return copy("shared.error.prefix", { error: copy("leaderboard.error.unknown") });
@@ -49,6 +59,8 @@ export function LeaderboardPage({
   signOut,
   signInUrl = "/sign-in",
 }) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const mockEnabled = isMockEnabled();
   const authTokenAllowed = signedIn && !sessionSoftExpired;
   const authAccessToken = useMemo(() => {
@@ -100,6 +112,27 @@ export function LeaderboardPage({
     error: null,
     leaderboardPublic: null,
   }));
+
+  const period = useMemo(() => {
+    const params = new URLSearchParams(location?.search || "");
+    return normalizePeriod(params.get("period")) || "week";
+  }, [location?.search]);
+
+  const periodSearch = location?.search || "";
+
+  const handlePeriodChange = (nextPeriod) => {
+    const normalized = normalizePeriod(nextPeriod);
+    if (!normalized) return;
+    if (normalized === period) return;
+    const params = new URLSearchParams(location?.search || "");
+    params.set("period", normalized);
+    setListPage(1);
+    navigate(`${location?.pathname || "/leaderboard"}?${params.toString()}`, { replace: true });
+  };
+
+  useEffect(() => {
+    setListPage(1);
+  }, [period]);
 
   useEffect(() => {
     if (mockEnabled) return;
@@ -159,6 +192,7 @@ export function LeaderboardPage({
       const data = await getLeaderboard({
         baseUrl,
         accessToken: token,
+        period,
         limit: PAGE_LIMIT,
         offset: listOffset,
       });
@@ -171,7 +205,7 @@ export function LeaderboardPage({
     return () => {
       active = false;
     };
-  }, [baseUrl, effectiveAuthToken, authTokenAllowed, authTokenReady, listOffset, listReloadToken, mockEnabled]);
+  }, [baseUrl, effectiveAuthToken, authTokenAllowed, authTokenReady, listOffset, listReloadToken, mockEnabled, period]);
 
   const listData = listState.data;
 
@@ -188,6 +222,10 @@ export function LeaderboardPage({
   const meLabel = copy("leaderboard.me_label");
   const anonLabel = copy("leaderboard.anon_label");
   const publicProfileLabel = copy("leaderboard.public_profile.label");
+  const weekLabel = copy("leaderboard.period.week");
+  const monthLabel = copy("leaderboard.period.month");
+  const totalLabel = copy("leaderboard.period.total");
+  const periodLabel = period === "month" ? monthLabel : period === "total" ? totalLabel : weekLabel;
 
   const displayEntries = useMemo(() => {
     const rows = Array.isArray(listData?.entries) ? listData.entries : [];
@@ -281,7 +319,7 @@ export function LeaderboardPage({
                 return (
                   <tr key={`row-${entry?.rank}-${name}`} className="border-b border-matrix-ghost/40">
                     <td colSpan={5} className="px-0 py-2">
-                      <div className="rounded-none border border-matrix-primary/40 bg-matrix-panelStrong/70 backdrop-blur-panel shadow-matrix-glow">
+                      <div className="rounded-none ring-1 ring-inset ring-matrix-primary/40 bg-matrix-panelStrong/70 backdrop-blur-panel shadow-matrix-glow">
                         <div className="grid grid-cols-[72px_minmax(0,1fr)_112px_112px_112px] items-center text-[12px]">
                           <div className="px-4 py-3 font-black text-matrix-ink-bright glow-text">
                             {entry?.rank ?? placeholder}
@@ -307,7 +345,7 @@ export function LeaderboardPage({
                   <td className="px-4 py-3 font-bold truncate max-w-[240px]">
                     {userLinkEnabled ? (
                       <a
-                        href={`/leaderboard/u/${profileUserId}`}
+                        href={`/leaderboard/u/${profileUserId}${periodSearch}`}
                         className="hover:underline underline-offset-4 decoration-dotted focus:outline-none focus-visible:ring-2 focus-visible:ring-matrix-primary/70"
                       >
                         {name}
@@ -376,7 +414,11 @@ export function LeaderboardPage({
               {copy("leaderboard.title")}
             </h1>
             <div className="text-[10px] uppercase tracking-[0.25em] text-matrix-muted">
-              {from && to ? copy("leaderboard.range", { from, to }) : copy("leaderboard.range_loading")}
+              {period === "total"
+                ? copy("leaderboard.range.total")
+                : from && to
+                  ? copy("leaderboard.range", { period: periodLabel, from, to })
+                  : copy("leaderboard.range_loading", { period: periodLabel })}
             </div>
           </div>
           {generatedAt ? (
@@ -392,44 +434,73 @@ export function LeaderboardPage({
           className=""
           bodyClassName="px-0"
         >
-          {authTokenAllowed && authTokenReady ? (
-            <div className="px-4 pb-3 flex items-center justify-end gap-3">
-              {profileState.error ? (
-                <span className="text-[10px] uppercase tracking-[0.25em] text-matrix-dim">
-                  {profileState.error}
-                </span>
-              ) : null}
-              <div className="flex items-center gap-3">
-                <span className="text-[10px] uppercase tracking-[0.25em] text-matrix-dim">
-                  {publicProfileLabel}
-                </span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={publicProfileEnabled}
-                  aria-label={publicProfileLabel}
-                  title={publicProfileLabel}
-                  onClick={handleTogglePublicProfile}
-                  disabled={publicProfileBusy}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-matrix-primary/70 disabled:opacity-60 disabled:cursor-not-allowed ${
-                    publicProfileEnabled
-                      ? "bg-matrix-primary/15 border-matrix-primary/40"
-                      : "bg-matrix-panelStrong/40 border-matrix-ghost/60"
-                  }`}
-                >
-                  <span className="sr-only">{publicProfileLabel}</span>
-                  <span
-                    aria-hidden="true"
-                    className={`inline-block h-4 w-4 rounded-full transition-transform ${
-                      publicProfileEnabled
-                        ? "bg-matrix-primary shadow-matrix-glow translate-x-6"
-                        : "bg-matrix-dim translate-x-1"
-                    }`}
-                  />
-                </button>
-              </div>
+          <div className="px-4 pb-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <MatrixButton
+                size="sm"
+                primary={period === "week"}
+                onClick={() => handlePeriodChange("week")}
+                disabled={listState.loading}
+              >
+                {weekLabel}
+              </MatrixButton>
+              <MatrixButton
+                size="sm"
+                primary={period === "month"}
+                onClick={() => handlePeriodChange("month")}
+                disabled={listState.loading}
+              >
+                {monthLabel}
+              </MatrixButton>
+              <MatrixButton
+                size="sm"
+                primary={period === "total"}
+                onClick={() => handlePeriodChange("total")}
+                disabled={listState.loading}
+              >
+                {totalLabel}
+              </MatrixButton>
             </div>
-          ) : null}
+
+            {authTokenAllowed && authTokenReady ? (
+              <div className="flex items-center justify-end gap-3">
+                {profileState.error ? (
+                  <span className="text-[10px] uppercase tracking-[0.25em] text-matrix-dim">
+                    {profileState.error}
+                  </span>
+                ) : null}
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] uppercase tracking-[0.25em] text-matrix-dim">
+                    {publicProfileLabel}
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={publicProfileEnabled}
+                    aria-label={publicProfileLabel}
+                    title={publicProfileLabel}
+                    onClick={handleTogglePublicProfile}
+                    disabled={publicProfileBusy}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-matrix-primary/70 disabled:opacity-60 disabled:cursor-not-allowed ${
+                      publicProfileEnabled
+                        ? "bg-matrix-primary/15 border-matrix-primary/40"
+                        : "bg-matrix-panelStrong/40 border-matrix-ghost/60"
+                    }`}
+                  >
+                    <span className="sr-only">{publicProfileLabel}</span>
+                    <span
+                      aria-hidden="true"
+                      className={`inline-block h-4 w-4 rounded-full transition-transform ${
+                        publicProfileEnabled
+                          ? "bg-matrix-primary shadow-matrix-glow translate-x-6"
+                          : "bg-matrix-dim translate-x-1"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
 
           {listBody}
 

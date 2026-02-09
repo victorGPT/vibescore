@@ -260,22 +260,26 @@ leaderboard.nav.open,dashboard,DashboardPage,Header,nav_leaderboard,"$ leaderboa
 leaderboard.nav.back,dashboard,LeaderboardPage,Header,nav_back,"$ dashboard",,active
 leaderboard.profile.nav.back,dashboard,LeaderboardProfilePage,Header,nav_back,"$ leaderboard",,active
 leaderboard.title,dashboard,LeaderboardPage,LeaderboardPage,title,"LEADERBOARD",,active
-leaderboard.range,dashboard,LeaderboardPage,LeaderboardPage,range,"UTC_WEEK: {{from}}..{{to}}",,active
-leaderboard.range_loading,dashboard,LeaderboardPage,LeaderboardPage,range_loading,"UTC_WEEK: ...",,active
+leaderboard.range,dashboard,LeaderboardPage,LeaderboardPage,range,"UTC_{{period}}: {{from}}..{{to}}",,active
+leaderboard.range_loading,dashboard,LeaderboardPage,LeaderboardPage,range_loading,"UTC_{{period}}: ...",,active
+leaderboard.range.total,dashboard,LeaderboardPage,LeaderboardPage,range_total,"ALL TIME",,active
 leaderboard.generated_at,dashboard,LeaderboardPage,LeaderboardPage,generated_at,"UPDATED_AT: {{ts}}",,active
+leaderboard.period.week,dashboard,LeaderboardPage,LeaderboardPage,period_week,"WEEK",,active
+leaderboard.period.month,dashboard,LeaderboardPage,LeaderboardPage,period_month,"MONTH",,active
+leaderboard.period.total,dashboard,LeaderboardPage,LeaderboardPage,period_total,"ALL",,active
 leaderboard.metric.all,dashboard,LeaderboardPage,LeaderboardPage,metric_all,"ALL",,active
 leaderboard.metric.gpt,dashboard,LeaderboardPage,LeaderboardPage,metric_gpt,"GPT",,active
 leaderboard.metric.claude,dashboard,LeaderboardPage,LeaderboardPage,metric_claude,"CLAUDE",,active
 
 leaderboard.me_label,dashboard,LeaderboardPage,LeaderboardPage,me_label,"YOU",,active
 leaderboard.anon_label,dashboard,LeaderboardPage,LeaderboardPage,anon_label,"Anonymous",,active
-leaderboard.public_profile.label,dashboard,LeaderboardPage,LeaderboardPage,public_profile_label,"Public profile",,active
+leaderboard.public_profile.label,dashboard,LeaderboardPage,LeaderboardPage,public_profile_label,"PUBLIC PROFILE",,active
 leaderboard.error.unknown,dashboard,LeaderboardPage,LeaderboardPage,error_unknown,"UNKNOWN_ERROR",,active
 leaderboard.me_card.title,dashboard,LeaderboardPage,AsciiBox,me_card_title,"MY_RANK",,active
 leaderboard.me_card.subtitle,dashboard,LeaderboardPage,AsciiBox,me_card_subtitle,"WEEKLY",,active
 
 leaderboard.profile.card.title,dashboard,LeaderboardProfilePage,AsciiBox,card_title,"PROFILE",,active
-leaderboard.profile.card.subtitle,dashboard,LeaderboardProfilePage,AsciiBox,card_subtitle,"WEEKLY",,active
+leaderboard.profile.card.subtitle,dashboard,LeaderboardProfilePage,AsciiBox,card_subtitle,"{{period}}",,active
 
 leaderboard.top10.title,dashboard,LeaderboardPage,AsciiBox,top10_title,"TOP_10",,active
 leaderboard.top10.subtitle,dashboard,LeaderboardPage,AsciiBox,top10_subtitle,"TOP_9_PLUS_YOU",,active

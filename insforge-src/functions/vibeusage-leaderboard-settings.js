@@ -105,11 +105,7 @@ async function trySyncSnapshot({ baseUrl, userId, leaderboardPublic }) {
     edgeFunctionToken: serviceRoleKey
   });
 
-  const now = new Date();
-  const today = toUtcDay(now);
-  const dow = today.getUTCDay(); // 0=Sunday
-  const from = formatDateUTC(addUtcDays(today, -dow));
-  const to = formatDateUTC(addUtcDays(today, -dow + 6));
+  const windows = computeWindows();
 
   let nickname = null;
   let avatarUrl = null;
@@ -129,15 +125,40 @@ async function trySyncSnapshot({ baseUrl, userId, leaderboardPublic }) {
   const displayName = leaderboardPublic && nickname ? nickname : 'Anonymous';
   const nextAvatarUrl = leaderboardPublic && avatarUrl ? avatarUrl : null;
 
-  try {
-    await serviceClient.database
-      .from('vibeusage_leaderboard_snapshots')
-      .update({ display_name: displayName, avatar_url: nextAvatarUrl })
-      .eq('period', 'week')
-      .eq('from_day', from)
-      .eq('to_day', to)
-      .eq('user_id', userId);
-  } catch (_err) {
-    // ignore sync errors
+  for (const w of windows) {
+    try {
+      await serviceClient.database
+        .from('vibeusage_leaderboard_snapshots')
+        .update({ display_name: displayName, avatar_url: nextAvatarUrl })
+        .eq('period', w.period)
+        .eq('from_day', w.from)
+        .eq('to_day', w.to)
+        .eq('user_id', userId);
+    } catch (_err) {
+      // ignore sync errors
+    }
   }
+}
+
+function computeWindows() {
+  const now = new Date();
+  const today = toUtcDay(now);
+  const year = today.getUTCFullYear();
+  const month = today.getUTCMonth();
+
+  const dow = today.getUTCDay(); // 0=Sunday
+  const weekFrom = formatDateUTC(addUtcDays(today, -dow));
+  const weekTo = formatDateUTC(addUtcDays(today, -dow + 6));
+
+  const monthFrom = formatDateUTC(new Date(Date.UTC(year, month, 1)));
+  const monthTo = formatDateUTC(new Date(Date.UTC(year, month + 1, 0)));
+
+  const totalFrom = '1970-01-01';
+  const totalTo = '9999-12-31';
+
+  return [
+    { period: 'week', from: weekFrom, to: weekTo },
+    { period: 'month', from: monthFrom, to: monthTo },
+    { period: 'total', from: totalFrom, to: totalTo }
+  ];
 }

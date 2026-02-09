@@ -1,5 +1,9 @@
 // Edge function: vibeusage-leaderboard
-// Returns token usage leaderboard for the current UTC calendar week (Sunday start) for authenticated users.
+// Returns token usage leaderboard for the current UTC period window for authenticated users.
+// Periods:
+// - week: current UTC calendar week (Sunday start)
+// - month: current UTC calendar month
+// - total: all-time
 
 'use strict';
 
@@ -206,6 +210,8 @@ function normalizePeriod(raw) {
   if (typeof raw !== 'string') return null;
   const v = raw.trim().toLowerCase();
   if (v === 'week') return v;
+  if (v === 'month') return v;
+  if (v === 'total') return v;
   return null;
 }
 
@@ -376,6 +382,17 @@ async function computeWindow({ period }) {
     const from = addUtcDays(today, -dow);
     const to = addUtcDays(from, 6);
     return { from: formatDateUTC(from), to: formatDateUTC(to) };
+  }
+
+  if (period === 'month') {
+    const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+    const to = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 1, 0));
+    return { from: formatDateUTC(from), to: formatDateUTC(to) };
+  }
+
+  if (period === 'total') {
+    // Represent all-time as an open-ended UTC date range.
+    return { from: '1970-01-01', to: '9999-12-31' };
   }
 
   throw new Error(`Unsupported period: ${String(period)}`);

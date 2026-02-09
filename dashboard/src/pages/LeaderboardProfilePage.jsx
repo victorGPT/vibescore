@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import { copy } from "../lib/copy";
 import { getLeaderboardProfile } from "../lib/vibeusage-api";
@@ -23,6 +24,15 @@ function normalizeName(value) {
   return value.trim();
 }
 
+function normalizePeriod(value) {
+  if (typeof value !== "string") return null;
+  const v = value.trim().toLowerCase();
+  if (v === "week") return v;
+  if (v === "month") return v;
+  if (v === "total") return v;
+  return null;
+}
+
 export function LeaderboardProfilePage({
   baseUrl,
   auth,
@@ -32,6 +42,7 @@ export function LeaderboardProfilePage({
   signInUrl = "/sign-in",
   userId,
 }) {
+  const location = useLocation();
   const mockEnabled = isMockEnabled();
   const authTokenAllowed = signedIn && !sessionSoftExpired;
   const authAccessToken = useMemo(() => {
@@ -44,6 +55,11 @@ export function LeaderboardProfilePage({
   }, [auth, authTokenAllowed]);
   const effectiveAuthToken = authTokenAllowed ? authAccessToken : null;
   const authTokenReady = authTokenAllowed && isAccessTokenReady(effectiveAuthToken);
+  const period = useMemo(() => {
+    const params = new URLSearchParams(location?.search || "");
+    return normalizePeriod(params.get("period")) || "week";
+  }, [location?.search]);
+  const periodSearch = location?.search || "";
 
   let headerStatus = null;
   if (authTokenAllowed && authTokenReady) {
@@ -52,7 +68,7 @@ export function LeaderboardProfilePage({
 
   const headerRight = (
     <div className="flex items-center gap-4">
-      <MatrixButton as="a" size="header" href="/leaderboard">
+      <MatrixButton as="a" size="header" href={`/leaderboard${periodSearch}`}>
         {copy("leaderboard.profile.nav.back")}
       </MatrixButton>
       <GithubStar isFixed={false} size="header" />
@@ -86,6 +102,7 @@ export function LeaderboardProfilePage({
         baseUrl,
         accessToken: token,
         userId,
+        period,
       });
       if (!active) return;
       setProfileState({ loading: false, error: null, data });
@@ -96,7 +113,7 @@ export function LeaderboardProfilePage({
     return () => {
       active = false;
     };
-  }, [authTokenAllowed, authTokenReady, baseUrl, effectiveAuthToken, mockEnabled, userId]);
+  }, [authTokenAllowed, authTokenReady, baseUrl, effectiveAuthToken, mockEnabled, period, userId]);
 
   const data = profileState.data;
   const from = data?.from || null;
@@ -105,6 +122,10 @@ export function LeaderboardProfilePage({
   const entry = data?.entry || null;
 
   const displayName = normalizeName(entry?.display_name) || copy("leaderboard.anon_label");
+  const weekLabel = copy("leaderboard.period.week");
+  const monthLabel = copy("leaderboard.period.month");
+  const totalLabel = copy("leaderboard.period.total");
+  const periodLabel = period === "month" ? monthLabel : period === "total" ? totalLabel : weekLabel;
 
   let body = null;
   if (!userId) {
@@ -163,7 +184,11 @@ export function LeaderboardProfilePage({
           <div className="flex flex-wrap items-baseline justify-between gap-3">
             <h1 className="text-xl md:text-2xl font-black tracking-tight glow-text">{displayName}</h1>
             <div className="text-[10px] uppercase tracking-[0.25em] text-matrix-muted">
-              {from && to ? copy("leaderboard.range", { from, to }) : copy("leaderboard.range_loading")}
+              {period === "total"
+                ? copy("leaderboard.range.total")
+                : from && to
+                  ? copy("leaderboard.range", { period: periodLabel, from, to })
+                  : copy("leaderboard.range_loading", { period: periodLabel })}
             </div>
           </div>
           {generatedAt ? (
@@ -175,7 +200,7 @@ export function LeaderboardProfilePage({
 
         <AsciiBox
           title={copy("leaderboard.profile.card.title")}
-          subtitle={copy("leaderboard.profile.card.subtitle")}
+          subtitle={copy("leaderboard.profile.card.subtitle", { period: periodLabel })}
           className=""
           bodyClassName="px-0"
         >
@@ -185,4 +210,3 @@ export function LeaderboardProfilePage({
     </MatrixShell>
   );
 }
-
