@@ -53,25 +53,32 @@ export function getPaginationFlags({ page, totalPages }) {
   return { canPrev, canNext, safePage, safeTotal };
 }
 
-export function buildInjectedTopEntries({ topEntries, me, meLabel, limit }) {
-  const safeLimit = clampInt(limit, { min: 1, max: 100, fallback: 10 });
-  const rows = Array.isArray(topEntries) ? topEntries.slice(0, safeLimit) : [];
+export function injectMeIntoFirstPage({ entries, me, meLabel, limit }) {
+  const safeLimit = clampInt(limit, { min: 1, max: 1000, fallback: 20 });
+  const rows = Array.isArray(entries) ? entries.slice(0, safeLimit) : [];
   const meRank = me && typeof me.rank === "number" ? me.rank : null;
-  const hasMeInTop = rows.some((e) => Boolean(e?.is_me));
+  const hasMeInPage = rows.some((e) => Boolean(e?.is_me));
 
-  if (!meRank || meRank <= safeLimit || hasMeInTop) return rows;
+  if (!meRank || hasMeInPage) return rows;
 
-  const trimmed = rows.filter((e) => !e?.is_me).slice(0, Math.max(0, safeLimit - 1));
-  return [
-    ...trimmed,
-    {
-      rank: meRank,
-      is_me: true,
-      display_name: meLabel,
-      avatar_url: null,
-      gpt_tokens: me?.gpt_tokens ?? "0",
-      claude_tokens: me?.claude_tokens ?? "0",
-      total_tokens: me?.total_tokens ?? "0",
-    },
-  ];
+  const injectedRow = {
+    rank: meRank,
+    is_me: true,
+    display_name: meLabel,
+    avatar_url: null,
+    gpt_tokens: me?.gpt_tokens ?? "0",
+    claude_tokens: me?.claude_tokens ?? "0",
+    total_tokens: me?.total_tokens ?? "0",
+  };
+
+  // Product intent: keep list length stable, drop the 4th row (index 3),
+  // and insert "YOU" at the 5th row (index 4). This creates a visible rank gap.
+  const dropIndex = 3;
+  const insertIndex = 4;
+
+  const pruned = rows.filter((e) => !e?.is_me).filter((_e, idx) => idx !== dropIndex);
+  const next = pruned.slice();
+  next.splice(Math.min(insertIndex, next.length), 0, injectedRow);
+
+  return next.slice(0, safeLimit);
 }

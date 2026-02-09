@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildInjectedTopEntries, getPaginationFlags } from "../leaderboard-ui";
+import { getPaginationFlags, injectMeIntoFirstPage } from "../leaderboard-ui";
 
 describe("getPaginationFlags", () => {
   it("keeps next enabled when totalPages is unknown", () => {
@@ -22,9 +22,9 @@ describe("getPaginationFlags", () => {
   });
 });
 
-describe("buildInjectedTopEntries", () => {
-  it("injects me into Top10 and keeps real rank", () => {
-    const topEntries = Array.from({ length: 10 }, (_, i) => ({
+describe("injectMeIntoFirstPage", () => {
+  it("injects me at position 5 and keeps real rank", () => {
+    const entries = Array.from({ length: 20 }, (_, i) => ({
       rank: i + 1,
       is_me: false,
       display_name: "Anonymous",
@@ -35,17 +35,36 @@ describe("buildInjectedTopEntries", () => {
     }));
 
     const me = { rank: 399, gpt_tokens: "10", claude_tokens: "20", total_tokens: "30" };
-    const injected = buildInjectedTopEntries({ topEntries, me, meLabel: "YOU", limit: 10 });
+    const injected = injectMeIntoFirstPage({ entries, me, meLabel: "YOU", limit: 20 });
 
-    expect(injected).toHaveLength(10);
-    expect(injected.slice(0, 9).map((e) => e.rank)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
-    expect(injected[9]?.is_me).toBe(true);
-    expect(injected[9]?.rank).toBe(399);
-    expect(injected[9]?.total_tokens).toBe("30");
+    expect(injected).toHaveLength(20);
+    expect(injected[3]?.rank).toBe(5);
+    expect(injected.some((entry) => entry.rank === 4)).toBe(false);
+    expect(injected[4]?.is_me).toBe(true);
+    expect(injected[4]?.rank).toBe(399);
+    expect(injected[4]?.total_tokens).toBe("30");
   });
 
-  it("does not inject when me is already within limit", () => {
-    const topEntries = Array.from({ length: 10 }, (_, i) => ({
+  it("does not inject when current page already includes me", () => {
+    const entries = Array.from({ length: 20 }, (_, i) => ({
+      rank: i + 1,
+      is_me: false,
+      display_name: "Anonymous",
+      avatar_url: null,
+      gpt_tokens: "1",
+      claude_tokens: "2",
+      total_tokens: "3",
+    }));
+    entries[12].is_me = true;
+
+    const me = { rank: 399, gpt_tokens: "10", claude_tokens: "20", total_tokens: "30" };
+    const injected = injectMeIntoFirstPage({ entries, me, meLabel: "YOU", limit: 20 });
+
+    expect(injected).toEqual(entries);
+  });
+
+  it("does not inject when me rank is missing", () => {
+    const entries = Array.from({ length: 20 }, (_, i) => ({
       rank: i + 1,
       is_me: false,
       display_name: "Anonymous",
@@ -55,10 +74,9 @@ describe("buildInjectedTopEntries", () => {
       total_tokens: "3",
     }));
 
-    const me = { rank: 7, gpt_tokens: "10", claude_tokens: "20", total_tokens: "30" };
-    const injected = buildInjectedTopEntries({ topEntries, me, meLabel: "YOU", limit: 10 });
+    const me = { rank: null, gpt_tokens: "10", claude_tokens: "20", total_tokens: "30" };
+    const injected = injectMeIntoFirstPage({ entries, me, meLabel: "YOU", limit: 20 });
 
-    expect(injected).toEqual(topEntries);
+    expect(injected).toEqual(entries);
   });
 });
-

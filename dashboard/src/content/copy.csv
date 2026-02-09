@@ -267,7 +267,7 @@ leaderboard.metric.gpt,dashboard,LeaderboardPage,LeaderboardPage,metric_gpt,"GPT
 leaderboard.metric.claude,dashboard,LeaderboardPage,LeaderboardPage,metric_claude,"CLAUDE",,active
 
 leaderboard.me_label,dashboard,LeaderboardPage,LeaderboardPage,me_label,"YOU",,active
-leaderboard.anon_label,dashboard,LeaderboardPage,LeaderboardPage,anon_label,"Anonymous",,active
+leaderboard.anon_label,dashboard,LeaderboardPage,LeaderboardPage,anon_label,"非匿名",,active
 leaderboard.error.unknown,dashboard,LeaderboardPage,LeaderboardPage,error_unknown,"UNKNOWN_ERROR",,active
 leaderboard.me_card.title,dashboard,LeaderboardPage,AsciiBox,me_card_title,"MY_RANK",,active
 leaderboard.me_card.subtitle,dashboard,LeaderboardPage,AsciiBox,me_card_subtitle,"WEEKLY",,active
