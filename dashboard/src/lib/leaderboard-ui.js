@@ -37,11 +37,18 @@ export function buildPageItems(page, totalPages) {
 }
 
 export function getPaginationFlags({ page, totalPages }) {
-  const safeTotal = clampInt(totalPages, { min: 0, max: 1_000_000, fallback: 0 });
-  const safePage = clampInt(page, { min: 1, max: Math.max(1, safeTotal || 1), fallback: 1 });
+  const totalKnown = typeof totalPages === "number" && Number.isFinite(totalPages) && totalPages >= 0;
+  const safeTotal = totalKnown
+    ? clampInt(totalPages, { min: 0, max: 1_000_000, fallback: 0 })
+    : null;
+  const safePage = clampInt(page, {
+    min: 1,
+    max: totalKnown ? Math.max(1, safeTotal || 1) : 1_000_000,
+    fallback: 1,
+  });
 
   const canPrev = safePage > 1;
-  const canNext = typeof safeTotal === "number" && safeTotal >= 1 ? safePage < safeTotal : true;
+  const canNext = totalKnown ? safePage < safeTotal : true;
 
   return { canPrev, canNext, safePage, safeTotal };
 }
