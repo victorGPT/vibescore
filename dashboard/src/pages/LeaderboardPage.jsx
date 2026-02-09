@@ -269,21 +269,35 @@ export function LeaderboardPage({
               const rawName = normalizeName(entry?.display_name);
               const entryName = isAnonymousName(rawName) ? anonLabel : rawName;
               const name = isMe ? meLabel : entryName;
-              const cellAccent = isMe ? "bg-matrix-panelStrong/30 font-bold" : "";
-              const cellRankAccent = isMe
-                ? "border-l-2 border-matrix-primary/70 text-matrix-ink-bright glow-text"
-                : "";
-              const cellUserAccent = isMe ? "text-matrix-ink-bright glow-text" : "";
               const userLinkEnabled = Boolean(profileUserId) && !isMe && !isAnonymousName(rawName);
+              if (isMe) {
+                return (
+                  <tr key={`row-${entry?.rank}-${name}`} className="border-b border-matrix-ghost/40">
+                    <td colSpan={5} className="px-3 py-3">
+                      <div className="rounded-lg border border-matrix-primary/40 bg-matrix-panelStrong/70 backdrop-blur-panel shadow-matrix-glow">
+                        <div className="grid grid-cols-[72px_minmax(0,1fr)_112px_112px_112px] items-center text-[12px]">
+                          <div className="px-4 py-3 font-black text-matrix-ink-bright glow-text">
+                            {entry?.rank ?? placeholder}
+                          </div>
+                          <div className="px-4 py-3 font-black truncate text-matrix-ink-bright glow-text">
+                            {name}
+                          </div>
+                          <div className="px-4 py-3 font-bold">{toDisplayNumber(entry?.total_tokens)}</div>
+                          <div className="px-4 py-3 font-bold">{toDisplayNumber(entry?.gpt_tokens)}</div>
+                          <div className="px-4 py-3 font-bold">{toDisplayNumber(entry?.claude_tokens)}</div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              }
               return (
                 <tr
                   key={`row-${entry?.rank}-${name}`}
-                  className={`border-b border-matrix-ghost/40 ${
-                    isMe ? "bg-matrix-panelStrong/30" : "bg-transparent"
-                  }`}
+                  className="border-b border-matrix-ghost/40 bg-transparent"
                 >
-                  <td className={`px-4 py-3 font-bold ${cellRankAccent}`}>{entry?.rank ?? placeholder}</td>
-                  <td className={`px-4 py-3 font-bold truncate max-w-[240px] ${cellUserAccent}`}>
+                  <td className="px-4 py-3 font-bold">{entry?.rank ?? placeholder}</td>
+                  <td className="px-4 py-3 font-bold truncate max-w-[240px]">
                     {userLinkEnabled ? (
                       <a
                         href={`/leaderboard/u/${profileUserId}`}
@@ -295,9 +309,9 @@ export function LeaderboardPage({
                       name
                     )}
                   </td>
-                  <td className={`px-4 py-3 ${cellAccent}`}>{toDisplayNumber(entry?.total_tokens)}</td>
-                  <td className={`px-4 py-3 ${cellAccent}`}>{toDisplayNumber(entry?.gpt_tokens)}</td>
-                  <td className={`px-4 py-3 ${cellAccent}`}>{toDisplayNumber(entry?.claude_tokens)}</td>
+                  <td className="px-4 py-3">{toDisplayNumber(entry?.total_tokens)}</td>
+                  <td className="px-4 py-3">{toDisplayNumber(entry?.gpt_tokens)}</td>
+                  <td className="px-4 py-3">{toDisplayNumber(entry?.claude_tokens)}</td>
                 </tr>
               );
             })}
@@ -378,17 +392,35 @@ export function LeaderboardPage({
                   {profileState.error}
                 </span>
               ) : null}
-              <MatrixButton
-                size="sm"
-                primary={publicProfileEnabled}
-                onClick={handleTogglePublicProfile}
-                aria-pressed={publicProfileEnabled}
-                aria-label={publicProfileLabel}
-                title={publicProfileLabel}
-                disabled={publicProfileBusy}
-              >
-                {publicProfileLabel}
-              </MatrixButton>
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] uppercase tracking-[0.25em] text-matrix-dim">
+                  {publicProfileLabel}
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={publicProfileEnabled}
+                  aria-label={publicProfileLabel}
+                  title={publicProfileLabel}
+                  onClick={handleTogglePublicProfile}
+                  disabled={publicProfileBusy}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-matrix-primary/70 disabled:opacity-60 disabled:cursor-not-allowed ${
+                    publicProfileEnabled
+                      ? "bg-matrix-primary/15 border-matrix-primary/40"
+                      : "bg-matrix-panelStrong/40 border-matrix-ghost/60"
+                  }`}
+                >
+                  <span className="sr-only">{publicProfileLabel}</span>
+                  <span
+                    aria-hidden="true"
+                    className={`inline-block h-4 w-4 rounded-full transition-transform ${
+                      publicProfileEnabled
+                        ? "bg-matrix-primary shadow-matrix-glow translate-x-6"
+                        : "bg-matrix-dim translate-x-1"
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           ) : null}
 
