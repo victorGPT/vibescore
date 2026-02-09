@@ -6616,6 +6616,108 @@ test('vibeusage-leaderboard rejects invalid period', async () => {
   assert.equal(res.status, 400);
 });
 
+test('vibeusage-leaderboard snapshot entries expose user_id only for non-anonymous users', async () => {
+  setDenoEnv({
+    INSFORGE_INTERNAL_URL: BASE_URL,
+    ANON_KEY,
+    INSFORGE_SERVICE_ROLE_KEY: SERVICE_ROLE_KEY
+  });
+
+  const fn = require('../insforge-functions/vibeusage-leaderboard');
+
+  const userId = '11111111-2222-3333-4444-555555555555';
+  const userJwt = createUserJwt(userId);
+
+  const otherUserId = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
+
+  const snapshotRows = [
+    {
+      user_id: otherUserId,
+      rank: 1,
+      rank_gpt: 1,
+      rank_claude: 1,
+      display_name: 'Nick',
+      avatar_url: 'https://example.com/avatar.png',
+      gpt_tokens: '10',
+      claude_tokens: '5',
+      total_tokens: '15',
+      generated_at: '2026-02-09T00:00:00.000Z'
+    },
+    {
+      user_id: userId,
+      rank: 2,
+      rank_gpt: 2,
+      rank_claude: 2,
+      display_name: 'Anonymous',
+      avatar_url: null,
+      gpt_tokens: '7',
+      claude_tokens: '3',
+      total_tokens: '10',
+      generated_at: '2026-02-09T00:00:00.000Z'
+    }
+  ];
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      assert.equal(args.anonKey, ANON_KEY);
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: () => {
+            throw new Error('Unexpected user database access');
+          }
+        }
+      };
+    }
+
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return {
+        database: {
+          from: (table) => {
+            if (table !== 'vibeusage_leaderboard_snapshots') {
+              throw new Error(`Unexpected service table: ${String(table)}`);
+            }
+
+            return {
+              select: () => {
+                const q = {
+                  eq: () => q,
+                  order: () => q,
+                  range: async () => ({ data: snapshotRows, error: null }),
+                  maybeSingle: async () => ({
+                    data: snapshotRows.find((row) => row.user_id === userId) || null,
+                    error: null
+                  }),
+                  limit: async () => ({ data: snapshotRows.slice(0, 1), error: null, count: snapshotRows.length })
+                };
+                return q;
+              }
+            };
+          }
+        }
+      };
+    }
+
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard?period=week&limit=2', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${userJwt}` }
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+
+  assert.equal(body.entries?.[0]?.display_name, 'Nick');
+  assert.equal(body.entries?.[0]?.user_id, otherUserId);
+  assert.equal(body.entries?.[1]?.display_name, 'Anonymous');
+  assert.equal(body.entries?.[1]?.user_id, null);
+});
+
 test('vibeusage-leaderboard-refresh rejects non-week period', async () => {
   setDenoEnv({
     INSFORGE_INTERNAL_URL: BASE_URL,
@@ -6781,6 +6883,13 @@ test('vibeusage-leaderboard-settings inserts user setting row', async () => {
 
   const inserts = [];
 
+  function makeThenableResult(result) {
+    return {
+      eq: () => makeThenableResult(result),
+      then: (resolve, reject) => Promise.resolve(result).then(resolve, reject)
+    };
+  }
+
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
       return {
@@ -6801,6 +6910,32 @@ test('vibeusage-leaderboard-settings inserts user setting row', async () => {
                 return { error: null };
               }
             };
+          }
+        }
+      };
+    }
+    if (args && args.edgeFunctionToken && args.edgeFunctionToken !== userJwt) {
+      return {
+        database: {
+          from: (table) => {
+            if (table === 'users') {
+              return {
+                select: () => ({
+                  eq: () => ({
+                    maybeSingle: async () => ({
+                      data: { nickname: 'Nick', avatar_url: 'https://example.com/avatar.png' },
+                      error: null
+                    })
+                  })
+                })
+              };
+            }
+            if (table === 'vibeusage_leaderboard_snapshots') {
+              return {
+                update: () => makeThenableResult({ error: null })
+              };
+            }
+            throw new Error(`Unexpected service table: ${String(table)}`);
           }
         }
       };
@@ -6837,6 +6972,13 @@ test('vibeusage-leaderboard-settings updates existing row', async () => {
 
   const updates = [];
 
+  function makeThenableResult(result) {
+    return {
+      eq: () => makeThenableResult(result),
+      then: (resolve, reject) => Promise.resolve(result).then(resolve, reject)
+    };
+  }
+
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
       return {
@@ -6863,6 +7005,32 @@ test('vibeusage-leaderboard-settings updates existing row', async () => {
         }
       };
     }
+    if (args && args.edgeFunctionToken && args.edgeFunctionToken !== userJwt) {
+      return {
+        database: {
+          from: (table) => {
+            if (table === 'users') {
+              return {
+                select: () => ({
+                  eq: () => ({
+                    maybeSingle: async () => ({
+                      data: { nickname: 'Nick', avatar_url: 'https://example.com/avatar.png' },
+                      error: null
+                    })
+                  })
+                })
+              };
+            }
+            if (table === 'vibeusage_leaderboard_snapshots') {
+              return {
+                update: () => makeThenableResult({ error: null })
+              };
+            }
+            throw new Error(`Unexpected service table: ${String(table)}`);
+          }
+        }
+      };
+    }
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
@@ -6884,6 +7052,93 @@ test('vibeusage-leaderboard-settings updates existing row', async () => {
   assert.equal(updates[0].where.value, userId);
   assert.equal(updates[0].values.leaderboard_public, false);
   assert.equal(typeof updates[0].values.updated_at, 'string');
+});
+
+test('vibeusage-leaderboard-settings returns user setting state', async () => {
+  const fn = require('../insforge-functions/vibeusage-leaderboard-settings');
+
+  const userId = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+  const userJwt = createUserJwt(userId);
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            assert.equal(table, 'vibeusage_user_settings');
+            return {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({
+                    data: { leaderboard_public: true, updated_at: '2026-02-09T00:00:00.000Z' },
+                    error: null
+                  })
+                })
+              })
+            };
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard-settings', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${userJwt}` }
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+
+  assert.equal(body.leaderboard_public, true);
+  assert.equal(body.updated_at, '2026-02-09T00:00:00.000Z');
+});
+
+test('vibeusage-leaderboard-settings defaults to false when missing row', async () => {
+  const fn = require('../insforge-functions/vibeusage-leaderboard-settings');
+
+  const userId = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+  const userJwt = createUserJwt(userId);
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            assert.equal(table, 'vibeusage_user_settings');
+            return {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({ data: null, error: null })
+                })
+              })
+            };
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard-settings', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${userJwt}` }
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+
+  assert.equal(body.leaderboard_public, false);
+  assert.equal(body.updated_at, null);
 });
 
 test('vibeusage-leaderboard-settings rejects invalid body', async () => {
@@ -6916,6 +7171,185 @@ test('vibeusage-leaderboard-settings rejects invalid body', async () => {
 
   const res = await fn(req);
   assert.equal(res.status, 400);
+});
+
+test('vibeusage-leaderboard-profile rejects missing user_id', async () => {
+  setDenoEnv({
+    INSFORGE_INTERNAL_URL: BASE_URL,
+    ANON_KEY,
+    INSFORGE_SERVICE_ROLE_KEY: SERVICE_ROLE_KEY
+  });
+
+  const fn = require('../insforge-functions/vibeusage-leaderboard-profile');
+
+  const userId = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+  const userJwt = createUserJwt(userId);
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard-profile', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${userJwt}` }
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 400);
+});
+
+test('vibeusage-leaderboard-profile hides non-public users', async () => {
+  setDenoEnv({
+    INSFORGE_INTERNAL_URL: BASE_URL,
+    ANON_KEY,
+    INSFORGE_SERVICE_ROLE_KEY: SERVICE_ROLE_KEY
+  });
+
+  const fn = require('../insforge-functions/vibeusage-leaderboard-profile');
+
+  const userId = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
+  const userJwt = createUserJwt(userId);
+  const targetUserId = 'aaaaaaaa-0000-0000-0000-000000000000';
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        }
+      };
+    }
+
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return {
+        database: {
+          from: (table) => {
+            if (table !== 'vibeusage_user_settings') {
+              throw new Error(`Unexpected service table: ${String(table)}`);
+            }
+            return {
+              select: () => {
+                const q = {
+                  eq: () => q,
+                  maybeSingle: async () => ({ data: { leaderboard_public: false }, error: null })
+                };
+                return q;
+              }
+            };
+          }
+        }
+      };
+    }
+
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request(
+    `http://localhost/functions/vibeusage-leaderboard-profile?user_id=${encodeURIComponent(targetUserId)}`,
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${userJwt}` }
+    }
+  );
+
+  const res = await fn(req);
+  assert.equal(res.status, 404);
+});
+
+test('vibeusage-leaderboard-profile returns weekly snapshot entry for public user', async () => {
+  setDenoEnv({
+    INSFORGE_INTERNAL_URL: BASE_URL,
+    ANON_KEY,
+    INSFORGE_SERVICE_ROLE_KEY: SERVICE_ROLE_KEY
+  });
+
+  const fn = require('../insforge-functions/vibeusage-leaderboard-profile');
+
+  const userId = '99990000-0000-0000-0000-000000000000';
+  const userJwt = createUserJwt(userId);
+  const targetUserId = '99990000-0000-0000-0000-000000000001';
+
+  const snapshotRow = {
+    user_id: targetUserId,
+    display_name: 'Nick',
+    avatar_url: 'https://example.com/avatar.png',
+    rank: 12,
+    gpt_tokens: '10',
+    claude_tokens: '5',
+    total_tokens: '15',
+    generated_at: '2026-02-09T00:00:00.000Z'
+  };
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        }
+      };
+    }
+
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return {
+        database: {
+          from: (table) => {
+            if (table === 'vibeusage_user_settings') {
+              return {
+                select: () => {
+                  const q = {
+                    eq: () => q,
+                    maybeSingle: async () => ({ data: { leaderboard_public: true }, error: null })
+                  };
+                  return q;
+                }
+              };
+            }
+
+            if (table === 'vibeusage_leaderboard_snapshots') {
+              return {
+                select: () => {
+                  const q = {
+                    eq: () => q,
+                    maybeSingle: async () => ({ data: snapshotRow, error: null })
+                  };
+                  return q;
+                }
+              };
+            }
+
+            throw new Error(`Unexpected service table: ${String(table)}`);
+          }
+        }
+      };
+    }
+
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request(
+    `http://localhost/functions/vibeusage-leaderboard-profile?user_id=${encodeURIComponent(targetUserId)}`,
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${userJwt}` }
+    }
+  );
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+
+  assert.equal(body.period, 'week');
+  assert.equal(body.entry?.user_id, targetUserId);
+  assert.equal(body.entry?.display_name, 'Nick');
+  assert.equal(body.entry?.rank, 12);
+  assert.equal(body.entry?.total_tokens, '15');
 });
 
 test('vibeusage-user-status returns pro.active for cutoff user', async () => {

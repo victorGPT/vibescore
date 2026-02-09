@@ -311,15 +311,26 @@ async function loadSnapshot({ serviceClient, period, metric, from, to, userId, l
     return { ok: false };
   }
 
-  const entries = (entryRows || []).map((row) => ({
-    rank: toPositiveInt(row?.[rankColumn]),
-    is_me: row?.user_id === userId,
-    display_name: normalizeDisplayName(row?.display_name),
-    avatar_url: normalizeAvatarUrl(row?.avatar_url),
-    gpt_tokens: toBigInt(row?.gpt_tokens).toString(),
-    claude_tokens: toBigInt(row?.claude_tokens).toString(),
-    total_tokens: toBigInt(row?.total_tokens).toString()
-  }));
+  const entries = (entryRows || []).map((row) => {
+    const displayName = normalizeDisplayName(row?.display_name);
+    const avatarUrl = normalizeAvatarUrl(row?.avatar_url);
+    const rawUserId = typeof row?.user_id === 'string' ? row.user_id : null;
+
+    // Only expose user_id when the user is showing a public profile.
+    // Anonymous rows should not be linkable or leak stable identifiers.
+    const exposedUserId = displayName === 'Anonymous' ? null : rawUserId;
+
+    return {
+      user_id: exposedUserId,
+      rank: toPositiveInt(row?.[rankColumn]),
+      is_me: rawUserId === userId,
+      display_name: displayName,
+      avatar_url: avatarUrl,
+      gpt_tokens: toBigInt(row?.gpt_tokens).toString(),
+      claude_tokens: toBigInt(row?.claude_tokens).toString(),
+      total_tokens: toBigInt(row?.total_tokens).toString()
+    };
+  });
 
   const me = normalizeMetricMe(meRow, metric);
   const generatedAt = normalizeGeneratedAt(entryRows, meRow);
