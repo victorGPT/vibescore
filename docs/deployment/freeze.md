@@ -14,6 +14,20 @@
 - Cold regression step:
 - Synthetic acceptance:
 
+## 2026-02-09-add-leaderboard-period-month-total
+- Date: 2026-02-09
+- Scope: Leaderboard period selector (WEEK/MONTH/ALL) + month/total snapshots + public profile toggle + profile deep links
+- Change ID: `2026-02-09-add-leaderboard-period-month-total`
+- CI workflow run: N/A (manual deploy)
+- Release workflow run: N/A (manual deploy)
+- Preflight: N/A
+- npm publish: skipped
+- Vercel check: expected via Git integration on commit `8f4f5fce`
+- MCP deploy: updated `vibeusage-leaderboard`, `vibeusage-leaderboard-refresh`, `vibeusage-leaderboard-profile`, `vibeusage-leaderboard-settings`
+- Freeze artifact: commit `8f4f5fce` + DB SQL `openspec/changes/2026-02-09-add-leaderboard-period-month-total/sql/001_leaderboard_month_total.sql`
+- Cold regression step: `npm test`, `npm --prefix dashboard test`, `npm run build:insforge:check` (pass)
+- Synthetic acceptance: seed `month` + `total` rows in `vibeusage_leaderboard_snapshots` and verify counts are non-zero
+
 ## 2026-01-19-release-0.2.14
 - Date: 2026-01-19
 - Scope: CLI publish (vibeusage@0.2.14) + ops workflow endpoint cleanup

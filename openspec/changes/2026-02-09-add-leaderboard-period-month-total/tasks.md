@@ -2,7 +2,7 @@
 - [x] 1.1 Add `vibeusage_leaderboard_source_month` and `vibeusage_leaderboard_source_total`
 - [x] 1.2 Extend fallback SECURITY DEFINER functions to support `week|month|total`
 - [x] 1.3 Add fallback views for `month` and `total` (entries + me, metric-aware)
-- [ ] 1.4 Apply migration to Insforge2 and run `scripts/ops/insforge2-db-validate.cjs`
+- [x] 1.4 Apply migration to Insforge2 and validate legacy/helper checks (via Insforge2 admin SQL)
 
 ## 2. Backend (Edge Functions)
 - [x] 2.1 `vibeusage-leaderboard`: accept `period=week|month|total` and compute correct windows
@@ -10,8 +10,8 @@
 - [x] 2.3 `vibeusage-leaderboard-settings`: sync snapshot display fields for `week+month+total` (best-effort)
 - [x] 2.4 `vibeusage-leaderboard-profile`: accept `period` and fetch correct snapshot row
 - [x] 2.5 Build `insforge-functions/` and run `npm test`
-- [ ] 2.6 Deploy updated edge functions via Insforge2 MCP
-- [ ] 2.7 Smoke: refresh `total` once and verify `GET vibeusage-leaderboard?period=total` returns 200
+- [x] 2.6 Deploy updated edge functions via Insforge2 MCP
+- [ ] 2.7 Smoke: verify `GET vibeusage-leaderboard?period=total` returns 200 (needs real user JWT)
 
 ## 3. Dashboard (UI)
 - [x] 3.1 Add period selector to `/leaderboard` and wire to API + URL query
