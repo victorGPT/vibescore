@@ -64,6 +64,12 @@ const LeaderboardPage = React.lazy(() =>
   }))
 );
 
+const LeaderboardProfilePage = React.lazy(() =>
+  import("./pages/LeaderboardProfilePage.jsx").then((mod) => ({
+    default: mod.LeaderboardProfilePage,
+  }))
+);
+
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -312,8 +318,13 @@ export default function App() {
     authPending,
   });
   const normalizedPath = pathname.replace(/\/+$/, "") || "/";
-  const PageComponent =
-    normalizedPath === "/leaderboard" ? LeaderboardPage : DashboardPage;
+  const leaderboardProfileMatch = normalizedPath.match(/^\/leaderboard\/u\/([^/]+)$/i);
+  const leaderboardProfileUserId = leaderboardProfileMatch ? leaderboardProfileMatch[1] : null;
+  const PageComponent = leaderboardProfileUserId
+    ? LeaderboardProfilePage
+    : normalizedPath === "/leaderboard"
+      ? LeaderboardPage
+      : DashboardPage;
   let content = null;
   if (gate === "loading") {
     content = loadingShell;
@@ -333,6 +344,7 @@ export default function App() {
           signOut={signOut}
           publicMode={publicMode}
           publicToken={publicToken}
+          userId={leaderboardProfileUserId}
           signInUrl={signInUrl}
           signUpUrl={signUpUrl}
         />

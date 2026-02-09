@@ -482,6 +482,7 @@ export function getMockLeaderboard({
 
   const raw = Array.from({ length: totalEntries }, (_, index) => {
     const id = index + 1;
+    const userId = `00000000-0000-0000-0000-${String(id).padStart(12, '0')}`;
     const name = MOCK_LEADERBOARD_NAMES[id % MOCK_LEADERBOARD_NAMES.length];
     const hash = hashString(`${seedValue}:${name}:${id}`);
     const base = 180000 + (hash % 900000);
@@ -491,6 +492,7 @@ export function getMockLeaderboard({
     const isAnon = id % 7 === 0;
     return {
       id,
+      user_id: userId,
       is_me: false,
       display_name: isAnon ? "Anonymous" : name,
       avatar_url: null,
@@ -510,6 +512,7 @@ export function getMockLeaderboard({
     .slice()
     .sort((a: any, b: any) => Number(b[metricKey]) - Number(a[metricKey]) || a.id - b.id)
     .map((entry: any, index: number) => ({
+      user_id: entry.display_name === "Anonymous" ? null : entry.user_id,
       rank: index + 1,
       is_me: Boolean(entry.is_me),
       display_name: entry.display_name,

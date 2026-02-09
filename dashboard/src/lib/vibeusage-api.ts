@@ -27,6 +27,8 @@ const PATHS = {
   usageModelBreakdown: "vibeusage-usage-model-breakdown",
   projectUsageSummary: "vibeusage-project-usage-summary",
   leaderboard: "vibeusage-leaderboard",
+  leaderboardSettings: "vibeusage-leaderboard-settings",
+  leaderboardProfile: "vibeusage-leaderboard-profile",
   linkCodeInit: "vibeusage-link-code-init",
   publicViewStatus: "vibeusage-public-view-status",
   publicViewIssue: "vibeusage-public-view-issue",
@@ -137,6 +139,71 @@ export async function getLeaderboard({
     accessToken: resolvedAccessToken,
     slug: PATHS.leaderboard,
     params,
+  });
+}
+
+export async function getLeaderboardSettings({ baseUrl, accessToken }: AnyRecord = {}) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
+  if (isMockEnabled()) {
+    return { leaderboard_public: false, updated_at: null };
+  }
+  return requestJson({
+    baseUrl,
+    accessToken: resolvedAccessToken,
+    slug: PATHS.leaderboardSettings,
+  });
+}
+
+export async function setLeaderboardSettings({
+  baseUrl,
+  accessToken,
+  leaderboardPublic,
+}: AnyRecord = {}) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
+  if (isMockEnabled()) {
+    return { leaderboard_public: Boolean(leaderboardPublic), updated_at: new Date().toISOString() };
+  }
+  return requestPostJson({
+    baseUrl,
+    accessToken: resolvedAccessToken,
+    slug: PATHS.leaderboardSettings,
+    body: { leaderboard_public: Boolean(leaderboardPublic) },
+  });
+}
+
+export async function getLeaderboardProfile({
+  baseUrl,
+  accessToken,
+  userId,
+}: AnyRecord = {}) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
+  if (isMockEnabled()) {
+    const mock = getMockLeaderboard({ seed: resolvedAccessToken, metric: "all", limit: 250, offset: 0 });
+    const entries = Array.isArray(mock?.entries) ? mock.entries : [];
+    const match = entries.find((entry: any) => entry?.user_id === userId) || null;
+    return {
+      period: mock?.period ?? "week",
+      from: mock?.from ?? null,
+      to: mock?.to ?? null,
+      generated_at: mock?.generated_at ?? new Date().toISOString(),
+      entry: match
+        ? {
+            user_id: match.user_id ?? null,
+            display_name: match.display_name ?? null,
+            avatar_url: match.avatar_url ?? null,
+            rank: match.rank ?? null,
+            gpt_tokens: match.gpt_tokens ?? "0",
+            claude_tokens: match.claude_tokens ?? "0",
+            total_tokens: match.total_tokens ?? "0",
+          }
+        : null,
+    };
+  }
+  return requestJson({
+    baseUrl,
+    accessToken: resolvedAccessToken,
+    slug: PATHS.leaderboardProfile,
+    params: { user_id: String(userId || "") },
   });
 }
 

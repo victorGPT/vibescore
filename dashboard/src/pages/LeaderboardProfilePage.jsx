@@ -1,0 +1,188 @@
+import React, { useEffect, useMemo, useState } from "react";
+
+import { copy } from "../lib/copy";
+import { getLeaderboardProfile } from "../lib/vibeusage-api";
+import { isMockEnabled } from "../lib/mock-data";
+import { isAccessTokenReady, resolveAuthAccessToken } from "../lib/auth-token";
+import { toDisplayNumber } from "../lib/format";
+import { BackendStatus } from "../components/BackendStatus.jsx";
+import { AsciiBox } from "../ui/foundation/AsciiBox.jsx";
+import { MatrixButton } from "../ui/foundation/MatrixButton.jsx";
+import { MatrixShell } from "../ui/foundation/MatrixShell.jsx";
+import { GithubStar } from "../ui/matrix-a/components/GithubStar.jsx";
+
+function normalizeProfileError(err) {
+  if (!err) return copy("shared.error.prefix", { error: copy("leaderboard.error.unknown") });
+  const msg = err?.message || String(err);
+  const safe = String(msg || "").trim() || copy("leaderboard.error.unknown");
+  return copy("shared.error.prefix", { error: safe });
+}
+
+function normalizeName(value) {
+  if (typeof value !== "string") return "";
+  return value.trim();
+}
+
+export function LeaderboardProfilePage({
+  baseUrl,
+  auth,
+  signedIn,
+  sessionSoftExpired,
+  signOut,
+  signInUrl = "/sign-in",
+  userId,
+}) {
+  const mockEnabled = isMockEnabled();
+  const authTokenAllowed = signedIn && !sessionSoftExpired;
+  const authAccessToken = useMemo(() => {
+    if (!authTokenAllowed) return null;
+    if (typeof auth === "function") return auth;
+    if (typeof auth?.getAccessToken === "function") {
+      return auth.getAccessToken.bind(auth);
+    }
+    return null;
+  }, [auth, authTokenAllowed]);
+  const effectiveAuthToken = authTokenAllowed ? authAccessToken : null;
+  const authTokenReady = authTokenAllowed && isAccessTokenReady(effectiveAuthToken);
+
+  let headerStatus = null;
+  if (authTokenAllowed && authTokenReady) {
+    headerStatus = <BackendStatus baseUrl={baseUrl} accessToken={effectiveAuthToken} />;
+  }
+
+  const headerRight = (
+    <div className="flex items-center gap-4">
+      <MatrixButton as="a" size="header" href="/leaderboard">
+        {copy("leaderboard.profile.nav.back")}
+      </MatrixButton>
+      <GithubStar isFixed={false} size="header" />
+      {signedIn ? (
+        <MatrixButton onClick={signOut} size="header">
+          {copy("dashboard.sign_out")}
+        </MatrixButton>
+      ) : (
+        <MatrixButton as="a" size="header" href={signInUrl}>
+          {copy("shared.button.sign_in")}
+        </MatrixButton>
+      )}
+    </div>
+  );
+
+  const [profileState, setProfileState] = useState(() => ({
+    loading: false,
+    error: null,
+    data: null,
+  }));
+
+  useEffect(() => {
+    if (!baseUrl) return;
+    if (!userId) return;
+    if (!mockEnabled && (!authTokenAllowed || !authTokenReady)) return;
+    let active = true;
+    setProfileState((prev) => ({ ...prev, loading: true, error: null }));
+    (async () => {
+      const token = await resolveAuthAccessToken(effectiveAuthToken);
+      const data = await getLeaderboardProfile({
+        baseUrl,
+        accessToken: token,
+        userId,
+      });
+      if (!active) return;
+      setProfileState({ loading: false, error: null, data });
+    })().catch((err) => {
+      if (!active) return;
+      setProfileState({ loading: false, error: normalizeProfileError(err), data: null });
+    });
+    return () => {
+      active = false;
+    };
+  }, [authTokenAllowed, authTokenReady, baseUrl, effectiveAuthToken, mockEnabled, userId]);
+
+  const data = profileState.data;
+  const from = data?.from || null;
+  const to = data?.to || null;
+  const generatedAt = data?.generated_at || null;
+  const entry = data?.entry || null;
+
+  const displayName = normalizeName(entry?.display_name) || copy("leaderboard.anon_label");
+
+  let body = null;
+  if (!userId) {
+    body = (
+      <div className="px-4">
+        <p className="text-[10px] uppercase text-matrix-dim mt-0">{copy("leaderboard.empty")}</p>
+      </div>
+    );
+  } else if (profileState.loading) {
+    body = (
+      <div className="px-4">
+        <p className="text-[10px] uppercase text-matrix-dim mt-0">{copy("leaderboard.loading")}</p>
+      </div>
+    );
+  } else if (profileState.error) {
+    body = (
+      <div className="px-4">
+        <p className="text-[10px] uppercase text-matrix-dim mt-0">{profileState.error}</p>
+      </div>
+    );
+  } else if (entry) {
+    body = (
+      <div className="w-full overflow-x-auto">
+        <table className="w-full text-left text-[12px]">
+          <thead className="uppercase text-matrix-dim tracking-[0.25em] text-[10px]">
+            <tr className="border-b border-matrix-ghost">
+              <th className="px-4 py-3">{copy("leaderboard.column.rank")}</th>
+              <th className="px-4 py-3">{copy("leaderboard.column.total")}</th>
+              <th className="px-4 py-3">{copy("leaderboard.column.gpt")}</th>
+              <th className="px-4 py-3">{copy("leaderboard.column.claude")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-matrix-ghost/40 bg-transparent">
+              <td className="px-4 py-3 font-bold">{entry?.rank ?? copy("shared.placeholder.short")}</td>
+              <td className="px-4 py-3">{toDisplayNumber(entry?.total_tokens)}</td>
+              <td className="px-4 py-3">{toDisplayNumber(entry?.gpt_tokens)}</td>
+              <td className="px-4 py-3">{toDisplayNumber(entry?.claude_tokens)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  } else {
+    body = (
+      <div className="px-4">
+        <p className="text-[10px] uppercase text-matrix-dim mt-0">{copy("leaderboard.empty")}</p>
+      </div>
+    );
+  }
+
+  return (
+    <MatrixShell headerStatus={headerStatus} headerRight={headerRight}>
+      <div className="max-w-4xl mx-auto flex flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <h1 className="text-xl md:text-2xl font-black tracking-tight glow-text">{displayName}</h1>
+            <div className="text-[10px] uppercase tracking-[0.25em] text-matrix-muted">
+              {from && to ? copy("leaderboard.range", { from, to }) : copy("leaderboard.range_loading")}
+            </div>
+          </div>
+          {generatedAt ? (
+            <div className="text-[10px] uppercase text-matrix-dim">
+              {copy("leaderboard.generated_at", { ts: generatedAt })}
+            </div>
+          ) : null}
+        </div>
+
+        <AsciiBox
+          title={copy("leaderboard.profile.card.title")}
+          subtitle={copy("leaderboard.profile.card.subtitle")}
+          className=""
+          bodyClassName="px-0"
+        >
+          {body}
+        </AsciiBox>
+      </div>
+    </MatrixShell>
+  );
+}
+

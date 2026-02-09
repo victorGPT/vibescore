@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 
 import { copy } from "../lib/copy";
-import { getLeaderboard } from "../lib/vibeusage-api";
+import {
+  getLeaderboard,
+  getLeaderboardSettings,
+  setLeaderboardSettings,
+} from "../lib/vibeusage-api";
 import { isMockEnabled } from "../lib/mock-data";
 import { isAccessTokenReady, resolveAuthAccessToken } from "../lib/auth-token";
 import {
@@ -83,10 +87,18 @@ export function LeaderboardPage({
 
   const placeholder = copy("shared.placeholder.short");
   const [listPage, setListPage] = useState(1);
+  const [listReloadToken, setListReloadToken] = useState(0);
   const [listState, setListState] = useState(() => ({
     loading: false,
     error: null,
     data: null,
+  }));
+
+  const [profileState, setProfileState] = useState(() => ({
+    loading: false,
+    saving: false,
+    error: null,
+    leaderboardPublic: null,
   }));
 
   useEffect(() => {
@@ -94,12 +106,48 @@ export function LeaderboardPage({
     if (!authTokenAllowed) return;
     if (authTokenReady) return;
     setListState({ loading: false, error: null, data: null });
+    setProfileState({
+      loading: false,
+      saving: false,
+      error: null,
+      leaderboardPublic: null,
+    });
   }, [authTokenAllowed, authTokenReady, mockEnabled]);
 
   const listOffset = useMemo(() => {
     const safePage = clampInt(listPage, { min: 1, max: 1_000_000, fallback: 1 });
     return (safePage - 1) * PAGE_LIMIT;
   }, [listPage]);
+
+  useEffect(() => {
+    if (!baseUrl) return;
+    if (mockEnabled) return;
+    if (!authTokenAllowed || !authTokenReady) return;
+    let active = true;
+    setProfileState((prev) => ({ ...prev, loading: true, error: null }));
+    (async () => {
+      const token = await resolveAuthAccessToken(effectiveAuthToken);
+      const data = await getLeaderboardSettings({ baseUrl, accessToken: token });
+      if (!active) return;
+      setProfileState((prev) => ({
+        ...prev,
+        loading: false,
+        error: null,
+        leaderboardPublic: Boolean(data?.leaderboard_public),
+      }));
+    })().catch((err) => {
+      if (!active) return;
+      setProfileState((prev) => ({
+        ...prev,
+        loading: false,
+        error: normalizeLeaderboardError(err),
+        leaderboardPublic: null,
+      }));
+    });
+    return () => {
+      active = false;
+    };
+  }, [authTokenAllowed, authTokenReady, baseUrl, effectiveAuthToken, mockEnabled]);
 
   useEffect(() => {
     if (!baseUrl) return;
@@ -123,7 +171,7 @@ export function LeaderboardPage({
     return () => {
       active = false;
     };
-  }, [baseUrl, effectiveAuthToken, authTokenAllowed, authTokenReady, listOffset, mockEnabled]);
+  }, [baseUrl, effectiveAuthToken, authTokenAllowed, authTokenReady, listOffset, listReloadToken, mockEnabled]);
 
   const listData = listState.data;
 
@@ -139,6 +187,7 @@ export function LeaderboardPage({
   const me = listData?.me || null;
   const meLabel = copy("leaderboard.me_label");
   const anonLabel = copy("leaderboard.anon_label");
+  const publicProfileLabel = copy("leaderboard.public_profile.label");
 
   const displayEntries = useMemo(() => {
     const rows = Array.isArray(listData?.entries) ? listData.entries : [];
@@ -150,6 +199,39 @@ export function LeaderboardPage({
       limit: PAGE_LIMIT,
     });
   }, [currentPage, listData?.entries, me, meLabel]);
+
+  const publicProfileEnabled = Boolean(profileState.leaderboardPublic);
+  const publicProfileBusy = profileState.loading || profileState.saving;
+
+  const handleTogglePublicProfile = async () => {
+    if (!baseUrl) return;
+    if (mockEnabled) return;
+    if (!authTokenAllowed || !authTokenReady) return;
+    if (publicProfileBusy) return;
+    setProfileState((prev) => ({ ...prev, saving: true, error: null }));
+    try {
+      const token = await resolveAuthAccessToken(effectiveAuthToken);
+      const nextValue = !publicProfileEnabled;
+      const data = await setLeaderboardSettings({
+        baseUrl,
+        accessToken: token,
+        leaderboardPublic: nextValue,
+      });
+      setProfileState((prev) => ({
+        ...prev,
+        saving: false,
+        error: null,
+        leaderboardPublic: Boolean(data?.leaderboard_public),
+      }));
+      setListReloadToken((value) => value + 1);
+    } catch (err) {
+      setProfileState((prev) => ({
+        ...prev,
+        saving: false,
+        error: normalizeLeaderboardError(err),
+      }));
+    }
+  };
 
   const { canPrev, canNext } = getPaginationFlags({ page: currentPage, totalPages });
 
@@ -183,6 +265,7 @@ export function LeaderboardPage({
           <tbody>
             {displayEntries.map((entry) => {
               const isMe = Boolean(entry?.is_me);
+              const profileUserId = typeof entry?.user_id === "string" ? entry.user_id : null;
               const rawName = normalizeName(entry?.display_name);
               const entryName = isAnonymousName(rawName) ? anonLabel : rawName;
               const name = isMe ? meLabel : entryName;
@@ -191,6 +274,7 @@ export function LeaderboardPage({
                 ? "border-l-2 border-matrix-primary/70 text-matrix-ink-bright glow-text"
                 : "";
               const cellUserAccent = isMe ? "text-matrix-ink-bright glow-text" : "";
+              const userLinkEnabled = Boolean(profileUserId) && !isMe && !isAnonymousName(rawName);
               return (
                 <tr
                   key={`row-${entry?.rank}-${name}`}
@@ -199,7 +283,18 @@ export function LeaderboardPage({
                   }`}
                 >
                   <td className={`px-4 py-3 font-bold ${cellRankAccent}`}>{entry?.rank ?? placeholder}</td>
-                  <td className={`px-4 py-3 font-bold truncate max-w-[240px] ${cellUserAccent}`}>{name}</td>
+                  <td className={`px-4 py-3 font-bold truncate max-w-[240px] ${cellUserAccent}`}>
+                    {userLinkEnabled ? (
+                      <a
+                        href={`/leaderboard/u/${profileUserId}`}
+                        className="hover:underline underline-offset-4 decoration-dotted focus:outline-none focus-visible:ring-2 focus-visible:ring-matrix-primary/70"
+                      >
+                        {name}
+                      </a>
+                    ) : (
+                      name
+                    )}
+                  </td>
                   <td className={`px-4 py-3 ${cellAccent}`}>{toDisplayNumber(entry?.total_tokens)}</td>
                   <td className={`px-4 py-3 ${cellAccent}`}>{toDisplayNumber(entry?.gpt_tokens)}</td>
                   <td className={`px-4 py-3 ${cellAccent}`}>{toDisplayNumber(entry?.claude_tokens)}</td>
@@ -276,6 +371,27 @@ export function LeaderboardPage({
           className=""
           bodyClassName="px-0"
         >
+          {authTokenAllowed && authTokenReady ? (
+            <div className="px-4 pb-3 flex items-center justify-end gap-3">
+              {profileState.error ? (
+                <span className="text-[10px] uppercase tracking-[0.25em] text-matrix-dim">
+                  {profileState.error}
+                </span>
+              ) : null}
+              <MatrixButton
+                size="sm"
+                primary={publicProfileEnabled}
+                onClick={handleTogglePublicProfile}
+                aria-pressed={publicProfileEnabled}
+                aria-label={publicProfileLabel}
+                title={publicProfileLabel}
+                disabled={publicProfileBusy}
+              >
+                {publicProfileLabel}
+              </MatrixButton>
+            </div>
+          ) : null}
+
           {listBody}
 
           <div className="px-4 py-4 flex flex-wrap items-center justify-between gap-3">
