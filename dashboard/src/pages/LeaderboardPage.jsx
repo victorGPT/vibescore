@@ -179,6 +179,25 @@ export function LeaderboardPage({
   const meGptLabel = me ? toDisplayNumber(me.gpt_tokens) : placeholder;
   const meClaudeLabel = me ? toDisplayNumber(me.claude_tokens) : placeholder;
 
+  const meStats =
+    metric === "gpt"
+      ? [
+          { key: "gpt", label: copy("leaderboard.column.gpt"), value: meGptLabel },
+          { key: "total", label: copy("leaderboard.column.total"), value: meTotalLabel },
+          { key: "claude", label: copy("leaderboard.column.claude"), value: meClaudeLabel },
+        ]
+      : metric === "claude"
+        ? [
+            { key: "claude", label: copy("leaderboard.column.claude"), value: meClaudeLabel },
+            { key: "total", label: copy("leaderboard.column.total"), value: meTotalLabel },
+            { key: "gpt", label: copy("leaderboard.column.gpt"), value: meGptLabel },
+          ]
+        : [
+            { key: "total", label: copy("leaderboard.column.total"), value: meTotalLabel },
+            { key: "gpt", label: copy("leaderboard.column.gpt"), value: meGptLabel },
+            { key: "claude", label: copy("leaderboard.column.claude"), value: meClaudeLabel },
+          ];
+
   const { canPrev, canNext } = getPaginationFlags({ page: currentPage, totalPages });
 
   let topBody = null;
@@ -200,6 +219,57 @@ export function LeaderboardPage({
               ? entry.display_name
               : copy("leaderboard.anon_label");
           const name = isMe ? copy("leaderboard.me_label") : entryName;
+          const primaryLabel =
+            metric === "gpt"
+              ? copy("leaderboard.metric.gpt")
+              : metric === "claude"
+                ? copy("leaderboard.metric.claude")
+                : copy("leaderboard.column.total");
+          const primaryValue =
+            metric === "gpt"
+              ? entry?.gpt_tokens
+              : metric === "claude"
+                ? entry?.claude_tokens
+                : entry?.total_tokens;
+          const secondaryStats =
+            metric === "gpt"
+              ? [
+                  {
+                    key: "total",
+                    label: copy("leaderboard.column.total"),
+                    value: entry?.total_tokens,
+                  },
+                  {
+                    key: "claude",
+                    label: copy("leaderboard.column.claude"),
+                    value: entry?.claude_tokens,
+                  },
+                ]
+              : metric === "claude"
+                ? [
+                    {
+                      key: "total",
+                      label: copy("leaderboard.column.total"),
+                      value: entry?.total_tokens,
+                    },
+                    {
+                      key: "gpt",
+                      label: copy("leaderboard.column.gpt"),
+                      value: entry?.gpt_tokens,
+                    },
+                  ]
+                : [
+                    {
+                      key: "gpt",
+                      label: copy("leaderboard.column.gpt"),
+                      value: entry?.gpt_tokens,
+                    },
+                    {
+                      key: "claude",
+                      label: copy("leaderboard.column.claude"),
+                      value: entry?.claude_tokens,
+                    },
+                  ];
           return (
             <div
               key={`top-${entry?.rank}-${name}`}
@@ -218,20 +288,18 @@ export function LeaderboardPage({
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] uppercase text-matrix-dim tracking-[0.25em]">
-                    {copy("leaderboard.column.total")}
+                    {primaryLabel}
                   </span>
-                  <div className="text-lg font-black">{toDisplayNumber(entry?.total_tokens)}</div>
+                  <div className="text-lg font-black">{toDisplayNumber(primaryValue)}</div>
                 </div>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-3 text-[11px]">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="uppercase text-matrix-dim">{copy("leaderboard.column.gpt")}</span>
-                  <span className="font-bold">{toDisplayNumber(entry?.gpt_tokens)}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="uppercase text-matrix-dim">{copy("leaderboard.column.claude")}</span>
-                  <span className="font-bold">{toDisplayNumber(entry?.claude_tokens)}</span>
-                </div>
+                {secondaryStats.map((stat) => (
+                  <div key={stat.key} className="flex items-center justify-between gap-2">
+                    <span className="uppercase text-matrix-dim">{stat.label}</span>
+                    <span className="font-bold">{toDisplayNumber(stat.value)}</span>
+                  </div>
+                ))}
               </div>
             </div>
           );
@@ -396,24 +464,14 @@ export function LeaderboardPage({
                   {meRankLabel}
                 </span>
               </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] uppercase tracking-[0.25em] text-matrix-dim">
-                  {copy("leaderboard.column.total")}
-                </span>
-                <span className="text-xl md:text-2xl font-black">{meTotalLabel}</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] uppercase tracking-[0.25em] text-matrix-dim">
-                  {copy("leaderboard.column.gpt")}
-                </span>
-                <span className="text-xl md:text-2xl font-black">{meGptLabel}</span>
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-[10px] uppercase tracking-[0.25em] text-matrix-dim">
-                  {copy("leaderboard.column.claude")}
-                </span>
-                <span className="text-xl md:text-2xl font-black">{meClaudeLabel}</span>
-              </div>
+              {meStats.map((stat) => (
+                <div key={stat.key} className="flex flex-col gap-1">
+                  <span className="text-[10px] uppercase tracking-[0.25em] text-matrix-dim">
+                    {stat.label}
+                  </span>
+                  <span className="text-xl md:text-2xl font-black">{stat.value}</span>
+                </div>
+              ))}
             </div>
           </AsciiBox>
         </div>
