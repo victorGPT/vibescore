@@ -46,7 +46,7 @@ module.exports = withRequestLogging('vibeusage-device-token-issue', async functi
     });
   } else {
     const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
-    if (!auth.ok) return json({ error: 'Unauthorized' }, 401);
+    if (!auth.ok) return json({ error: auth.error || 'Unauthorized' }, auth.status || 401);
     userId = auth.userId;
     dbClient = auth.edgeClient;
   }

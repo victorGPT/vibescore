@@ -26,7 +26,7 @@ module.exports = async function(request) {
 
   const baseUrl = getBaseUrl();
   const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
-  if (!auth.ok) return json({ error: 'Unauthorized' }, 401);
+  if (!auth.ok) return json({ error: auth.error || 'Unauthorized' }, auth.status || 401);
 
   const url = new URL(request.url);
   const period = normalizePeriod(url.searchParams.get('period'));

@@ -20,7 +20,7 @@ module.exports = withRequestLogging('vibeusage-public-view-revoke', async functi
 
   const baseUrl = getBaseUrl();
   const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
-  if (!auth.ok) return json({ error: 'Unauthorized' }, 401);
+  if (!auth.ok) return json({ error: auth.error || 'Unauthorized' }, auth.status || 401);
 
   const nowIso = new Date().toISOString();
   const { error } = await auth.edgeClient.database

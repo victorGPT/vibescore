@@ -83,7 +83,7 @@ module.exports = withRequestLogging('vibeusage-usage-heatmap', async function(re
 
     const baseUrl = getBaseUrl();
     const auth = await getAccessContext({ baseUrl, bearer, allowPublic: true });
-    if (!auth.ok) return respond({ error: 'Unauthorized' }, 401, 0);
+    if (!auth.ok) return respond({ error: auth.error || 'Unauthorized' }, auth.status || 401, 0);
 
     const startIso = gridStart.toISOString();
     const endUtc = addUtcDays(end, 1);
@@ -261,7 +261,7 @@ module.exports = withRequestLogging('vibeusage-usage-heatmap', async function(re
 
   const baseUrl = getBaseUrl();
   const auth = await getAccessContext({ baseUrl, bearer, allowPublic: true });
-  if (!auth.ok) return respond({ error: 'Unauthorized' }, 401, 0);
+  if (!auth.ok) return respond({ error: auth.error || 'Unauthorized' }, auth.status || 401, 0);
 
   const modelFilter = await resolveUsageModelsForCanonical({
     edgeClient: auth.edgeClient,

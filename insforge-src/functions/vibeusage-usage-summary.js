@@ -83,7 +83,7 @@ module.exports = withRequestLogging('vibeusage-usage-summary', async function(re
 
   const baseUrl = getBaseUrl();
   const auth = await getAccessContext({ baseUrl, bearer, allowPublic: true });
-  if (!auth.ok) return respond({ error: 'Unauthorized' }, 401, 0);
+  if (!auth.ok) return respond({ error: auth.error || 'Unauthorized' }, auth.status || 401, 0);
 
   const tzContext = getUsageTimeZoneContext(url);
   const rollingEnabled = url.searchParams.get('rolling') === '1';

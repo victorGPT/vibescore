@@ -295,7 +295,16 @@ var require_auth = __commonJS({
     }
     async function getEdgeClientAndUserId({ baseUrl, bearer }) {
       const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
-      if (!auth.ok) return { ok: false, edgeClient: null, userId: null };
+      if (!auth.ok) {
+        return {
+          ok: false,
+          edgeClient: null,
+          userId: null,
+          status: auth.status ?? 401,
+          error: auth.error ?? "Unauthorized",
+          code: auth.code ?? null
+        };
+      }
       return { ok: true, edgeClient: auth.edgeClient, userId: auth.userId };
     }
     async function getEdgeClientAndUserIdFast({ baseUrl, bearer }) {
@@ -304,34 +313,57 @@ var require_auth = __commonJS({
       const local = await verifyUserJwtHs2562({ token: bearer });
       const allowRemoteOnly = !local.ok && local?.code === "missing_jwt_secret";
       if (!local.ok && !allowRemoteOnly) {
-        return { ok: false, edgeClient: null, userId: null, error: local };
+        return {
+          ok: false,
+          edgeClient: null,
+          userId: null,
+          status: 401,
+          error: "Unauthorized",
+          code: local?.code || "invalid_jwt"
+        };
       }
       if (typeof edgeClient?.auth?.getCurrentUser !== "function") {
         return {
           ok: false,
           edgeClient: null,
           userId: null,
-          error: { error: "Auth client unavailable", code: "missing_auth_client" }
+          status: 503,
+          error: "Service unavailable",
+          code: "missing_auth_client"
         };
       }
       let authResult = null;
       try {
         authResult = await edgeClient.auth.getCurrentUser();
       } catch (e) {
+        const message = getAuthFailureMessage(e);
+        const status = classifyAuthFailure({
+          status: normalizeHttpStatus(e?.statusCode ?? e?.status),
+          message
+        });
         return {
           ok: false,
           edgeClient: null,
           userId: null,
-          error: { error: e?.message || "Auth lookup failed", code: "auth_lookup_failed" }
+          status,
+          error: status === 503 ? "Service unavailable" : "Unauthorized",
+          code: "auth_lookup_failed"
         };
       }
       const authUserId = authResult?.data?.user?.id || null;
       if (!authUserId || authResult?.error) {
+        const message = getAuthFailureMessage(authResult?.error) || (!authUserId ? "User missing" : "");
+        const status = classifyAuthFailure({
+          status: normalizeHttpStatus(authResult?.error?.statusCode ?? authResult?.error?.status),
+          message
+        });
         return {
           ok: false,
           edgeClient: null,
           userId: null,
-          error: { error: authResult?.error?.message || "Auth lookup failed", code: "auth_lookup_failed" }
+          status,
+          error: status === 503 ? "Service unavailable" : "Unauthorized",
+          code: "auth_lookup_failed"
         };
       }
       if (!allowRemoteOnly && authUserId !== local.userId) {
@@ -339,26 +371,54 @@ var require_auth = __commonJS({
           ok: false,
           edgeClient: null,
           userId: null,
-          error: { error: "User mismatch", code: "user_mismatch" }
+          status: 401,
+          error: "Unauthorized",
+          code: "user_mismatch"
         };
       }
       return { ok: true, edgeClient, userId: authUserId };
     }
     async function getAccessContext({ baseUrl, bearer, allowPublic = false }) {
-      if (!bearer) return { ok: false, edgeClient: null, userId: null, accessType: null };
+      if (!bearer) {
+        return {
+          ok: false,
+          edgeClient: null,
+          userId: null,
+          accessType: null,
+          status: 401,
+          error: "Unauthorized",
+          code: "missing_bearer"
+        };
+      }
       const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
       if (auth.ok) {
         return { ok: true, edgeClient: auth.edgeClient, userId: auth.userId, accessType: "user" };
       }
       if (!allowPublic) {
-        return { ok: false, edgeClient: null, userId: null, accessType: null };
+        return {
+          ok: false,
+          edgeClient: null,
+          userId: null,
+          accessType: null,
+          status: auth.status ?? 401,
+          error: auth.error ?? "Unauthorized",
+          code: auth.code ?? null
+        };
       }
       if (!isPublicShareToken(bearer)) {
-        return { ok: false, edgeClient: null, userId: null, accessType: null };
+        return {
+          ok: false,
+          edgeClient: null,
+          userId: null,
+          accessType: null,
+          status: auth.status ?? 401,
+          error: auth.error ?? "Unauthorized",
+          code: auth.code ?? null
+        };
       }
       const publicView = await resolvePublicView({ baseUrl, shareToken: bearer });
       if (!publicView.ok) {
-        return { ok: false, edgeClient: null, userId: null, accessType: null };
+        return { ok: false, edgeClient: null, userId: null, accessType: null, status: 401, error: "Unauthorized" };
       }
       return {
         ok: true,
@@ -375,6 +435,38 @@ var require_auth = __commonJS({
       isProjectAdminBearer,
       verifyUserJwtHs256: verifyUserJwtHs2562
     };
+    function normalizeHttpStatus(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return null;
+      const status = Math.trunc(n);
+      if (status < 100 || status > 599) return null;
+      return status;
+    }
+    function getAuthFailureMessage(err) {
+      if (!err) return "";
+      if (typeof err === "string") return err;
+      if (typeof err?.message === "string") return err.message;
+      if (typeof err?.error === "string") return err.error;
+      return "";
+    }
+    function classifyAuthFailure({ status, message } = {}) {
+      const normalizedStatus = normalizeHttpStatus(status);
+      if (normalizedStatus === 401 || normalizedStatus === 403) return 401;
+      if (normalizedStatus != null) return 503;
+      if (isRetryableAuthMessage(message)) return 503;
+      return 401;
+    }
+    function isRetryableAuthMessage(message) {
+      const s = String(message || "").toLowerCase();
+      if (!s) return false;
+      if (s.includes("socket hang up")) return true;
+      if (s.includes("econnreset") || s.includes("econnrefused")) return true;
+      if (s.includes("etimedout") || s.includes("timeout") && s.includes("request")) return true;
+      if (s.includes("networkerror") || s.includes("failed to fetch")) return true;
+      if (s.includes("upstream") || s.includes("proxy")) return true;
+      if (s.includes("deno")) return true;
+      return false;
+    }
   }
 });
 

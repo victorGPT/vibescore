@@ -21,7 +21,7 @@ module.exports = withRequestLogging('vibeusage-public-view-issue', async functio
 
   const baseUrl = getBaseUrl();
   const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
-  if (!auth.ok) return json({ error: 'Unauthorized' }, 401);
+  if (!auth.ok) return json({ error: auth.error || 'Unauthorized' }, auth.status || 401);
 
   const shareToken = generateShareToken();
   const tokenHash = await sha256Hex(shareToken);

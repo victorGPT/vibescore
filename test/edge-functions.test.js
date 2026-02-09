@@ -165,7 +165,63 @@ test('getEdgeClientAndUserIdFast rejects when auth lookup fails', async () => {
   const { getEdgeClientAndUserIdFast } = require('../insforge-src/shared/auth');
   const res = await getEdgeClientAndUserIdFast({ baseUrl: BASE_URL, bearer: userJwt });
   assert.equal(res.ok, false);
+  assert.equal(res.status, 401);
   assert.equal(authCalls, 1);
+});
+
+test('getEdgeClientAndUserIdFast returns 503 when auth lookup fails transiently', async () => {
+  const userId = '33333333-3333-3333-3333-333333333334';
+  const userJwt = createUserJwt(userId);
+  let authCalls = 0;
+
+  globalThis.createClient = () => ({
+    auth: {
+      getCurrentUser: async () => {
+        authCalls += 1;
+        throw new Error('socket hang up');
+      }
+    }
+  });
+
+  const { getEdgeClientAndUserIdFast } = require('../insforge-src/shared/auth');
+  const res = await getEdgeClientAndUserIdFast({ baseUrl: BASE_URL, bearer: userJwt });
+  assert.equal(res.ok, false);
+  assert.equal(res.status, 503);
+  assert.equal(res.error, 'Service unavailable');
+  assert.equal(authCalls, 1);
+});
+
+test('vibeusage-usage-summary returns 503 when auth lookup fails transiently', async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-summary');
+
+  const userId = '33333333-3333-3333-3333-333333333335';
+  const userJwt = createUserJwt(userId);
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => {
+            throw new Error('socket hang up');
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request(
+    'http://localhost/functions/vibeusage-usage-summary?from=2026-02-09&to=2026-02-09',
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${userJwt}` }
+    }
+  );
+
+  const res = await fn(req);
+  assert.equal(res.status, 503);
+  const body = await res.json();
+  assert.equal(body.error, 'Service unavailable');
 });
 
 test('vibeusage-debug-auth accepts locally verified jwt', async () => {
