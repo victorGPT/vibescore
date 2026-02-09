@@ -129,38 +129,58 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const targetName = process.env.VERCEL_CHECK_NAME;
+            const targetName = (process.env.VERCEL_CHECK_NAME || 'Vercel').trim();
             const timeoutMinutes = Number(process.env.VERCEL_TIMEOUT_MINUTES || 20);
             const pollSeconds = Number(process.env.VERCEL_POLL_SECONDS || 20);
             const deadline = Date.now() + timeoutMinutes * 60 * 1000;
             const { owner, repo } = context.repo;
             const ref = context.sha;
 
-            function pickLatest(statuses) {
-              return statuses.sort((a, b) => {
-                const aTime = new Date(a.created_at || 0).getTime();
-                const bTime = new Date(b.created_at || 0).getTime();
-                return bTime - aTime;
-              })[0];
+            function matchContext(contextName) {
+              if (!contextName) return false;
+              // Default behavior: allow Vercel's project-scoped checks like "Vercel – <project>".
+              if (targetName === 'Vercel') return contextName.startsWith('Vercel');
+              if (targetName.endsWith('*')) return contextName.startsWith(targetName.slice(0, -1));
+              return contextName === targetName;
+            }
+
+            function latestPerContext(statuses) {
+              const byContext = new Map();
+              for (const status of statuses) {
+                if (!status?.context) continue;
+                const existing = byContext.get(status.context);
+                if (!existing) {
+                  byContext.set(status.context, status);
+                  continue;
+                }
+                const prevTime = new Date(existing.created_at || 0).getTime();
+                const nextTime = new Date(status.created_at || 0).getTime();
+                if (nextTime > prevTime) byContext.set(status.context, status);
+              }
+              return Array.from(byContext.values());
             }
 
             while (Date.now() < deadline) {
               const response = await github.rest.repos.getCombinedStatusForRef({ owner, repo, ref });
               const statuses = response.data.statuses.filter((status) =>
-                status.context === targetName
+                matchContext(status.context)
               );
 
               if (statuses.length === 0) {
                 core.info(`Waiting for Vercel status "${targetName}"...`);
               } else {
-                const latest = pickLatest(statuses);
-                core.info(`Latest Vercel status: ${latest.context} (${latest.state})`);
-                if (latest.state === 'success') {
-                  core.info('Vercel status succeeded.');
-                  return;
+                const latestStatuses = latestPerContext(statuses);
+                const summary = latestStatuses
+                  .map((s) => `${s.context} (${s.state})`)
+                  .join(', ');
+                core.info(`Latest Vercel statuses: ${summary}`);
+                if (latestStatuses.some((s) => ['failure', 'error'].includes(s.state))) {
+                  const failed = latestStatuses.find((s) => ['failure', 'error'].includes(s.state));
+                  throw new Error(`Vercel status ${failed.context} concluded with ${failed.state}`);
                 }
-                if (['failure', 'error'].includes(latest.state)) {
-                  throw new Error(`Vercel status ${latest.context} concluded with ${latest.state}`);
+                if (latestStatuses.every((s) => s.state === 'success')) {
+                  core.info('Vercel statuses succeeded.');
+                  return;
                 }
               }
 
