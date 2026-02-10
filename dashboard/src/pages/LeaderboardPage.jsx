@@ -222,6 +222,8 @@ export function LeaderboardPage({
   const meLabel = copy("leaderboard.me_label");
   const anonLabel = copy("leaderboard.anon_label");
   const publicProfileLabel = copy("leaderboard.public_profile.label");
+  const publicProfileStatusEnabledLabel = copy("leaderboard.public_profile.status.enabled");
+  const publicProfileStatusDisabledLabel = copy("leaderboard.public_profile.status.disabled");
   const weekLabel = copy("leaderboard.period.week");
   const monthLabel = copy("leaderboard.period.month");
   const totalLabel = copy("leaderboard.period.total");
@@ -240,6 +242,9 @@ export function LeaderboardPage({
 
   const publicProfileEnabled = Boolean(profileState.leaderboardPublic);
   const publicProfileBusy = profileState.loading || profileState.saving;
+  const publicProfileStatusLabel = publicProfileEnabled
+    ? publicProfileStatusEnabledLabel
+    : publicProfileStatusDisabledLabel;
 
   const handleTogglePublicProfile = async () => {
     if (!baseUrl) return;
@@ -473,30 +478,38 @@ export function LeaderboardPage({
                   <span className="text-[10px] uppercase tracking-[0.25em] text-matrix-dim">
                     {publicProfileLabel}
                   </span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={publicProfileEnabled}
-                    aria-label={publicProfileLabel}
-                    title={publicProfileLabel}
-                    onClick={handleTogglePublicProfile}
-                    disabled={publicProfileBusy}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-matrix-primary/70 disabled:opacity-60 disabled:cursor-not-allowed ${
-                      publicProfileEnabled
-                        ? "bg-matrix-primary/15 border-matrix-primary/40"
-                        : "bg-matrix-panelStrong/40 border-matrix-ghost/60"
-                    }`}
-                  >
-                    <span className="sr-only">{publicProfileLabel}</span>
-                    <span
-                      aria-hidden="true"
-                      className={`inline-block h-4 w-4 rounded-full transition-transform ${
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={publicProfileEnabled}
+                      aria-label={publicProfileLabel}
+                      title={publicProfileLabel}
+                      onClick={handleTogglePublicProfile}
+                      disabled={publicProfileBusy}
+                      className={`relative inline-flex h-6 w-11 items-center border px-[3px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-matrix-primary/70 disabled:opacity-60 disabled:cursor-not-allowed ${
                         publicProfileEnabled
-                          ? "bg-matrix-primary shadow-matrix-glow translate-x-6"
-                          : "bg-matrix-dim translate-x-1"
+                          ? "border-matrix-primary bg-matrix-primary/10"
+                          : "border-matrix-ghost/60 bg-matrix-panelStrong/40"
                       }`}
-                    />
-                  </button>
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`inline-block h-3.5 w-3.5 bg-matrix-primary transition-transform ${
+                          publicProfileEnabled
+                            ? "translate-x-[18px] shadow-matrix-glow"
+                            : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                    <span
+                      className={`text-[10px] uppercase tracking-[0.2em] ${
+                        publicProfileEnabled ? "text-matrix-primary/80" : "text-matrix-dim"
+                      }`}
+                    >
+                      {publicProfileStatusLabel}
+                    </span>
+                  </div>
                 </div>
               </div>
             ) : null}
