@@ -15,6 +15,17 @@ function normalizeString(value) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function normalizeScalarToString(value) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string') return normalizeString(value);
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return null;
+    return normalizeString(String(value));
+  }
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  return null;
+}
+
 function base64UrlDecodeToString(value) {
   if (typeof value !== 'string' || value.length === 0) return null;
   const padLen = (4 - (value.length % 4)) % 4;
@@ -162,6 +173,40 @@ function probeMacosKeychainGenericPassword({
   return result.status === 0;
 }
 
+function readMacosKeychainPassword({
+  service,
+  securityRunner,
+  timeoutMs
+} = {}) {
+  const svc = normalizeString(service);
+  if (!svc) return null;
+
+  const runner = typeof securityRunner === 'function' ? securityRunner : cp.spawnSync;
+  if (runner === cp.spawnSync && !fs.existsSync(MACOS_SECURITY_BIN)) return null;
+
+  const result = runner(
+    MACOS_SECURITY_BIN,
+    ['find-generic-password', '-s', svc, '-w'],
+    {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: Number.isFinite(timeoutMs) ? timeoutMs : 2000,
+      encoding: 'utf8'
+    }
+  );
+
+  if (!result || result.error) return null;
+  if (result.status !== 0) return null;
+
+  const stdout =
+    typeof result.stdout === 'string'
+      ? result.stdout
+      : Buffer.isBuffer(result.stdout)
+        ? result.stdout.toString('utf8')
+        : '';
+  const trimmed = stdout.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 function detectClaudeCodeCredentialsPresence({
   platform,
   securityRunner
@@ -187,12 +232,61 @@ function detectClaudeCodeCredentialsPresence({
   return null;
 }
 
+function extractClaudeKeychainSubscription(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+
+  const oauth = payload.claudeAiOauth;
+  if (!oauth || typeof oauth !== 'object' || Array.isArray(oauth)) return null;
+
+  const subscriptionType = normalizeScalarToString(oauth.subscriptionType);
+  const rateLimitTier = normalizeScalarToString(oauth.rateLimitTier);
+
+  if (!subscriptionType) return null;
+  return { subscriptionType, rateLimitTier };
+}
+
+function detectClaudeCodeSubscriptionDetails({
+  platform,
+  securityRunner
+} = {}) {
+  if (platform !== 'darwin') return null;
+
+  for (const service of CLAUDE_CODE_KEYCHAIN_SERVICES) {
+    const raw = readMacosKeychainPassword({
+      service,
+      securityRunner
+    });
+    if (!raw) continue;
+
+    let payload;
+    try {
+      payload = JSON.parse(raw);
+    } catch (_e) {
+      continue;
+    }
+
+    const info = extractClaudeKeychainSubscription(payload);
+    if (!info) continue;
+
+    return {
+      tool: 'claude',
+      provider: 'anthropic',
+      product: 'subscription',
+      planType: info.subscriptionType,
+      rateLimitTier: info.rateLimitTier
+    };
+  }
+
+  return null;
+}
+
 async function collectLocalSubscriptions({
   home = os.homedir(),
   env = process.env,
   platform = process.platform,
   securityRunner,
-  probeKeychain = false
+  probeKeychain = false,
+  probeKeychainDetails = false
 } = {}) {
   const out = [];
 
@@ -202,7 +296,14 @@ async function collectLocalSubscriptions({
   const opencode = await detectOpencodeChatgptSubscription({ home, env });
   if (opencode) out.push(opencode);
 
-  if (probeKeychain) {
+  if (probeKeychainDetails) {
+    const claude = detectClaudeCodeSubscriptionDetails({ platform, securityRunner });
+    if (claude) out.push(claude);
+    else if (probeKeychain) {
+      const present = detectClaudeCodeCredentialsPresence({ platform, securityRunner });
+      if (present) out.push(present);
+    }
+  } else if (probeKeychain) {
     const claude = detectClaudeCodeCredentialsPresence({ platform, securityRunner });
     if (claude) out.push(claude);
   }

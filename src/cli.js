@@ -46,7 +46,7 @@ function printHelp() {
       'Usage:',
       '  npx vibeusage [--debug] init [--yes] [--dry-run] [--no-open] [--link-code <code>]',
       '  npx vibeusage [--debug] sync [--auto] [--drain]',
-      '  npx vibeusage [--debug] status',
+      '  npx vibeusage [--debug] status [--probe-keychain] [--probe-keychain-details]',
       '  npx vibeusage [--debug] diagnostics [--out diagnostics.json]',
       '  npx vibeusage [--debug] doctor [--json] [--out doctor.json] [--base-url <url>]',
       '  npx vibeusage [--debug] uninstall [--purge]',

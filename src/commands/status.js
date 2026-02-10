@@ -93,7 +93,8 @@ async function cmdStatus(argv = []) {
   const subscriptions = await collectLocalSubscriptions({
     home,
     env: process.env,
-    probeKeychain: opts.probeKeychain
+    probeKeychain: opts.probeKeychain,
+    probeKeychainDetails: opts.probeKeychainDetails
   });
   const subscriptionLines =
     subscriptions.length > 0
@@ -132,6 +133,7 @@ function formatSubscriptionLine(entry = {}) {
   const provider = String(entry.provider || '');
   const product = String(entry.product || '');
   const planType = String(entry.planType || '');
+  const rateLimitTier = String(entry.rateLimitTier || '');
   const toolLabel =
     tool === 'codex'
       ? 'Codex'
@@ -143,6 +145,11 @@ function formatSubscriptionLine(entry = {}) {
 
   if (!planType) return null;
 
+  if (tool === 'claude' && provider === 'anthropic' && product === 'subscription') {
+    const suffix = rateLimitTier ? ` (rate limit tier: ${rateLimitTier})` : '';
+    return `- ${toolLabel} subscription: ${planType}${suffix}`;
+  }
+
   if (provider === 'openai' && product === 'chatgpt') {
     return `- ${toolLabel} ChatGPT plan: ${planType}`;
   }
@@ -152,12 +159,16 @@ function formatSubscriptionLine(entry = {}) {
 }
 
 function parseArgs(argv) {
-  const out = { diagnostics: false, probeKeychain: false };
+  const out = { diagnostics: false, probeKeychain: false, probeKeychainDetails: false };
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--diagnostics' || a === '--json') out.diagnostics = true;
     else if (a === '--probe-keychain') out.probeKeychain = true;
+    else if (a === '--probe-keychain-details') {
+      out.probeKeychainDetails = true;
+      out.probeKeychain = true;
+    }
     else throw new Error(`Unknown option: ${a}`);
   }
 

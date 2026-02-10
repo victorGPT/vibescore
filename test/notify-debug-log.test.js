@@ -5,14 +5,37 @@ const fs = require('node:fs/promises');
 const cp = require('node:child_process');
 const { test } = require('node:test');
 
-const { cmdInit } = require('../src/commands/init');
-
 async function runNotify(notifyPath, env) {
   await new Promise((resolve, reject) => {
     const child = cp.execFile(process.execPath, [notifyPath, '--source=codex'], { env }, (err) => {
       if (err) return reject(err);
       resolve();
     });
+  });
+}
+
+async function runInit(env) {
+  const root = path.resolve(__dirname, '..');
+  const entry = path.join(root, 'bin', 'tracker.js');
+
+  await new Promise((resolve, reject) => {
+    cp.execFile(
+      process.execPath,
+      [
+        entry,
+        'init',
+        '--yes',
+        '--no-auth',
+        '--no-open',
+        '--base-url',
+        'https://example.invalid'
+      ],
+      { env },
+      (err) => {
+        if (err) return reject(err);
+        resolve();
+      }
+    );
   });
 }
 
@@ -33,18 +56,18 @@ async function rmWithRetry(target, retries = 3) {
 
 async function setupInitEnv() {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-notify-debug-'));
-  const prevHome = process.env.HOME;
-  const prevCodexHome = process.env.CODEX_HOME;
-  const prevToken = process.env.VIBEUSAGE_DEVICE_TOKEN;
-  const prevOpencodeConfigDir = process.env.OPENCODE_CONFIG_DIR;
+  const codexHome = path.join(tmp, '.codex');
+  await fs.mkdir(codexHome, { recursive: true });
 
-  process.env.HOME = tmp;
-  process.env.CODEX_HOME = path.join(tmp, '.codex');
-  delete process.env.VIBEUSAGE_DEVICE_TOKEN;
-  process.env.OPENCODE_CONFIG_DIR = path.join(tmp, '.config', 'opencode');
-  await fs.mkdir(process.env.CODEX_HOME, { recursive: true });
+  const env = {
+    ...process.env,
+    HOME: tmp,
+    CODEX_HOME: codexHome,
+    OPENCODE_CONFIG_DIR: path.join(tmp, '.config', 'opencode')
+  };
+  delete env.VIBEUSAGE_DEVICE_TOKEN;
 
-  await cmdInit(['--yes', '--no-auth', '--no-open', '--base-url', 'https://example.invalid']);
+  await runInit(env);
 
   const notifyPath = path.join(tmp, '.vibeusage', 'bin', 'notify.cjs');
   const trackerDir = path.join(tmp, '.vibeusage', 'tracker');
@@ -54,18 +77,11 @@ async function setupInitEnv() {
 
   return {
     tmp,
+    env,
     notifyPath,
     trackerDir,
     debugLogPath,
     cleanup: async () => {
-      if (prevHome === undefined) delete process.env.HOME;
-      else process.env.HOME = prevHome;
-      if (prevCodexHome === undefined) delete process.env.CODEX_HOME;
-      else process.env.CODEX_HOME = prevCodexHome;
-      if (prevToken === undefined) delete process.env.VIBEUSAGE_DEVICE_TOKEN;
-      else process.env.VIBEUSAGE_DEVICE_TOKEN = prevToken;
-      if (prevOpencodeConfigDir === undefined) delete process.env.OPENCODE_CONFIG_DIR;
-      else process.env.OPENCODE_CONFIG_DIR = prevOpencodeConfigDir;
       await rmWithRetry(tmp);
     }
   };
@@ -75,7 +91,7 @@ test('notify debug log is gated and capped by env settings', async () => {
   const gatedContext = await setupInitEnv();
   try {
     await assert.rejects(fs.stat(gatedContext.debugLogPath), /ENOENT/);
-    await runNotify(gatedContext.notifyPath, { ...process.env });
+    await runNotify(gatedContext.notifyPath, gatedContext.env);
     await assert.rejects(fs.stat(gatedContext.debugLogPath), /ENOENT/);
   } finally {
     await gatedContext.cleanup();
@@ -84,7 +100,7 @@ test('notify debug log is gated and capped by env settings', async () => {
   const cappedContext = await setupInitEnv();
   try {
     const env = {
-      ...process.env,
+      ...cappedContext.env,
       VIBEUSAGE_NOTIFY_DEBUG: '1',
       VIBEUSAGE_NOTIFY_DEBUG_MAX_BYTES: '64'
     };

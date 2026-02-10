@@ -155,3 +155,85 @@ test('collectLocalSubscriptions hides Claude keychain line when probe fails', as
     await fs.rm(tmp, { recursive: true, force: true });
   }
 });
+
+test('collectLocalSubscriptions can read Claude Code subscription type from keychain when enabled (no secret leak)', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-subscriptions-claude-details-'));
+
+  try {
+    const runner = (cmd, args) => {
+      const service = args?.[args.indexOf('-s') + 1] || '';
+      if (cmd !== '/usr/bin/security' || service !== 'Claude Code-credentials') return { status: 1 };
+
+      if (args.includes('-w')) {
+        return {
+          status: 0,
+          stdout: JSON.stringify({
+            claudeAiOauth: {
+              subscriptionType: 'max',
+              rateLimitTier: 'tier-1',
+              accessToken: 'secret-access',
+              refreshToken: 'secret-refresh'
+            }
+          })
+        };
+      }
+
+      return { status: 0 };
+    };
+
+    const subs = await collectLocalSubscriptions({
+      home: tmp,
+      env: {},
+      platform: 'darwin',
+      securityRunner: runner,
+      probeKeychain: true,
+      probeKeychainDetails: true
+    });
+
+    assert.equal(subs.length, 1);
+    assert.deepEqual(subs[0], {
+      tool: 'claude',
+      provider: 'anthropic',
+      product: 'subscription',
+      planType: 'max',
+      rateLimitTier: 'tier-1'
+    });
+    assert.ok(!('accessToken' in subs[0]));
+    assert.ok(!('refreshToken' in subs[0]));
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('collectLocalSubscriptions falls back to Claude Code keychain presence when details probe fails', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-subscriptions-claude-details-fallback-'));
+
+  try {
+    const runner = (cmd, args) => {
+      const service = args?.[args.indexOf('-s') + 1] || '';
+      if (cmd !== '/usr/bin/security' || service !== 'Claude Code-credentials') return { status: 1 };
+
+      if (args.includes('-w')) return { status: 1 };
+      return { status: 0 };
+    };
+
+    const subs = await collectLocalSubscriptions({
+      home: tmp,
+      env: {},
+      platform: 'darwin',
+      securityRunner: runner,
+      probeKeychain: true,
+      probeKeychainDetails: true
+    });
+
+    assert.equal(subs.length, 1);
+    assert.deepEqual(subs[0], {
+      tool: 'claude',
+      provider: 'anthropic',
+      product: 'credentials',
+      planType: 'present'
+    });
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
