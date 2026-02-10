@@ -7176,20 +7176,29 @@ test('vibeusage-leaderboard-settings updates existing row', async () => {
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibeusage_user_settings');
-            return {
-              select: () => ({
-                eq: () => ({
-                  maybeSingle: async () => ({ data: { user_id: userId }, error: null })
+            if (table === 'vibeusage_user_settings') {
+              return {
+                select: () => ({
+                  eq: () => ({
+                    maybeSingle: async () => ({ data: { user_id: userId }, error: null })
+                  })
+                }),
+                update: (values) => ({
+                  eq: async (col, value) => {
+                    updates.push({ table, values, where: { col, value } });
+                    return { error: null };
+                  }
                 })
-              }),
-              update: (values) => ({
-                eq: async (col, value) => {
-                  updates.push({ table, values, where: { col, value } });
-                  return { error: null };
-                }
-              })
-            };
+              };
+            }
+            if (table === 'vibeusage_public_views') {
+              return {
+                update: () => ({
+                  eq: async () => ({ error: null })
+                })
+              };
+            }
+            throw new Error(`Unexpected table: ${String(table)}`);
           }
         }
       };

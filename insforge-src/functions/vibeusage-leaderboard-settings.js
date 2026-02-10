@@ -61,6 +61,7 @@ module.exports = async function(request) {
     try {
       const { error: upsertErr } = await settingsTable.upsert([upsertRow], { onConflict: 'user_id' });
       if (!upsertErr) {
+        await trySyncPublicView({ edgeClient: auth.edgeClient, userId: auth.userId, leaderboardPublic, updatedAt });
         await trySyncSnapshot({ baseUrl, userId: auth.userId, leaderboardPublic });
         return json({ leaderboard_public: leaderboardPublic, updated_at: updatedAt }, 200);
       }
@@ -90,9 +91,22 @@ module.exports = async function(request) {
     if (insErr) return json({ error: insErr.message }, 500);
   }
 
+  await trySyncPublicView({ edgeClient: auth.edgeClient, userId: auth.userId, leaderboardPublic, updatedAt });
   await trySyncSnapshot({ baseUrl, userId: auth.userId, leaderboardPublic });
   return json({ leaderboard_public: leaderboardPublic, updated_at: updatedAt }, 200);
 };
+
+async function trySyncPublicView({ edgeClient, userId, leaderboardPublic, updatedAt }) {
+  if (leaderboardPublic) return;
+  try {
+    await edgeClient.database
+      .from('vibeusage_public_views')
+      .update({ revoked_at: updatedAt, updated_at: updatedAt })
+      .eq('user_id', userId);
+  } catch (_err) {
+    // ignore revoke errors
+  }
+}
 
 async function trySyncSnapshot({ baseUrl, userId, leaderboardPublic }) {
   const serviceRoleKey = getServiceRoleKey();

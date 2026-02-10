@@ -15,11 +15,11 @@ import {
   toFiniteNumber,
 } from "../lib/format";
 import {
+  getLeaderboardSettings,
+  setLeaderboardSettings,
   getPublicViewProfile,
-  getPublicViewStatus,
   issuePublicViewToken,
   requestInstallLinkCode,
-  revokePublicViewToken,
 } from "../lib/vibeusage-api";
 import { buildFleetData, buildTopModels } from "../lib/model-breakdown";
 import { safeWriteClipboard, safeWriteClipboardImage } from "../lib/safe-browser";
@@ -264,16 +264,14 @@ export function DashboardPage({
         return;
       }
       try {
-        const data = await getPublicViewStatus({
+        const data = await getLeaderboardSettings({
           baseUrl,
           accessToken: resolvedToken,
         });
         if (!active) return;
-        const enabled = Boolean(data?.enabled);
-        const token =
-          typeof data?.share_token === "string" ? data.share_token : null;
+        const enabled = Boolean(data?.leaderboard_public);
         setPublicViewEnabled(enabled);
-        setPublicViewToken(token);
+        setPublicViewToken(null);
       } catch (_err) {
         if (!active) return;
         setPublicViewEnabled(false);
@@ -1129,8 +1127,6 @@ export function DashboardPage({
         });
         const token =
           typeof data?.share_token === "string" ? data.share_token : null;
-        const enabled = Boolean(data?.enabled ?? token);
-        setPublicViewEnabled(enabled);
         setPublicViewToken(token);
         if (token && typeof window !== "undefined") {
           const url = new URL(`/share/${token}`, window.location.origin);
@@ -1165,24 +1161,15 @@ export function DashboardPage({
         setPublicViewActionLoading(false);
         return;
       }
-      if (publicViewEnabled) {
-        await revokePublicViewToken({
-          baseUrl,
-          accessToken: resolvedToken,
-        });
-        setPublicViewEnabled(false);
-        setPublicViewToken(null);
-      } else {
-        const data = await issuePublicViewToken({
-          baseUrl,
-          accessToken: resolvedToken,
-        });
-        const token =
-          typeof data?.share_token === "string" ? data.share_token : null;
-        const enabled = Boolean(data?.enabled ?? token);
-        setPublicViewEnabled(enabled);
-        setPublicViewToken(token);
-      }
+      const nextValue = !publicViewEnabled;
+      const data = await setLeaderboardSettings({
+        baseUrl,
+        accessToken: resolvedToken,
+        leaderboardPublic: nextValue,
+      });
+      const enabled = Boolean(data?.leaderboard_public);
+      setPublicViewEnabled(enabled);
+      if (!enabled) setPublicViewToken(null);
     } catch (_err) {
       // ignore toggle errors
     } finally {

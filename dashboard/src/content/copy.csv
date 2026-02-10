@@ -334,13 +334,13 @@ dashboard.install.link_code.loading,dashboard,DashboardPage,AsciiBox,install_sta
 dashboard.install.link_code.failed,dashboard,DashboardPage,AsciiBox,install_status,"Private code unavailable",,active
 dashboard.install.cmd.sync,dashboard,DashboardPage,AsciiBox,install_cmd,"npx --yes vibeusage sync",,active
 
-dashboard.public_view.title,dashboard,DashboardPage,AsciiBox,title,"Public View",,active
-dashboard.public_view.status.enabled,dashboard,DashboardPage,AsciiBox,status,"LINK_ACTIVE",,active
-dashboard.public_view.status.disabled,dashboard,DashboardPage,AsciiBox,status,"LINK_DISABLED",,active
+dashboard.public_view.title,dashboard,DashboardPage,AsciiBox,title,"PUBLIC PROFILE",,active
+dashboard.public_view.status.enabled,dashboard,DashboardPage,AsciiBox,status,"PUBLIC_ON",,active
+dashboard.public_view.status.disabled,dashboard,DashboardPage,AsciiBox,status,"PUBLIC_OFF",,active
 dashboard.public_view.action.copy,dashboard,DashboardPage,AsciiBox,action_label,"Copy share link",,active
 dashboard.public_view.action.copied,dashboard,DashboardPage,AsciiBox,action_label,"Copied",,active
-dashboard.public_view.action.enable,dashboard,DashboardPage,AsciiBox,action_label,"Enable public link",,active
-dashboard.public_view.action.disable,dashboard,DashboardPage,AsciiBox,action_label,"Disable public link",,active
+dashboard.public_view.action.enable,dashboard,DashboardPage,AsciiBox,action_label,"Enable public profile",,active
+dashboard.public_view.action.disable,dashboard,DashboardPage,AsciiBox,action_label,"Disable public profile",,active
 dashboard.public_view.invalid.title,dashboard,DashboardPage,AsciiBox,title,"Link_Invalid",,active
 dashboard.public_view.invalid.body,dashboard,DashboardPage,AsciiBox,body,"This public link is invalid or has been revoked.",,active
 
