@@ -66,6 +66,23 @@ function makeClient({ userId, userJwt, state }) {
       },
       database: {
         from: (table) => {
+          if (table === 'vibeusage_user_settings') {
+            return {
+              select: () => ({
+                eq: (col, value) => {
+                  assert.equal(col, 'user_id');
+                  assert.equal(value, userId);
+                  return {
+                    maybeSingle: async () => ({
+                      data: { leaderboard_public: true },
+                      error: null
+                    })
+                  };
+                }
+              })
+            };
+          }
+
           assert.equal(table, 'vibeusage_public_views');
 
           return {

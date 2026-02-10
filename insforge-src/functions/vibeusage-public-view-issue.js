@@ -23,6 +23,17 @@ module.exports = withRequestLogging('vibeusage-public-view-issue', async functio
   const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
   if (!auth.ok) return json({ error: auth.error || 'Unauthorized' }, auth.status || 401);
 
+  const { data: settings, error: settingsErr } = await auth.edgeClient.database
+    .from('vibeusage_user_settings')
+    .select('leaderboard_public')
+    .eq('user_id', auth.userId)
+    .maybeSingle();
+
+  if (settingsErr) return json({ error: 'Failed to issue public view link' }, 500);
+  if (settings?.leaderboard_public !== true) {
+    return json({ error: 'Public profile is disabled' }, 403);
+  }
+
   const shareToken = generateShareToken();
   const tokenHash = await sha256Hex(shareToken);
   const nowIso = new Date().toISOString();

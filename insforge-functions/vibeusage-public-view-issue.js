@@ -121,6 +121,10 @@ var require_public_view = __commonJS({
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
+      const { data: settings, error: settingsErr } = await dbClient.database.from("vibeusage_user_settings").select("leaderboard_public").eq("user_id", data.user_id).maybeSingle();
+      if (settingsErr || settings?.leaderboard_public !== true) {
+        return { ok: false, edgeClient: null, userId: null };
+      }
       return { ok: true, edgeClient: dbClient, userId: data.user_id };
     }
     function normalizeToken(value) {
@@ -620,6 +624,11 @@ module.exports = withRequestLogging("vibeusage-public-view-issue", async functio
   const baseUrl = getBaseUrl();
   const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
   if (!auth.ok) return json({ error: auth.error || "Unauthorized" }, auth.status || 401);
+  const { data: settings, error: settingsErr } = await auth.edgeClient.database.from("vibeusage_user_settings").select("leaderboard_public").eq("user_id", auth.userId).maybeSingle();
+  if (settingsErr) return json({ error: "Failed to issue public view link" }, 500);
+  if (settings?.leaderboard_public !== true) {
+    return json({ error: "Public profile is disabled" }, 403);
+  }
   const shareToken = generateShareToken();
   const tokenHash = await sha256Hex(shareToken);
   const nowIso = (/* @__PURE__ */ new Date()).toISOString();

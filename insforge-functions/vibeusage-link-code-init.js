@@ -121,6 +121,10 @@ var require_public_view = __commonJS({
       if (error || !data?.user_id) {
         return { ok: false, edgeClient: null, userId: null };
       }
+      const { data: settings, error: settingsErr } = await dbClient.database.from("vibeusage_user_settings").select("leaderboard_public").eq("user_id", data.user_id).maybeSingle();
+      if (settingsErr || settings?.leaderboard_public !== true) {
+        return { ok: false, edgeClient: null, userId: null };
+      }
       return { ok: true, edgeClient: dbClient, userId: data.user_id };
     }
     function normalizeToken(value) {

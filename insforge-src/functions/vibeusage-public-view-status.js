@@ -21,6 +21,15 @@ module.exports = withRequestLogging('vibeusage-public-view-status', async functi
   const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
   if (!auth.ok) return json({ error: auth.error || 'Unauthorized' }, auth.status || 401);
 
+  const { data: settings, error: settingsErr } = await auth.edgeClient.database
+    .from('vibeusage_user_settings')
+    .select('leaderboard_public')
+    .eq('user_id', auth.userId)
+    .maybeSingle();
+
+  if (settingsErr) return json({ error: 'Failed to fetch public view status' }, 500);
+  if (settings?.leaderboard_public !== true) return json({ enabled: false }, 200);
+
   const { data, error } = await auth.edgeClient.database
     .from('vibeusage_public_views')
     .select('revoked_at')
