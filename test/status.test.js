@@ -34,6 +34,7 @@ test('status prints last upload timestamps from upload.throttle.json', async () 
     await fs.writeFile(path.join(trackerDir, 'cursors.json'), JSON.stringify({ updatedAt: '2025-12-18T00:00:00.000Z' }) + '\n', 'utf8');
     await fs.writeFile(path.join(trackerDir, 'queue.jsonl'), '', 'utf8');
     await fs.writeFile(path.join(trackerDir, 'queue.state.json'), JSON.stringify({ offset: 0 }) + '\n', 'utf8');
+    await fs.writeFile(path.join(trackerDir, 'openclaw.signal'), '2026-02-12T00:00:00.000Z\n', 'utf8');
 
     const lastSuccessMs = 1766053145522; // 2025-12-18T10:19:05.522Z
     const nextAllowedAtMs = lastSuccessMs + 1000;
@@ -54,6 +55,7 @@ test('status prints last upload timestamps from upload.throttle.json', async () 
 
     assert.match(out, /- Base URL: https:\/\/example\.invalid/);
     assert.match(out, /- Last upload: 2025-12-18T10:19:05\.522Z/);
+    assert.match(out, /- Last OpenClaw-triggered sync: 2026-02-12T00:00:00.000Z/);
     assert.match(out, /- Next upload after: 2025-12-18T10:19:06\.522Z/);
   } finally {
     process.stdout.write = prevWrite;

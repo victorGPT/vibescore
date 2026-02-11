@@ -35,6 +35,9 @@ async function cmdSync(argv) {
   const { trackerDir } = await resolveTrackerPaths({ home });
 
   await ensureDir(trackerDir);
+  if (opts.fromOpenclaw) {
+    await writeOpenclawSignal(trackerDir);
+  }
 
   const lockPath = path.join(trackerDir, 'sync.lock');
   const lock = await openLock(lockPath, { quietIfLocked: opts.auto });
@@ -375,6 +378,7 @@ function parseArgs(argv) {
     auto: false,
     fromNotify: false,
     fromRetry: false,
+    fromOpenclaw: false,
     drain: false
   };
   for (let i = 0; i < argv.length; i++) {
@@ -382,6 +386,7 @@ function parseArgs(argv) {
     if (a === '--auto') out.auto = true;
     else if (a === '--from-notify') out.fromNotify = true;
     else if (a === '--from-retry') out.fromRetry = true;
+    else if (a === '--from-openclaw') out.fromOpenclaw = true;
     else if (a === '--drain') out.drain = true;
     else throw new Error(`Unknown option: ${a}`);
   }
@@ -515,6 +520,15 @@ function coerceRetryMs(v) {
   const n = Number(v);
   if (!Number.isFinite(n) || n <= 0) return 0;
   return Math.floor(n);
+}
+
+async function writeOpenclawSignal(trackerDir) {
+  const openclawSignalPath = path.join(trackerDir, 'openclaw.signal');
+  try {
+    await fs.writeFile(openclawSignalPath, new Date().toISOString(), 'utf8');
+  } catch (_e) {
+    // best-effort marker
+  }
 }
 
 const HEARTBEAT_MIN_INTERVAL_MINUTES = 30;

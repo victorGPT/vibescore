@@ -26,6 +26,7 @@ async function collectTrackerDiagnostics({
   const queueStatePath = path.join(trackerDir, 'queue.state.json');
   const cursorsPath = path.join(trackerDir, 'cursors.json');
   const notifySignalPath = path.join(trackerDir, 'notify.signal');
+  const openclawSignalPath = path.join(trackerDir, 'openclaw.signal');
   const throttlePath = path.join(trackerDir, 'sync.throttle');
   const uploadThrottlePath = path.join(trackerDir, 'upload.throttle.json');
   const autoRetryPath = path.join(trackerDir, 'auto.retry.json');
@@ -47,6 +48,7 @@ async function collectTrackerDiagnostics({
   const pendingBytes = Math.max(0, queueSize - offsetBytes);
 
   const lastNotify = (await safeReadText(notifySignalPath))?.trim() || null;
+  const lastOpenclawSync = (await safeReadText(openclawSignalPath))?.trim() || null;
   const lastNotifySpawn = parseEpochMsToIso((await safeReadText(throttlePath))?.trim() || null);
 
   const codexNotifyRaw = await readCodexNotify(codexConfigPath);
@@ -107,6 +109,7 @@ async function collectTrackerDiagnostics({
     },
     notify: {
       last_notify: lastNotify,
+      last_openclaw_triggered_sync: lastOpenclawSync,
       last_notify_triggered_sync: lastNotifySpawn,
       codex_notify_configured: notifyConfigured,
       codex_notify: codexNotify,

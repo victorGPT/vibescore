@@ -45,7 +45,7 @@ function printHelp() {
       '',
       'Usage:',
       '  npx vibeusage [--debug] init [--yes] [--dry-run] [--no-open] [--link-code <code>]',
-      '  npx vibeusage [--debug] sync [--auto] [--drain]',
+      '  npx vibeusage [--debug] sync [--auto] [--drain] [--from-openclaw]',
       '  npx vibeusage [--debug] status [--probe-keychain] [--probe-keychain-details]',
       '  npx vibeusage [--debug] diagnostics [--out diagnostics.json]',
       '  npx vibeusage [--debug] doctor [--json] [--out doctor.json] [--base-url <url>]',
@@ -60,6 +60,7 @@ function printHelp() {
       '  - auto sync waits for a device token.',
       '  - optional: VIBEUSAGE_DASHBOARD_URL or --dashboard-url for hosted landing.',
       '  - sync parses ~/.codex/sessions/**/rollout-*.jsonl and ~/.code/sessions/**/rollout-*.jsonl, then uploads token deltas.',
+      '  - --from-openclaw marks sync runs triggered by OpenClaw hooks.',
       '  - --debug shows original backend errors.',
       ''
     ].join('\n')

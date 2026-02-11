@@ -44,6 +44,7 @@ test('diagnostics redacts device token and home paths', async () => {
     );
 
     const retryAtMs = Date.now() + 60_000;
+    await fs.writeFile(path.join(trackerDir, 'openclaw.signal'), '2026-02-12T00:00:00.000Z\n', 'utf8');
     await fs.writeFile(
       path.join(trackerDir, 'auto.retry.json'),
       JSON.stringify(
@@ -76,6 +77,7 @@ test('diagnostics redacts device token and home paths', async () => {
 
     const data = JSON.parse(out);
     assert.equal(data?.config?.device_token, 'set');
+    assert.equal(data?.notify?.last_openclaw_triggered_sync, '2026-02-12T00:00:00.000Z');
     assert.equal(typeof data?.paths?.codex_home, 'string');
     assert.ok(String(data.paths.codex_home).startsWith('~'));
     assert.equal(data?.auto_retry?.reason, 'throttled');

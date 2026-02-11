@@ -32,6 +32,7 @@ async function cmdStatus(argv = []) {
   const queueStatePath = path.join(trackerDir, 'queue.state.json');
   const cursorsPath = path.join(trackerDir, 'cursors.json');
   const notifySignalPath = path.join(trackerDir, 'notify.signal');
+  const openclawSignalPath = path.join(trackerDir, 'openclaw.signal');
   const throttlePath = path.join(trackerDir, 'sync.throttle');
   const uploadThrottlePath = path.join(trackerDir, 'upload.throttle.json');
   const autoRetryPath = path.join(trackerDir, 'auto.retry.json');
@@ -57,6 +58,7 @@ async function cmdStatus(argv = []) {
   const pendingBytes = Math.max(0, queueSize - (queueState.offset || 0));
 
   const lastNotify = (await safeReadText(notifySignalPath))?.trim() || null;
+  const lastOpenclawSync = (await safeReadText(openclawSignalPath))?.trim() || null;
   const lastNotifySpawn = parseEpochMsToIso((await safeReadText(throttlePath))?.trim() || null);
 
   const codexNotify = await readCodexNotify(codexConfigPath);
@@ -109,6 +111,7 @@ async function cmdStatus(argv = []) {
       `- Queue: ${pendingBytes} bytes pending`,
       `- Last parse: ${cursors?.updatedAt || 'never'}`,
       `- Last notify: ${lastNotify || 'never'}`,
+      `- Last OpenClaw-triggered sync: ${lastOpenclawSync || 'never'}`,
       `- Last notify-triggered sync: ${lastNotifySpawn || 'never'}`,
       `- Last upload: ${lastUpload || 'never'}`,
       `- Next upload after: ${nextUpload || 'never'}`,
