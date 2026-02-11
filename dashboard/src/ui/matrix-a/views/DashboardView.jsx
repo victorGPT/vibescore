@@ -35,6 +35,7 @@ export function DashboardView(props) {
     identityDisplayName,
     identityStartDate,
     activeDays,
+    identitySubscriptions,
     identityScrambleDurationMs,
     projectUsageBlock,
     topModels,
@@ -216,6 +217,7 @@ export function DashboardView(props) {
                 isPublic
                 rankLabel={identityStartDate ?? copy("identity_card.rank_placeholder")}
                 streakDays={activeDays}
+                subscriptions={identitySubscriptions}
                 animateTitle={false}
                 scrambleDurationMs={identityScrambleDurationMs}
               />

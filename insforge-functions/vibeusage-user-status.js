@@ -710,6 +710,18 @@ module.exports = withRequestLogging("vibeusage-user-status", async function(requ
   }
   const { data: entitlements, error: entErr } = await auth.edgeClient.database.from("vibeusage_user_entitlements").select("source,effective_from,effective_to,revoked_at").eq("user_id", auth.userId).order("effective_to", { ascending: false });
   if (entErr) return json({ error: entErr.message }, 500);
+  let subscriptions = [];
+  let subscriptionsPartial = false;
+  const { data: subscriptionRows, error: subscriptionErr } = await auth.edgeClient.database.from("vibeusage_tracker_subscriptions").select("tool,provider,product,plan_type,rate_limit_tier,active_start,active_until,last_checked,observed_at,updated_at").eq("user_id", auth.userId).order("updated_at", { ascending: false });
+  if (subscriptionErr) {
+    if (isMissingRelationError(subscriptionErr)) {
+      subscriptionsPartial = true;
+    } else {
+      return json({ error: subscriptionErr.message }, 500);
+    }
+  } else {
+    subscriptions = normalizeSubscriptions(subscriptionRows);
+  }
   const asOf = (/* @__PURE__ */ new Date()).toISOString();
   const status = computeProStatus({ createdAt, entitlements, now: asOf });
   return json(
@@ -722,8 +734,56 @@ module.exports = withRequestLogging("vibeusage-user-status", async function(requ
         expires_at: status.expires_at,
         partial,
         as_of: asOf
+      },
+      subscriptions: {
+        partial: subscriptionsPartial,
+        as_of: asOf,
+        items: subscriptions
       }
     },
     200
   );
 });
+function normalizeSubscriptions(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const out = [];
+  for (const row of list) {
+    const tool = normalizeText(row?.tool);
+    const provider = normalizeText(row?.provider);
+    const product = normalizeText(row?.product);
+    const planType = normalizeText(row?.plan_type);
+    if (!tool || !provider || !product || !planType) continue;
+    out.push({
+      tool,
+      provider,
+      product,
+      plan_type: planType,
+      rate_limit_tier: normalizeText(row?.rate_limit_tier),
+      active_start: normalizeIso(row?.active_start),
+      active_until: normalizeIso(row?.active_until),
+      last_checked: normalizeIso(row?.last_checked),
+      observed_at: normalizeIso(row?.observed_at),
+      updated_at: normalizeIso(row?.updated_at)
+    });
+  }
+  return out;
+}
+function normalizeText(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+function normalizeIso(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const dt = new Date(trimmed);
+  if (!Number.isFinite(dt.getTime())) return null;
+  return dt.toISOString();
+}
+function isMissingRelationError(err) {
+  const code = typeof err?.code === "string" ? err.code.trim() : "";
+  if (code === "42P01") return true;
+  const msg = String(err?.message || "").toLowerCase();
+  return msg.includes("vibeusage_tracker_subscriptions") && msg.includes("does not exist");
+}

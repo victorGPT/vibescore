@@ -219,6 +219,21 @@ Request body:
       "reasoning_output_tokens": 0,
       "total_tokens": 0
     }
+  ],
+  "device_subscriptions": [
+    {
+      "tool": "codex",
+      "provider": "openai",
+      "product": "chatgpt",
+      "planType": "pro"
+    },
+    {
+      "tool": "claude",
+      "provider": "anthropic",
+      "product": "subscription",
+      "planType": "max",
+      "rateLimitTier": "default_claude_max_5x"
+    }
   ]
 }
 ```
@@ -226,7 +241,13 @@ Request body:
 Response:
 
 ```json
-{ "success": true, "inserted": 123, "skipped": 0 }
+{
+  "success": true,
+  "inserted": 123,
+  "skipped": 0,
+  "project_inserted": 0,
+  "project_skipped": 0
+}
 ```
 
 Notes:
@@ -234,6 +255,7 @@ Notes:
 - `source` is optional; when missing or empty, it defaults to `codex`.
 - `model` is optional; when missing or empty, it defaults to `unknown`.
 - Uploads are upserts keyed by `user_id + device_id + source + model + hour_start`.
+- `device_subscriptions` is optional and stores latest tool subscription markers (`user_id + tool + provider + product` upsert).
 - Backward compatibility: `{ "data": { "hourly": [...] } }` is accepted, but `{ "hourly": [...] }` remains canonical.
 - `hour_start` is the usage-time bucket. Database `created_at`/`updated_at` reflect ingest/upsert time, so many rows can share the same timestamp when a batch is uploaded.
 - Internal observability: ingest requests also write a best-effort metrics row to `vibeusage_tracker_ingest_batches` (project_admin only). Fields include `bucket_count`, `inserted`, `skipped`, `source`, `user_id`, `device_id`, and `created_at`. No prompt/response content is stored.
@@ -281,6 +303,24 @@ Response:
     "expires_at": "iso",
     "partial": false,
     "as_of": "iso"
+  },
+  "subscriptions": {
+    "partial": false,
+    "as_of": "iso",
+    "items": [
+      {
+        "tool": "codex",
+        "provider": "openai",
+        "product": "chatgpt",
+        "plan_type": "pro",
+        "rate_limit_tier": null,
+        "active_start": null,
+        "active_until": null,
+        "last_checked": null,
+        "observed_at": "iso|null",
+        "updated_at": "iso|null"
+      }
+    ]
   }
 }
 ```
@@ -290,6 +330,7 @@ Notes:
 - Registration-based Pro expires at `created_at + 99 years`.
 - Entitlements are active when `now_utc` is in `[effective_from, effective_to)` and `revoked_at IS NULL`.
 - When `created_at` is unavailable and no service-role key is configured, the endpoint returns a partial result (`created_at: null`, `pro.partial: true`) computed from entitlements only.
+- `subscriptions.partial` may be `true` when the subscription table has not been migrated yet; in that case `items` falls back to an empty list.
 
 ---
 

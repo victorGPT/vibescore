@@ -369,6 +369,83 @@ async function upsertProjectRegistry({
   return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
 }
 
+async function upsertDeviceSubscriptions({
+  serviceClient,
+  baseUrl,
+  serviceRoleKey,
+  anonKey,
+  tokenHash,
+  rows,
+  fetcher
+}) {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return { ok: true, inserted: 0, skipped: 0 };
+  }
+
+  if (serviceClient && serviceRoleKey && baseUrl) {
+    const url = new URL('/api/database/records/vibeusage_tracker_subscriptions', baseUrl);
+    const res = await recordsUpsert({
+      url,
+      anonKey: serviceRoleKey,
+      tokenHash,
+      rows,
+      onConflict: 'user_id,tool,provider,product',
+      prefer: 'return=representation',
+      resolution: 'merge-duplicates',
+      select: 'tool,provider,product',
+      fetcher
+    });
+
+    if (res.ok) {
+      const insertedRows = normalizeRows(res.data);
+      const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+      return { ok: true, inserted, skipped: 0 };
+    }
+
+    if (!isUpsertUnsupported(res)) {
+      return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
+    }
+  }
+
+  if (serviceClient?.database?.from) {
+    const { error } = await serviceClient
+      .database
+      .from('vibeusage_tracker_subscriptions')
+      .upsert(rows, { onConflict: 'user_id,tool,provider,product' });
+    if (error) return { ok: false, error: error.message, inserted: 0, skipped: 0 };
+    return { ok: true, inserted: rows.length, skipped: 0 };
+  }
+
+  if (!anonKey || !baseUrl) {
+    return { ok: false, error: 'Anon key missing', inserted: 0, skipped: 0 };
+  }
+
+  const url = new URL('/api/database/records/vibeusage_tracker_subscriptions', baseUrl);
+  const res = await recordsUpsert({
+    url,
+    anonKey,
+    tokenHash,
+    rows,
+    onConflict: 'user_id,tool,provider,product',
+    prefer: 'return=representation',
+    resolution: 'merge-duplicates',
+    select: 'tool,provider,product',
+    fetcher
+  });
+
+  if (res.ok) {
+    const insertedRows = normalizeRows(res.data);
+    const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+    return { ok: true, inserted, skipped: 0 };
+  }
+
+  if (isUpsertUnsupported(res)) {
+    return { ok: false, error: res.error || 'Subscriptions upsert unsupported', inserted: 0, skipped: 0 };
+  }
+
+  return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
+}
+
 async function recordIngestBatchMetrics({
   serviceClient,
   baseUrl,
@@ -426,5 +503,6 @@ module.exports = {
   upsertHourlyUsage,
   upsertProjectUsage,
   upsertProjectRegistry,
+  upsertDeviceSubscriptions,
   recordIngestBatchMetrics
 };

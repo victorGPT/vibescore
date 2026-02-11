@@ -1081,6 +1081,110 @@ test('vibeusage-ingest accepts project_hourly alongside hourly payloads', async 
   assert.equal(projectBody[0]?.project_ref, 'https://github.com/victorGPT/vibeusage');
 });
 
+test('vibeusage-ingest upserts device subscriptions when provided', async () => {
+  const fn = require('../insforge-functions/vibeusage-ingest');
+
+  const fetchCalls = [];
+  const tokenRow = {
+    id: 'token-id',
+    user_id: '33333333-3333-3333-3333-333333333333',
+    device_id: '44444444-4444-4444-4444-444444444444',
+    revoked_at: null
+  };
+
+  function from(table) {
+    if (table === 'vibeusage_tracker_device_tokens') {
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: tokenRow, error: null })
+          })
+        }),
+        update: () => ({ eq: async () => ({ error: null }) })
+      };
+    }
+
+    if (table === 'vibeusage_tracker_devices') {
+      return {
+        update: () => ({ eq: async () => ({ error: null }) })
+      };
+    }
+
+    throw new Error(`Unexpected table: ${table}`);
+  }
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return { database: { from } };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  globalThis.fetch = async (url, init) => {
+    fetchCalls.push({ url, init });
+    const u = new URL(url);
+
+    if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_hourly')) {
+      return new Response(JSON.stringify([{ hour_start: '2025-12-17T00:00:00.000Z' }]), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (u.pathname.endsWith('/api/database/records/vibeusage_tracker_subscriptions')) {
+      return new Response(JSON.stringify([{ tool: 'codex', provider: 'openai', product: 'chatgpt' }]), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    return new Response('not found', { status: 404 });
+  };
+
+  const req = new Request('http://localhost/functions/vibeusage-ingest', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer device_token_test' },
+    body: JSON.stringify({
+      hourly: [
+        {
+          hour_start: '2025-12-17T00:00:00.000Z',
+          source: 'codex',
+          model: 'unknown',
+          input_tokens: 1,
+          cached_input_tokens: 0,
+          output_tokens: 1,
+          reasoning_output_tokens: 0,
+          total_tokens: 2
+        }
+      ],
+      device_subscriptions: [
+        { tool: 'codex', provider: 'openai', product: 'chatgpt', planType: 'pro' },
+        {
+          tool: 'claude',
+          provider: 'anthropic',
+          product: 'subscription',
+          planType: 'max',
+          rateLimitTier: 'default_claude_max_5x'
+        }
+      ]
+    })
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+
+  const subUpsert = fetchCalls.find((call) =>
+    String(call.url).includes('/api/database/records/vibeusage_tracker_subscriptions')
+  );
+  assert.ok(subUpsert, 'subscription upsert call not found');
+  const subUrl = new URL(subUpsert.url);
+  assert.equal(subUrl.searchParams.get('on_conflict'), 'user_id,tool,provider,product');
+  const subBody = JSON.parse(subUpsert.init?.body || '[]');
+  assert.equal(subBody.length, 2);
+  assert.equal(subBody[0]?.plan_type, 'pro');
+  assert.equal(subBody[1]?.plan_type, 'max');
+});
+
 test('vibeusage-ingest works without serviceRoleKey via anonKey records API', async () => {
   setDenoEnv({
     INSFORGE_INTERNAL_URL: BASE_URL,
@@ -7564,14 +7668,25 @@ test('vibeusage-user-status returns pro.active for cutoff user', async () => {
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibeusage_user_entitlements');
-            return {
-              select: () => ({
-                eq: () => ({
-                  order: async () => ({ data: [], error: null })
+            if (table === 'vibeusage_user_entitlements') {
+              return {
+                select: () => ({
+                  eq: () => ({
+                    order: async () => ({ data: [], error: null })
+                  })
                 })
-              })
-            };
+              };
+            }
+            if (table === 'vibeusage_tracker_subscriptions') {
+              return {
+                select: () => ({
+                  eq: () => ({
+                    order: async () => ({ data: [], error: null })
+                  })
+                })
+              };
+            }
+            throw new Error(`Unexpected user table: ${String(table)}`);
           }
         }
       };
@@ -7610,6 +7725,102 @@ test('vibeusage-user-status returns pro.active for cutoff user', async () => {
   assert.equal(body.pro.sources.includes('registration_cutoff'), true);
 });
 
+test('vibeusage-user-status returns tracked subscriptions for identity card', async () => {
+  const fn = require('../insforge-functions/vibeusage-user-status');
+
+  const userId = '11111111-1111-1111-1111-111111111119';
+  const userJwt = createUserJwt(userId);
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            if (table === 'vibeusage_user_entitlements') {
+              return {
+                select: () => ({
+                  eq: () => ({
+                    order: async () => ({ data: [], error: null })
+                  })
+                })
+              };
+            }
+
+            if (table === 'vibeusage_tracker_subscriptions') {
+              return {
+                select: () => ({
+                  eq: () => ({
+                    order: async () => ({
+                      data: [
+                        {
+                          tool: 'claude',
+                          provider: 'anthropic',
+                          product: 'subscription',
+                          plan_type: 'max',
+                          rate_limit_tier: 'default_claude_max_5x',
+                          updated_at: '2026-02-11T12:00:00.000Z'
+                        },
+                        {
+                          tool: 'codex',
+                          provider: 'openai',
+                          product: 'chatgpt',
+                          plan_type: 'pro',
+                          updated_at: '2026-02-11T11:00:00.000Z'
+                        }
+                      ],
+                      error: null
+                    })
+                  })
+                })
+              };
+            }
+
+            throw new Error(`Unexpected user table: ${String(table)}`);
+          }
+        }
+      };
+    }
+
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return {
+        database: {
+          from: (table) => {
+            assert.equal(table, 'users');
+            return {
+              select: () => ({
+                eq: () => ({
+                  maybeSingle: async () => ({ data: { created_at: '2025-01-01T00:00:00Z' }, error: null })
+                })
+              })
+            };
+          }
+        }
+      };
+    }
+
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibeusage-user-status', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${userJwt}` }
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.subscriptions.partial, false);
+  assert.equal(Array.isArray(body.subscriptions.items), true);
+  assert.equal(body.subscriptions.items.length, 2);
+  assert.equal(body.subscriptions.items[0].tool, 'claude');
+  assert.equal(body.subscriptions.items[0].plan_type, 'max');
+  assert.equal(body.subscriptions.items[1].tool, 'codex');
+  assert.equal(body.subscriptions.items[1].plan_type, 'pro');
+});
+
 test('vibeusage-user-status falls back to users table when created_at missing', async () => {
   const fn = require('../insforge-functions/vibeusage-user-status');
 
@@ -7624,14 +7835,25 @@ test('vibeusage-user-status falls back to users table when created_at missing', 
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibeusage_user_entitlements');
-            return {
-              select: () => ({
-                eq: () => ({
-                  order: async () => ({ data: [], error: null })
+            if (table === 'vibeusage_user_entitlements') {
+              return {
+                select: () => ({
+                  eq: () => ({
+                    order: async () => ({ data: [], error: null })
+                  })
                 })
-              })
-            };
+              };
+            }
+            if (table === 'vibeusage_tracker_subscriptions') {
+              return {
+                select: () => ({
+                  eq: () => ({
+                    order: async () => ({ data: [], error: null })
+                  })
+                })
+              };
+            }
+            throw new Error(`Unexpected user table: ${String(table)}`);
           }
         }
       };
@@ -7689,23 +7911,34 @@ test('vibeusage-user-status degrades when created_at missing and no service role
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibeusage_user_entitlements');
-            return {
-              select: () => ({
-                eq: () => ({
-                  order: async () => ({
-                    data: [
-                      {
-                        effective_from: '2025-01-01T00:00:00Z',
-                        effective_to: '2027-01-01T00:00:00Z',
-                        revoked_at: null
-                      }
-                    ],
-                    error: null
+            if (table === 'vibeusage_user_entitlements') {
+              return {
+                select: () => ({
+                  eq: () => ({
+                    order: async () => ({
+                      data: [
+                        {
+                          effective_from: '2025-01-01T00:00:00Z',
+                          effective_to: '2027-01-01T00:00:00Z',
+                          revoked_at: null
+                        }
+                      ],
+                      error: null
+                    })
                   })
                 })
-              })
-            };
+              };
+            }
+            if (table === 'vibeusage_tracker_subscriptions') {
+              return {
+                select: () => ({
+                  eq: () => ({
+                    order: async () => ({ data: [], error: null })
+                  })
+                })
+              };
+            }
+            throw new Error(`Unexpected user table: ${String(table)}`);
           }
         }
       };

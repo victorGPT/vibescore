@@ -28,6 +28,32 @@ function normalizeProjectHourlyPayload(data) {
   return null;
 }
 
+function normalizeDeviceSubscriptionsPayload(data) {
+  if (!data || typeof data !== 'object') return null;
+  if (Array.isArray(data.device_subscriptions)) return data.device_subscriptions;
+  if (data.data && typeof data.data === 'object' && Array.isArray(data.data.device_subscriptions)) {
+    return data.data.device_subscriptions;
+  }
+  return null;
+}
+
+function normalizeTextField(value, { lowerCase = false, maxLen = 128 } = {}) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const sliced = trimmed.length > maxLen ? trimmed.slice(0, maxLen) : trimmed;
+  return lowerCase ? sliced.toLowerCase() : sliced;
+}
+
+function normalizeIsoField(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const dt = new Date(trimmed);
+  if (!Number.isFinite(dt.getTime())) return null;
+  return dt.toISOString();
+}
+
 function parseUtcHalfHourStart(value) {
   if (typeof value !== 'string' || value.trim() === '') return null;
   const dt = new Date(value);
@@ -136,6 +162,31 @@ function parseProjectHourlyBucket(raw) {
   };
 }
 
+function parseDeviceSubscription(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const tool = normalizeTextField(raw.tool, { lowerCase: true, maxLen: 64 });
+  const provider = normalizeTextField(raw.provider, { lowerCase: true, maxLen: 64 });
+  const product = normalizeTextField(raw.product, { lowerCase: true, maxLen: 64 });
+  const planType = normalizeTextField(raw.plan_type ?? raw.planType, { lowerCase: true, maxLen: 64 });
+
+  if (!tool || !provider || !product || !planType) return null;
+
+  return {
+    tool,
+    provider,
+    product,
+    plan_type: planType,
+    rate_limit_tier: normalizeTextField(raw.rate_limit_tier ?? raw.rateLimitTier, {
+      lowerCase: true,
+      maxLen: 128
+    }),
+    active_start: normalizeIsoField(raw.active_start ?? raw.activeStart),
+    active_until: normalizeIsoField(raw.active_until ?? raw.activeUntil),
+    last_checked: normalizeIsoField(raw.last_checked ?? raw.lastChecked)
+  };
+}
+
 function buildRows({ hourly, tokenRow, nowIso, billableRuleVersion = BILLABLE_RULE_VERSION }) {
   const byHour = new Map();
 
@@ -208,6 +259,37 @@ function buildProjectRows({ hourly, tokenRow, nowIso }) {
   return { error: null, data: rows };
 }
 
+function buildSubscriptionRows({ subscriptions, tokenRow, nowIso }) {
+  const deduped = new Map();
+  for (const raw of subscriptions) {
+    const parsed = parseDeviceSubscription(raw);
+    if (!parsed) continue;
+    const key = `${parsed.tool}::${parsed.provider}::${parsed.product}`;
+    deduped.set(key, parsed);
+  }
+
+  const rows = [];
+  for (const subscription of deduped.values()) {
+    rows.push({
+      user_id: tokenRow.user_id,
+      device_id: tokenRow.device_id,
+      device_token_id: tokenRow.id,
+      tool: subscription.tool,
+      provider: subscription.provider,
+      product: subscription.product,
+      plan_type: subscription.plan_type,
+      rate_limit_tier: subscription.rate_limit_tier,
+      active_start: subscription.active_start,
+      active_until: subscription.active_until,
+      last_checked: subscription.last_checked,
+      observed_at: nowIso,
+      updated_at: nowIso
+    });
+  }
+
+  return { error: null, data: rows };
+}
+
 function deriveMetricsSource(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return null;
   const sources = new Set();
@@ -225,11 +307,14 @@ module.exports = {
   BILLABLE_RULE_VERSION,
   normalizeHourlyPayload,
   normalizeProjectHourlyPayload,
+  normalizeDeviceSubscriptionsPayload,
   parseUtcHalfHourStart,
   toNonNegativeInt,
   parseHourlyBucket,
   parseProjectHourlyBucket,
+  parseDeviceSubscription,
   buildRows,
   buildProjectRows,
+  buildSubscriptionRows,
   deriveMetricsSource
 };

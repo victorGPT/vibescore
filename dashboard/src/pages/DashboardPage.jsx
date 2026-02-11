@@ -17,6 +17,7 @@ import {
 import {
   getLeaderboardSettings,
   setLeaderboardSettings,
+  getUserStatus,
   getPublicViewProfile,
   issuePublicViewToken,
   requestInstallLinkCode,
@@ -125,6 +126,7 @@ export function DashboardPage({
   const [publicViewCopied, setPublicViewCopied] = useState(false);
   const [publicProfileName, setPublicProfileName] = useState(null);
   const [publicProfileAvatarUrl, setPublicProfileAvatarUrl] = useState(null);
+  const [userStatus, setUserStatus] = useState(null);
   const [compactSummary, setCompactSummary] = useState(() => {
     if (typeof window === "undefined" || !window.matchMedia) return false;
     return window.matchMedia("(max-width: 640px)").matches;
@@ -319,6 +321,52 @@ export function DashboardPage({
       active = false;
     };
   }, [baseUrl, publicMode, publicToken]);
+
+  useEffect(() => {
+    if (!signedIn || mockEnabled || publicMode) {
+      setUserStatus(null);
+      return;
+    }
+    if (!authTokenReady) {
+      setUserStatus(null);
+      return;
+    }
+    let active = true;
+    (async () => {
+      let resolvedToken = null;
+      try {
+        resolvedToken = await resolveAuthAccessToken(effectiveAuthToken);
+      } catch (_err) {
+        resolvedToken = null;
+      }
+      if (!active) return;
+      if (!resolvedToken) {
+        setUserStatus(null);
+        return;
+      }
+      try {
+        const data = await getUserStatus({
+          baseUrl,
+          accessToken: resolvedToken,
+        });
+        if (!active) return;
+        setUserStatus(data && typeof data === "object" ? data : null);
+      } catch (_err) {
+        if (!active) return;
+        setUserStatus(null);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [
+    authTokenReady,
+    baseUrl,
+    effectiveAuthToken,
+    mockEnabled,
+    publicMode,
+    signedIn,
+  ]);
 
   const linkCodeExpired = useMemo(() => {
     if (!linkCodeExpiresAt) return false;
@@ -763,6 +811,38 @@ export function DashboardPage({
 
     return earliest;
   }, [heatmap?.weeks, heatmapDaily]);
+  const identitySubscriptions = useMemo(() => {
+    if (publicMode) return [];
+    const rows = Array.isArray(userStatus?.subscriptions?.items)
+      ? userStatus.subscriptions.items
+      : [];
+    const normalized = rows
+      .map((row) => {
+        const tool = typeof row?.tool === "string" ? row.tool.trim() : "";
+        const planTypeRaw =
+          typeof row?.plan_type === "string"
+            ? row.plan_type
+            : typeof row?.planType === "string"
+            ? row.planType
+            : "";
+        const planType = planTypeRaw.trim();
+        if (!tool || !planType) return null;
+        return {
+          tool,
+          planType,
+          provider: typeof row?.provider === "string" ? row.provider.trim() : "",
+          product: typeof row?.product === "string" ? row.product.trim() : "",
+          rateLimitTier:
+            typeof row?.rate_limit_tier === "string"
+              ? row.rate_limit_tier.trim()
+              : typeof row?.rateLimitTier === "string"
+              ? row.rateLimitTier.trim()
+              : "",
+        };
+      })
+      .filter(Boolean);
+    return normalized.slice(0, 6);
+  }, [publicMode, userStatus]);
 
   const activityHeatmapBlock = (
     <AsciiBox
@@ -1254,6 +1334,7 @@ export function DashboardPage({
       identityDisplayName={identityDisplayName}
       identityStartDate={identityStartDate}
       activeDays={activeDays}
+      identitySubscriptions={identitySubscriptions}
       identityScrambleDurationMs={identityScrambleDurationMs}
       projectUsageBlock={projectUsageBlock}
       topModels={topModels}

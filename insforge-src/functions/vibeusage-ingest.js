@@ -18,6 +18,8 @@ const {
   deriveMetricsSource,
   normalizeHourlyPayload,
   normalizeProjectHourlyPayload,
+  normalizeDeviceSubscriptionsPayload,
+  buildSubscriptionRows,
   buildProjectRows
 } = require('../shared/core/ingest');
 const {
@@ -25,10 +27,12 @@ const {
   recordIngestBatchMetrics,
   upsertHourlyUsage,
   upsertProjectUsage,
-  upsertProjectRegistry
+  upsertProjectRegistry,
+  upsertDeviceSubscriptions
 } = require('../shared/db/ingest');
 
 const MAX_BUCKETS = 500;
+const MAX_DEVICE_SUBSCRIPTIONS = 16;
 
 const ingestGuard = createConcurrencyGuard({
   name: 'vibeusage-ingest',
@@ -80,6 +84,7 @@ module.exports = withRequestLogging('vibeusage-ingest', async function(request, 
 
     const hourly = normalizeHourlyPayload(body.data);
     const projectHourly = normalizeProjectHourlyPayload(body.data);
+    const deviceSubscriptions = normalizeDeviceSubscriptionsPayload(body.data);
     if (!Array.isArray(hourly) && !Array.isArray(projectHourly)) {
       return json({ error: 'Invalid payload: expected {hourly:[...]} or [...]' }, 400);
     }
@@ -88,6 +93,9 @@ module.exports = withRequestLogging('vibeusage-ingest', async function(request, 
     }
     if (Array.isArray(projectHourly) && projectHourly.length > MAX_BUCKETS) {
       return json({ error: `Too many buckets (max ${MAX_BUCKETS})` }, 413);
+    }
+    if (Array.isArray(deviceSubscriptions) && deviceSubscriptions.length > MAX_DEVICE_SUBSCRIPTIONS) {
+      return json({ error: `Too many device subscriptions (max ${MAX_DEVICE_SUBSCRIPTIONS})` }, 413);
     }
 
     const nowIso = new Date().toISOString();
@@ -100,6 +108,10 @@ module.exports = withRequestLogging('vibeusage-ingest', async function(request, 
       ? buildProjectRows({ hourly: projectHourly, tokenRow, nowIso })
       : { error: null, data: [] };
     if (projectRows.error) return json({ error: projectRows.error }, 400);
+    const subscriptionRows = Array.isArray(deviceSubscriptions)
+      ? buildSubscriptionRows({ subscriptions: deviceSubscriptions, tokenRow, nowIso })
+      : { error: null, data: [] };
+    if (subscriptionRows.error) return json({ error: subscriptionRows.error }, 400);
 
     let projectInserted = 0;
     let projectSkipped = 0;
@@ -145,6 +157,26 @@ module.exports = withRequestLogging('vibeusage-ingest', async function(request, 
       if (!projectUpsert.ok) return json({ error: projectUpsert.error }, 500);
       projectInserted = projectUpsert.inserted;
       projectSkipped = projectUpsert.skipped;
+    }
+
+    if (subscriptionRows.data.length > 0) {
+      const subscriptionUpsert = await upsertDeviceSubscriptions({
+        serviceClient,
+        baseUrl,
+        serviceRoleKey,
+        anonKey,
+        tokenHash,
+        rows: subscriptionRows.data,
+        fetcher
+      });
+      if (!subscriptionUpsert.ok) {
+        logger?.log?.({
+          stage: 'subscription_upsert_failed',
+          status: 200,
+          errorCode: 'SUBSCRIPTION_UPSERT_FAILED',
+          details: subscriptionUpsert.error
+        });
+      }
     }
 
     if (rows.data.length === 0) {

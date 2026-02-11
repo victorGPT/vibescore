@@ -29,6 +29,7 @@ const PATHS = {
   leaderboard: "vibeusage-leaderboard",
   leaderboardSettings: "vibeusage-leaderboard-settings",
   leaderboardProfile: "vibeusage-leaderboard-profile",
+  userStatus: "vibeusage-user-status",
   linkCodeInit: "vibeusage-link-code-init",
   publicViewStatus: "vibeusage-public-view-status",
   publicViewIssue: "vibeusage-public-view-issue",
@@ -216,6 +217,50 @@ export async function getLeaderboardProfile({
     accessToken: resolvedAccessToken,
     slug: PATHS.leaderboardProfile,
     params: { user_id: String(userId || ""), period: String(period || "") },
+  });
+}
+
+export async function getUserStatus({ baseUrl, accessToken }: AnyRecord = {}) {
+  const resolvedAccessToken = await resolveAccessToken(accessToken);
+  if (isMockEnabled()) {
+    const now = new Date().toISOString();
+    return {
+      user_id: "mock-user",
+      created_at: now,
+      pro: {
+        active: true,
+        sources: ["mock"],
+        expires_at: null,
+        partial: false,
+        as_of: now,
+      },
+      subscriptions: {
+        partial: false,
+        as_of: now,
+        items: [
+          {
+            tool: "codex",
+            provider: "openai",
+            product: "chatgpt",
+            plan_type: "pro",
+            updated_at: now,
+          },
+          {
+            tool: "claude",
+            provider: "anthropic",
+            product: "subscription",
+            plan_type: "max",
+            rate_limit_tier: "default_claude_max_5x",
+            updated_at: now,
+          },
+        ],
+      },
+    };
+  }
+  return requestJson({
+    baseUrl,
+    accessToken: resolvedAccessToken,
+    slug: PATHS.userStatus,
   });
 }
 

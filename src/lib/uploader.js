@@ -13,6 +13,7 @@ const MAX_INGEST_BUCKETS = 500;
 async function drainQueueToCloud({
   baseUrl,
   deviceToken,
+  deviceSubscriptions,
   queuePath,
   queueStatePath,
   projectQueuePath,
@@ -45,6 +46,10 @@ async function drainQueueToCloud({
   const maxBuckets = Math.max(1, Math.floor(Number(batchSize || 200)));
   const totalLimit = Math.min(maxBuckets, MAX_INGEST_BUCKETS);
 
+  const normalizedSubscriptions = Array.isArray(deviceSubscriptions)
+    ? deviceSubscriptions.filter((entry) => entry && typeof entry === 'object')
+    : [];
+
   for (let batch = 0; batch < maxBatches; batch++) {
     const hasHourly = queueSize > offset;
     const hasProject = projectQueueEnabled && projectQueueSize > projectOffset;
@@ -73,7 +78,8 @@ async function drainQueueToCloud({
       baseUrl,
       deviceToken,
       hourly: res.buckets,
-      project_hourly: projectRes.buckets
+      project_hourly: projectRes.buckets,
+      device_subscriptions: batch === 0 ? normalizedSubscriptions : undefined
     });
     inserted += ingest.inserted || 0;
     skipped += ingest.skipped || 0;

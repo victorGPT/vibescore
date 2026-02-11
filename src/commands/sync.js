@@ -15,6 +15,7 @@ const {
   parseOpencodeIncremental
 } = require('../lib/rollout');
 const { drainQueueToCloud } = require('../lib/uploader');
+const { collectLocalSubscriptions } = require('../lib/subscriptions');
 const { createProgress, renderBar, formatNumber, formatBytes } = require('../lib/progress');
 const { syncHeartbeat } = require('../lib/vibeusage-api');
 const {
@@ -244,10 +245,17 @@ async function cmdSync(argv) {
 
       if (allowUpload && maxBatches > 0) {
         uploadAttempted = true;
+        const deviceSubscriptions = await collectLocalSubscriptions({
+          home,
+          env: process.env,
+          probeKeychain: true,
+          probeKeychainDetails: true
+        });
         try {
           uploadResult = await drainQueueToCloud({
             baseUrl,
             deviceToken,
+            deviceSubscriptions,
             queuePath,
             queueStatePath,
             projectQueuePath,

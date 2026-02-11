@@ -62,13 +62,18 @@ async function exchangeLinkCode({ baseUrl, linkCode, requestId, deviceName, plat
   return { token, deviceId, userId: data?.user_id || null };
 }
 
-async function ingestHourly({ baseUrl, deviceToken, hourly, project_hourly }) {
+async function ingestHourly({ baseUrl, deviceToken, hourly, project_hourly, device_subscriptions }) {
+  const body = { hourly, project_hourly };
+  if (Array.isArray(device_subscriptions) && device_subscriptions.length > 0) {
+    body.device_subscriptions = device_subscriptions;
+  }
+
   const data = await invokeFunctionWithRetry({
     baseUrl,
     accessToken: deviceToken,
     slug: 'vibeusage-ingest',
     method: 'POST',
-    body: { hourly, project_hourly },
+    body,
     errorPrefix: 'Ingest failed',
     retry: { maxRetries: 3, baseDelayMs: 500, maxDelayMs: 5000 }
   });

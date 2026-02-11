@@ -6,6 +6,38 @@ import { AsciiBox } from "../../foundation/AsciiBox.jsx";
 import { MatrixAvatar } from "../../foundation/MatrixAvatar.jsx";
 import { ScrambleText } from "../../foundation/ScrambleText.jsx";
 
+function normalizeBadgePart(value) {
+  if (typeof value !== "string") return "";
+  return value.trim();
+}
+
+function toTitleWords(value) {
+  const normalized = normalizeBadgePart(value);
+  if (!normalized) return "";
+  return normalized
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map((token) => token.slice(0, 1).toUpperCase() + token.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function buildSubscriptionItems(subscriptions) {
+  if (!Array.isArray(subscriptions)) return [];
+  const deduped = new Map();
+  for (const entry of subscriptions) {
+    if (!entry || typeof entry !== "object") continue;
+    const toolRaw = normalizeBadgePart(entry.tool);
+    const planRaw =
+      normalizeBadgePart(entry.planType) ||
+      normalizeBadgePart(entry.plan_type);
+    if (!toolRaw || !planRaw) continue;
+    const tool = toTitleWords(toolRaw) || toolRaw;
+    const plan = toTitleWords(planRaw) || planRaw;
+    deduped.set(`${toolRaw.toLowerCase()}::${planRaw.toLowerCase()}`, { tool, plan });
+  }
+  return Array.from(deduped.values());
+}
+
 export function IdentityCard({
   name = copy("identity_card.name_default"),
   avatarUrl,
@@ -15,6 +47,7 @@ export function IdentityCard({
   subtitle,
   rankLabel,
   streakDays,
+  subscriptions = [],
   showStats = true,
   animateTitle = true,
   scrambleDurationMs = 2200,
@@ -39,6 +72,7 @@ export function IdentityCard({
     : copy("identity_card.rank_placeholder");
   const shouldShowStats =
     showStats && (rankLabel !== undefined || streakDays !== undefined);
+  const subscriptionItems = buildSubscriptionItems(subscriptions);
 
   useEffect(() => {
     setAvatarFailed(false);
@@ -134,6 +168,27 @@ export function IdentityCard({
                   <div className="text-gold font-black tracking-tight text-body">
                     {streakValue}
                   </div>
+                </div>
+              </div>
+            ) : null}
+
+            {subscriptionItems.length > 0 ? (
+              <div className="pt-2 space-y-2">
+                <div className="text-caption text-matrix-muted uppercase font-bold">
+                  {copy("identity_card.subscriptions_label")}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {subscriptionItems.map((entry, index) => (
+                    <span
+                      key={`${entry.tool}:${entry.plan}:${index}`}
+                      className="inline-flex items-center px-2 py-1 border border-matrix-ghost bg-matrix-panel text-[10px] uppercase tracking-[0.14em] text-matrix-bright"
+                    >
+                      {copy("identity_card.subscription_item", {
+                        tool: entry.tool,
+                        plan: entry.plan,
+                      })}
+                    </span>
+                  ))}
                 </div>
               </div>
             ) : null}

@@ -20,6 +20,17 @@ test('normalizeHourlyPayload accepts supported shapes', () => {
   assert.equal(ingestCore.normalizeHourlyPayload({}), null);
 });
 
+test('normalizeDeviceSubscriptionsPayload accepts supported shapes', () => {
+  assert.deepEqual(ingestCore.normalizeDeviceSubscriptionsPayload({ device_subscriptions: [{ tool: 'codex' }] }), [
+    { tool: 'codex' }
+  ]);
+  assert.deepEqual(
+    ingestCore.normalizeDeviceSubscriptionsPayload({ data: { device_subscriptions: [{ tool: 'claude' }] } }),
+    [{ tool: 'claude' }]
+  );
+  assert.equal(ingestCore.normalizeDeviceSubscriptionsPayload({}), null);
+});
+
 test('parseHourlyBucket validates half-hour boundaries and tokens', () => {
   const valid = ingestCore.parseHourlyBucket({
     hour_start: '2026-01-25T10:30:00.000Z',
@@ -87,6 +98,32 @@ test('buildRows dedupes hourly buckets by hour/source/model', () => {
   assert.equal(rows.error, null);
   assert.equal(rows.data.length, 1);
   assert.equal(rows.data[0].user_id, 'u1');
+});
+
+test('buildSubscriptionRows dedupes by tool/provider/product and normalizes values', () => {
+  const nowIso = '2026-02-11T12:00:00.000Z';
+  const tokenRow = { user_id: 'u1', device_id: 'd1', id: 't1' };
+  const subscriptions = [
+    { tool: 'codex', provider: 'openai', product: 'chatgpt', planType: 'pro' },
+    { tool: 'codex', provider: 'openai', product: 'chatgpt', planType: 'plus' },
+    {
+      tool: 'claude',
+      provider: 'anthropic',
+      product: 'subscription',
+      planType: 'max',
+      rateLimitTier: 'default_claude_max_5x'
+    }
+  ];
+
+  const rows = ingestCore.buildSubscriptionRows({ subscriptions, tokenRow, nowIso });
+  assert.equal(rows.error, null);
+  assert.equal(rows.data.length, 2);
+  const codex = rows.data.find((row) => row.tool === 'codex');
+  const claude = rows.data.find((row) => row.tool === 'claude');
+  assert.equal(codex.plan_type, 'plus');
+  assert.equal(claude.rate_limit_tier, 'default_claude_max_5x');
+  assert.equal(claude.user_id, 'u1');
+  assert.equal(claude.device_token_id, 't1');
 });
 
 test('pricing bucket key helpers round-trip JSON encoding', () => {
@@ -294,6 +331,41 @@ test('upsertProjectUsage uses correct table and onConflict keys', async () => {
 
   assert.ok(calls[0].url.includes('/api/database/records/vibeusage_project_usage_hourly'));
   assert.ok(calls[0].url.includes('on_conflict=user_id%2Cproject_key%2Chour_start%2Csource'));
+});
+
+test('upsertDeviceSubscriptions uses correct table and onConflict keys', async () => {
+  const calls = [];
+  const fakeFetch = async (url, init) => {
+    calls.push({ url, init });
+    return {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify([{ tool: 'codex', provider: 'openai', product: 'chatgpt' }])
+    };
+  };
+
+  await ingestDb.upsertDeviceSubscriptions({
+    baseUrl: 'https://example.com',
+    anonKey: 'anon',
+    tokenHash: 'hash',
+    rows: [
+      {
+        user_id: 'u1',
+        device_id: 'd1',
+        device_token_id: 't1',
+        tool: 'codex',
+        provider: 'openai',
+        product: 'chatgpt',
+        plan_type: 'pro',
+        observed_at: '2026-02-11T12:00:00.000Z',
+        updated_at: '2026-02-11T12:00:00.000Z'
+      }
+    ],
+    fetcher: fakeFetch
+  });
+
+  assert.ok(calls[0].url.includes('/api/database/records/vibeusage_tracker_subscriptions'));
+  assert.ok(calls[0].url.includes('on_conflict=user_id%2Ctool%2Cprovider%2Cproduct'));
 });
 
 test('touchDeviceTokenAndDevice updates last_sync_at only when interval elapsed', async () => {

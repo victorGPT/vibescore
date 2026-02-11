@@ -887,6 +887,29 @@ var require_ingest = __commonJS({
       }
       return null;
     }
+    function normalizeDeviceSubscriptionsPayload2(data) {
+      if (!data || typeof data !== "object") return null;
+      if (Array.isArray(data.device_subscriptions)) return data.device_subscriptions;
+      if (data.data && typeof data.data === "object" && Array.isArray(data.data.device_subscriptions)) {
+        return data.data.device_subscriptions;
+      }
+      return null;
+    }
+    function normalizeTextField(value, { lowerCase = false, maxLen = 128 } = {}) {
+      if (typeof value !== "string") return null;
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      const sliced = trimmed.length > maxLen ? trimmed.slice(0, maxLen) : trimmed;
+      return lowerCase ? sliced.toLowerCase() : sliced;
+    }
+    function normalizeIsoField(value) {
+      if (typeof value !== "string") return null;
+      const trimmed = value.trim();
+      if (!trimmed) return null;
+      const dt = new Date(trimmed);
+      if (!Number.isFinite(dt.getTime())) return null;
+      return dt.toISOString();
+    }
     function parseUtcHalfHourStart(value) {
       if (typeof value !== "string" || value.trim() === "") return null;
       const dt = new Date(value);
@@ -983,6 +1006,27 @@ var require_ingest = __commonJS({
         }
       };
     }
+    function parseDeviceSubscription(raw) {
+      if (!raw || typeof raw !== "object") return null;
+      const tool = normalizeTextField(raw.tool, { lowerCase: true, maxLen: 64 });
+      const provider = normalizeTextField(raw.provider, { lowerCase: true, maxLen: 64 });
+      const product = normalizeTextField(raw.product, { lowerCase: true, maxLen: 64 });
+      const planType = normalizeTextField(raw.plan_type ?? raw.planType, { lowerCase: true, maxLen: 64 });
+      if (!tool || !provider || !product || !planType) return null;
+      return {
+        tool,
+        provider,
+        product,
+        plan_type: planType,
+        rate_limit_tier: normalizeTextField(raw.rate_limit_tier ?? raw.rateLimitTier, {
+          lowerCase: true,
+          maxLen: 128
+        }),
+        active_start: normalizeIsoField(raw.active_start ?? raw.activeStart),
+        active_until: normalizeIsoField(raw.active_until ?? raw.activeUntil),
+        last_checked: normalizeIsoField(raw.last_checked ?? raw.lastChecked)
+      };
+    }
     function buildRows2({ hourly, tokenRow, nowIso, billableRuleVersion = BILLABLE_RULE_VERSION2 }) {
       const byHour = /* @__PURE__ */ new Map();
       for (const raw of hourly) {
@@ -1047,6 +1091,34 @@ var require_ingest = __commonJS({
       }
       return { error: null, data: rows };
     }
+    function buildSubscriptionRows2({ subscriptions, tokenRow, nowIso }) {
+      const deduped = /* @__PURE__ */ new Map();
+      for (const raw of subscriptions) {
+        const parsed = parseDeviceSubscription(raw);
+        if (!parsed) continue;
+        const key = `${parsed.tool}::${parsed.provider}::${parsed.product}`;
+        deduped.set(key, parsed);
+      }
+      const rows = [];
+      for (const subscription of deduped.values()) {
+        rows.push({
+          user_id: tokenRow.user_id,
+          device_id: tokenRow.device_id,
+          device_token_id: tokenRow.id,
+          tool: subscription.tool,
+          provider: subscription.provider,
+          product: subscription.product,
+          plan_type: subscription.plan_type,
+          rate_limit_tier: subscription.rate_limit_tier,
+          active_start: subscription.active_start,
+          active_until: subscription.active_until,
+          last_checked: subscription.last_checked,
+          observed_at: nowIso,
+          updated_at: nowIso
+        });
+      }
+      return { error: null, data: rows };
+    }
     function deriveMetricsSource2(rows) {
       if (!Array.isArray(rows) || rows.length === 0) return null;
       const sources = /* @__PURE__ */ new Set();
@@ -1063,12 +1135,15 @@ var require_ingest = __commonJS({
       BILLABLE_RULE_VERSION: BILLABLE_RULE_VERSION2,
       normalizeHourlyPayload: normalizeHourlyPayload2,
       normalizeProjectHourlyPayload: normalizeProjectHourlyPayload2,
+      normalizeDeviceSubscriptionsPayload: normalizeDeviceSubscriptionsPayload2,
       parseUtcHalfHourStart,
       toNonNegativeInt,
       parseHourlyBucket,
       parseProjectHourlyBucket,
+      parseDeviceSubscription,
       buildRows: buildRows2,
       buildProjectRows: buildProjectRows2,
+      buildSubscriptionRows: buildSubscriptionRows2,
       deriveMetricsSource: deriveMetricsSource2
     };
   }
@@ -1450,6 +1525,70 @@ var require_ingest2 = __commonJS({
       }
       return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
     }
+    async function upsertDeviceSubscriptions2({
+      serviceClient,
+      baseUrl,
+      serviceRoleKey,
+      anonKey,
+      tokenHash,
+      rows,
+      fetcher
+    }) {
+      if (!Array.isArray(rows) || rows.length === 0) {
+        return { ok: true, inserted: 0, skipped: 0 };
+      }
+      if (serviceClient && serviceRoleKey && baseUrl) {
+        const url2 = new URL("/api/database/records/vibeusage_tracker_subscriptions", baseUrl);
+        const res2 = await recordsUpsert({
+          url: url2,
+          anonKey: serviceRoleKey,
+          tokenHash,
+          rows,
+          onConflict: "user_id,tool,provider,product",
+          prefer: "return=representation",
+          resolution: "merge-duplicates",
+          select: "tool,provider,product",
+          fetcher
+        });
+        if (res2.ok) {
+          const insertedRows = normalizeRows(res2.data);
+          const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+          return { ok: true, inserted, skipped: 0 };
+        }
+        if (!isUpsertUnsupported(res2)) {
+          return { ok: false, error: res2.error || `HTTP ${res2.status}`, inserted: 0, skipped: 0 };
+        }
+      }
+      if (serviceClient?.database?.from) {
+        const { error } = await serviceClient.database.from("vibeusage_tracker_subscriptions").upsert(rows, { onConflict: "user_id,tool,provider,product" });
+        if (error) return { ok: false, error: error.message, inserted: 0, skipped: 0 };
+        return { ok: true, inserted: rows.length, skipped: 0 };
+      }
+      if (!anonKey || !baseUrl) {
+        return { ok: false, error: "Anon key missing", inserted: 0, skipped: 0 };
+      }
+      const url = new URL("/api/database/records/vibeusage_tracker_subscriptions", baseUrl);
+      const res = await recordsUpsert({
+        url,
+        anonKey,
+        tokenHash,
+        rows,
+        onConflict: "user_id,tool,provider,product",
+        prefer: "return=representation",
+        resolution: "merge-duplicates",
+        select: "tool,provider,product",
+        fetcher
+      });
+      if (res.ok) {
+        const insertedRows = normalizeRows(res.data);
+        const inserted = Array.isArray(insertedRows) ? insertedRows.length : rows.length;
+        return { ok: true, inserted, skipped: 0 };
+      }
+      if (isUpsertUnsupported(res)) {
+        return { ok: false, error: res.error || "Subscriptions upsert unsupported", inserted: 0, skipped: 0 };
+      }
+      return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
+    }
     async function recordIngestBatchMetrics2({
       serviceClient,
       baseUrl,
@@ -1501,6 +1640,7 @@ var require_ingest2 = __commonJS({
       upsertHourlyUsage: upsertHourlyUsage2,
       upsertProjectUsage: upsertProjectUsage2,
       upsertProjectRegistry: upsertProjectRegistry2,
+      upsertDeviceSubscriptions: upsertDeviceSubscriptions2,
       recordIngestBatchMetrics: recordIngestBatchMetrics2
     };
   }
@@ -1519,6 +1659,8 @@ var {
   deriveMetricsSource,
   normalizeHourlyPayload,
   normalizeProjectHourlyPayload,
+  normalizeDeviceSubscriptionsPayload,
+  buildSubscriptionRows,
   buildProjectRows
 } = require_ingest();
 var {
@@ -1526,9 +1668,11 @@ var {
   recordIngestBatchMetrics,
   upsertHourlyUsage,
   upsertProjectUsage,
-  upsertProjectRegistry
+  upsertProjectRegistry,
+  upsertDeviceSubscriptions
 } = require_ingest2();
 var MAX_BUCKETS = 500;
+var MAX_DEVICE_SUBSCRIPTIONS = 16;
 var ingestGuard = createConcurrencyGuard({
   name: "vibeusage-ingest",
   envKey: ["VIBEUSAGE_INGEST_MAX_INFLIGHT"],
@@ -1569,6 +1713,7 @@ module.exports = withRequestLogging("vibeusage-ingest", async function(request, 
     if (body.error) return json({ error: body.error }, body.status);
     const hourly = normalizeHourlyPayload(body.data);
     const projectHourly = normalizeProjectHourlyPayload(body.data);
+    const deviceSubscriptions = normalizeDeviceSubscriptionsPayload(body.data);
     if (!Array.isArray(hourly) && !Array.isArray(projectHourly)) {
       return json({ error: "Invalid payload: expected {hourly:[...]} or [...]" }, 400);
     }
@@ -1578,11 +1723,16 @@ module.exports = withRequestLogging("vibeusage-ingest", async function(request, 
     if (Array.isArray(projectHourly) && projectHourly.length > MAX_BUCKETS) {
       return json({ error: `Too many buckets (max ${MAX_BUCKETS})` }, 413);
     }
+    if (Array.isArray(deviceSubscriptions) && deviceSubscriptions.length > MAX_DEVICE_SUBSCRIPTIONS) {
+      return json({ error: `Too many device subscriptions (max ${MAX_DEVICE_SUBSCRIPTIONS})` }, 413);
+    }
     const nowIso = (/* @__PURE__ */ new Date()).toISOString();
     const rows = Array.isArray(hourly) ? buildRows({ hourly, tokenRow, nowIso, billableRuleVersion: BILLABLE_RULE_VERSION }) : { error: null, data: [] };
     if (rows.error) return json({ error: rows.error }, 400);
     const projectRows = Array.isArray(projectHourly) ? buildProjectRows({ hourly: projectHourly, tokenRow, nowIso }) : { error: null, data: [] };
     if (projectRows.error) return json({ error: projectRows.error }, 400);
+    const subscriptionRows = Array.isArray(deviceSubscriptions) ? buildSubscriptionRows({ subscriptions: deviceSubscriptions, tokenRow, nowIso }) : { error: null, data: [] };
+    if (subscriptionRows.error) return json({ error: subscriptionRows.error }, 400);
     let projectInserted = 0;
     let projectSkipped = 0;
     if (projectRows.data.length > 0) {
@@ -1624,6 +1774,25 @@ module.exports = withRequestLogging("vibeusage-ingest", async function(request, 
       if (!projectUpsert.ok) return json({ error: projectUpsert.error }, 500);
       projectInserted = projectUpsert.inserted;
       projectSkipped = projectUpsert.skipped;
+    }
+    if (subscriptionRows.data.length > 0) {
+      const subscriptionUpsert = await upsertDeviceSubscriptions({
+        serviceClient,
+        baseUrl,
+        serviceRoleKey,
+        anonKey,
+        tokenHash,
+        rows: subscriptionRows.data,
+        fetcher
+      });
+      if (!subscriptionUpsert.ok) {
+        logger?.log?.({
+          stage: "subscription_upsert_failed",
+          status: 200,
+          errorCode: "SUBSCRIPTION_UPSERT_FAILED",
+          details: subscriptionUpsert.error
+        });
+      }
     }
     if (rows.data.length === 0) {
       await recordIngestBatchMetrics({

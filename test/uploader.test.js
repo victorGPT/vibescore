@@ -12,8 +12,8 @@ function stubIngestHourly() {
   const originalUploader = require.cache[uploaderPath];
   require.cache[apiPath] = {
     exports: {
-      ingestHourly: async ({ hourly, project_hourly }) => {
-        calls.push({ hourly, project_hourly });
+      ingestHourly: async ({ hourly, project_hourly, device_subscriptions }) => {
+        calls.push({ hourly, project_hourly, device_subscriptions });
         return {
           inserted: (hourly?.length || 0) + (project_hourly?.length || 0),
           skipped: 0
@@ -65,6 +65,52 @@ test('drainQueueToCloud defaults missing source to codex', async () => {
     assert.equal(stub.calls[0].hourly.length, 1);
     assert.equal(stub.calls[0].hourly[0].source, 'codex');
     assert.equal(stub.calls[0].hourly[0].model, 'unknown');
+  } finally {
+    stub.restore();
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('drainQueueToCloud forwards device subscriptions on first batch only', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-uploader-subscriptions-'));
+  const queuePath = path.join(tmp, 'queue.jsonl');
+  const queueStatePath = path.join(tmp, 'queue.state.json');
+
+  const bucketA = {
+    hour_start: '2025-12-17T00:00:00.000Z',
+    source: 'codex',
+    model: 'unknown',
+    input_tokens: 1,
+    cached_input_tokens: 0,
+    output_tokens: 1,
+    reasoning_output_tokens: 0,
+    total_tokens: 2
+  };
+  const bucketB = {
+    ...bucketA,
+    hour_start: '2025-12-17T00:30:00.000Z'
+  };
+  await fs.writeFile(queuePath, `${JSON.stringify(bucketA)}\n${JSON.stringify(bucketB)}\n`, 'utf8');
+
+  const stub = stubIngestHourly();
+  try {
+    const { drainQueueToCloud } = require('../src/lib/uploader');
+    await drainQueueToCloud({
+      baseUrl: 'http://localhost',
+      deviceToken: 'device-token',
+      deviceSubscriptions: [
+        { tool: 'codex', provider: 'openai', product: 'chatgpt', planType: 'pro' },
+        { tool: 'claude', provider: 'anthropic', product: 'subscription', planType: 'max' }
+      ],
+      queuePath,
+      queueStatePath,
+      maxBatches: 2,
+      batchSize: 1
+    });
+
+    assert.equal(stub.calls.length, 2);
+    assert.equal(stub.calls[0].device_subscriptions.length, 2);
+    assert.equal(stub.calls[1].device_subscriptions, undefined);
   } finally {
     stub.restore();
     await fs.rm(tmp, { recursive: true, force: true });
