@@ -180,7 +180,7 @@ export function useBackendStatus({
   ]);
 
   useEffect(() => {
-    let id: ReturnType<typeof setTimeout> | null = null;
+    let id: number | null = null;
 
     const stop = () => {
       if (id != null) window.clearTimeout(id);

@@ -99,6 +99,7 @@ identity_card.rank_label,ui,IdentityCard,IdentityCard,rank_label,"START",,active
 identity_card.streak_label,ui,IdentityCard,IdentityCard,streak_label,"ACTIVE",,active
 identity_card.rank_placeholder,ui,IdentityCard,IdentityCard,rank_placeholder,"—",,active
 identity_card.streak_value,ui,IdentityCard,IdentityCard,streak_value,"{{days}} DAY",,active
+identity_card.subscriptions_label,ui,IdentityCard,IdentityCard,subscriptions_label,"SUBSCRIPTIONS",,active
 identity_card.subscription_item,ui,IdentityCard,IdentityCard,subscription_item,"{{tool}} {{plan}}",,active
 
 identity_panel.badge,ui,IdentityPanel,IdentityPanel,badge,"VU",,active

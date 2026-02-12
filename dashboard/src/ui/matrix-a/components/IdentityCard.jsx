@@ -174,6 +174,9 @@ export function IdentityCard({
 
             {subscriptionItems.length > 0 ? (
               <div className="pt-2">
+                <div className="mb-1 text-caption text-matrix-muted uppercase font-bold">
+                  {copy("identity_card.subscriptions_label")}
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {subscriptionItems.map((entry, index) => (
                     <span
