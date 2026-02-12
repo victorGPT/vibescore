@@ -70,15 +70,13 @@ async function cmdSync(argv) {
     const opencodeStorageDir = path.join(opencodeHome, 'storage');
 
     // OpenClaw hook integration: allow a hook to request incremental parsing for a single session jsonl.
-    // When present, we skip all other sources to keep hook-triggered sync fast and deterministic.
+    // We still parse all regular sources so model/source attribution stays complete (e.g. Kimi sessions).
     const openclawSignal = opts.fromOpenclaw ? resolveOpenclawSignal({ home, env: process.env }) : null;
 
-    const sources = openclawSignal
-      ? []
-      : [
-          { source: 'codex', sessionsDir: path.join(codexHome, 'sessions') },
-          { source: 'every-code', sessionsDir: path.join(codeHome, 'sessions') }
-        ];
+    const sources = [
+      { source: 'codex', sessionsDir: path.join(codexHome, 'sessions') },
+      { source: 'every-code', sessionsDir: path.join(codeHome, 'sessions') }
+    ];
 
     const rolloutFiles = [];
     const seenSessions = new Set();
@@ -125,9 +123,9 @@ async function cmdSync(argv) {
       });
     }
 
-    const claudeFiles = openclawSignal ? [] : await listClaudeProjectFiles(claudeProjectsDir);
+    const claudeFiles = await listClaudeProjectFiles(claudeProjectsDir);
     let claudeResult = { filesProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
-    if (!openclawSignal && claudeFiles.length > 0) {
+    if (claudeFiles.length > 0) {
       if (progress?.enabled) {
         progress.start(`Parsing Claude ${renderBar(0)} 0/${formatNumber(claudeFiles.length)} files | buckets 0`);
       }
@@ -149,9 +147,9 @@ async function cmdSync(argv) {
       });
     }
 
-    const geminiFiles = openclawSignal ? [] : await listGeminiSessionFiles(geminiTmpDir);
+    const geminiFiles = await listGeminiSessionFiles(geminiTmpDir);
     let geminiResult = { filesProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
-    if (!openclawSignal && geminiFiles.length > 0) {
+    if (geminiFiles.length > 0) {
       if (progress?.enabled) {
         progress.start(`Parsing Gemini ${renderBar(0)} 0/${formatNumber(geminiFiles.length)} files | buckets 0`);
       }
@@ -173,9 +171,9 @@ async function cmdSync(argv) {
       });
     }
 
-    const opencodeFiles = openclawSignal ? [] : await listOpencodeMessageFiles(opencodeStorageDir);
+    const opencodeFiles = await listOpencodeMessageFiles(opencodeStorageDir);
     let opencodeResult = { filesProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
-    if (!openclawSignal && opencodeFiles.length > 0) {
+    if (opencodeFiles.length > 0) {
       if (progress?.enabled) {
         progress.start(`Parsing Opencode ${renderBar(0)} 0/${formatNumber(opencodeFiles.length)} files | buckets 0`);
       }
