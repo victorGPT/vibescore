@@ -24,6 +24,7 @@
     "architecture:canvas:focus": "node scripts/ops/architecture-canvas.cjs --focus",
     "architecture:canvas:list-modules": "node scripts/ops/architecture-canvas.cjs --list-modules",
     "validate:guardrails": "node scripts/validate-architecture-guardrails.cjs",
+    "validate:retros": "node scripts/validate-retros.cjs",
     "validate:insforge2-db": "node scripts/ops/insforge2-db-validate.cjs",
     "graph:scip": "node scripts/graph/generate-scip.cjs",
     "graph:auto-index": "node scripts/graph/auto-index.cjs"

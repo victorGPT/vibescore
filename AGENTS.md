@@ -78,6 +78,23 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 
 - 完成代码后仅执行本地提交（git commit），未经用户明确指示不得推送（git push）。
 
+# 复盘协议（Retrospective Contract，CLI 无关）
+
+> 目标：让 Codex/Claude/OpenCode/Gemini 等任何 AI CLI 都走同一条复盘流程。
+
+- **单一真源（SSOT）**：复盘流程规则只维护在本文件，不在各 AI 工具配置里复制一份。
+- **目录规范**：新复盘必须放在 `docs/retrospective/<repo>/`，禁止新增到平铺根目录。
+- **渐进式披露**：
+  - 先看 `docs/retrospective/_index.md`（L1 卡片筛选）
+  - 再看 `docs/retrospective/<repo>/_index.md`（仓库内筛选）
+  - 最后才看完整复盘正文（L2/L3）
+- **新复盘最小清单（强制）**：
+  1) 文档含 frontmatter：`repo/layer/module/severity/design_mismatch/detection_gap`
+  2) 更新全局索引：`docs/retrospective/_index.md`
+  3) 更新仓库索引：`docs/retrospective/<repo>/_index.md`
+- **自动门禁**：必须通过 `npm run validate:retros`。
+- **AI CLI 适配原则**：任何 CLI 只需“执行前读取 AGENTS.md + 通过 validate:retros”，无需额外私有流程。
+
 # 部署规则（Deployment）
 
 - 所有函数都通过 Insforge2 MCP 部署。
