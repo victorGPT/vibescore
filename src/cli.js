@@ -57,6 +57,7 @@ function printHelp() {
       '  - --dry-run previews changes without writing files.',
       '  - optional: --link-code <code> skips browser login when provided by Dashboard.',
       '  - Every Code notify installs when ~/.code/config.toml exists.',
+      '  - OpenClaw hook auto-links when OpenClaw is installed (requires gateway restart).',
       '  - auto sync waits for a device token.',
       '  - optional: VIBEUSAGE_DASHBOARD_URL or --dashboard-url for hosted landing.',
       '  - sync parses ~/.codex/sessions/**/rollout-*.jsonl and ~/.code/sessions/**/rollout-*.jsonl, then uploads token deltas.',

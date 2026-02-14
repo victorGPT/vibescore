@@ -305,7 +305,8 @@ function buildDiagnosticsChecks(diagnostics) {
       notify.every_code_notify_configured ||
       notify.claude_hook_configured ||
       notify.gemini_hook_configured ||
-      notify.opencode_plugin_configured
+      notify.opencode_plugin_configured ||
+      notify.openclaw_hook_configured
   );
 
   checks.push({

@@ -11,6 +11,7 @@ const {
   removeGeminiHook
 } = require('../lib/gemini-config');
 const { resolveOpencodeConfigDir, removeOpencodePlugin } = require('../lib/opencode-config');
+const { removeOpenclawHookConfig } = require('../lib/openclaw-hook');
 const { resolveTrackerPaths } = require('../lib/tracker-paths');
 
 async function cmdUninstall(argv) {
@@ -61,6 +62,7 @@ async function cmdUninstall(argv) {
   const opencodeRemove = opencodeConfigExists
     ? await removeOpencodePlugin({ configDir: opencodeConfigDir })
     : { removed: false, skippedReason: 'config-missing' };
+  const openclawHookRemove = await removeOpenclawHookConfig({ home, trackerDir, env: process.env });
 
   // Remove installed notify handler.
   await fs.unlink(notifyPath).catch(() => {});
@@ -112,6 +114,11 @@ async function cmdUninstall(argv) {
               ? '- Opencode plugin: skipped (unexpected content)'
               : '- Opencode plugin: skipped'
         : `- Opencode plugin: skipped (${opencodeConfigDir} not found)`,
+      openclawHookRemove?.removed
+        ? `- OpenClaw hook removed: ${openclawHookRemove.openclawConfigPath}`
+        : openclawHookRemove?.skippedReason === 'openclaw-config-missing'
+          ? '- OpenClaw hook: skipped (openclaw config not found)'
+          : '- OpenClaw hook: no change',
       opts.purge ? `- Purged: ${path.join(home, '.vibeusage')}` : '- Purge: skipped (use --purge)',
       ''
     ].join('\n')

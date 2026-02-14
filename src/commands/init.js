@@ -22,6 +22,7 @@ const {
   isGeminiHookConfigured
 } = require('../lib/gemini-config');
 const { resolveOpencodeConfigDir, upsertOpencodePlugin, isOpencodePluginInstalled } = require('../lib/opencode-config');
+const { installOpenclawHook, probeOpenclawHookState } = require('../lib/openclaw-hook');
 const { beginBrowserAuth, openInBrowser } = require('../lib/browser-auth');
 const {
   issueDeviceTokenWithPassword,
@@ -185,7 +186,7 @@ function renderWelcome() {
       DIVIDER,
       '',
       'This tool will:',
-      '  - Analyze your local AI CLI configurations (Codex, Every Code, Claude, Gemini, Opencode)',
+      '  - Analyze your local AI CLI configurations (Codex, Every Code, Claude, Gemini, Opencode, OpenClaw)',
       '  - Set up lightweight hooks to track your flow state',
       '  - Link your device to your VibeScore account',
       '',
@@ -336,6 +337,7 @@ function buildIntegrationTargets({ home, trackerDir, notifyPath }) {
   const opencodeConfigDir = resolveOpencodeConfigDir({ home, env: process.env });
 
   return {
+    trackerDir,
     codexConfigPath,
     codeConfigPath,
     notifyOriginalPath,
@@ -406,6 +408,34 @@ async function applyIntegrationSetup({ home, trackerDir, notifyPath, notifyOrigi
     summary.push({ label: 'Opencode Plugin', status: opencodeResult?.changed ? 'installed' : 'set', detail: 'Plugin installed' });
   }
 
+  const openclawBefore = await probeOpenclawHookState({ home, trackerDir, env: process.env });
+  const openclawInstall = await installOpenclawHook({ home, trackerDir, packageName: 'vibeusage', env: process.env });
+  if (openclawInstall?.skippedReason === 'openclaw-cli-missing') {
+    summary.push({ label: 'OpenClaw Hook', status: 'skipped', detail: 'OpenClaw CLI not found' });
+  } else if (openclawInstall?.skippedReason === 'openclaw-hooks-install-failed') {
+    summary.push({
+      label: 'OpenClaw Hook',
+      status: 'skipped',
+      detail: `Install failed${openclawInstall.error ? `: ${openclawInstall.error}` : ''}`
+    });
+  } else if (openclawInstall?.skippedReason === 'openclaw-config-unreadable') {
+    summary.push({
+      label: 'OpenClaw Hook',
+      status: 'skipped',
+      detail: openclawInstall.error ? `OpenClaw config unreadable: ${openclawInstall.error}` : 'OpenClaw config unreadable'
+    });
+  } else if (openclawInstall?.configured) {
+    summary.push({
+      label: 'OpenClaw Hook',
+      status: openclawBefore?.configured ? 'set' : 'installed',
+      detail: openclawBefore?.configured
+        ? 'Hook already linked'
+        : 'Hook linked (restart OpenClaw gateway to activate)'
+    });
+  } else {
+    summary.push({ label: 'OpenClaw Hook', status: 'skipped', detail: 'OpenClaw hook unavailable' });
+  }
+
   const codeProbe = await probeFile(context.codeConfigPath);
   if (codeProbe.exists) {
     const result = await upsertEveryCodeNotify({
@@ -427,6 +457,7 @@ async function applyIntegrationSetup({ home, trackerDir, notifyPath, notifyOrigi
 
 async function previewIntegrations({ context }) {
   const summary = [];
+  const home = os.homedir();
 
   const codexProbe = await probeFile(context.codexConfigPath);
   if (codexProbe.exists) {
@@ -483,6 +514,25 @@ async function previewIntegrations({ context }) {
     status: 'installed',
     detail: opencodeDetail
   });
+
+  const openclawState = await probeOpenclawHookState({ home, trackerDir: context.trackerDir, env: process.env });
+  if (openclawState?.skippedReason === 'openclaw-config-missing') {
+    summary.push({ label: 'OpenClaw Hook', status: 'skipped', detail: 'OpenClaw config not found' });
+  } else if (openclawState?.skippedReason === 'openclaw-config-unreadable') {
+    summary.push({
+      label: 'OpenClaw Hook',
+      status: 'skipped',
+      detail: openclawState.error ? `OpenClaw config unreadable: ${openclawState.error}` : 'OpenClaw config unreadable'
+    });
+  } else {
+    summary.push({
+      label: 'OpenClaw Hook',
+      status: openclawState?.configured ? 'set' : 'installed',
+      detail: openclawState?.configured
+        ? 'Hook already linked'
+        : 'Will link hook (restart OpenClaw gateway to activate)'
+    });
+  }
 
   const codeProbe = await probeFile(context.codeConfigPath);
   if (codeProbe.exists) {
