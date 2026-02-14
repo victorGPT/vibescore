@@ -135,7 +135,7 @@ test('removeOpenclawHookConfig removes linked config and hook dir', async () => 
   await fs.rm(tmp, { recursive: true, force: true });
 });
 
-test('ensureOpenclawHookFiles includes bootstrap trigger and bootstrap-safe handler guard', async () => {
+test('ensureOpenclawHookFiles keeps command-only trigger set and command guard', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-openclaw-hook-'));
   const home = path.join(tmp, 'home');
   const trackerDir = path.join(home, '.vibeusage', 'tracker');
@@ -145,11 +145,14 @@ test('ensureOpenclawHookFiles includes bootstrap trigger and bootstrap-safe hand
   await ensureOpenclawHookFiles({ hookDir, trackerDir, packageName: 'vibeusage' });
 
   const hookMd = await fs.readFile(path.join(hookEntryDir, 'HOOK.md'), 'utf8');
-  assert.match(hookMd, /"agent:bootstrap"/);
+  assert.doesNotMatch(hookMd, /"agent:bootstrap"/);
+  assert.match(hookMd, /"command:new"/);
+  assert.match(hookMd, /"command:reset"/);
+  assert.match(hookMd, /"command:stop"/);
 
   const handler = await fs.readFile(path.join(hookEntryDir, 'handler.js'), 'utf8');
-  assert.match(handler, /const isBootstrapEvent = event\.type === 'agent' && event\.action === 'bootstrap';/);
-  assert.match(handler, /if \(!isCommandEvent && !isBootstrapEvent\) return;/);
+  assert.match(handler, /if \(!event \|\| event\.type !== 'command'\) return;/);
+  assert.match(handler, /if \(event\.action !== 'new' && event\.action !== 'reset' && event\.action !== 'stop'\) return;/);
   assert.match(handler, /if \(!event \|\| event\.type !== 'command'\) return null;/);
 
   await fs.rm(tmp, { recursive: true, force: true });

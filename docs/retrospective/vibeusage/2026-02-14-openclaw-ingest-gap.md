@@ -22,7 +22,7 @@ incident_window: 2026-02-13..2026-02-14
 - **What happened:** OpenClaw hook and upload succeeded, but many runs still ingested `0` buckets.
 - **Why design mismatched reality:** Parser assumed OpenClaw JSONL always contains non-zero usage; production had missing/empty/zero-usage JSONL while `sessions.json` totals were high.
 - **Why not detected early:** Health checks tracked trigger and transport success, not semantic completeness (`totals > 0` but parsed usage `= 0`).
-- **What fixed it:** Added totals fallback + idempotent state in `sync --from-openclaw`, expanded hook events to `new/reset/stop` and later `agent:bootstrap`, released `v0.2.20`, ran backfill.
+- **What fixed it:** Added totals fallback + idempotent state in `sync --from-openclaw`, expanded hook events to `new/reset/stop`, released `v0.2.20`, ran backfill.
 - **When to read this next time:** Any work touching `openclaw-sync`, source adapters, lifecycle hooks, ingest diagnostics, or backfill automation.
 
 ## 1. Scope
@@ -36,7 +36,7 @@ incident_window: 2026-02-13..2026-02-14
   - Sync should ingest OpenClaw usage from session JSONL incrementally and upload automatically.
 - Key assumptions:
   - OpenClaw `sessions/<id>.jsonl` is present and contains non-zero `message.usage.totalTokens` for completed sessions.
-  - Hook events (`command:new`/`command:stop`) are enough to catch session rollover/completion (later revised: include `command:reset` + `agent:bootstrap`).
+  - Hook events (`command:new`/`command:stop`) are enough to catch session rollover/completion.
   - If hook runs and upload path is healthy, data should appear in `source=openclaw` without extra logic.
 
 ## 3. Outcome vs Plan
@@ -62,7 +62,7 @@ incident_window: 2026-02-13..2026-02-14
   - Found repeated successful syncs with `New buckets queued: 0` despite high `sessions.json` totals.
 - Mitigation date (2026-02-14):
   - Implemented fallback ingest based on hook-provided previous session totals.
-  - Expanded hook trigger coverage to include `command:reset` and `agent:bootstrap`.
+  - Expanded hook trigger coverage to include `command:reset`.
 - Resolution date (2026-02-14):
   - Released `v0.2.20`.
   - Ran production backfill and verified `source=openclaw` rows/tokens via InsForge MCP.
@@ -71,7 +71,7 @@ incident_window: 2026-02-13..2026-02-14
 - OpenClaw inconsistency examples:
   - `sessions.json` had high `totalTokens`, while matching JSONL was missing/empty/zero-usage.
 - Code changes:
-  - `src/lib/openclaw-hook.js`: trigger set expanded (`new/reset/stop` and `agent:bootstrap`) + richer env payload.
+  - `src/lib/openclaw-hook.js`: trigger set expanded (`new/reset/stop`) + richer env payload.
   - `src/commands/sync.js`: `applyOpenclawTotalsFallback` + `openclaw.fallback.state.json` de-dup.
   - Tests: `test/sync-openclaw-trigger.test.js` adds zero-usage JSONL fallback/idempotency scenarios.
 - Release:
