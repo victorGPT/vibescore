@@ -172,7 +172,7 @@ export function IdentityCard({
               </div>
             ) : null}
 
-            {subscriptionItems.length > 0 ? (
+            {subscriptionItems.length !== 0 ? (
               <div className="pt-2">
                 <div className="mb-1 text-caption text-matrix-muted uppercase font-bold">
                   {copy("identity_card.subscriptions_label")}

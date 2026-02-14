@@ -74,3 +74,14 @@ test("guardrails allow timestamptz and timestamp with time zone", () => {
   const { errors } = runGuardrails({ root });
   assert.equal(errors.length, 0);
 });
+
+test("guardrails allow timestamp casts used with AT TIME ZONE", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "guardrails-"));
+  writeFile(
+    path.join(root, "schema.sql"),
+    "SELECT (current_date::timestamp AT TIME ZONE 'utc') AS from_ts;\n"
+  );
+
+  const { errors } = runGuardrails({ root });
+  assert.equal(errors.length, 0);
+});

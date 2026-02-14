@@ -153,7 +153,12 @@ function scanSqlFiles(root, errors) {
           message: "Avoid MONEY type; use numeric instead.",
         });
       }
-      if (/\btimestamp\b/i.test(lower) && !/\btimestamp\s+with\s+time\s+zone\b/i.test(lower)) {
+      const hasTimestamp = /\btimestamp\b/i.test(lower);
+      const hasTimestampWithTimeZone = /\btimestamp\s+with\s+time\s+zone\b/i.test(lower);
+      const hasTimestampCastAtTimeZone =
+        /::\s*timestamp\s+at\s+time\s+zone\b/i.test(lower) ||
+        /\bcast\s*\([^)]*\bas\s+timestamp\s*\)\s+at\s+time\s+zone\b/i.test(lower);
+      if (hasTimestamp && !hasTimestampWithTimeZone && !hasTimestampCastAtTimeZone) {
         errors.push({
           code: "SQL_TIMESTAMP",
           file,
