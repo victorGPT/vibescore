@@ -9,6 +9,7 @@ export const GithubStar = ({
   repo = "victorGPT/vibeusage",
   isFixed = true,
   size = "default",
+  className = "",
 }) => {
   const [stars, setStars] = useState(null);
 
@@ -47,7 +48,7 @@ export const GithubStar = ({
       href={`https://github.com/${repo}`}
       target="_blank"
       rel="noopener noreferrer"
-      className={`${baseClasses} ${positionClasses}`}
+      className={`${baseClasses} ${positionClasses} ${className}`}
     >
       {/* Corner accents */}
       <div className="absolute top-0 left-0 w-1.5 h-1.5 border-t border-l border-matrix-dim group-hover:border-matrix-primary"></div>

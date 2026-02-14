@@ -132,6 +132,25 @@ body {
   .matrix-header-action--ghost:hover::after {
     opacity: 0;
   }
+
+  @media (max-width: 767px) {
+    .matrix-header-chip {
+      min-width: auto;
+      height: 36px;
+      padding: 0 10px;
+      gap: 8px;
+      background-size: 8px 1px, 1px 8px, 8px 1px, 1px 8px;
+      background-position:
+        top 5px left 5px,
+        top 5px left 5px,
+        bottom 5px right 5px,
+        bottom 5px right 5px;
+    }
+
+    .matrix-header-action {
+      letter-spacing: 0.12em;
+    }
+  }
 }
 
 @layer utilities {

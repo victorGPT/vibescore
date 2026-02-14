@@ -29,41 +29,49 @@ export function MatrixShell({
         className={`relative z-10 flex flex-col min-h-screen matrix-shell-content ${contentClassName}`}
       >
         {!hideHeader ? (
-          <header className="flex justify-between border-b border-matrix-primary/20 pb-3 mb-6 items-center shrink-0">
-            <div className="flex items-center space-x-6">
-              <img
-                src="/icon.svg"
-                alt=""
-                aria-hidden="true"
-                className="w-8 h-8 md:w-9 md:h-9 rounded-sm bg-black border border-matrix-primary/30 shadow-[0_0_12px_rgba(0,255,65,0.35)]"
-              />
-              <div className="flex items-baseline gap-3 uppercase select-none">
-                <span
-                  className="text-matrix-primary font-black text-2xl md:text-3xl glow-text"
-                  style={{ letterSpacing: "-1px" }}
-                >
-                  {titlePrimary}
-                </span>
-                {titleSecondary ? (
+          <header className="border-b border-matrix-primary/20 pb-3 mb-6 shrink-0">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex min-w-0 items-center gap-3 md:gap-6">
+                <img
+                  src="/icon.svg"
+                  alt=""
+                  aria-hidden="true"
+                  className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-sm bg-black border border-matrix-primary/30 shadow-[0_0_12px_rgba(0,255,65,0.35)] shrink-0"
+                />
+                <div className="flex min-w-0 items-baseline gap-2 md:gap-3 uppercase select-none">
                   <span
-                    className="text-matrix-primary font-extralight text-sm md:text-base"
-                    style={{ letterSpacing: "2px" }}
+                    className="text-matrix-primary font-black text-xl sm:text-2xl md:text-3xl glow-text leading-none truncate"
+                    style={{ letterSpacing: "-1px" }}
                   >
-                    {titleSecondary}
+                    {titlePrimary}
                   </span>
-                ) : null}
+                  {titleSecondary ? (
+                    <span
+                      className="hidden sm:inline text-matrix-primary font-extralight text-xs md:text-base truncate"
+                      style={{ letterSpacing: "2px" }}
+                    >
+                      {titleSecondary}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="hidden sm:flex items-center space-x-4 text-caption text-matrix-muted uppercase font-bold shrink-0">
+                  {headerStatus || (
+                    <span className="flex items-center">
+                      <span className="w-1.5 h-1.5 bg-matrix-primary rounded-full mr-2 animate-pulse"></span>
+                      {copy("shell.header.link_active")}
+                    </span>
+                  )}
+                </div>
               </div>
-              <div className="flex items-center space-x-4 text-caption text-matrix-muted uppercase font-bold">
-                {headerStatus || (
-                  <span className="flex items-center">
-                    <span className="w-1.5 h-1.5 bg-matrix-primary rounded-full mr-2 animate-pulse"></span>
-                    {copy("shell.header.link_active")}
-                  </span>
-                )}
-              </div>
-            </div>
 
-            {headerRight}
+              {headerRight ? (
+                <div className="w-full md:w-auto md:ml-4">
+                  <div className="w-full md:w-auto overflow-x-auto no-scrollbar">
+                    {headerRight}
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </header>
         ) : null}
 

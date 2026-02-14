@@ -1273,8 +1273,8 @@ export function DashboardPage({
     ) : null;
 
   const headerRight = (
-    <div className="flex items-center gap-4">
-      <GithubStar isFixed={false} size="header" />
+    <div className="ml-auto flex w-max min-w-max items-center gap-2 sm:gap-3 md:gap-4">
+      <GithubStar isFixed={false} size="header" className="hidden sm:inline-flex" />
       {!publicMode && signedIn ? (
         <MatrixButton as="a" size="header" href="/leaderboard">
           {copy("leaderboard.nav.open")}
