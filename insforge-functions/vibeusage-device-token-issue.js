@@ -237,6 +237,7 @@ var require_public_view = __commonJS({
     var { getAnonKey: getAnonKey2, getServiceRoleKey: getServiceRoleKey2 } = require_env();
     var { sha256Hex: sha256Hex2 } = require_crypto();
     var SHARE_TOKEN_RE = /^[a-f0-9]{64}$/;
+    var PUBLIC_USER_TOKEN_RE = /^pv1-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
     async function resolvePublicView({ baseUrl, shareToken }) {
       const token = normalizeShareToken(shareToken);
       if (!token) {
@@ -250,16 +251,30 @@ var require_public_view = __commonJS({
         anonKey: anonKey || serviceRoleKey,
         edgeFunctionToken: serviceRoleKey
       });
-      const tokenHash = await sha256Hex2(token);
-      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
-      if (error || !data?.user_id) {
+      const resolvedUserId = await resolvePublicUserId({ dbClient, token });
+      if (!resolvedUserId) {
         return { ok: false, edgeClient: null, userId: null };
       }
-      const { data: settings, error: settingsErr } = await dbClient.database.from("vibeusage_user_settings").select("leaderboard_public").eq("user_id", data.user_id).maybeSingle();
+      const { data: settings, error: settingsErr } = await dbClient.database.from("vibeusage_user_settings").select("leaderboard_public").eq("user_id", resolvedUserId).maybeSingle();
       if (settingsErr || settings?.leaderboard_public !== true) {
         return { ok: false, edgeClient: null, userId: null };
       }
-      return { ok: true, edgeClient: dbClient, userId: data.user_id };
+      return { ok: true, edgeClient: dbClient, userId: resolvedUserId };
+    }
+    async function resolvePublicUserId({ dbClient, token }) {
+      if (!dbClient || !token) return null;
+      if (token.kind === "hash") {
+        const tokenHash = await sha256Hex2(token.value);
+        const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+        if (error || !data?.user_id) return null;
+        return data.user_id;
+      }
+      if (token.kind === "user") {
+        const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("user_id", token.userId).is("revoked_at", null).maybeSingle();
+        if (error || !data?.user_id) return null;
+        return data.user_id;
+      }
+      return null;
     }
     function normalizeToken(value) {
       if (typeof value !== "string") return null;
@@ -273,8 +288,14 @@ var require_public_view = __commonJS({
       if (!token) return null;
       const normalized = token.toLowerCase();
       if (token !== normalized) return null;
-      if (!SHARE_TOKEN_RE.test(normalized)) return null;
-      return normalized;
+      if (SHARE_TOKEN_RE.test(normalized)) {
+        return { kind: "hash", value: normalized };
+      }
+      const publicUserMatch = normalized.match(PUBLIC_USER_TOKEN_RE);
+      if (publicUserMatch?.[1]) {
+        return { kind: "user", userId: publicUserMatch[1] };
+      }
+      return null;
     }
     function isPublicShareToken(value) {
       return Boolean(normalizeShareToken(value));

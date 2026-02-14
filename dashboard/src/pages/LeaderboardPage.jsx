@@ -51,6 +51,13 @@ function isAnonymousName(value) {
   return normalized.toLowerCase() === "anonymous";
 }
 
+function buildPublicViewPath(userId, search = "") {
+  if (typeof userId !== "string") return null;
+  const normalized = userId.trim().toLowerCase();
+  if (!normalized) return null;
+  return `/share/pv1-${normalized}${search || ""}`;
+}
+
 export function LeaderboardPage({
   baseUrl,
   auth,
@@ -320,6 +327,10 @@ export function LeaderboardPage({
               const entryName = isAnonymousName(rawName) ? anonLabel : rawName;
               const name = isMe ? meLabel : entryName;
               const userLinkEnabled = Boolean(profileUserId) && !isMe && !isAnonymousName(rawName);
+              const publicViewPath = userLinkEnabled
+                ? buildPublicViewPath(profileUserId, periodSearch)
+                : null;
+              const rowClickable = Boolean(publicViewPath);
               if (isMe) {
                 return (
                   <tr key={`row-${entry?.rank}-${name}`} className="border-b border-matrix-ghost/40">
@@ -344,21 +355,32 @@ export function LeaderboardPage({
               return (
                 <tr
                   key={`row-${entry?.rank}-${name}`}
-                  className="border-b border-matrix-ghost/40 bg-transparent"
+                  className={`border-b border-matrix-ghost/40 bg-transparent ${
+                    rowClickable ? "cursor-pointer hover:bg-matrix-panel/40" : ""
+                  }`}
+                  onClick={
+                    rowClickable
+                      ? () => {
+                          navigate(publicViewPath);
+                        }
+                      : undefined
+                  }
+                  onKeyDown={
+                    rowClickable
+                      ? (event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            navigate(publicViewPath);
+                          }
+                        }
+                      : undefined
+                  }
+                  role={rowClickable ? "link" : undefined}
+                  tabIndex={rowClickable ? 0 : undefined}
+                  aria-label={rowClickable ? `Open public dashboard for ${name}` : undefined}
                 >
                   <td className="px-4 py-3 font-bold">{entry?.rank ?? placeholder}</td>
-                  <td className="px-4 py-3 font-bold truncate max-w-[240px]">
-                    {userLinkEnabled ? (
-                      <a
-                        href={`/leaderboard/u/${profileUserId}${periodSearch}`}
-                        className="hover:underline underline-offset-4 decoration-dotted focus:outline-none focus-visible:ring-2 focus-visible:ring-matrix-primary/70"
-                      >
-                        {name}
-                      </a>
-                    ) : (
-                      name
-                    )}
-                  </td>
+                  <td className="px-4 py-3 font-bold truncate max-w-[240px]">{name}</td>
                   <td className="px-4 py-3">{toDisplayNumber(entry?.total_tokens)}</td>
                   <td className="px-4 py-3">{toDisplayNumber(entry?.gpt_tokens)}</td>
                   <td className="px-4 py-3">{toDisplayNumber(entry?.claude_tokens)}</td>
