@@ -93,7 +93,7 @@ export function LeaderboardPage({
 
   const headerRight = (
     <div className="ml-auto flex w-max min-w-max items-center gap-2 sm:gap-3 md:gap-4">
-      <MatrixButton as="a" size="header" href="/">
+      <MatrixButton size="header" onClick={() => navigate("/")}>
         {copy("leaderboard.nav.back")}
       </MatrixButton>
       <GithubStar isFixed={false} size="header" className="hidden sm:inline-flex" />
