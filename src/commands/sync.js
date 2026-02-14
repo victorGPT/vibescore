@@ -123,6 +123,17 @@ async function cmdSync(argv) {
       });
     }
 
+    const openclawFallback = await applyOpenclawTotalsFallback({
+      trackerDir,
+      signal: openclawSignal,
+      cursors,
+      queuePath,
+      projectQueuePath
+    });
+    openclawResult.filesProcessed += openclawFallback.filesProcessed;
+    openclawResult.eventsAggregated += openclawFallback.eventsAggregated;
+    openclawResult.bucketsQueued += openclawFallback.bucketsQueued;
+
     const claudeFiles = await listClaudeProjectFiles(claudeProjectsDir);
     let claudeResult = { filesProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
     if (claudeFiles.length > 0) {
@@ -432,9 +443,122 @@ function resolveOpenclawSignal({ home, env } = {}) {
   const openclawHome = normalizeString(env.VIBEUSAGE_OPENCLAW_HOME) || path.join(home || os.homedir(), '.openclaw');
   const sessionFile = path.join(openclawHome, 'agents', agentId, 'sessions', `${sessionId}.jsonl`);
 
-  return { agentId, sessionId, openclawHome, sessionFile };
+  const prevTotals = {
+    totalTokens: normalizeNonNegativeInt(env.VIBEUSAGE_OPENCLAW_PREV_TOTAL_TOKENS),
+    inputTokens: normalizeNonNegativeInt(env.VIBEUSAGE_OPENCLAW_PREV_INPUT_TOKENS),
+    outputTokens: normalizeNonNegativeInt(env.VIBEUSAGE_OPENCLAW_PREV_OUTPUT_TOKENS),
+    model: normalizeString(env.VIBEUSAGE_OPENCLAW_PREV_MODEL),
+    updatedAt: normalizeIsoOrEpoch(env.VIBEUSAGE_OPENCLAW_PREV_UPDATED_AT)
+  };
+
+  return {
+    agentId,
+    sessionId,
+    sessionKey: normalizeString(env.VIBEUSAGE_OPENCLAW_SESSION_KEY),
+    openclawHome,
+    sessionFile,
+    prevTotals
+  };
 }
 
+
+async function applyOpenclawTotalsFallback({ trackerDir, signal, cursors, queuePath, projectQueuePath }) {
+  const totalTokens = Number(signal?.prevTotals?.totalTokens || 0);
+  if (!trackerDir || !signal || totalTokens <= 0) {
+    return { filesProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+  }
+
+  const sessionKey = `${signal.agentId}:${signal.sessionId}`;
+  const statePath = path.join(trackerDir, 'openclaw.fallback.state.json');
+  const fallbackFilePath = path.join(trackerDir, 'openclaw.fallback.jsonl');
+  const state = (await readJson(statePath)) || { version: 1, sessions: {} };
+  const sessions = state.sessions && typeof state.sessions === 'object' ? state.sessions : {};
+  const prev = sessions[sessionKey] && typeof sessions[sessionKey] === 'object' ? sessions[sessionKey] : null;
+
+  const current = {
+    totalTokens: normalizeNonNegativeInt(signal?.prevTotals?.totalTokens) || 0,
+    inputTokens: normalizeNonNegativeInt(signal?.prevTotals?.inputTokens) || 0,
+    outputTokens: normalizeNonNegativeInt(signal?.prevTotals?.outputTokens) || 0,
+    model: normalizeString(signal?.prevTotals?.model) || 'unknown',
+    updatedAt: normalizeIsoOrEpoch(signal?.prevTotals?.updatedAt) || new Date().toISOString(),
+    seenAt: new Date().toISOString()
+  };
+
+  let deltaTotal = current.totalTokens;
+  let deltaInput = current.inputTokens;
+  let deltaOutput = current.outputTokens;
+  if (prev) {
+    deltaTotal = Math.max(0, current.totalTokens - (normalizeNonNegativeInt(prev.totalTokens) || 0));
+    deltaInput = Math.max(0, current.inputTokens - (normalizeNonNegativeInt(prev.inputTokens) || 0));
+    deltaOutput = Math.max(0, current.outputTokens - (normalizeNonNegativeInt(prev.outputTokens) || 0));
+  }
+
+  if (deltaTotal > 0 && deltaInput + deltaOutput === 0) {
+    deltaInput = deltaTotal;
+  }
+
+  sessions[sessionKey] = current;
+  state.version = 1;
+  state.sessions = sessions;
+
+  if (deltaTotal <= 0) {
+    await writeJson(statePath, state);
+    return { filesProcessed: 0, eventsAggregated: 0, bucketsQueued: 0 };
+  }
+
+  await ensureDir(path.dirname(fallbackFilePath));
+  const syntheticMessage = {
+    type: 'message',
+    timestamp: current.updatedAt,
+    message: {
+      role: 'assistant',
+      model: current.model,
+      usage: {
+        input: deltaInput,
+        output: deltaOutput,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: deltaTotal
+      }
+    }
+  };
+  await fs.appendFile(fallbackFilePath, `${JSON.stringify(syntheticMessage)}\n`, 'utf8');
+  await writeJson(statePath, state);
+
+  return parseOpenclawIncremental({
+    sessionFiles: [{ path: fallbackFilePath, source: 'openclaw' }],
+    cursors,
+    queuePath,
+    projectQueuePath,
+    source: 'openclaw'
+  });
+}
+
+function normalizeNonNegativeInt(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.floor(n);
+}
+
+function normalizeIsoOrEpoch(value) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.length > 0 && !Number.isNaN(Date.parse(trimmed))) return trimmed;
+    const numeric = Number(trimmed);
+    if (Number.isFinite(numeric) && numeric > 0) {
+      const ms = numeric < 1e12 ? Math.floor(numeric * 1000) : Math.floor(numeric);
+      const iso = new Date(ms).toISOString();
+      if (!Number.isNaN(Date.parse(iso))) return iso;
+    }
+  }
+
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const ms = n < 1e12 ? Math.floor(n * 1000) : Math.floor(n);
+  const dt = new Date(ms);
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt.toISOString();
+}
 
 async function safeStatSize(p) {
   try {

@@ -252,12 +252,12 @@ function buildHookMarkdown() {
 name: ${OPENCLAW_HOOK_NAME}
 description: "Trigger vibeusage sync when OpenClaw sessions roll over"
 metadata:
-  { "openclaw": { "emoji": "📈", "events": ["command:new", "command:stop"], "requires": { "bins": ["node"] } } }
+  { "openclaw": { "emoji": "📈", "events": ["command:new", "command:reset", "command:stop"], "requires": { "bins": ["node"] } } }
 ---
 
 # VibeUsage OpenClaw Sync Hook
 
-Triggers non-blocking 'vibeusage sync --auto --from-openclaw' runs when OpenClaw command events indicate a session rollover/stop.
+Triggers non-blocking 'vibeusage sync --auto --from-openclaw' runs when OpenClaw command events indicate session rollover/reset/stop.
 `;
 }
 
@@ -281,13 +281,14 @@ function buildHookHandler({ trackerDir, packageName = 'vibeusage', openclawHome 
     `module.exports = async function handler(event) {\n` +
     `  try {\n` +
     `    if (!event || event.type !== 'command') return;\n` +
-    `    if (event.action !== 'new' && event.action !== 'stop') return;\n` +
+    `    if (event.action !== 'new' && event.action !== 'reset' && event.action !== 'stop') return;\n` +
     `\n` +
     `    const sessionKey = normalize(event.sessionKey);\n` +
     `    const agentId = parseAgentId(sessionKey);\n` +
     `    if (!agentId) return;\n` +
     `\n` +
-    `    const sessionId = resolveSessionId(event);\n` +
+    `    const sessionEntry = resolveSessionEntry(event);\n` +
+    `    const sessionId = normalize(sessionEntry && sessionEntry.sessionId) || resolveSessionId(event);\n` +
     `    if (!sessionId) return;\n` +
     `\n` +
     `    const now = Date.now();\n` +
@@ -302,9 +303,20 @@ function buildHookHandler({ trackerDir, packageName = 'vibeusage', openclawHome 
     `    const env = {\n` +
     `      ...process.env,\n` +
     `      VIBEUSAGE_OPENCLAW_AGENT_ID: agentId,\n` +
+    `      VIBEUSAGE_OPENCLAW_SESSION_KEY: sessionKey,\n` +
     `      VIBEUSAGE_OPENCLAW_PREV_SESSION_ID: sessionId,\n` +
     `      VIBEUSAGE_OPENCLAW_HOME: openclawHome\n` +
     `    };\n` +
+    `    const prevTotalTokens = toNonNegativeInt(sessionEntry && sessionEntry.totalTokens);\n` +
+    `    const prevInputTokens = toNonNegativeInt(sessionEntry && sessionEntry.inputTokens);\n` +
+    `    const prevOutputTokens = toNonNegativeInt(sessionEntry && sessionEntry.outputTokens);\n` +
+    `    const prevModel = normalize(sessionEntry && sessionEntry.model);\n` +
+    `    const prevUpdatedAt = toIso(sessionEntry && sessionEntry.updatedAt);\n` +
+    `    if (prevTotalTokens != null) env.VIBEUSAGE_OPENCLAW_PREV_TOTAL_TOKENS = String(prevTotalTokens);\n` +
+    `    if (prevInputTokens != null) env.VIBEUSAGE_OPENCLAW_PREV_INPUT_TOKENS = String(prevInputTokens);\n` +
+    `    if (prevOutputTokens != null) env.VIBEUSAGE_OPENCLAW_PREV_OUTPUT_TOKENS = String(prevOutputTokens);\n` +
+    `    if (prevModel) env.VIBEUSAGE_OPENCLAW_PREV_MODEL = prevModel;\n` +
+    `    if (prevUpdatedAt) env.VIBEUSAGE_OPENCLAW_PREV_UPDATED_AT = prevUpdatedAt;\n` +
     `\n` +
     `    const hasLocalRuntime = fs.existsSync(trackerBinPath);\n` +
     `    const hasLocalDeps = fs.existsSync(depsMarkerPath);\n` +
@@ -321,6 +333,32 @@ function buildHookHandler({ trackerDir, packageName = 'vibeusage', openclawHome 
     `  if (typeof v !== 'string') return null;\n` +
     `  const s = v.trim();\n` +
     `  return s.length > 0 ? s : null;\n` +
+    `}\n` +
+    `\n` +
+    `function resolveSessionEntry(event) {\n` +
+    `  const ctx = (event && event.context && typeof event.context === 'object') ? event.context : {};\n` +
+    `  if (event && event.action === 'stop') return (ctx.sessionEntry && typeof ctx.sessionEntry === 'object') ? ctx.sessionEntry : null;\n` +
+    `  if (ctx.previousSessionEntry && typeof ctx.previousSessionEntry === 'object') return ctx.previousSessionEntry;\n` +
+    `  if (ctx.sessionEntry && typeof ctx.sessionEntry === 'object') return ctx.sessionEntry;\n` +
+    `  return null;\n` +
+    `}\n` +
+    `\n` +
+    `function toNonNegativeInt(v) {\n` +
+    `  const n = Number(v);\n` +
+    `  if (!Number.isFinite(n) || n < 0) return null;\n` +
+    `  return Math.floor(n);\n` +
+    `}\n` +
+    `\n` +
+    `function toIso(v) {\n` +
+    `  if (typeof v === 'string') {\n` +
+    `    const s = normalize(v);\n` +
+    `    if (s && !Number.isNaN(Date.parse(s))) return s;\n` +
+    `  }\n` +
+    `  const n = Number(v);\n` +
+    `  if (!Number.isFinite(n) || n <= 0) return null;\n` +
+    `  const ms = n < 1e12 ? Math.floor(n * 1000) : Math.floor(n);\n` +
+    `  const d = new Date(ms);\n` +
+    `  return Number.isNaN(d.getTime()) ? null : d.toISOString();\n` +
     `}\n` +
     `\n` +
     `function parseAgentId(sessionKey) {\n` +
