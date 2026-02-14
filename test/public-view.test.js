@@ -22,10 +22,10 @@ test("App routes /share/:token to DashboardPage public mode", () => {
   assert.match(src, /publicToken/);
 });
 
-test("public mode requires a share token", () => {
+test("public mode activates for share routes", () => {
   const src = read("dashboard/src/App.jsx");
-  assert.match(src, /publicMode\s*=\s*Boolean\(publicToken\)\s*;/);
-  assert.doesNotMatch(src, /publicToken\)\s*\|\|\s*pathname\.startsWith/);
+  assert.ok(src.includes('sharePathname === "/share"'));
+  assert.ok(src.includes('sharePathname.startsWith("/share/")'));
 });
 
 test("DashboardPage disables auth gate in public mode", () => {

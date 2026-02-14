@@ -261,10 +261,15 @@ export default function App() {
 
   const pathname = location?.pathname || "/";
   const pageUrl = new URL(window.location.href);
-  const sharePathname = pageUrl.pathname.replace(/\/+$/, "");
-  const shareMatch = sharePathname.match(/^\/share\/([^/]+)$/i);
-  const publicToken = shareMatch ? shareMatch[1] : null;
-  const publicMode = Boolean(publicToken);
+  const sharePathname = pageUrl.pathname.replace(/\/+$/, "") || "/";
+  const shareMatch = sharePathname.match(/^\/share\/([^/?#]+)$/i);
+  const tokenFromPath = shareMatch?.[1] || null;
+  const tokenFromQuery = pageUrl.searchParams.get("token") || null;
+  const publicToken = tokenFromPath || tokenFromQuery;
+  const publicMode =
+    sharePathname === "/share" ||
+    sharePathname === "/share.html" ||
+    sharePathname.startsWith("/share/");
   const postAuthNext = useMemo(() => {
     if (typeof window === "undefined") return null;
     const normalizedPath = pathname.replace(/\/+$/, "") || "/";
