@@ -55,7 +55,12 @@ function buildPublicViewPath(userId, search = "") {
   if (typeof userId !== "string") return null;
   const normalized = userId.trim().toLowerCase();
   if (!normalized) return null;
-  return `/share/pv1-${normalized}${search || ""}`;
+
+  const params = new URLSearchParams(typeof search === "string" ? search : "");
+  const period = normalizePeriod(params.get("period"));
+  const suffix = period ? `?period=${period}` : "";
+
+  return `/share/pv1-${normalized}${suffix}`;
 }
 
 export function LeaderboardPage({
@@ -362,6 +367,10 @@ export function LeaderboardPage({
                   onClick={
                     rowClickable
                       ? () => {
+                          if (typeof window !== "undefined") {
+                            window.location.assign(publicViewPath);
+                            return;
+                          }
                           navigate(publicViewPath);
                         }
                       : undefined
@@ -371,6 +380,10 @@ export function LeaderboardPage({
                       ? (event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
+                            if (typeof window !== "undefined") {
+                              window.location.assign(publicViewPath);
+                              return;
+                            }
                             navigate(publicViewPath);
                           }
                         }
