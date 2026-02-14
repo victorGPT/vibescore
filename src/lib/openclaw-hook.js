@@ -252,12 +252,12 @@ function buildHookMarkdown() {
 name: ${OPENCLAW_HOOK_NAME}
 description: "Trigger vibeusage sync when OpenClaw sessions roll over"
 metadata:
-  { "openclaw": { "emoji": "📈", "events": ["command:new", "command:reset", "command:stop"], "requires": { "bins": ["node"] } } }
+  { "openclaw": { "emoji": "📈", "events": ["command:new", "command:reset", "command:stop", "agent:bootstrap"], "requires": { "bins": ["node"] } } }
 ---
 
 # VibeUsage OpenClaw Sync Hook
 
-Triggers non-blocking 'vibeusage sync --auto --from-openclaw' runs when OpenClaw command events indicate session rollover/reset/stop.
+Triggers non-blocking 'vibeusage sync --auto --from-openclaw' runs when OpenClaw command events indicate session rollover/reset/stop, and on agent bootstrap for regular turn-driven incremental collection.
 `;
 }
 
@@ -280,8 +280,10 @@ function buildHookHandler({ trackerDir, packageName = 'vibeusage', openclawHome 
     `\n` +
     `module.exports = async function handler(event) {\n` +
     `  try {\n` +
-    `    if (!event || event.type !== 'command') return;\n` +
-    `    if (event.action !== 'new' && event.action !== 'reset' && event.action !== 'stop') return;\n` +
+    `    if (!event) return;\n` +
+    `    const isCommandEvent = event.type === 'command' && (event.action === 'new' || event.action === 'reset' || event.action === 'stop');\n` +
+    `    const isBootstrapEvent = event.type === 'agent' && event.action === 'bootstrap';\n` +
+    `    if (!isCommandEvent && !isBootstrapEvent) return;\n` +
     `\n` +
     `    const sessionKey = normalize(event.sessionKey);\n` +
     `    const agentId = parseAgentId(sessionKey);\n` +
@@ -337,7 +339,8 @@ function buildHookHandler({ trackerDir, packageName = 'vibeusage', openclawHome 
     `\n` +
     `function resolveSessionEntry(event) {\n` +
     `  const ctx = (event && event.context && typeof event.context === 'object') ? event.context : {};\n` +
-    `  if (event && event.action === 'stop') return (ctx.sessionEntry && typeof ctx.sessionEntry === 'object') ? ctx.sessionEntry : null;\n` +
+    `  if (!event || event.type !== 'command') return null;\n` +
+    `  if (event.action === 'stop') return (ctx.sessionEntry && typeof ctx.sessionEntry === 'object') ? ctx.sessionEntry : null;\n` +
     `  if (ctx.previousSessionEntry && typeof ctx.previousSessionEntry === 'object') return ctx.previousSessionEntry;\n` +
     `  if (ctx.sessionEntry && typeof ctx.sessionEntry === 'object') return ctx.sessionEntry;\n` +
     `  return null;\n` +
