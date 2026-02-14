@@ -81,28 +81,11 @@ var require_env = __commonJS({
   }
 });
 
-// insforge-src/shared/crypto.js
-var require_crypto = __commonJS({
-  "insforge-src/shared/crypto.js"(exports2, module2) {
-    "use strict";
-    async function sha256Hex(input) {
-      const data = new TextEncoder().encode(input);
-      const hash = await crypto.subtle.digest("SHA-256", data);
-      return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
-    }
-    module2.exports = {
-      sha256Hex
-    };
-  }
-});
-
 // insforge-src/shared/public-view.js
 var require_public_view = __commonJS({
   "insforge-src/shared/public-view.js"(exports2, module2) {
     "use strict";
     var { getAnonKey, getServiceRoleKey } = require_env();
-    var { sha256Hex } = require_crypto();
-    var SHARE_TOKEN_RE = /^[a-f0-9]{64}$/;
     var PUBLIC_USER_TOKEN_RE = /^pv1-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/;
     async function resolvePublicView({ baseUrl, shareToken }) {
       const token = normalizeShareToken(shareToken);
@@ -129,18 +112,9 @@ var require_public_view = __commonJS({
     }
     async function resolvePublicUserId({ dbClient, token }) {
       if (!dbClient || !token) return null;
-      if (token.kind === "hash") {
-        const tokenHash = await sha256Hex(token.value);
-        const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
-        if (error || !data?.user_id) return null;
-        return data.user_id;
-      }
-      if (token.kind === "user") {
-        const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("user_id", token.userId).is("revoked_at", null).maybeSingle();
-        if (error || !data?.user_id) return null;
-        return data.user_id;
-      }
-      return null;
+      const { data, error } = await dbClient.database.from("vibeusage_public_views").select("user_id").eq("user_id", token.userId).is("revoked_at", null).maybeSingle();
+      if (error || !data?.user_id) return null;
+      return data.user_id;
     }
     function normalizeToken(value) {
       if (typeof value !== "string") return null;
@@ -154,9 +128,6 @@ var require_public_view = __commonJS({
       if (!token) return null;
       const normalized = token.toLowerCase();
       if (token !== normalized) return null;
-      if (SHARE_TOKEN_RE.test(normalized)) {
-        return { kind: "hash", value: normalized };
-      }
       const publicUserMatch = normalized.match(PUBLIC_USER_TOKEN_RE);
       if (publicUserMatch?.[1]) {
         return { kind: "user", userId: publicUserMatch[1] };

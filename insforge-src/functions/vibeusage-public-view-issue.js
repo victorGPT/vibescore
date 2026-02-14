@@ -1,5 +1,5 @@
 // Edge function: vibeusage-public-view-issue
-// Issues or rotates a public dashboard share token for the authenticated user.
+// Ensures an active public dashboard share token for the authenticated user.
 
 'use strict';
 
@@ -34,7 +34,7 @@ module.exports = withRequestLogging('vibeusage-public-view-issue', async functio
     return json({ error: 'Public profile is disabled' }, 403);
   }
 
-  const shareToken = generateShareToken();
+  const shareToken = buildPublicUserToken(auth.userId);
   const tokenHash = await sha256Hex(shareToken);
   const nowIso = new Date().toISOString();
   const nextRow = {
@@ -75,6 +75,7 @@ module.exports = withRequestLogging('vibeusage-public-view-issue', async functio
   return json({ enabled: true, share_token: shareToken }, 200);
 });
 
-function generateShareToken() {
-  return crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
+function buildPublicUserToken(userId) {
+  if (typeof userId !== 'string') return '';
+  return `pv1-${userId.trim().toLowerCase()}`;
 }

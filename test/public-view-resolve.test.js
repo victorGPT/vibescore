@@ -73,7 +73,10 @@ test('resolvePublicView requires leaderboard_public enabled', async () => {
   globalThis.createClient = makeClient({ leaderboardPublic: false });
   try {
     const { resolvePublicView } = require('../insforge-src/shared/public-view');
-    const res = await resolvePublicView({ baseUrl: BASE_URL, shareToken: 'a'.repeat(64) });
+    const res = await resolvePublicView({
+      baseUrl: BASE_URL,
+      shareToken: 'pv1-11111111-2222-3333-4444-555555555555'
+    });
     assert.equal(res.ok, false);
   } finally {
     globalThis.createClient = original;
@@ -87,7 +90,10 @@ test('resolvePublicView succeeds when leaderboard_public is true', async () => {
   globalThis.createClient = makeClient({ leaderboardPublic: true });
   try {
     const { resolvePublicView } = require('../insforge-src/shared/public-view');
-    const res = await resolvePublicView({ baseUrl: BASE_URL, shareToken: 'a'.repeat(64) });
+    const res = await resolvePublicView({
+      baseUrl: BASE_URL,
+      shareToken: 'pv1-11111111-2222-3333-4444-555555555555'
+    });
     assert.equal(res.ok, true);
     assert.equal(res.userId, 'user-1');
   } finally {
