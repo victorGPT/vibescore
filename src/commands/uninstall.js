@@ -12,6 +12,7 @@ const {
 } = require('../lib/gemini-config');
 const { resolveOpencodeConfigDir, removeOpencodePlugin } = require('../lib/opencode-config');
 const { removeOpenclawHookConfig } = require('../lib/openclaw-hook');
+const { removeOpenclawSessionPluginConfig } = require('../lib/openclaw-session-plugin');
 const { resolveTrackerPaths } = require('../lib/tracker-paths');
 
 async function cmdUninstall(argv) {
@@ -62,6 +63,7 @@ async function cmdUninstall(argv) {
   const opencodeRemove = opencodeConfigExists
     ? await removeOpencodePlugin({ configDir: opencodeConfigDir })
     : { removed: false, skippedReason: 'config-missing' };
+  const openclawSessionPluginRemove = await removeOpenclawSessionPluginConfig({ home, trackerDir, env: process.env });
   const openclawHookRemove = await removeOpenclawHookConfig({ home, trackerDir, env: process.env });
 
   // Remove installed notify handler.
@@ -114,11 +116,16 @@ async function cmdUninstall(argv) {
               ? '- Opencode plugin: skipped (unexpected content)'
               : '- Opencode plugin: skipped'
         : `- Opencode plugin: skipped (${opencodeConfigDir} not found)`,
+      openclawSessionPluginRemove?.removed
+        ? `- OpenClaw session plugin removed: ${openclawSessionPluginRemove.openclawConfigPath}`
+        : openclawSessionPluginRemove?.skippedReason === 'openclaw-config-missing'
+          ? '- OpenClaw session plugin: skipped (openclaw config not found)'
+          : '- OpenClaw session plugin: no change',
       openclawHookRemove?.removed
-        ? `- OpenClaw hook removed: ${openclawHookRemove.openclawConfigPath}`
+        ? `- OpenClaw hook (legacy) removed: ${openclawHookRemove.openclawConfigPath}`
         : openclawHookRemove?.skippedReason === 'openclaw-config-missing'
-          ? '- OpenClaw hook: skipped (openclaw config not found)'
-          : '- OpenClaw hook: no change',
+          ? '- OpenClaw hook (legacy): skipped (openclaw config not found)'
+          : '- OpenClaw hook (legacy): no change',
       opts.purge ? `- Purged: ${path.join(home, '.vibeusage')}` : '- Purge: skipped (use --purge)',
       ''
     ].join('\n')

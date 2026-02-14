@@ -16,6 +16,7 @@ const { collectLocalSubscriptions } = require('../lib/subscriptions');
 const { normalizeState: normalizeUploadState } = require('../lib/upload-throttle');
 const { collectTrackerDiagnostics } = require('../lib/diagnostics');
 const { probeOpenclawHookState } = require('../lib/openclaw-hook');
+const { probeOpenclawSessionPluginState } = require('../lib/openclaw-session-plugin');
 const { resolveTrackerPaths } = require('../lib/tracker-paths');
 
 async function cmdStatus(argv = []) {
@@ -75,6 +76,7 @@ async function cmdStatus(argv = []) {
     hookCommand: geminiHookCommand
   });
   const opencodePluginConfigured = await isOpencodePluginInstalled({ configDir: opencodeConfigDir });
+  const openclawSessionPluginState = await probeOpenclawSessionPluginState({ home, trackerDir, env: process.env });
   const openclawHookState = await probeOpenclawHookState({ home, trackerDir, env: process.env });
 
   const lastUpload = uploadThrottle.lastSuccessMs
@@ -125,7 +127,8 @@ async function cmdStatus(argv = []) {
       `- Claude hooks: ${claudeHookConfigured ? 'set' : 'unset'}`,
       `- Gemini hooks: ${geminiHookConfigured ? 'set' : 'unset'}`,
       `- Opencode plugin: ${opencodePluginConfigured ? 'set' : 'unset'}`,
-      `- OpenClaw hook: ${openclawHookState?.configured ? 'set' : 'unset'}`,
+      `- OpenClaw session plugin: ${openclawSessionPluginState?.configured ? 'set' : 'unset'}`,
+      `- OpenClaw hook (legacy): ${openclawHookState?.configured ? 'set' : 'unset'}`,
       ...subscriptionLines,
       ''
     ]

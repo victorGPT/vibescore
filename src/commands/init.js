@@ -22,7 +22,11 @@ const {
   isGeminiHookConfigured
 } = require('../lib/gemini-config');
 const { resolveOpencodeConfigDir, upsertOpencodePlugin, isOpencodePluginInstalled } = require('../lib/opencode-config');
-const { installOpenclawHook, probeOpenclawHookState } = require('../lib/openclaw-hook');
+const { removeOpenclawHookConfig, probeOpenclawHookState } = require('../lib/openclaw-hook');
+const {
+  installOpenclawSessionPlugin,
+  probeOpenclawSessionPluginState
+} = require('../lib/openclaw-session-plugin');
 const { beginBrowserAuth, openInBrowser } = require('../lib/browser-auth');
 const {
   issueDeviceTokenWithPassword,
@@ -408,32 +412,47 @@ async function applyIntegrationSetup({ home, trackerDir, notifyPath, notifyOrigi
     summary.push({ label: 'Opencode Plugin', status: opencodeResult?.changed ? 'installed' : 'set', detail: 'Plugin installed' });
   }
 
-  const openclawBefore = await probeOpenclawHookState({ home, trackerDir, env: process.env });
-  const openclawInstall = await installOpenclawHook({ home, trackerDir, packageName: 'vibeusage', env: process.env });
+  const openclawBefore = await probeOpenclawSessionPluginState({ home, trackerDir, env: process.env });
+  const openclawInstall = await installOpenclawSessionPlugin({
+    home,
+    trackerDir,
+    packageName: 'vibeusage',
+    env: process.env
+  });
   if (openclawInstall?.skippedReason === 'openclaw-cli-missing') {
-    summary.push({ label: 'OpenClaw Hook', status: 'skipped', detail: 'OpenClaw CLI not found' });
-  } else if (openclawInstall?.skippedReason === 'openclaw-hooks-install-failed') {
+    summary.push({ label: 'OpenClaw Session Plugin', status: 'skipped', detail: 'OpenClaw CLI not found' });
+  } else if (openclawInstall?.skippedReason === 'openclaw-plugins-install-failed') {
     summary.push({
-      label: 'OpenClaw Hook',
+      label: 'OpenClaw Session Plugin',
       status: 'skipped',
       detail: `Install failed${openclawInstall.error ? `: ${openclawInstall.error}` : ''}`
     });
   } else if (openclawInstall?.skippedReason === 'openclaw-config-unreadable') {
     summary.push({
-      label: 'OpenClaw Hook',
+      label: 'OpenClaw Session Plugin',
       status: 'skipped',
       detail: openclawInstall.error ? `OpenClaw config unreadable: ${openclawInstall.error}` : 'OpenClaw config unreadable'
     });
   } else if (openclawInstall?.configured) {
     summary.push({
-      label: 'OpenClaw Hook',
+      label: 'OpenClaw Session Plugin',
       status: openclawBefore?.configured ? 'set' : 'installed',
       detail: openclawBefore?.configured
-        ? 'Hook already linked'
-        : 'Hook linked (restart OpenClaw gateway to activate)'
+        ? 'Session plugin already linked'
+        : 'Session plugin linked (restart OpenClaw gateway to activate)'
     });
   } else {
-    summary.push({ label: 'OpenClaw Hook', status: 'skipped', detail: 'OpenClaw hook unavailable' });
+    summary.push({ label: 'OpenClaw Session Plugin', status: 'skipped', detail: 'OpenClaw session plugin unavailable' });
+  }
+
+  const legacyHookState = await probeOpenclawHookState({ home, trackerDir, env: process.env });
+  if (legacyHookState?.configured || legacyHookState?.linked || legacyHookState?.enabled) {
+    await removeOpenclawHookConfig({ home, trackerDir, env: process.env });
+    summary.push({
+      label: 'OpenClaw Hook (legacy)',
+      status: 'updated',
+      detail: 'Removed legacy command hook (migrated to session plugin)'
+    });
   }
 
   const codeProbe = await probeFile(context.codeConfigPath);
@@ -515,22 +534,31 @@ async function previewIntegrations({ context }) {
     detail: opencodeDetail
   });
 
-  const openclawState = await probeOpenclawHookState({ home, trackerDir: context.trackerDir, env: process.env });
+  const openclawState = await probeOpenclawSessionPluginState({ home, trackerDir: context.trackerDir, env: process.env });
   if (openclawState?.skippedReason === 'openclaw-config-missing') {
-    summary.push({ label: 'OpenClaw Hook', status: 'skipped', detail: 'OpenClaw config not found' });
+    summary.push({ label: 'OpenClaw Session Plugin', status: 'skipped', detail: 'OpenClaw config not found' });
   } else if (openclawState?.skippedReason === 'openclaw-config-unreadable') {
     summary.push({
-      label: 'OpenClaw Hook',
+      label: 'OpenClaw Session Plugin',
       status: 'skipped',
       detail: openclawState.error ? `OpenClaw config unreadable: ${openclawState.error}` : 'OpenClaw config unreadable'
     });
   } else {
     summary.push({
-      label: 'OpenClaw Hook',
+      label: 'OpenClaw Session Plugin',
       status: openclawState?.configured ? 'set' : 'installed',
       detail: openclawState?.configured
-        ? 'Hook already linked'
-        : 'Will link hook (restart OpenClaw gateway to activate)'
+        ? 'Session plugin already linked'
+        : 'Will link session plugin (restart OpenClaw gateway to activate)'
+    });
+  }
+
+  const legacyHookState = await probeOpenclawHookState({ home, trackerDir: context.trackerDir, env: process.env });
+  if (legacyHookState?.configured || legacyHookState?.linked || legacyHookState?.enabled) {
+    summary.push({
+      label: 'OpenClaw Hook (legacy)',
+      status: 'updated',
+      detail: 'Will remove legacy command hook during migration'
     });
   }
 

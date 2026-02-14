@@ -14,6 +14,7 @@ const {
 const { resolveOpencodeConfigDir, isOpencodePluginInstalled } = require('./opencode-config');
 const { normalizeState: normalizeUploadState } = require('./upload-throttle');
 const { probeOpenclawHookState } = require('./openclaw-hook');
+const { probeOpenclawSessionPluginState } = require('./openclaw-session-plugin');
 const { resolveTrackerPaths } = require('./tracker-paths');
 
 async function collectTrackerDiagnostics({
@@ -69,6 +70,7 @@ async function collectTrackerDiagnostics({
     hookCommand: geminiHookCommand
   });
   const opencodePluginConfigured = await isOpencodePluginInstalled({ configDir: opencodeConfigDir });
+  const openclawSessionPluginState = await probeOpenclawSessionPluginState({ home, trackerDir, env: process.env });
   const openclawHookState = await probeOpenclawHookState({ home, trackerDir, env: process.env });
 
   const lastSuccessAt = uploadThrottle.lastSuccessMs ? new Date(uploadThrottle.lastSuccessMs).toISOString() : null;
@@ -120,6 +122,9 @@ async function collectTrackerDiagnostics({
       claude_hook_configured: claudeHookConfigured,
       gemini_hook_configured: geminiHookConfigured,
       opencode_plugin_configured: opencodePluginConfigured,
+      openclaw_session_plugin_configured: Boolean(openclawSessionPluginState?.configured),
+      openclaw_session_plugin_linked: Boolean(openclawSessionPluginState?.linked),
+      openclaw_session_plugin_enabled: Boolean(openclawSessionPluginState?.enabled),
       openclaw_hook_configured: Boolean(openclawHookState?.configured),
       openclaw_hook_linked: Boolean(openclawHookState?.linked),
       openclaw_hook_enabled: Boolean(openclawHookState?.enabled)
