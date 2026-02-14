@@ -949,7 +949,20 @@ async function refreshPeriod({ serviceClient, period, from, to, generatedAt }) {
     pageSize: SOURCE_PAGE_SIZE,
     createQuery: () => serviceClient.database.from(sourceView).select("user_id,rank,rank_gpt,rank_claude,gpt_tokens,claude_tokens,total_tokens,display_name,avatar_url").order("rank", { ascending: true }),
     onPage: async (rows) => {
-      const normalized = (rows || []).map((row) => normalizeSnapshotRow({ row, period, from, to, generatedAt })).filter(Boolean);
+      const profileByUserId = await loadPublicProfileLookup({
+        serviceClient,
+        userIds: (rows || []).map((row) => row?.user_id)
+      });
+      const normalized = (rows || []).map(
+        (row) => normalizeSnapshotRow({
+          row,
+          period,
+          from,
+          to,
+          generatedAt,
+          publicProfile: profileByUserId.get(row?.user_id)
+        })
+      ).filter(Boolean);
       for (const batch of chunkRows(normalized, INSERT_BATCH_SIZE)) {
         const { error: insertErr } = await serviceClient.database.from("vibeusage_leaderboard_snapshots").insert(batch);
         if (insertErr) throw new Error(insertErr.message);
@@ -960,7 +973,47 @@ async function refreshPeriod({ serviceClient, period, from, to, generatedAt }) {
   if (error) throw new Error(error.message);
   return { inserted };
 }
-function normalizeSnapshotRow({ row, period, from, to, generatedAt }) {
+async function loadPublicProfileLookup({ serviceClient, userIds }) {
+  const uniqueUserIds = Array.from(
+    new Set((userIds || []).filter((value) => typeof value === "string" && value.trim().length > 0))
+  );
+  const lookup = /* @__PURE__ */ new Map();
+  if (uniqueUserIds.length === 0) return lookup;
+  try {
+    const [settingsRes, usersRes] = await Promise.all([
+      serviceClient.database.from("vibeusage_user_settings").select("user_id,leaderboard_public").in("user_id", uniqueUserIds),
+      serviceClient.database.from("users").select("id,nickname,avatar_url,profile,metadata").in("id", uniqueUserIds)
+    ]);
+    if (settingsRes?.error || usersRes?.error) {
+      return lookup;
+    }
+    const settingsMap = /* @__PURE__ */ new Map();
+    for (const row of settingsRes.data || []) {
+      if (typeof row?.user_id !== "string") continue;
+      settingsMap.set(row.user_id, Boolean(row?.leaderboard_public));
+    }
+    const usersMap = /* @__PURE__ */ new Map();
+    for (const row of usersRes.data || []) {
+      if (typeof row?.id !== "string") continue;
+      usersMap.set(row.id, row);
+    }
+    for (const userId of uniqueUserIds) {
+      const row = usersMap.get(userId) || null;
+      const isPublic = settingsMap.get(userId) === true;
+      const displayName = isPublic ? resolveDisplayName(row) : null;
+      const avatarUrl = isPublic ? resolveAvatarUrl(row) : null;
+      lookup.set(userId, {
+        isPublic,
+        displayName: displayName || null,
+        avatarUrl: avatarUrl || null
+      });
+    }
+  } catch (_err) {
+    return lookup;
+  }
+  return lookup;
+}
+function normalizeSnapshotRow({ row, period, from, to, generatedAt, publicProfile = null }) {
   if (!row?.user_id) return null;
   const rank = toPositiveInt(row.rank);
   if (rank <= 0) return null;
@@ -971,8 +1024,10 @@ function normalizeSnapshotRow({ row, period, from, to, generatedAt }) {
   const gptTokens = toBigInt(row.gpt_tokens).toString();
   const claudeTokens = toBigInt(row.claude_tokens).toString();
   const totalTokens = toBigInt(row.total_tokens).toString();
-  const displayName = normalizeDisplayName(row.display_name);
-  const avatarUrl = normalizeAvatarUrl(row.avatar_url);
+  const fallbackDisplayName = normalizeDisplayName(row.display_name);
+  const fallbackAvatarUrl = normalizeAvatarUrl(row.avatar_url);
+  const displayName = publicProfile ? publicProfile.isPublic ? publicProfile.displayName || "Anonymous" : "Anonymous" : fallbackDisplayName;
+  const avatarUrl = publicProfile ? publicProfile.isPublic ? publicProfile.avatarUrl || null : null : fallbackAvatarUrl;
   return {
     period,
     from_day: from,
@@ -989,6 +1044,37 @@ function normalizeSnapshotRow({ row, period, from, to, generatedAt }) {
     generated_at: generatedAt
   };
 }
+function resolveDisplayName(row) {
+  const profile = isObject(row?.profile) ? row.profile : null;
+  const metadata = isObject(row?.metadata) ? row.metadata : null;
+  return sanitizeName(row?.nickname) || sanitizeName(profile?.name) || sanitizeName(profile?.full_name) || sanitizeName(metadata?.full_name) || sanitizeName(metadata?.name) || null;
+}
+function resolveAvatarUrl(row) {
+  const profile = isObject(row?.profile) ? row.profile : null;
+  const metadata = isObject(row?.metadata) ? row.metadata : null;
+  return sanitizeAvatarUrl(row?.avatar_url) || sanitizeAvatarUrl(profile?.avatar_url) || sanitizeAvatarUrl(metadata?.avatar_url) || sanitizeAvatarUrl(metadata?.picture) || null;
+}
+function sanitizeName(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes("@")) return null;
+  if (trimmed.length > 128) return trimmed.slice(0, 128);
+  return trimmed;
+}
+function sanitizeAvatarUrl(value) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 1024) return null;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return url.toString();
+  } catch (_e) {
+    return null;
+  }
+}
 function normalizeDisplayName(value) {
   if (typeof value !== "string") return "Anonymous";
   const trimmed = value.trim();
@@ -998,6 +1084,9 @@ function normalizeAvatarUrl(value) {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+function isObject(value) {
+  return Boolean(value && typeof value === "object");
 }
 function chunkRows(rows, size) {
   if (!Array.isArray(rows) || rows.length === 0) return [];

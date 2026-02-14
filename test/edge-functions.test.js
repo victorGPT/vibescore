@@ -7047,27 +7047,27 @@ test('vibeusage-leaderboard-refresh snapshots weekly leaderboard with token fiel
   const inserts = [];
 
 	  const sourceRows = [
-	    {
-	      user_id: '11111111-1111-1111-1111-111111111111',
-	      rank: 1,
-	      rank_gpt: 1,
-	      rank_claude: 2,
-	      gpt_tokens: '10',
-	      claude_tokens: '5',
-	      total_tokens: '15',
-	      display_name: 'Alpha',
+    {
+      user_id: '11111111-1111-1111-1111-111111111111',
+      rank: 1,
+      rank_gpt: 1,
+      rank_claude: 2,
+      gpt_tokens: '10',
+      claude_tokens: '5',
+      total_tokens: '15',
+      display_name: 'Anonymous',
       avatar_url: null
     },
-	    {
-	      user_id: '22222222-2222-2222-2222-222222222222',
-	      rank: 2,
-	      rank_gpt: 2,
-	      rank_claude: 1,
-	      gpt_tokens: '3',
-	      claude_tokens: '7',
-	      total_tokens: '10',
-	      display_name: 'Beta',
-      avatar_url: 'https://example.test/avatar.png'
+    {
+      user_id: '22222222-2222-2222-2222-222222222222',
+      rank: 2,
+      rank_gpt: 2,
+      rank_claude: 1,
+      gpt_tokens: '3',
+      claude_tokens: '7',
+      total_tokens: '10',
+      display_name: 'Anonymous',
+      avatar_url: null
     }
   ];
 
@@ -7114,6 +7114,37 @@ test('vibeusage-leaderboard-refresh snapshots weekly leaderboard with token fiel
                       assert.ok(to >= 0);
                       return { data: sourceRows, error: null };
                     }
+                  })
+                })
+              };
+            }
+
+            if (table === 'vibeusage_user_settings') {
+              return {
+                select: () => ({
+                  in: async (_col, ids) => ({
+                    data: ids.map((id) => ({
+                      user_id: id,
+                      leaderboard_public: true
+                    })),
+                    error: null
+                  })
+                })
+              };
+            }
+
+            if (table === 'users') {
+              return {
+                select: () => ({
+                  in: async (_col, ids) => ({
+                    data: ids.map((id, idx) => ({
+                      id,
+                      nickname: idx === 0 ? '' : null,
+                      avatar_url: null,
+                      profile: idx === 0 ? { full_name: 'Alpha' } : { full_name: 'Beta' },
+                      metadata: null
+                    })),
+                    error: null
                   })
                 })
               };
@@ -7166,6 +7197,8 @@ test('vibeusage-leaderboard-refresh snapshots weekly leaderboard with token fiel
   assert.equal(inserted[0].gpt_tokens, '10');
   assert.equal(inserted[0].claude_tokens, '5');
   assert.equal(inserted[0].total_tokens, '15');
+  assert.equal(inserted[0].display_name, 'Alpha');
+  assert.equal(inserted[1].display_name, 'Beta');
 });
 
 test('vibeusage-leaderboard-settings inserts user setting row', async () => {
@@ -7354,6 +7387,104 @@ test('vibeusage-leaderboard-settings updates existing row', async () => {
   assert.equal(updates[0].where.value, userId);
   assert.equal(updates[0].values.leaderboard_public, false);
   assert.equal(typeof updates[0].values.updated_at, 'string');
+});
+
+test('vibeusage-leaderboard-settings syncs snapshot display name from profile fallback', async () => {
+  const fn = require('../insforge-functions/vibeusage-leaderboard-settings');
+
+  const userId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+  const userJwt = createUserJwt(userId);
+
+  const snapshotUpdates = [];
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            if (table === 'vibeusage_user_settings') {
+              return {
+                select: () => ({
+                  eq: () => ({
+                    maybeSingle: async () => ({ data: { user_id: userId }, error: null })
+                  })
+                }),
+                update: (values) => ({
+                  eq: async () => ({ error: null, values })
+                })
+              };
+            }
+            throw new Error(`Unexpected table: ${String(table)}`);
+          }
+        }
+      };
+    }
+
+    if (args && args.edgeFunctionToken && args.edgeFunctionToken !== userJwt) {
+      return {
+        database: {
+          from: (table) => {
+            if (table === 'users') {
+              return {
+                select: () => ({
+                  eq: () => ({
+                    maybeSingle: async () => ({
+                      data: {
+                        nickname: null,
+                        avatar_url: 'https://example.com/victor.png',
+                        profile: { full_name: 'Victor Wu' },
+                        metadata: null
+                      },
+                      error: null
+                    })
+                  })
+                })
+              };
+            }
+
+            if (table === 'vibeusage_leaderboard_snapshots') {
+              return {
+                update: (values) => {
+                  const entry = { values, filters: [] };
+                  snapshotUpdates.push(entry);
+                  const query = {
+                    eq: (col, value) => {
+                      entry.filters.push({ col, value });
+                      return query;
+                    },
+                    then: (resolve, reject) => Promise.resolve({ error: null }).then(resolve, reject)
+                  };
+                  return query;
+                }
+              };
+            }
+
+            throw new Error(`Unexpected service table: ${String(table)}`);
+          }
+        }
+      };
+    }
+
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard-settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userJwt}` },
+    body: JSON.stringify({ leaderboard_public: true })
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+
+  assert.equal(body.leaderboard_public, true);
+  assert.equal(snapshotUpdates.length, 3);
+  assert.equal(snapshotUpdates[0].values.display_name, 'Victor Wu');
+  assert.equal(snapshotUpdates[0].values.avatar_url, 'https://example.com/victor.png');
 });
 
 test('vibeusage-leaderboard-settings returns user setting state', async () => {

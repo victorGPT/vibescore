@@ -121,23 +121,23 @@ async function trySyncSnapshot({ baseUrl, userId, leaderboardPublic }) {
 
   const windows = computeWindows();
 
-  let nickname = null;
-  let avatarUrl = null;
+  let profileRow = null;
   try {
     const { data } = await serviceClient.database
       .from('users')
-      .select('nickname,avatar_url')
+      .select('nickname,avatar_url,profile,metadata')
       .eq('id', userId)
       .maybeSingle();
-    nickname = typeof data?.nickname === 'string' ? data.nickname.trim() : null;
-    avatarUrl = typeof data?.avatar_url === 'string' ? data.avatar_url.trim() : null;
+    profileRow = data || null;
   } catch (_err) {
-    nickname = null;
-    avatarUrl = null;
+    profileRow = null;
   }
 
-  const displayName = leaderboardPublic && nickname ? nickname : 'Anonymous';
-  const nextAvatarUrl = leaderboardPublic && avatarUrl ? avatarUrl : null;
+  const resolvedDisplayName = resolveDisplayName(profileRow);
+  const resolvedAvatarUrl = resolveAvatarUrl(profileRow);
+
+  const displayName = leaderboardPublic ? resolvedDisplayName || 'Anonymous' : 'Anonymous';
+  const nextAvatarUrl = leaderboardPublic ? resolvedAvatarUrl : null;
 
   for (const w of windows) {
     try {
@@ -175,4 +175,58 @@ function computeWindows() {
     { period: 'month', from: monthFrom, to: monthTo },
     { period: 'total', from: totalFrom, to: totalTo }
   ];
+}
+
+function resolveDisplayName(row) {
+  const profile = isObject(row?.profile) ? row.profile : null;
+  const metadata = isObject(row?.metadata) ? row.metadata : null;
+
+  return (
+    sanitizeName(row?.nickname) ||
+    sanitizeName(profile?.name) ||
+    sanitizeName(profile?.full_name) ||
+    sanitizeName(metadata?.full_name) ||
+    sanitizeName(metadata?.name) ||
+    null
+  );
+}
+
+function resolveAvatarUrl(row) {
+  const profile = isObject(row?.profile) ? row.profile : null;
+  const metadata = isObject(row?.metadata) ? row.metadata : null;
+
+  return (
+    sanitizeAvatarUrl(row?.avatar_url) ||
+    sanitizeAvatarUrl(profile?.avatar_url) ||
+    sanitizeAvatarUrl(metadata?.avatar_url) ||
+    sanitizeAvatarUrl(metadata?.picture) ||
+    null
+  );
+}
+
+function sanitizeName(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes('@')) return null;
+  if (trimmed.length > 128) return trimmed.slice(0, 128);
+  return trimmed;
+}
+
+function sanitizeAvatarUrl(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.length > 1024) return null;
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+    return url.toString();
+  } catch (_e) {
+    return null;
+  }
+}
+
+function isObject(value) {
+  return Boolean(value && typeof value === 'object');
 }
