@@ -326,7 +326,8 @@ export function LeaderboardPage({
               const rawName = normalizeName(entry?.display_name);
               const entryName = isAnonymousName(rawName) ? anonLabel : rawName;
               const name = isMe ? meLabel : entryName;
-              const userLinkEnabled = Boolean(profileUserId) && !isMe && !isAnonymousName(rawName);
+              // Only clickable when: not me, has user_id, AND is_public=true (backend verified)
+              const userLinkEnabled = Boolean(profileUserId) && !isMe && Boolean(entry?.is_public);
               const publicViewPath = userLinkEnabled
                 ? buildPublicViewPath(profileUserId, periodSearch)
                 : null;

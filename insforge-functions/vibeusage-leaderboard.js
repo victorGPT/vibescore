@@ -944,7 +944,7 @@ async function tryLoadSingleQuery({ edgeClient, entriesView, limit, offset }) {
   try {
     const startRank = offset + 1;
     const endRank = offset + limit;
-    const { data, error } = await edgeClient.database.from(entriesView).select("rank,is_me,display_name,avatar_url,gpt_tokens,claude_tokens,total_tokens").or(`and(rank.gte.${startRank},rank.lte.${endRank}),is_me.eq.true`).order("rank", { ascending: true });
+    const { data, error } = await edgeClient.database.from(entriesView).select("rank,is_me,display_name,avatar_url,gpt_tokens,claude_tokens,total_tokens,is_public").or(`and(rank.gte.${startRank},rank.lte.${endRank}),is_me.eq.true`).order("rank", { ascending: true });
     if (error) return null;
     const rows = Array.isArray(data) ? data : [];
     const entries = [];
@@ -1021,7 +1021,7 @@ async function loadSnapshot({ serviceClient, period, metric, from, to, userId, l
   const totalPages = totalEntries > 0 ? Math.ceil(totalEntries / Math.max(1, limit)) : 0;
   const entriesQuery = applyMetricFilter(
     serviceClient.database.from("vibeusage_leaderboard_snapshots").select(
-      "user_id,rank,rank_gpt,rank_claude,gpt_tokens,claude_tokens,total_tokens,display_name,avatar_url,generated_at"
+      "user_id,rank,rank_gpt,rank_claude,gpt_tokens,claude_tokens,total_tokens,display_name,avatar_url,is_public,generated_at"
     ).eq("period", period).eq("from_day", from).eq("to_day", to),
     metric
   );
@@ -1107,7 +1107,8 @@ function normalizeEntry(row) {
     avatar_url: normalizeAvatarUrl(row?.avatar_url),
     gpt_tokens: toBigInt(row?.gpt_tokens).toString(),
     claude_tokens: toBigInt(row?.claude_tokens).toString(),
-    total_tokens: toBigInt(row?.total_tokens).toString()
+    total_tokens: toBigInt(row?.total_tokens).toString(),
+    is_public: Boolean(row?.is_public)
   };
 }
 function normalizeMe(row) {

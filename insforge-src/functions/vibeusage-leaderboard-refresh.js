@@ -163,7 +163,7 @@ async function loadPublicProfileLookup({ serviceClient, userIds }) {
   if (uniqueUserIds.length === 0) return lookup;
 
   try {
-    const [settingsRes, usersRes] = await Promise.all([
+    const [settingsRes, usersRes, publicViewsRes] = await Promise.all([
       serviceClient.database
         .from('vibeusage_user_settings')
         .select('user_id,leaderboard_public')
@@ -171,10 +171,15 @@ async function loadPublicProfileLookup({ serviceClient, userIds }) {
       serviceClient.database
         .from('users')
         .select('id,nickname,avatar_url,profile,metadata')
-        .in('id', uniqueUserIds)
+        .in('id', uniqueUserIds),
+      serviceClient.database
+        .from('vibeusage_public_views')
+        .select('user_id')
+        .in('user_id', uniqueUserIds)
+        .is('revoked_at', null)
     ]);
 
-    if (settingsRes?.error || usersRes?.error) {
+    if (settingsRes?.error || usersRes?.error || publicViewsRes?.error) {
       return lookup;
     }
 
@@ -190,9 +195,19 @@ async function loadPublicProfileLookup({ serviceClient, userIds }) {
       usersMap.set(row.id, row);
     }
 
+    const hasActiveLink = new Set();
+    for (const row of publicViewsRes.data || []) {
+      if (typeof row?.user_id === 'string') {
+        hasActiveLink.add(row.user_id);
+      }
+    }
+
     for (const userId of uniqueUserIds) {
       const row = usersMap.get(userId) || null;
-      const isPublic = settingsMap.get(userId) === true;
+      const leaderboardPublic = settingsMap.get(userId) === true;
+      const hasLink = hasActiveLink.has(userId);
+      // isPublic only true when BOTH leaderboard_public=true AND has active public link
+      const isPublic = leaderboardPublic && hasLink;
       const displayName = isPublic ? resolveDisplayName(row) : null;
       const avatarUrl = isPublic ? resolveAvatarUrl(row) : null;
 
@@ -234,6 +249,7 @@ function normalizeSnapshotRow({ row, period, from, to, generatedAt, publicProfil
       ? publicProfile.avatarUrl || null
       : null
     : fallbackAvatarUrl;
+  const isPublic = publicProfile?.isPublic || false;
 
   return {
     period,
@@ -248,6 +264,7 @@ function normalizeSnapshotRow({ row, period, from, to, generatedAt, publicProfil
     total_tokens: totalTokens,
     display_name: displayName,
     avatar_url: avatarUrl,
+    is_public: isPublic,
     generated_at: generatedAt
   };
 }
